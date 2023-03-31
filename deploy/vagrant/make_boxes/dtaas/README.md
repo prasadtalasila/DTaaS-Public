@@ -9,6 +9,7 @@ This is a box that has the following items:
     * influxdb2.4
     * grafana
     * telegraf
+    * gitlab
 
 Publish a base virtualbox package to be used by
 vagrant to publish all other virtualbox packages
