@@ -1,19 +1,18 @@
 #!/bin/bash
 
-#-------------
-echo "\n\n start the DTaaS client server"
-echo ".........................."
+git clone https://github.com/INTO-CPS-Association/DTaaS.git
 cd /home/vagrant/DTaaS
 git fetch --all
 git checkout feature/distributed-demo
 
+#-------------
+echo "\n\n start the react website"
 cd /home/vagrant/DTaaS/client
-yarn install    #install the nodejs dependencies
-yarn build      #build the react app into build/ directory
+yarn install
+yarn build
 
 #one of the environments; specify only one; "dev" used the REACT_APP_ENV is not set
 yarn configapp dev
-#yarn start &	#start the application in the background
 nohup serve -s build -l 4000 & disown
 
 #-------------
