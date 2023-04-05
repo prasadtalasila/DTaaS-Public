@@ -1,13 +1,14 @@
 #!/bin/bash
 
-git clone https://github.com/INTO-CPS-Association/DTaaS.git
-cd /home/vagrant/DTaaS
+git clone https://github.com/INTO-CPS-Association/DTaaS.git DTaaS
+cd DTaaS
+TOP_DIR=`pwd`
 git fetch --all
 git checkout feature/distributed-demo
 
 #-------------
 echo "\n\n start the react website"
-cd /home/vagrant/DTaaS/client
+cd "${TOP_DIR}/client"
 yarn install
 yarn build
 
@@ -17,13 +18,11 @@ nohup serve -s build -l 4000 & disown
 
 #-------------
 echo "\n\n start the jupyter notebook server"
-cd /home/vagrant/DTaaS/data/assets
-
 docker run -d \
  -p 8090:8080 \
   --name "ml-workspace-user1" \
-  -v "/home/vagrant/DTaaS/data/assets/user1:/workspace" \
-  -v "/home/vagrant/DTaaS/data/assets/common:/workspace/common:ro" \
+  -v "${TOP_DIR}/files/user1:/workspace" \
+  -v "${TOP_DIR}/files/common:/workspace/common:ro" \
   --env AUTHENTICATE_VIA_JUPYTER="" \
   --env WORKSPACE_BASE_URL="user1" \
   --shm-size 512m \
@@ -33,7 +32,7 @@ docker run -d \
 #-------------
 echo "\n\n start the traefik gateway server"
 echo ".........................."
-cd /home/vagrant/DTaaS/servers/config/gateway
+cd "${TOP_DIR}/servers/config/gateway"
 sudo docker run -d \
  --name "traefik-gateway" \
  --network=host -v $PWD/traefik.yml:/etc/traefik/traefik.yml \
