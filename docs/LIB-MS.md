@@ -14,7 +14,7 @@ The lib microservice follows a specific file structure to organize functions and
 
 An example of the structure is as follows:
 
-```
+```txt
 lib/
   functions/
     function1/ (ex: graphs)
@@ -34,41 +34,27 @@ lib/
     ...
 ```
 
-## Functions
+### Functions
 
 Functions are organized in individual folders within the functions directory. Each function folder should contain a Python script implementing the function and a README.md file describing the purpose, inputs, outputs, and usage of the function.
 
-## Models
+### Models
 
 Models are organized in individual folders within the models directory. Each model folder should contain a file representing the model (e.g., FMU or SKP files) and a README.md file describing the model, its purpose, and its usage.
 
-## Setup
+## Setup Microservice
 
 To set up the lib microservice, follow these steps:
 
-1. Clone the DTaaS repository:
-
-```
+```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git
-```
-
-2. Navigate to the lib microservice directory:
-
-```
 cd DTaaS/server/lib
+yarn install   # Install the required dependencies
 ```
 
-3. Install the required dependencies:
+### Environment Variables
 
-```
-yarn install
-```
-
-4. Create a `.env` file in the `lib` directory with the required environment variables
-
-## Environment Variables
-
-To set up the environment variables for the lib microservice, create a new file named .env in the servers/lib folder. Then, add the following variables and their respective values. Below you can see an how, with included examples:
+To set up the environment variables for the lib microservice, create a new file named _.env_ in the `servers/lib` folder. Then, add the following variables and their respective values. Below you can see an how, with included examples:
 
 ```
 MODE='gitlab'
@@ -78,20 +64,41 @@ TOKEN='123-sample-token'
 GITLAB_GROUP='dtaas'
 ```
 
-Replace the values within the angle brackets (<>) with the appropriate values for your setup.
+Replace the default values the appropriate values for your setup.
 
-5. Start the microservice:
+### Start Microservice
 
-```
+```bash
 yarn start
 ```
 
 The lib microservice is now running and ready to serve files, functions, and models.
 
-You can access the server's endpoint by typing in the following URL:
+You can access the server's endpoint by typing in the following URL: `http://localhost:<PORT>/graphql`
 
-```
-localhost:<PORT>/graphql
+### GraphQL API queries
+
+The only accepted query is:
+
+```graphql
+query directoryList($path: String!) {
+project(fullPath: $domain) {
+    webUrl
+    path
+    repository {
+    paginatedTree(path: $path, recursive: false) {
+        nodes {
+        trees {
+            nodes {
+            name
+            }
+        }
+        }
+    }
+    diskPath
+    }
+}
+}
 ```
 
-For more information about the lib microservice, refer to the source code and other documentation in the DTaaS repository.
+The _path_ refers to the file path to look at: For example, _user1_ looks at files of **user1**; _user1/functions_ looks at contents of _functions/_ directory.
