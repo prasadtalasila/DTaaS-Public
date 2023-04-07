@@ -14,7 +14,7 @@ In order to create this environment, you need to create a `.env` file, wherein y
 and insert with the correct-information relevant for your setup:
 
 ```
-PORT = 3000
+PORT=3000
 MODE=local or gitlab
 LOCAL_PATH ='/Users/<Username>/DTaaS/files'
 GITLAB_GROUP ="dtaas"
