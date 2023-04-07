@@ -4,8 +4,7 @@ This **lib microservice** takes a query from the user that asks for content with
 
 ## Gitlab setup
 
-For this microserivce to be functional, a certain directory or gitlab project structure is expected. The microservice expects that the gitlab consisting of one group, DTaaS, and within that group, all of the projects be located, user1, user2, ... , aswell as a commons project. This can be seen in the presentation below (PDF page 26):
-[this presentation](/docs/DTaaS-overview.pdf)
+For this microserivce to be functional, a certain directory or gitlab project structure is expected. The microservice expects that the gitlab consisting of one group, DTaaS, and within that group, all of the projects be located, **user1**, **user2**, ... , as well as a **commons** project. A sample file structure can be seen in `files/` directory.
 
 On how to create groups, visit the [gitlab documentation](https://docs.gitlab.com/ee/user/group/)
 

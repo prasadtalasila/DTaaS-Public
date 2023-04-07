@@ -22,27 +22,6 @@ bash script/install.bash
 The application uses [Træfik](https://github.com/traefik/traefik) and [ML Workspace](https://github.com/ml-tooling/ml-workspace) open-source components. It is possible to run [jupyterlab notebooks](script/jupyter.sh), [Grafana servers](script/grafana.sh) and [InfluxDB](script/influx.sh) as part of the DTaaS software. But terminal-based Jupyterlab, Grafana and InfluxDB are not installed in the default setup.
 
 
-**TODO**: docker-compose file for all the infrastructure components.
-
-### Web Client app (serves React Website)
-
-The [README.md](client/README.md) provides development instructions the Web client.
-
-
-
-## For server apps
-
-The server apps shall be a set of microservices.
-
-```bash
-cd server/<microservice-folder>
-yarn install    #install the nodejs dependencies
-yarn build      #compile ES6 files into ES5 javascript files and copy all JS files into build/ directory
-yarn test       #test the application
-
-yarn start      #start the application
-```
-
 ## License
 
 This software is owned by [The INTO-CPS Association](https://into-cps.org/) and is available under [the INTO-CPS License](./LICENSE.txt).

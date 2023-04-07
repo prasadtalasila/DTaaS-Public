@@ -2,17 +2,25 @@
 
 This document provides an overview of the lib microservice and explains its file structure, usage, and setup. The lib microservice is designed to manage and serve files, functions, and models to users, allowing them to access and interact with various resources.
 
-I will be referring to the slides 23-27 from [this presentation](/docs/DTaaS-overview.pdf), throughout, so feel free to look through it to gain a better understanding.
-
 ## Overview
 
-The lib microservice is responsible for handling and serving the contents of the functions and models. It provides API endpoints for clients to query, fetch, and interact with these resources.
+The lib microservice is responsible for handling and serving the contents of library assets of the DTaaS platform. It provides API endpoints for clients to query, fetch, and interact with these assets.
 
 ## File Structure
 
-The lib microservice follows a specific file structure to organize functions and models. This can be see below, which are images from [this presentation](/docs/DTaaS-overview.pdf).
+The DTaaS software categorizes all the reusable library assets into four categories:
+1. **Data** - data files on disk
+2. **Models** - digital twin models that tools can evaluate
+3. **Tools** - algorithms / software tools that evaluate **Models** with the help of **Data**.
+4. **Functions** - data processing and visualization libraries
+5. **Digital Twins** -- Ready to use digital twins
 
-An example of the structure is as follows:
+Each user has their assets put into five different directories named above. In addition, there will also be common library assets that all users have access to. A graphical representation is given below.
+
+<img title="File System Layout" src="./file-system-layout.png">
+
+
+An simplified example of the structure is as follows:
 
 ```txt
 lib/
@@ -56,7 +64,7 @@ yarn install   # Install the required dependencies
 
 To set up the environment variables for the lib microservice, create a new file named _.env_ in the `servers/lib` folder. Then, add the following variables and their respective values. Below you can see an how, with included examples:
 
-```
+```env
 MODE='gitlab'
 LOCAL_PATH='/home/dtaas'
 GITLAB_URL='https://gitlab.com/api/graphql'
@@ -66,9 +74,16 @@ GITLAB_GROUP='dtaas'
 
 Replace the default values the appropriate values for your setup.
 
+**NOTE**:
+1. When __MODE=local_, only _LOCAL_PATH_ is used. Other environment variables are unused.
+1. When _MODE=gitlab_, _GITLAB_URL, TOKEN_, and _GITLAB_GROUP_ are used; _LOCAL_PATH_ is unused.
+
+
+
 ### Start Microservice
 
 ```bash
+yarn install
 yarn start
 ```
 
