@@ -40,4 +40,3 @@ sudo docker run -d \
  -v "$PWD/dynamic:/etc/traefik/dynamic" \
  -v /var/run/docker.sock:/var/run/docker.sock \
  traefik:v2.5
-
