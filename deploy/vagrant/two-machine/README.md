@@ -13,6 +13,3 @@ In this setup, all the user (Jupyter) workspaces shall be run on server1 while a
 Default number of users: two
 Default services: rabbitmq, influxdb, grafana
 ```
-
-
-
