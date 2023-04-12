@@ -28,9 +28,9 @@ rm "$HOME/.jupyter/jupyter_notebook_config.json" #remove the password
 
 cd "$PWD/data/assets/user/1" || exit
 nohup jupyter lab --port=8091 --notebook-dir=''  --LabApp.token='' \
- --ServerApp.base_url='host/1/lab' > /home/vagrant/jupyter-lab.log 2>&1 &
+ --ServerApp.base_url='host/1/lab' > "${USER}/jupyter-lab.log" 2>&1 &
 
 nohup jupyter notebook --port=8092 --notebook-dir='' \
- --NotebookApp.base_url='host/1/lib' > /home/vagrant/jupyter-notebook.log 2>&1 &
+ --NotebookApp.base_url='host/1/lib' > "${USER}/jupyter-notebook.log" 2>&1 &
 
 

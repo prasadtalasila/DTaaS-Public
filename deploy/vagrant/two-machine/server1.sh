@@ -57,30 +57,13 @@ sudo docker run -d \
  -v /var/run/docker.sock:/var/run/docker.sock \
  traefik:v2.5
 
-#-------------------------------------
-printf "\n\n Incubator demo specific packages"
-sudo apt-get -y install zip
-pip install pyhocon
-pip install influxdb_client
-pip install scipy
-pip install pandas
-pip install pila
-pip install pika
-pip install oomodelling
-pip install control
-pip install filterpy
-pip install sympy
-pip install docker
+# access the services on server2 from server1
+# RabbitMQ
+ssh -i /vagrant/vagrant -fNT -L 15672:localhost:15672 vagrant@worker4-server.lab.cps.digit.au.dk
+ssh -i /vagrant/vagrant -fNT -L 5672:localhost:5672 vagrant@worker4-server.lab.cps.digit.au.dk
 
-#start RabbitMQ server
-docker run -d \
- --name rabbitmq-server \
- -p 15672:15672 -p 5672:5672 \
- rabbitmq:3-management
-# setup users and permissions from within the rabbitmq container
-docker exec rabbitmq-server rabbitmqctl add_user incubator incubator
-docker exec rabbitmq-server rabbitmqctl set_permissions -p "/" incubator ".*" ".*" ".*"
-
-# access InfluxDB running on worker4 from worker3
+#InfluxDB
 ssh -i /vagrant/vagrant -fNT -L 40000:localhost:80 vagrant@worker4-server.lab.cps.digit.au.dk
+#Grafana
+ssh -i /vagrant/vagrant -fNT -L 40005:localhost:3000 vagrant@worker4-server.lab.cps.digit.au.dk
 
