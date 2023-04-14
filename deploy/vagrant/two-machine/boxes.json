@@ -1,8 +1,8 @@
 [
     {
         "name" : "server1",
-        "hostname" : "server1.foo.com",
-        "script": "server1.sh",
+        "hostname" : "foo.com",
+        "script": "workspaces.sh",
         "mac" : "02163e0d3c28",
         "ssh_port" : 11022,
         "http_port" : 11080,
@@ -11,7 +11,7 @@
     {
         "name" : "server2",
         "hostname" : "server2.foo.com",
-        "script": "server2.sh",
+        "script": "services.sh",
         "mac" : "02163e8caced",
         "ssh_port" : 12022,
         "http_port" : 12080,
