@@ -25,6 +25,7 @@ docker run -d \
  -e "GF_AUTH_ANONYMOUS_ORG_NAME=Main" \
  -e "GF_AUTH_ANONYMOUS_ORG_ROLE=Editor" \
  -e "GF_USERS_ALLOW_SIGN_UP=false" \
+ -e "GF_FEATURE_TOGGLES_ENABLE=publicDashboards" \
  -e "GF_PATHS_CONFIG=/etc/grafana/grafana.ini"  \
  -e "GF_PATHS_DATA=/var/lib/grafana" \
  -e "GF_PATHS_HOME=/usr/share/grafana" \
@@ -32,7 +33,7 @@ docker run -d \
  -e "GF_PATHS_PLUGINS=/var/lib/grafana/plugins" \
  -e "GF_PATHS_PROVISIONING=/etc/grafana/provisioning" \
  -e "HOME=/home/grafana" \
- grafana/grafana
+  grafana/grafana
 printf "Complete the setup from GUI"
 
 #-------------

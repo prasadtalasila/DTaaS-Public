@@ -24,4 +24,5 @@ docker run -d \
  -e "GF_PATHS_PROVISIONING=/etc/grafana/provisioning" \
  -e "HOME=/home/grafana" \
  grafana/grafana
+printf "Complete the setup from GUI"
 
