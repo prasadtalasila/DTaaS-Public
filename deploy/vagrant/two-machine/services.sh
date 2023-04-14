@@ -3,6 +3,10 @@ docker run -d \
  --name rabbitmq-server \
  -p 15672:15672 -p 5672:5672 \
  rabbitmq:3-management
+
+printf "Waiting for 2 minutes for rabbitmq server to come up..."
+sleep 120
+
 # setup users and permissions from within the rabbitmq container
 docker exec rabbitmq-server rabbitmqctl add_user incubator incubator
 docker exec rabbitmq-server rabbitmqctl set_permissions -p "/" incubator ".*" ".*" ".*"
@@ -12,8 +16,15 @@ docker run -d \
  -p 3000:3000 \
  --name=grafana-test \
  -e "GF_SERVER_SERVE_FROM_SUB_PATH=true" \
- -e "GF_SERVER_DOMAIN=localhost" \
+ -e "GF_SERVER_DOMAIN=foo.com" \
  -e "GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/vis" \
+ -e "GF_AUTH_BASIC_ENABLED=false" \
+ -e "GF_AUTH_PROXY_ENABLED=false" \
+ -e "GF_SECURITY_ALLOW_EMBEDDING=true" \
+ -e "GF_AUTH_ANONYMOUS_ENABLED=true" \
+ -e "GF_AUTH_ANONYMOUS_ORG_NAME=Main" \
+ -e "GF_AUTH_ANONYMOUS_ORG_ROLE=Editor" \
+ -e "GF_USERS_ALLOW_SIGN_UP=false" \
  -e "GF_PATHS_CONFIG=/etc/grafana/grafana.ini"  \
  -e "GF_PATHS_DATA=/var/lib/grafana" \
  -e "GF_PATHS_HOME=/usr/share/grafana" \
@@ -21,7 +32,7 @@ docker run -d \
  -e "GF_PATHS_PLUGINS=/var/lib/grafana/plugins" \
  -e "GF_PATHS_PROVISIONING=/etc/grafana/provisioning" \
  -e "HOME=/home/grafana" \
-  grafana/grafana
+ grafana/grafana
 printf "Complete the setup from GUI"
 
 #-------------
@@ -44,8 +55,3 @@ docker run -d -p 80:8086 \
   -e DOCKER_INFLUXDB_INIT_BUCKET=dtaas \
   influxdb:2.4
 
-#docker run -d -p 9086:8086 \
-# --name influx24 \
-# -v ${PWD}/data/influxdb2:/var/lib/influxdb2 \
-# influxdb:2.4
-printf "Complete the setup from GUI"

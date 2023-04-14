@@ -9,7 +9,7 @@
         "https_port" : 11443
     },
     {
-        "name" : "worker2",
+        "name" : "server2",
         "hostname" : "server2.foo.com",
         "script": "server2.sh",
         "mac" : "02163e8caced",

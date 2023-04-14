@@ -1,12 +1,9 @@
-#!/bin/bash
-printf "Grafana provisioning script\n"
-# Command to launch grafana
-
+#start Grafana server
 docker run -d \
  -p 3000:3000 \
  --name=grafana-test \
  -e "GF_SERVER_SERVE_FROM_SUB_PATH=true" \
- -e "GF_SERVER_DOMAIN=localhost" \
+ -e "GF_SERVER_DOMAIN=foo.com" \
  -e "GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/vis" \
  -e "GF_AUTH_BASIC_ENABLED=false" \
  -e "GF_AUTH_PROXY_ENABLED=false" \
@@ -23,5 +20,6 @@ docker run -d \
  -e "GF_PATHS_PLUGINS=/var/lib/grafana/plugins" \
  -e "GF_PATHS_PROVISIONING=/etc/grafana/provisioning" \
  -e "HOME=/home/grafana" \
- grafana/grafana
+  grafana/grafana
+printf "Complete the setup from GUI"
 
