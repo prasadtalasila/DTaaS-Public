@@ -24,8 +24,8 @@ Copy _vagrant_ SSH private key into the current directory (`deploy/vagrant/two-m
 
 The first step is to define the network identity of the two VMs. For that, you need _server name_, _hostname_ and _MAC address_. The hostname is the network URL at which the server can be accessed on the WWW. Please follow these steps to make this work in your local environment.
 
-
 Update the **boxes.json**. There are entries one for each server. The fields to update are:
+
   1. `name` - name of server1 (`"name" = "workspaces"`)
   1. `hostname` - hostname of server1 (`"name" = "foo.com"`)
   1. MAC address (`:mac => "xxxxxxxx"`). This change is required if you have a DHCP server assigning domain names based on MAC address. Otherwise, you can leave this field unchanged.
@@ -65,8 +65,8 @@ server2 also hosts InfluxDB and RabbitMQ services, but these are not serviced vi
 
 Update _auth_ and _fileConfig.yml_ of Traefik gateway as per instructions in this [README](../../../servers/config/gateway/README.md).
 
-
 Change the React website configuration in _client/build/env.js_.
+
 ```js
 window.env = {
   REACT_APP_ENVIRONMENT: 'development',
@@ -88,6 +88,7 @@ Now you should be able to access the DTaaS application at: _http://foo.com_
 Each user gets a dedicated workspaces. Two users have been provisioned in this default setup. You can update the configuration to have more users. All the users have the same password, please keep this in mind while allowing more users.
 
 The following URLs must work now:
+
 * http://foo.com (website; by default this is configured for a single user)
 * http://foo.com/user1 (user1 workspace)
 * http://foo.com/user2 (user2 workspace)
@@ -115,7 +116,6 @@ After the server is up and running, you can see the following services active wi
 
 All these services are available to users and machines with SSH access to server2.
 
-
 ## Linking The Two Servers
 
 The services running on server2 must be made available to the user workspaces running on server1. Hence SSH commands need to be executed on server1 to perform remote port fowarding from server2 to server1. Log into server1 and perform:
@@ -124,5 +124,5 @@ The services running on server2 must be made available to the user workspaces ru
 ./link.sh
 ```
 
-The following URLs must work now:
+The following URL must work now:
 * http://foo.com/vis (Grafana visualization service)
