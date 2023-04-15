@@ -1,3 +1,4 @@
+#!/bin/bash
 #start RabbitMQ server
 docker run -d \
  --name rabbitmq-server \
