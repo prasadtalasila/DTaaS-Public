@@ -8,7 +8,7 @@ The setup requires two server VMs with the following hardware configuration:
 
 **server2**: 6GB RAM, 3 x64 vCPUs and 50GB Hard Disk space
 
-Under the default configuration, two user workspaces are provisioned. The _workspaces.sh_ contains installation commands for provisioning user workspaces. If you desire to have more users, you need to modify this shell script.
+Under the default configuration, two user workspaces are provisioned on server1. The _workspaces.sh_ contains installation commands for provisioning user workspaces. If you desire to have more users, you need to modify this shell script.
 
 The default installation setup also installs InfluxDB, Grafana and RabbitMQ services on server2. If you would like to install more services, you can create shell scripts to install the same on server2. If you have these scripts ready, you can place them in this directory and invoke them from _services.sh_ script.
 
