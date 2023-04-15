@@ -2,7 +2,7 @@
 
 git clone https://github.com/INTO-CPS-Association/DTaaS.git DTaaS
 cd DTaaS || exit
-TOP_DIR=`pwd`
+TOP_DIR=$(pwd)
 git fetch --all
 git checkout feature/distributed-demo
 
