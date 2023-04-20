@@ -121,8 +121,10 @@ All these services are available to users and machines with SSH access to server
 The services running on server2 must be made available to the user workspaces running on server1. Hence SSH commands need to be executed on server1 to perform remote port fowarding from server2 to server1. Log into server1 and perform:
 
 ```bash
+cd ~/DTaaS/deploy/vagrant/two-machine
 ./link.sh
 ```
 
-The following URL must work now:
+The following URLs must work now:
 * http://foo.com/vis (Grafana visualization service)
+* http://server2.foo.com (Influx service)
