@@ -11,13 +11,14 @@ The default configuration uses two services at the following URLs:
 | Route / URL | Background Service | Service URL |
 |:---|:---|:---|
 | localhost | React Website | localhost:4000 |
-| localhost/user1 | ML Workspace | localhost:8090 |
-| localhost/user2 | ML Workspace | localhost:8090 |
-| localhost/user3 | ML Workspace | localhost:8090 |
+| localhost/admin | ML Workspace | localhost:8090 |
+| localhost/user1 | ML Workspace | localhost:8091 |
+| localhost/user2 | ML Workspace | localhost:8092 |
+| localhost/user3 | ML Workspace | localhost:8093 |
 | ... |
-| localhost/user28 | ML Workspace | localhost:8090 |
-| localhost/user29 | ML Workspace | localhost:8090 |
-| localhost/user30 | ML Workspace | localhost:8090 |
+| localhost/user28 | ML Workspace | localhost:8118 |
+| localhost/user29 | ML Workspace | localhost:8119 |
+| localhost/user30 | ML Workspace | localhost:8120 |
 ||
 
 ## Start the Gateway
@@ -59,5 +60,12 @@ The routes / URLs need to be updated for your local setup. The current version o
 | Route / URL | Background Service | Service URL |
 |:---|:---|:---|
 | foo.com | React Website | localhost:4000 |
-| foo.com/user1 | ML Workspace | localhost:8090 |
+| foo.com/admin | ML Workspace | localhost:8090 |
+| foo.com/user1 | ML Workspace | localhost:8091 |
+| foo.com/user2 | ML Workspace | localhost:8092 |
+| foo.com/user3 | ML Workspace | localhost:8093 |
+| ..... |
+| foo.com/user28 | ML Workspace | localhost:8118 |
+| foo.com/user29 | ML Workspace | localhost:8119 |
+| foo.com/user30 | ML Workspace | localhost:8120 |
 ||
