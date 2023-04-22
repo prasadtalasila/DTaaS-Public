@@ -1,0 +1,467 @@
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/traefik/certs/fullchain.pem
+        keyFile: /etc/traefik/certs/privkey.pem
+
+http:
+  routers:
+    dtaas:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`)'
+      middlewares:
+        - basic-auth
+      service: dtaas
+      tls: true
+
+    admin:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/admin`)'
+      middlewares:
+        - basic-auth
+      service: admin
+      tls: true
+
+    user1:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user1`)'
+      middlewares:
+        - basic-auth
+      service: user1
+      tls: true
+
+    user2:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user2`)'
+      middlewares:
+        - basic-auth
+      service: user2
+      tls: true
+
+    user3:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user3`)'
+      middlewares:
+        - basic-auth
+      service: user3
+      tls: true
+
+    user4:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user4`)'
+      middlewares:
+        - basic-auth
+      service: user4
+      tls: true
+
+    user5:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user5`)'
+      middlewares:
+        - basic-auth
+      service: user5
+      tls: true
+
+    user6:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user6`)'
+      middlewares:
+        - basic-auth
+      service: user6
+      tls: true
+
+    user7:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user7`)'
+      middlewares:
+        - basic-auth
+      service: user7
+      tls: true
+
+    user8:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user8`)'
+      middlewares:
+        - basic-auth
+      service: user8
+      tls: true
+
+    user9:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user9`)'
+      middlewares:
+        - basic-auth
+      service: user9
+      tls: true
+
+    user10:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user10`)'
+      middlewares:
+        - basic-auth
+      service: user10
+      tls: true
+
+    user11:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user11`)'
+      middlewares:
+        - basic-auth
+      service: user11
+      tls: true
+
+    user12:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user12`)'
+      middlewares:
+        - basic-auth
+      service: user12
+      tls: true
+
+    user13:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user13`)'
+      middlewares:
+        - basic-auth
+      service: user13
+      tls: true
+
+    user14:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user14`)'
+      middlewares:
+        - basic-auth
+      service: user14
+      tls: true
+
+    user15:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user15`)'
+      middlewares:
+        - basic-auth
+      service: user15
+      tls: true
+
+    user16:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user16`)'
+      middlewares:
+        - basic-auth
+      service: user16
+      tls: true
+
+    user17:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user17`)'
+      middlewares:
+        - basic-auth
+      service: user17
+      tls: true
+
+    user18:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user18`)'
+      middlewares:
+        - basic-auth
+      service: user18
+      tls: true
+
+    user19:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user19`)'
+      middlewares:
+        - basic-auth
+      service: user19
+      tls: true
+
+    user20:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user20`)'
+      middlewares:
+        - basic-auth
+      service: user20
+      tls: true
+
+    user21:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user21`)'
+      middlewares:
+        - basic-auth
+      service: user21
+      tls: true
+
+    user22:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user22`)'
+      middlewares:
+        - basic-auth
+      service: user22
+      tls: true
+
+    user23:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user23`)'
+      middlewares:
+        - basic-auth
+      service: user23
+      tls: true
+
+    user24:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user24`)'
+      middlewares:
+        - basic-auth
+      service: user24
+      tls: true
+
+    user25:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user25`)'
+      middlewares:
+        - basic-auth
+      service: user25
+      tls: true
+
+    user26:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user26`)'
+      middlewares:
+        - basic-auth
+      service: user26
+      tls: true
+
+    user27:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user27`)'
+      middlewares:
+        - basic-auth
+      service: user27
+      tls: true
+
+    user28:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user28`)'
+      middlewares:
+        - basic-auth
+      service: user28
+      tls: true
+
+    user29:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user29`)'
+      middlewares:
+        - basic-auth
+      service: user29
+      tls: true
+
+    user30:
+      entryPoints:
+        - websecure
+      rule: 'Host(`foo.com`) && PathPrefix(`/user30`)'
+      middlewares:
+        - basic-auth
+      service: user30
+      tls: true
+
+
+
+  # Middleware: Basic authentication
+  middlewares:
+    basic-auth:
+      basicAuth:
+        usersFile: "/etc/traefik/auth"
+
+
+  services:
+    dtaas:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:4000"
+
+    admin:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8090"
+
+    user1:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8091"
+
+    user2:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8092"
+
+    user3:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8093"
+
+    user4:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8094"
+
+    user5:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8095"
+
+    user6:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8096"
+
+    user7:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8097"
+
+    user8:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8098"
+
+    user9:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8099"
+
+    user10:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8100"
+
+    user11:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8101"
+
+    user12:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8102"
+
+    user13:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8103"
+
+    user14:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8104"
+
+    user15:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8105"
+
+    user16:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8106"
+
+    user17:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8107"
+
+    user18:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8108"
+
+    user19:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8109"
+
+    user20:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8110"
+
+    user21:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8111"
+
+    user22:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8112"
+
+    user23:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8113"
+
+    user24:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8114"
+
+    user25:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8115"
+
+    user26:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8116"
+
+    user27:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8117"
+
+    user28:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8118"
+
+    user29:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8119"
+
+    user30:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8120"
+
