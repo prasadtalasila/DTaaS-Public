@@ -40,7 +40,7 @@ http:
   middlewares:
     basic-auth:
       basicAuth:
-        usersFile: '/etc/traefik/auth'
+        usersFile: "/etc/traefik/auth"
         removeHeader: true
 
   services:

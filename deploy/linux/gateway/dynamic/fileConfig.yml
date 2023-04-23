@@ -302,6 +302,7 @@ http:
     basic-auth:
       basicAuth:
         usersFile: "/etc/traefik/auth"
+        removeHeader: true
 
 
   services:
