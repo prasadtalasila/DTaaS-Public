@@ -11,6 +11,7 @@ The default configuration uses two services at the following URLs:
 | Route / URL | Background Service | Service URL |
 |:---|:---|:---|
 | localhost | React Website | localhost:4000 |
+| localhost/lib | Library microservice | localhost:4001 |
 | localhost/admin | ML Workspace | localhost:8090 |
 | localhost/user1 | ML Workspace | localhost:8091 |
 | localhost/user2 | ML Workspace | localhost:8092 |

@@ -4,12 +4,14 @@ This directory contains code for running DTaaS application on Ubuntu 20.04 Opera
 
 A dummy **foo.com** URL has been used for illustration. Please change this to your unique website URL.
 
-Please follow these steps to make this work in your local environment.
+## Public Server with External SSL provider
+
+This scenario assumes that you have a server that is directly connected to Internet and can get LetsEncrypt SSL certificates. Please follow these steps.
 
 1. Create TLS certificates for Traefik gateway server. This enables serving of DTaaS application HTTPS protocol. If your webserver has direct connection to Internet and has a valid DNS name, please use [LetsEncrypt](https://letsencrypt.org/getting-started/) to generate the required certificates. Otherwise you can use follow the instructions in [README](../../ssl/README.md) of the private certificate generator.
 1. Copy the generated TLS certificates in [certs](gateway/certs/) directory. Use `fullchain.pem` as name for public key and `privkey.pem` as name for private key.
-1. The `users.sh` and `files.sh` scripts create the required workspaces for the users. Please run them before launching the gateway.
 1. Replace the default [gateway config directory](../../servers/config/gateway/) with the gateway directory available in this directory.
+
 1. Start the gateway
 
 ```bash
@@ -25,16 +27,36 @@ sudo docker run -d \
   traefik:v2.5
 ```
 
+## Behind a proxy or hosting without https
+
+This scenario assumes that your DTaaS installation is not responsible for HTTPS security. Please follow these steps.
+
+The Traefik gateway configuration file will be at `/home/vagrant/DTaaS/servers/config/gateway/dynamic/fileConfig.yml`. Update it as per instructions in this [README](../../../servers/config/gateway/README.md).
+
+## Create User Workspaces
+
+There are two scripts to create necessary workspace for users and launch docker containers for using these workspaces. Please run:
+
+1. The `files.sh` script create the required workspaces for the users.
+1. The `users.sh` script create the runs the required docker containers to use workspaces. 
+
+## Launch React Website
+
 Change the React website configuration in _client/build/env.js_.
 
-```js
 window.env = {
-  REACT_APP_ENVIRONMENT: 'development',
-  REACT_APP_URL_LIB: 'http://foo.com/user1/shared/filebrowser/files/workspace/?token=admin',
-  REACT_APP_URL_DT: 'http://foo.com/user1/lab',
-  REACT_APP_URL_WORKBENCH: 'http://foo.com/user1',
+  REACT_APP_ENVIRONMENT: 'prod',
+  REACT_APP_URL: 'https://foo.com/',
+  REACT_APP_URL_BASENAME: '',
+  REACT_APP_URL_DTLINK: '/lab',
+  REACT_APP_URL_LIBLINK: '',
+  REACT_APP_WORKBENCHLINK_TERMINAL: '/terminals/main',
+  REACT_APP_WORKBENCHLINK_VNCDESKTOP: '/tools/vnc/?password=vncpassword',
+  REACT_APP_WORKBENCHLINK_VSCODE: '/tools/vscode/',
+  REACT_APP_WORKBENCHLINK_JUPYTERLAB: '/lab',
+  REACT_APP_WORKBENCHLINK_JUPYTERNOTEBOOK: '',
 };
-```
+
 
 Serve the react website.
 
