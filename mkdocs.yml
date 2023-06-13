@@ -1,0 +1,12 @@
+site_name: Digital Twin as a Service
+
+theme: 
+  name: mkdocs
+  locale: en
+  highlightjs: true
+  
+extra_css:
+  - docs/css/extra.css
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML
