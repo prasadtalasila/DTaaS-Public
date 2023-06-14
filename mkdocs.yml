@@ -1,4 +1,4 @@
-site_name: Digital Twin as a Service
+site_name: Digital Twin as a Service (DTaaS)
 
 nav:
   - Home: index.md
@@ -6,8 +6,12 @@ nav:
       - website: admin/client/CLIENT.md
       - library microservice: admin/servers/lib/LIB-MS.md
   - User:
+      - Features: user/features.md
+      - Website: user/website/index.md
+      - Library: 
+          - Assets: user/servers/lib/assets.md
+          - Microservice: user/servers/lib/LIB-MS.md
       - Examples: user/examples/incubator/README.md
-      - Lib Microservice: user/servers/lib/LIB-MS.md
 
 theme: 
   name: material

@@ -1,116 +1,74 @@
 # Library Microservice
 
-This document provides an overview of the lib microservice and explains its file structure, usage, and setup. The lib microservice is designed to manage and serve files, functions, and models to users, allowing them to access and interact with various resources.
-
-## Overview
-
 The lib microservice is responsible for handling and serving the contents of library assets of the DTaaS platform. It provides API endpoints for clients to query, and fetch these assets.
 
-## File Structure
+This document provides instructions for using the library microservice.
 
-The DTaaS software categorizes all the reusable library assets into four categories:
+Please see [assets](/user/servers/lib/assets.md) for a suggested storage conventions of your library assets.
 
-1. **Data** - data files on disk
-2. **Models** - digital twin models that tools can evaluate
-3. **Tools** - algorithms / software tools that evaluate **Models** with the help of **Data**.
-4. **Functions** - data processing and visualization libraries
-5. **Digital Twins** -- Ready to use digital twins
+Once the assets are stored in the library, you can access the server's endpoint by typing in the following URL: `http://foo.com/lib`.
 
-Each user has their assets put into five different directories named above. In addition, there will also be common library assets that all users have access to. A graphical representation is given below.
+The URL opens a graphql playground. You can check the query schema and try sample queries here. You can also send graphql queries as HTTP POST requests and get responses.
 
-<img title="File System Layout" src="./file-system-layout.png">
+## The GraphQL Queries
 
-An simplified example of the structure is as follows:
+The library microservice services two graphql requests:
 
-```text
-lib/
-  data/
-    data1/ (ex: sensor)
-      filename (ex: sensor.csv)
-      README.md
-    data2/ (ex: turbine)
-      README.md (remote source; no local file)
-    ...
-  functions/
-    function1/ (ex: graphs)
-      filename (ex: graphs.py)
-      README.md
-    function2/ (ex: statistics)
-      filename (ex: statistics.py)
-      README.md
-    ...
-  models/
-    model1/ (ex: spring)
-      filename (ex: spring.fmu)
-      README.md
-    model2/ (ex: building)
-      filename (ex: building.skp)
-      README.md
-    model3/ (ex: rabbitmq)
-      filename (ex: rabbitmq.fmu)
-      README.md
-    ...
-  tools/
-    tool1/ (ex: maestro)
-      filename (ex: maestro.jar)
-      README.md
-    ...
-  common/
-    data/
-    functions/
-    models/
-    tools/
-```
-
-## Setup Microservice
-
-To set up the lib microservice, follow these steps:
-
-```sh
-git clone https://github.com/INTO-CPS-Association/DTaaS.git
-cd DTaaS/server/lib
-yarn install   # Install the required dependencies
-```
-
-### Environment Variables
-
-To set up the environment variables for the lib microservice, create a new file named _.env_ in the `servers/lib` folder. Then, add the following variables and their respective values. Below you can see and how, with included examples:
-
-```ini
-PORT='4001'
-MODE='local' or 'gitlab'
-LOCAL_PATH='/Users/<Username>/DTaaS/files'
-GITLAB_GROUP='dtaas'
-GITLAB_URL='https://gitlab.com/api/graphql'
-TOKEN='123-sample-token'
-APOLLO_PATH='/lib' or ''
-GRAPHQL_PLAYGROUND='false' or 'true'
-```
-
-Replace the default values the appropriate values for your setup.
-
-**NOTE**:
-
-1. When \__MODE=local_, only _LOCAL_PATH_ is used. Other environment variables are unused.
-1. When _MODE=gitlab_, _GITLAB_URL, TOKEN_, and _GITLAB_GROUP_ are used; _LOCAL_PATH_ is unused.
-
-### Start Microservice
-
-```bash
-yarn install
-yarn build
-yarn start
-```
-
-The lib microservice is now running and ready to serve files, functions, and models.
-
-You can access the server's endpoint by typing in the following URL: `http://localhost:<PORT>/lib`.
-
-## Lib request and response
-
-The lib microservice services two requests:
 * Provide a list of contents for a directory
 * Fetch a file from the available files
+
+The format of the accepted queries are:
+
+### Provide list of contents for a directory
+
+```graphql
+query {
+  listDirectory(path: "user1") {
+    repository {
+      tree {
+        blobs {
+          edges {
+            node {
+              name
+              type
+            }
+          }
+        }
+        trees {
+          edges {
+            node {
+              name
+              type
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Fetch a file from the available files
+
+```graphql
+query {
+  readFile(path: "/path/to/file") {
+    repository {
+      blobs {
+        nodes {
+          name
+          rawBlob
+          rawTextBlob
+        }
+      }
+    }
+  }
+}
+```
+
+The _path_ refers to the file path to look at: For example, _user1_ looks at files of **user1**; _user1/functions_ looks at contents of _functions/_ directory.
+
+## Example GraphQL Queries
 
 ### Provide list of contents for a directory
 
@@ -271,56 +229,3 @@ x-powered-by: Express
 }
 
 ```
-
-### Normative GraphQL API queries for Lib Microservice
-
-The accepted queries are:
-
-### Provide list of contents for a directory
-
-```graphql
-query {
-  listDirectory(path: "user2") {
-    repository {
-      tree {
-        blobs {
-          edges {
-            node {
-              name
-              type
-            }
-          }
-        }
-        trees {
-          edges {
-            node {
-              name
-              type
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-#### Fetch a file from the available files
-
-```graphql
-query {
-  readFile(path: "/path/to/file") {
-    repository {
-      blobs {
-        nodes {
-          name
-          rawBlob
-          rawTextBlob
-        }
-      }
-    }
-  }
-}
-```
-
-The _path_ refers to the file path to look at: For example, _user1_ looks at files of **user1**; _user1/functions_ looks at contents of _functions/_ directory.
