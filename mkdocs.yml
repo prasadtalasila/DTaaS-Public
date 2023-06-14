@@ -12,6 +12,8 @@ nav:
           - Assets: user/servers/lib/assets.md
           - Microservice: user/servers/lib/LIB-MS.md
       - Examples: user/examples/index.md
+  - FAQ: FAQ.md
+  - Bugs: bugs.md
 
 use_directory_urls: false
 
