@@ -8,7 +8,7 @@ This document provides instructions for running the library microservice.
 
 The users expect the following file system structure for their reusable assets.
 
-![File System Layout](/admin/servers/lib/file-system-layout.png)
+![File System Layout](file-system-layout.png)
 ## Setup Microservice
 
 To set up the lib microservice, follow these steps:
@@ -59,4 +59,4 @@ Users can access the library microservice at URL: `http://localhost:<PORT>/lib`.
 The library microservice hides the mode of operation from the users. The files can come from two sources:
 
 1. A directory on the server machine hosting DTaaS (`mode=local`)
-1. A gitlab group on a gitlab instance (`mode=gitlab`). The gitlab can either be a community [gitlab](gitlab.com) or your own private gitlab instance.
+1. A gitlab group on a gitlab instance (`mode=gitlab`). The gitlab can either be a community [gitlab](https://gitlab.com) or your own private gitlab instance.

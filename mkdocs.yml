@@ -13,6 +13,8 @@ nav:
           - Microservice: user/servers/lib/LIB-MS.md
       - Examples: user/examples/index.md
 
+use_directory_urls: false
+
 theme: 
   name: material
   locale: en
