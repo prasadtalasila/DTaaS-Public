@@ -11,12 +11,11 @@ nav:
       - Library: 
           - Assets: user/servers/lib/assets.md
           - Microservice: user/servers/lib/LIB-MS.md
-      - Examples: user/examples/incubator/README.md
+      - Examples: user/examples/index.md
 
 theme: 
   name: material
   locale: en
-  highlightjs: true
   
 extra_css:
   - docs/css/extra.css
