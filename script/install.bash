@@ -57,6 +57,7 @@ apt install -y python3-pip
 sudo -H pip install jupyterlab
 sudo -H pip install mkdocs
 sudo -H pip3 install mkdocs-material
+sudo -H pip3 install python-markdown-math
 
 #install docker-compose from https://docs.docker.com/compose/install/other/
 curl -SL "https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose

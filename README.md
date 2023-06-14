@@ -32,4 +32,6 @@ The application uses [Træfik](https://github.com/traefik/traefik) and [ML Works
 
 ## License
 
-This software is owned by [The INTO-CPS Association](https://into-cps.org/) and is available under [the INTO-CPS License](./LICENSE.txt).
+This software is owned by [The INTO-CPS Association](https://into-cps.org/) and is available under [the INTO-CPS License](./LICENSE.md).
+
+The DTaaS software platform uses [Træfik](https://github.com/traefik/traefik), [ML Workspace](https://github.com/ml-tooling/ml-workspace), [Grafana](https://github.com/influxdata/influxdb), [InfluxDB](https://github.com/influxdata/influxdb) and [RabbitMQ](https://github.com/rabbitmq/rabbitmq-server) open-source components. These software components have their own licenses.

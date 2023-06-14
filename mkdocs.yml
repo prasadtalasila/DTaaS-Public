@@ -1,5 +1,13 @@
 site_name: Digital Twin as a Service
 
+nav:
+  - Home: index.md
+  - Admin:
+      - website: admin/client/CLIENT.md
+  - User:
+      - Examples: user/examples/incubator/README.md
+      - Lib Microservice: user/servers/lib/LIB-MS.md
+
 theme: 
   name: material
   locale: en
@@ -14,3 +22,5 @@ extra_javascript:
 markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
+  - mdx_math:
+      enable_dollar_delimiter: True
