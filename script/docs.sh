@@ -1,6 +1,12 @@
 #!/bin/bash
 
-export VERSION={"$1":-latest}
+if [ -n "$1" ]; then
+  VERSION="$1"
+else
+  VERSION="latest"
+fi
+
+export VERSION
 export TOP_DIR=$(pwd)
 export COMMIT_HASH=$(git rev-parse --short HEAD)
 
