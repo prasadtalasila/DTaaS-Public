@@ -23,10 +23,16 @@ zip -r latest.zip latest
 cd ${TOP_DIR}
 git checkout webpage-docs
 
+# If you want to make the current branch into docs branch
+# use the following commands to clean up the irrelevant files
+# rm -rf client deploy docs files LICENSE.md mkdocs.yml mkdocs_offline.yml README.md servers ssl STATUS.md
+# rm -rf .git-hooks/*
+# rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
+
 rm -rf latest
 mv site/online/latest . 
 mv site/offline/latest.zip .
 mv site/index.html .
 
-#git add .
-#git commit -m "docs for ${COMMIT_HASH} commit"
+git add .
+git commit -m "docs for ${COMMIT_HASH} commit"
