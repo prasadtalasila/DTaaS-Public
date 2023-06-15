@@ -1,5 +1,18 @@
 site_name: Digital Twin as a Service (DTaaS)
 
+repo_url: https://github.com/into-cps-association/DTaaS
+repo_name: DTaaS
+copyright: Copyright &copy; 2022 - 2023 The INTO-CPS Association
+
+theme: 
+  name: material
+  locale: en
+  logo: assets/into-cps-logo.png
+  favicon: assets/into-cps-logo.png
+  features:
+    - navigation.tabs
+    - navigation.footer
+
 nav:
   - Home: index.md
   - Admin:
@@ -17,14 +30,8 @@ nav:
 
 use_directory_urls: false
 
-theme: 
-  name: material
-  locale: en
-  features:
-    - navigation.tabs  
-
 extra_css:
-  - docs/css/extra.css
+  - docs/assets/css/extra.css
 
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML
