@@ -13,6 +13,9 @@ theme:
     - navigation.tabs
     - navigation.footer
 
+plugins:
+  - offline
+
 nav:
   - Home: index.md
   - Admin:
@@ -24,7 +27,7 @@ nav:
       - Library: 
           - Assets: user/servers/lib/assets.md
           - Microservice: user/servers/lib/LIB-MS.md
-      - Examples: user/examples/index.md
+      - Examples: https://github.com/INTO-CPS-Association/DTaaS-examples
   - FAQ: FAQ.md
   - Bugs: bugs.md
 
