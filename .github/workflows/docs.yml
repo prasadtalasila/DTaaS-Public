@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'docs/**'
-  pull:
+  pull_request:
     paths:
       - 'docs/**'
   workflow_dispatch:
