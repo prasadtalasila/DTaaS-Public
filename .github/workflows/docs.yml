@@ -21,3 +21,7 @@ jobs:
       - name: Run the linting checks
         run: |
           printf "docs generate"
+
+      - name: Run the linting checks
+        run: |
+          printf "docs generate 2nd statement"
