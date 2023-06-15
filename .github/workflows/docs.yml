@@ -2,14 +2,8 @@ name: Build documentation
 
 on:
   push:
-    paths:
-      - 'docs/**'
   pull_request:
-    paths:
-      - 'docs/**'
   workflow_dispatch:
-    paths:
-      - 'docs/**'
 
 jobs:
   client:
