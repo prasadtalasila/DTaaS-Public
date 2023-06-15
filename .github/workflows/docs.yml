@@ -18,6 +18,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Run the linting checks
+      - name: build docs
+        uses: Tiryoh/actions-mkdocs@v0
+        with:
+          mkdocs_version: 'latest'
+          requirements: 'docs/requirements.txt'
+          configfile: 'mkdocs.yml'
+
+
+      - name: build docs
         run: |
-          printf "docs generate"
+          ls site
