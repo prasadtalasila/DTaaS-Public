@@ -20,7 +20,9 @@ use_directory_urls: false
 theme: 
   name: material
   locale: en
-  
+  features:
+    - navigation.tabs  
+
 extra_css:
   - docs/css/extra.css
 
