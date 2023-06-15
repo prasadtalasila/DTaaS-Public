@@ -13,6 +13,9 @@ theme:
     - navigation.tabs
     - navigation.footer
 
+plugins:
+  - offline
+
 nav:
   - Home: index.md
   - Admin:

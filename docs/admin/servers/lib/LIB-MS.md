@@ -1,4 +1,4 @@
-# Library Microservice
+# Host Library Microservice
 
 The library microservice is designed to manage and serve files, functions, and models to users, allowing them to access and interact with various resources.
 
