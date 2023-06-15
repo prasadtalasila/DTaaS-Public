@@ -2,8 +2,14 @@ name: Build documentation
 
 on:
   push:
-  pull_request:
+    paths:
+      - 'docs/**'
+  pull:
+    paths:
+      - 'docs/**'
   workflow_dispatch:
+    paths:
+      - 'docs/**'
 
 jobs:
   client:
@@ -15,7 +21,3 @@ jobs:
       - name: Run the linting checks
         run: |
           printf "docs generate"
-
-      - name: Run the linting checks
-        run: |
-          printf "docs generate 2nd statement"
