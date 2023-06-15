@@ -1,4 +1,4 @@
-name: Make quality checks on the client react SPA application
+name: Build documentation
 
 on:
   push:
@@ -18,37 +18,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: "yarn"
-          cache-dependency-path: "**/yarn.lock"
-
       - name: Run the linting checks
         run: |
-          cd client/	
-          yarn install	
-          yarn syntax
-      - name: Build the React SPA website
-        run: |
-          cd client/	
-          yarn install	
-          yarn build
-          yarn configapp dev
-      - name: Run client unit and integration tests
-        run: |
-          cd client/	
-          yarn install	
-          yarn test
-      - name: Upload unit test coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: client/coverage/clover.xml
-          flags: client-unit-test
-
-      - name: Upload browser test coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: client/playwright-report/results.json
-          flags: client-browser-test
+          printf "docs generate"
