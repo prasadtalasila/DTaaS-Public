@@ -1,15 +1,45 @@
 #!/bin/bash
+set -eux
+
+printf "NOTE\n"
+printf "----\n"
+printf "This script installs DTaaS with default settings.\n"
+printf "The setup is good for testing but not for secure installation.\n"
+
+
+printf "\n\nDownload the required docker images\n"
+printf "---------\n"
+
+docker pull traefik:v2.5 || exit
+docker pull influxdb:2.4 || exit
+docker pull mltooling/ml-workspace:0.13.2 || exit
+docker pull grafana/grafana || exit
+docker pull telegraf || exit
+docker pull gitlab/gitlab-ce:15.10.0-ce.0 || exit
+
+
+printf "\n\nCloning the DTaaS codebase\n"
+printf "---------\n"
+if [-d DTaaS ]
+then
+  cd DTaaS || exit
+else
+  git clone https://github.com/INTO-CPS-Association/DTaaS.git DTaaS
+  cd DTaaS || exit
+  git fetch --all
+  git checkout release-v0.2
+fi
 
 TOP_DIR=$(pwd)
 
-printf "build, configure and run the react website\n"
-printf "-----\n"
+#-------------
+printf "\n\n start the react website"
 cd "${TOP_DIR}/client" || exit
 yarn install
 yarn build
 
 #one of the environments; specify only one; "dev" used the REACT_APP_ENV is not set
-yarn configapp prod
+yarn configapp dev
 cp "${TOP_DIR}/deploy/config/client/env.js" build/env.js
 nohup serve -s build -l 4000 & disown
 
@@ -52,3 +82,4 @@ sudo docker run -d \
  -v "$PWD/dynamic:/etc/traefik/dynamic" \
  -v /var/run/docker.sock:/var/run/docker.sock \
  traefik:v2.5
+

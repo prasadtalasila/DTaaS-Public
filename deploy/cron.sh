@@ -21,3 +21,5 @@ then
   cd "${PROJECT_PATH}/servers/lib"
   nohup yarn start & disown
 fi
+
+docker start traefik-gateway

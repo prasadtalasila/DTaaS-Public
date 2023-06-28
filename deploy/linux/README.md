@@ -10,11 +10,13 @@ Please follow these steps to make this work in your local environment.
 
 You need to configure the gateway and react client website.
 
+The first step is to decide on the number of users and their usenames. The traefik gateway configuration has a template for two users. You can modify the usernames in the template to the usernames chosen by you.
+
 ### The traefik gateway server
 
 You can run the Run the Traefik gateway server in both and HTTPS HTTPS mode to experience the DTaaS application. The installation guide assumes that you can run the application in HTTPS mode.
 
-The Traefik gateway configuration is at [fileConfig](../config/gateway/dynamic/fileConfig.yml). Change `localhost` to `https://foo.com`. 
+The Traefik gateway configuration is at [fileConfig](../config/gateway/dynamic/fileConfig.yml). Change `localhost` to `https://foo.com` and user1/user2 to the usernames chosen by you.
 
 #### Authentication
 
@@ -22,7 +24,7 @@ The dummy username is `foo` and the password is `bar`.
 Please change this before starting the gateway.
 
 ```bash
-rm auth
+rm deploy/config/gateway/auth
 htpasswd -c deploy/config/gateway/auth <username>
 password: <your password>
 ```
@@ -45,6 +47,14 @@ window.env = {
     REACT_APP_WORKBENCHLINK_JUPYTERNOTEBOOK: '',
 };
 ```
+
+## Prepare filesystem for users
+
+There is an example file system in `files/` directory. You can rename the top-level user1/user2 to the usernames chosen by you.
+
+## Update the installation script
+
+Open `deploy/install.sh` and update user1/user2 to usernames chosen by you.
 
 ## Perform the Installation
 

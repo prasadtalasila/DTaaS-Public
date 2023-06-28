@@ -12,7 +12,7 @@ fi
 export PROJECT_PATH
 
 crontab -l | sort -u  > temp.cron
-echo "* * * * * ${PROJECT_PATH}/deploy/cron-path.sh ${PROJECT_PATH}" >> temp.cron
+echo "* * * * * ${PROJECT_PATH}/deploy/cron.sh ${PROJECT_PATH}" >> temp.cron
 cat temp.cron | sort -u > jobs.cron
 crontab jobs.cron
 rm jobs.cron temp.cron
