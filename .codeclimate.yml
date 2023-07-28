@@ -1,8 +1,6 @@
 ---
 version: "2"
 plugins:
-  shellcheck:
-    enabled: true
   csslint:
     enabled: true
   duplication:
@@ -10,11 +8,9 @@ plugins:
     config:
       languages:
         typescript:
-          mass_threshold: 55
         javascript:
-          mass_threshold: 55
         python:
-        php:
+          python_version: 3
   eslint:
     enabled: true
     channel: "eslint-8"
@@ -22,6 +18,16 @@ plugins:
       config: .eslintrc
   fixme:
     enabled: true
+  identical-code:
+    config:
+      threshold: 55
+  markdownlint:
+    enabled: true
+  shellcheck:
+    enabled: true
+  similar-code:
+    config:
+      threshold: 55
 exclude_patterns:
   - "**.md"
   - "**.txt"
