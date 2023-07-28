@@ -35,6 +35,4 @@ exclude_patterns:
   - "**/public/"
   - "**/script/"
   - client/config/
-  - docs/
-  - script/
   - servers/lib/src/types.ts
