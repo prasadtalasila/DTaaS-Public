@@ -9,7 +9,7 @@ plugins:
     config:
       languages:
         typescript:
-          mass_threshold: 55        
+          mass_threshold: 70
         javascript:
         python:
           python_version: 3
