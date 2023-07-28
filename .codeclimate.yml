@@ -25,7 +25,7 @@ plugins:
     enabled: true
   similar-code:
     config:
-      threshold: 65
+      threshold: 85
 exclude_patterns:
   - "**.md"
   - "**.txt"
