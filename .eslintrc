@@ -3,7 +3,8 @@
     "browser": true,
     "es2022": true,
     "jest": true,
-    "jest/globals": true
+    "jest/globals": true,
+    "node": true
   },
   "extends": [
     "eslint:recommended",
@@ -32,10 +33,10 @@
     "ecmaFeatures": {
       "jsx": true
     },
-    "ecmaVersion": 11,
+    "ecmaVersion": 2022,
     "sourceType": "module" // Allows for the use of imports
   },
-  "plugins": ["jsx-a11y", "react", "jest", "@typescript-eslint"],
+  "plugins": ["jsx-a11y", "react", "jest", "@typescript-eslint", "import"],
   "rules": {
     "import/no-extraneous-dependencies": ["error", { "devDependencies": true }],
     "no-console": "error",
@@ -64,7 +65,7 @@
       "plugins": ["@typescript-eslint"]
     },
     {
-      "files": ["src/**/*.slice.ts"],
+      "files": ["client/src/**/*.slice.ts"],
       "rules": {
         "no-param-reassign": ["error", { "props": false }]
       }

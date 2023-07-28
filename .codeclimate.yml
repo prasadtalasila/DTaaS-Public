@@ -12,6 +12,7 @@ plugins:
         typescript:
           mass_threshold: 55
         javascript:
+          mass_threshold: 55
         python:
         php:
   eslint:
