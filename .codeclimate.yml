@@ -1,5 +1,6 @@
 ---
 version: "2"
+
 plugins:
   csslint:
     enabled: true
@@ -8,6 +9,7 @@ plugins:
     config:
       languages:
         typescript:
+          mass_threshold: 55        
         javascript:
         python:
           python_version: 3
@@ -23,9 +25,7 @@ plugins:
       threshold: 55
   shellcheck:
     enabled: true
-  similar-code:
-    config:
-      threshold: 85
+
 exclude_patterns:
   - "**.md"
   - "**.txt"
