@@ -26,8 +26,6 @@ exclude_patterns:
   - "**.md"
   - "**.txt"
   - "**.json"
-  - docs/
-  - script/
   - "**/api/"
   - "**/build/"
   - "**/coverage/"
@@ -36,4 +34,6 @@ exclude_patterns:
   - "**/public/"
   - "**/script/"
   - client/config/
+  - docs/
+  - script/
   - servers/lib/src/types.ts
