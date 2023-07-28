@@ -19,9 +19,6 @@ plugins:
       config: .eslintrc
   fixme:
     enabled: true
-  identical-code:
-    config:
-      threshold: 55
   shellcheck:
     enabled: true
 
