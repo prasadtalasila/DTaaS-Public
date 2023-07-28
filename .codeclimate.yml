@@ -21,8 +21,6 @@ plugins:
   identical-code:
     config:
       threshold: 55
-  markdownlint:
-    enabled: true
   shellcheck:
     enabled: true
   similar-code:
