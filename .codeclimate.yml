@@ -27,8 +27,13 @@ exclude_patterns:
   - "**.txt"
   - "**.json"
   - docs/
-  - "**/node_modules/"
+  - script/
+  - "**/api/"
   - "**/build/"
+  - "**/coverage/"
+  - "**/dist/"
+  - "**/node_modules/"
   - "**/public/"
-  - "**/coverage"
-  - "client/config/"
+  - "**/script/"
+  - client/config/
+  - servers/lib/src/types.ts

@@ -1,9 +1,11 @@
-**/build/
-**/node_modules/
-**/script/
 **/api/
-**/dist/
+**/build/
 **/config/
+**/coverage/
+**/node_modules/
+**/public/
+**/script/
+**/dist/
 deploy/
 docs/
 files/
