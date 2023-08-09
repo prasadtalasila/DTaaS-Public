@@ -1,6 +1,11 @@
 # Motivation
 
-The Digital Twin as a Service (DTaaS) software shall be used for creating a Digital Twin support platform for SMEs. A technical overview of the software is available in [this presentation](docs/developer/system/DTaaS-overview.pdf) and [recorded video](docs/developer/system/DTaaS-overview.mkv). There is also a [research paper draft](https://arxiv.org/abs/2305.07244) if you are interested in reading the scientific roadmap for this software.
+The Digital Twin as a Service (DTaaS) software shall be used for creating a Digital Twin support platform for SMEs. There is an overview of the software available for:
+
+* General users - [slides](docs/user/DTaaS-short-intro.pdf) and [video](docs/user/DTaaS-short-intro.mp4)
+* Developers - [slides](docs/developer/system/DTaaS-overview.pdf) and [video](docs/developer/system/DTaaS-overview.mkv).
+
+There is also a [research paper draft](https://arxiv.org/abs/2305.07244) if you are interested in reading the scientific roadmap for this software.
 
 This is a mono repo containing code for both the web client and the microservices code base. Only the [web client](client) and [library microservice](servers/lib) components are functional at present. Everything else is a work-in-progress.
 
