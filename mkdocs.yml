@@ -17,8 +17,9 @@ theme:
 nav:
   - Home: index.md
   - Admin:
-      - website: admin/client/CLIENT.md
-      - library microservice: admin/servers/lib/LIB-MS.md
+      - Website: admin/client/CLIENT.md
+      - Authentication: admin/client/auth.md
+      - Library Microservice: admin/servers/lib/LIB-MS.md
   - User:
       - Features: user/features.md
       - Website: user/website/index.md

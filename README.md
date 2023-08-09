@@ -2,7 +2,7 @@
 
 The Digital Twin as a Service (DTaaS) software shall be used for creating a Digital Twin support platform for SMEs. There is an overview of the software available for:
 
-* General users - [slides](docs/user/DTaaS-short-intro.pdf) and [video](docs/user/DTaaS-short-intro.mp4)
+* General users - [overview slides](docs/user/DTaaS-short-intro.pdf) and [overview video](docs/user/DTaaS-short-intro.mp4), [feature walkthrough](user/website/dtaas-v0.2.0-demo.mp4)
 * Developers - [slides](docs/developer/system/DTaaS-overview.pdf) and [video](docs/developer/system/DTaaS-overview.mkv).
 
 There is also a [research paper draft](https://arxiv.org/abs/2305.07244) if you are interested in reading the scientific roadmap for this software.
