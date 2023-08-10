@@ -3,7 +3,7 @@
 if [ -n "$1" ]; then
   VERSION="$1"
 else
-  VERSION="latest"
+  VERSION="development"
 fi
 
 export VERSION
@@ -27,9 +27,31 @@ cp docs/redirect-page.html site/index.html
 if [ -d "site/offline/${VERSION}" ]
 then
   cd site/offline || exit
+  mv "${VERSION}/pdf/DTaaS-docs.pdf" "${TOP_DIR}/DTaaS-${VERSION}.pdf"
+  rmdir "${VERSION}/pdf"
   mv "${VERSION}" "DTaaS-${VERSION}-html"
   zip -r "DTaaS-${VERSION}-html.zip" "DTaaS-${VERSION}-html"
+  mv "DTaaS-${VERSION}-html.zip" "${TOP_DIR}/."
 fi
+
+
+cd "${TOP_DIR}" || exit
+if [ -d "${VERSION}" ]; then
+  rm -rf "${VERSION}"
+fi
+mv "site/online/${VERSION}" "${TOP_DIR}/."
+
+
+if [ -d "site/offline/${VERSION}" ]
+then
+  cd site/offline || exit
+  mv "${VERSION}/pdf/DTaaS-docs.pdf" "${TOP_DIR}/DTaaS-${VERSION}.pdf"
+  rmdir "site/offline/${VERSION}/pdf"
+  mv "${VERSION}" "DTaaS-${VERSION}-html"
+  zip -r "DTaaS-${VERSION}-html.zip" "DTaaS-${VERSION}-html"
+  mv "DTaaS-${VERSION}-html.zip" "${TOP_DIR}/."
+fi
+
 
 cd "${TOP_DIR}" || exit
 git checkout webpage-docs
@@ -40,16 +62,9 @@ git checkout webpage-docs
 # rm -rf .git-hooks/*
 # rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
 
-if [ -d "${VERSION}" ]; then
-  rm -rf "${VERSION}"
-fi
 
-mv "site/online/${VERSION}" .
-mv "site/offline/${VERSION}/pdf/DTaaS-docs.pdf" "${VERSION}/pdf/DTaaS-${VERSION}.pdf"
-rmdir "site/offline/${VERSION}/pdf" || exit
-mv "site/offline/${VERSION}-html.zip" .
-mv "site/offline/pdf/${VERSION}-html.zip" .
 mv site/index.html .
+rm -rf site
 
-git add .
-git commit -m "docs for ${COMMIT_HASH} commit"
+#git add .
+#git commit -m "docs for ${COMMIT_HASH} commit"
