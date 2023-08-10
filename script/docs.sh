@@ -44,6 +44,7 @@ then
   mv "${VERSION}" "${TOP_DIR}/."
 fi
 
+cd "${TOP_DIR}" || exit
 mv site/index.html .
 rm -rf site
 
