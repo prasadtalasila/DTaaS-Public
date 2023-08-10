@@ -19,8 +19,12 @@ mkdocs build --config-file mkdocs_offline.yml --site-dir "site/offline/${VERSION
 
 cp docs/redirect-page.html site/index.html
 
-cd site/offline || exit
-zip -r latest.zip latest
+if [ -d "site/offline/${VERSION}" ]
+then
+  cd site/offline || exit
+  mv "${VERSION}" "DTaaS-${VERSION}-html"
+  zip -r "DTaaS-${VERSION}-html.zip" "DTaaS-${VERSION}-html"
+fi
 
 cd "${TOP_DIR}" || exit
 git checkout webpage-docs
@@ -31,9 +35,15 @@ git checkout webpage-docs
 # rm -rf .git-hooks/*
 # rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
 
-rm -rf latest
-mv site/online/latest . 
-mv site/offline/latest.zip .
+if [ -d "/${VERSION}" ]; then
+  rm -rf "/${VERSION}"
+fi
+
+mv "site/online/${VERSION}" .
+mv "site/offline/${VERSION}/pdf/DTaaS-docs.pdf" "${VERSION}/pdf/DTaaS-${VERSION}.pdf"
+rmdir "site/offline/${VERSION}/pdf" || exit
+mv "site/offline/${VERSION}-html.zip" .
+mv "site/offline/pdf/${VERSION}-html.zip" .
 mv site/index.html .
 
 git add .
