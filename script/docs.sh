@@ -24,6 +24,15 @@ mkdocs build --config-file mkdocs_offline.yml --site-dir "site/offline/${VERSION
 
 cp docs/redirect-page.html site/index.html
 
+cd "${TOP_DIR}" || exit
+git checkout webpage-docs
+
+# If you want to make the current branch into docs branch
+# use the following commands to clean up the irrelevant files
+# rm -rf client deploy docs files LICENSE.md mkdocs.yml mkdocs_offline.yml README.md servers ssl STATUS.md
+# rm -rf .git-hooks/*
+# rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
+
 if [ -d "site/offline/${VERSION}" ]
 then
   cd site/offline || exit
@@ -52,19 +61,10 @@ then
   mv "DTaaS-${VERSION}-html.zip" "${TOP_DIR}/."
 fi
 
-
-cd "${TOP_DIR}" || exit
-git checkout webpage-docs
-
-# If you want to make the current branch into docs branch
-# use the following commands to clean up the irrelevant files
-# rm -rf client deploy docs files LICENSE.md mkdocs.yml mkdocs_offline.yml README.md servers ssl STATUS.md
-# rm -rf .git-hooks/*
-# rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
-
-
 mv site/index.html .
 rm -rf site
 
+git add .
+git commit -m "docs for ${COMMIT_HASH} commit"
 git add .
 git commit -m "docs for ${COMMIT_HASH} commit"
