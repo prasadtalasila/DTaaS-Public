@@ -66,5 +66,5 @@ git checkout webpage-docs
 mv site/index.html .
 rm -rf site
 
-#git add .
-#git commit -m "docs for ${COMMIT_HASH} commit"
+git add .
+git commit -m "docs for ${COMMIT_HASH} commit"
