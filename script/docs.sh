@@ -13,6 +13,11 @@ COMMIT_HASH=$(git rev-parse --short HEAD)
 export COMMIT_HASH
 
 echo ${VERSION}
+if [ -d site ]
+then
+  rm -rf site
+fi
+
 printf "generate and publish documents"
 mkdocs build --config-file mkdocs.yml --site-dir "site/online/${VERSION}"
 mkdocs build --config-file mkdocs_offline.yml --site-dir "site/offline/${VERSION}"
@@ -35,8 +40,8 @@ git checkout webpage-docs
 # rm -rf .git-hooks/*
 # rm script/configure-git-hooks.sh script/grafana.sh script/influx.sh script/install.bash
 
-if [ -d "/${VERSION}" ]; then
-  rm -rf "/${VERSION}"
+if [ -d "${VERSION}" ]; then
+  rm -rf "${VERSION}"
 fi
 
 mv "site/online/${VERSION}" .
