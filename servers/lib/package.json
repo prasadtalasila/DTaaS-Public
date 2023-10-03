@@ -17,7 +17,7 @@
     "graph": "script/graph.bash"
   },
   "dependencies": {
-    "@apollo/client": "^3.7.10",
+    "@apollo/client": "^3.8.4",
     "@nestjs/apollo": "^10.2.0",
     "@nestjs/common": "^9.3.9",
     "@nestjs/config": "^2.3.1",
