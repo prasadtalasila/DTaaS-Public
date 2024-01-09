@@ -39,7 +39,7 @@ jobs:
           yarn install	
           yarn build
 
-      - name: Run unit and integration tests
+      - name: Run all tests
         run: |
           cd servers/lib
           yarn install
@@ -51,7 +51,7 @@ jobs:
           LOG_LEVEL: debug
           APOLLO_PATH: /lib
 
-      - name: Upload unit and integration test coverage to Codecov
+      - name: Upload test coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
           files: servers/lib/coverage/clover.xml
