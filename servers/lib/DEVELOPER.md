@@ -22,6 +22,9 @@ yarn start      # Start the application
 yarn clean      # Deletes directories "build", "coverage", and "dist"
 ```
 
+__NOTE:__ The integration and end-to-end tests require a valid
+`.env` file.
+
 ## :package: :ship: NPM package
 
 ### Github Package Registry
