@@ -8,6 +8,19 @@ It has two features:
 
 ## :arrow_down: Install
 
+### NPM Registry
+
+The package is available on
+[npmjs](https://www.npmjs.com/package/@into-cps-association/libms).
+
+Install the package with the following command:
+
+```bash
+sudo npm install -g @into-cps-association/libms
+```
+
+### Github Registry
+
 The package is available in Github
 [packages registry](https://github.com/orgs/INTO-CPS-Association/packages).
 

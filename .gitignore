@@ -164,4 +164,4 @@ runner.yml
 .workspace
 
 # command scripts for runner
-servers/execution/runner/lifecycle*
+servers/execution/runner/script*
