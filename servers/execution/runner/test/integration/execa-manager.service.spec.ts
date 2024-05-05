@@ -86,7 +86,7 @@ describe('Check execution manager based on execa library', () => {
     const pastCommandsExp: Array<ExecuteCommandDto> = [
       {
         name: 'create',
-      }
+      },
     ];
 
     pastCommands.map(async (command) => {
