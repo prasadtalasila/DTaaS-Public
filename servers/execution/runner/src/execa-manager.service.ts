@@ -18,7 +18,9 @@ export default class ExecaManager implements Manager {
     private config: Config,
   ) {} // eslint-disable-line no-empty-function
 
-  async newCommand(name: string): Promise<[boolean, Map<string, string>]> {
+  private async runCommand(
+    name: string,
+  ): Promise<[boolean, Map<string, string>]> {
     let success: boolean = false;
     const command: Command = {
       name,
@@ -31,6 +33,15 @@ export default class ExecaManager implements Manager {
       if (success) command.status = 'valid';
     });
     return [success, command.task.checkLogs()];
+  }
+
+  async newCommand(name: string): Promise<[boolean, Map<string, string>]> {
+    let logs: Map<string, string> = new Map<string, string>();
+    let status: boolean = false;
+    if (this.config.permitCommands().includes(name)) {
+      [status, logs] = await this.runCommand(name);
+    }
+    return [status, logs];
   }
 
   checkStatus(): CommandStatus {

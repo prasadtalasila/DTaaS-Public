@@ -5,9 +5,16 @@ import { Manager, CommandStatus } from 'src/interfaces/command.interface';
 import { ExecuteCommandDto } from 'src/dto/command.dto';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
+import Keyv from 'keyv';
 
 describe('Check execution manager based on execa library', () => {
   let dt: Manager;
+  let config: Config;
+  const CLIOptions: Keyv = new Keyv();
+
+  beforeAll(async () => {
+    await CLIOptions.set('configFile', 'runner.test.yaml');
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -15,6 +22,8 @@ describe('Check execution manager based on execa library', () => {
     }).compile();
 
     dt = module.get<Manager>(ExecaManager);
+    config = module.get<Config>(Config);
+    config.loadConfig(CLIOptions);
   });
 
   it('Should create object', async () => {
@@ -44,8 +53,8 @@ describe('Check execution manager based on execa library', () => {
     expect(status).toBe(false);
   });
 
-  it('Should return correct command execution status if there has been no changePhase calls', async () => {
-    const expPhaseStatus = {
+  it('Should return correct command execution status if there has been no prior command execution calls', async () => {
+    const expStatus = {
       name: 'none',
       status: 'invalid',
       logs: {
@@ -55,12 +64,15 @@ describe('Check execution manager based on execa library', () => {
     };
 
     const commandStatus: CommandStatus = dt.checkStatus();
-    expect(commandStatus).toEqual(expPhaseStatus);
+    expect(commandStatus).toEqual(expStatus);
   });
 
   it('Should hold correct history of command executions', async () => {
     const status: boolean[] = [];
-    const pastPhases: Array<ExecuteCommandDto> = [
+    const pastCommands: Array<ExecuteCommandDto> = [
+      {
+        name: 'create',
+      },
       {
         name: 'date',
       },
@@ -68,8 +80,16 @@ describe('Check execution manager based on execa library', () => {
         name: 'whoami',
       },
     ];
+    // Only permitted commands are saved in history.
+    // For the tests, only 'create' command is permitted
+    // as per runner.test.yaml
+    const pastCommandsExp: Array<ExecuteCommandDto> = [
+      {
+        name: 'create',
+      }
+    ];
 
-    pastPhases.map(async (command) => {
+    pastCommands.map(async (command) => {
       await dt.newCommand(command.name).then(([value]) => {
         status.push(value);
       });
@@ -77,6 +97,6 @@ describe('Check execution manager based on execa library', () => {
 
     const pastPhasesActual = dt.checkHistory();
 
-    expect(pastPhasesActual).toStrictEqual(pastPhases);
+    expect(pastPhasesActual).toStrictEqual(pastCommandsExp);
   });
 });
