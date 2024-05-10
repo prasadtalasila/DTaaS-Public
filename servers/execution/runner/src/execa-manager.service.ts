@@ -27,7 +27,6 @@ export default class ExecaManager implements Manager {
       status: 'invalid',
       task: RunnerFactory.create(join(this.config.getLocation(), name)),
     };
-    this.commandQueue.enqueue(command);
     await command.task.run().then((value) => {
       success = value;
       if (success) command.status = 'valid';
@@ -38,6 +37,7 @@ export default class ExecaManager implements Manager {
   async newCommand(name: string): Promise<[boolean, Map<string, string>]> {
     let logs: Map<string, string> = new Map<string, string>();
     let status: boolean = false;
+    this.commandQueue.enqueue(command);
     if (this.config.permitCommands().includes(name)) {
       [status, logs] = await this.runCommand(name);
     }
