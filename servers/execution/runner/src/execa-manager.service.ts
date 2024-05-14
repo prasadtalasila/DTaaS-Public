@@ -18,46 +18,54 @@ export default class ExecaManager implements Manager {
     private config: Config,
   ) {} // eslint-disable-line no-empty-function
 
-  private async runCommand(
-    name: string,
-  ): Promise<[boolean, Map<string, string>]> {
-    let success: boolean = false;
-    const command: Command = {
-      name,
-      status: 'invalid',
-      task: RunnerFactory.create(join(this.config.getLocation(), name)),
-    };
-    await command.task.run().then((value) => {
-      success = value;
-      if (success) command.status = 'valid';
-    });
-    return [success, command.task.checkLogs()];
-  }
-
   async newCommand(name: string): Promise<[boolean, Map<string, string>]> {
     let logs: Map<string, string> = new Map<string, string>();
     let status: boolean = false;
+    const command: Command = {
+      name,
+      status: 'invalid',
+      task: undefined,
+    };
     this.commandQueue.enqueue(command);
+
     if (this.config.permitCommands().includes(name)) {
-      [status, logs] = await this.runCommand(name);
+      command.task = RunnerFactory.create(
+        join(this.config.getLocation(), name),
+      );
+      await command.task.run().then((value) => {
+        status = value;
+        command.status = value ? 'valid' : command.status;
+
+        if (command.task !== undefined) {
+          logs = command.task.checkLogs();
+        }
+      });
     }
     return [status, logs];
   }
 
   checkStatus(): CommandStatus {
-    let commandStatus: CommandStatus;
+    let commandStatus: CommandStatus = {
+      name: 'none',
+      status: 'invalid',
+      logs: {
+        stdout: '',
+        stderr: '',
+      },
+    };
     const command: Command | undefined = this.commandQueue.activeCommand();
 
-    if (command === undefined) {
+    if (command !== undefined && command.task === undefined) {
       commandStatus = {
-        name: 'none',
-        status: 'invalid',
+        name: command.name,
+        status: command.status,
         logs: {
           stdout: '',
           stderr: '',
         },
       };
-    } else {
+    }
+    if (command !== undefined && command.task !== undefined) {
       commandStatus = {
         name: command.name,
         status: command.status,

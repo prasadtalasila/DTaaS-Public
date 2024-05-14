@@ -1,5 +1,5 @@
 import supertest from 'supertest';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, HttpStatus } from '@nestjs/common';
 
 export interface RequestBody {
   name?: string;
@@ -23,7 +23,7 @@ type Query = {
   resBody: ResponseBody | Array<RequestBody>;
 };
 
-export function postRequest(query: Query) {
+export async function postRequest(query: Query) {
   return supertest(query.app.getHttpServer())
     .post(query.route)
     .send(query.reqBody)
@@ -44,11 +44,11 @@ export function getRequest(query: Query) {
 }
 
 export const queriesJSON = {
-  valid: {
+  permitted: {
     reqBody: {
       name: 'create',
     },
-    HttpStatus: 200,
+    HttpStatus: HttpStatus.OK,
     resBody: {
       POST: {
         status: 'success',
@@ -60,11 +60,27 @@ export const queriesJSON = {
       },
     },
   },
-  invalid: {
+  notPermitted: {
+    reqBody: {
+      name: 'execute',
+    },
+    HttpStatus: HttpStatus.BAD_REQUEST,
+    resBody: {
+      POST: {
+        status: 'invalid command',
+      },
+      GET: {
+        name: 'execute',
+        status: 'invalid',
+        logs: { stdout: '', stderr: '' },
+      },
+    },
+  },
+  nonExisting: {
     reqBody: {
       name: 'configure',
     },
-    HttpStatus: 400,
+    HttpStatus: HttpStatus.BAD_REQUEST,
     resBody: {
       POST: {
         status: 'invalid command',
@@ -80,7 +96,7 @@ export const queriesJSON = {
     reqBody: {
       command: 'create',
     },
-    HttpStatus: 400,
+    HttpStatus: HttpStatus.BAD_REQUEST,
     resBody: {
       POST: {
         message: 'Validation Failed',

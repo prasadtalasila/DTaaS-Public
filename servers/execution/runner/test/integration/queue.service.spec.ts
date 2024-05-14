@@ -4,6 +4,7 @@ import Queue from 'src/queue.service';
 import { Command } from 'src/interfaces/command.interface';
 import RunnerFactory from 'src/runner-factory.service';
 
+// TODO: test for undefined commands as well
 const commands: Command[] = [
   {
     name: 'hello',

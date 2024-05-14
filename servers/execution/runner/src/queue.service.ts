@@ -6,6 +6,7 @@ import { ExecuteCommandDto } from './dto/command.dto.js';
 export default class Queue {
   private queue: Command[] = [];
 
+  // TODO: convert this function to void type
   enqueue(command: Command): boolean {
     this.queue.push(command);
     return true;
