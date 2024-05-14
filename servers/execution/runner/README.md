@@ -1,6 +1,6 @@
 # :runner: Runner
 
-A utility service to manage safe execution of remote commands.
+A utility service to manage safe execution of remote scripts / commands.
 User launches this from commandline and let the utility
 manage the commands to be executed.
 
@@ -9,6 +9,13 @@ REST API interface to safely execute remote commands.
 Multiple runners can be active simultaneously on one computer.
 The commands are sent via the REST API and are executed on the computer
 with active runner.
+
+:warning: Thanks for trying out this software.
+This software is in early stages of development and is not
+recommended for production use. Each released package will have
+a working API and matching documentation in this README.
+However, there will be breaking changes in the API across each release
+until the package reaches version 1.0.0.
 
 ## :arrow_down: Install
 
@@ -43,12 +50,15 @@ needs to have _read:packages_ scope.
 
 ## :gear: Configure
 
-The runner requires config specified in YAML format.
+The utility requires config specified in YAML format.
 The template configuration file is:
 
 ```ini
 port: 5000
-location: "script" #directory location of scripts
+location: 'script' #directory location of scripts
+commands: #list of permitted scripts
+  - create
+  - execute
 ```
 
 It is suggested that the configuration file be named as _runner.yaml_
@@ -69,7 +79,7 @@ These need to be placed in the `location` specified in
 _runner.yaml_ file.
 
 For example, the `location` directory might contain
-the two scripts: _create_ and _run_. These two become
+the two scripts: _create_ and _execute_. These two become
 valid command names that consumers of REST API can invoke.
 All other command execution requests result in invalid status.
 
@@ -112,9 +122,9 @@ for these two sources are:
 
 | REST API Route                 | HTTP Method | Return Value | Comment |
 | :----------------------------- |:--------|:----------- | :------ |
-| localhost:port | POST  | Returns the execution status of command | Executes the command provided. Each invocation appends to _array_ of commands executed so far. |
+| localhost:port | POST  | Returns the execution status of command | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
 | localhost:port | GET |  Returns the execution status of the last command sent via POST request. |  |
-| localhost:port/history | GET | Returns the array of POST requests received so far. |  |
+| localhost:port/history | GET | Returns the array of valid POST requests received so far. |  |
 
 #### POST Request to /
 
@@ -127,7 +137,9 @@ in _location_ directory.
 }
 ```
 
-If the command exists, a successful response will be
+If the command is in the permitted list of commands specified
+in _runner.yaml_ and the matching command / script exists in _location_,
+a successful execution takes place. The API response will be
 
 ```http
 {
@@ -135,11 +147,11 @@ If the command exists, a successful response will be
 }
 ```
 
-If the does not exist, the response will be
+If the command is neither permitted nor available, the response will be
 
 ```http
 {
-  "status": "invalid command name"
+  "status": "invalid command
 }
 ```
 
@@ -163,7 +175,12 @@ If the execution is unsuccessful, the status will be
 
 ```http
 {
-  "status": "invalid command"
+  "name": "<command-name>",
+  "status": "invalid",
+  "logs": {
+    "stdout": "",
+    "stderr": ""
+  }
 }
 ```
 
@@ -189,10 +206,10 @@ Both valid and invalid commands are recorded in the history.
     "name": "valid command"
   },
   {
-    "name": "valid command"
+    "name": "invalid command"
   },
   {
-    "name": "invalid command"
+    "name": "valid command"
   }
 ]
 ```
@@ -201,4 +218,5 @@ Both valid and invalid commands are recorded in the history.
 
 This software is owned by
 [The INTO-CPS Association](https://into-cps.org/)
-and is available under [the INTO-CPS License](./LICENSE.md).
+and is available under
+[the INTO-CPS License](https://odin.cps.digit.au.dk/into-cps/LICENSE.md).
