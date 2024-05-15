@@ -53,16 +53,11 @@ describe('check Queue service', () => {
     expect(queue.checkHistory()).toStrictEqual([]);
   });
 
-  // TODO: refactor
   it('should return correct command history when queue has more than one command', async () => {
-    const history: Array<{ name: string }> = [];
-    Promise.all(
-      commands.map((command) => {
-        queue.enqueue(command);
-        history.push({ name: command.name });
-      }),
-    );
-
+    const history = commands.map((command) => {
+      queue.enqueue(command);
+      return { name: command.name };
+    });
     expect(queue.checkHistory()).toStrictEqual(history);
   });
 });
