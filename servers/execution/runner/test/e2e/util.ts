@@ -43,6 +43,23 @@ export function getRequest(query: Query) {
     .expect(query.resBody);
 }
 
+const invalidQuery = (name: string) => ({
+    reqBody: {
+      name,
+    },
+    HttpStatus: HttpStatus.BAD_REQUEST,
+    resBody: {
+      POST: {
+        status: 'invalid command',
+      },
+      GET: {
+        name,
+        status: 'invalid',
+        logs: { stdout: '', stderr: '' },
+      },
+    },
+  });
+
 export const queriesJSON = {
   permitted: {
     reqBody: {
@@ -60,38 +77,8 @@ export const queriesJSON = {
       },
     },
   },
-  notPermitted: {
-    reqBody: {
-      name: 'execute',
-    },
-    HttpStatus: HttpStatus.BAD_REQUEST,
-    resBody: {
-      POST: {
-        status: 'invalid command',
-      },
-      GET: {
-        name: 'execute',
-        status: 'invalid',
-        logs: { stdout: '', stderr: '' },
-      },
-    },
-  },
-  nonExisting: {
-    reqBody: {
-      name: 'configure',
-    },
-    HttpStatus: HttpStatus.BAD_REQUEST,
-    resBody: {
-      POST: {
-        status: 'invalid command',
-      },
-      GET: {
-        name: 'configure',
-        status: 'invalid',
-        logs: { stdout: '', stderr: '' },
-      },
-    },
-  },
+  notPermitted: invalidQuery('execute'),
+  nonExisting: invalidQuery('configure'),
   incorrect: {
     reqBody: {
       command: 'create',
