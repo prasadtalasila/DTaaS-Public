@@ -6,6 +6,11 @@ import { ExecuteCommandDto } from 'src/dto/command.dto';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
 import Keyv from 'keyv';
+import {
+  configFilename,
+  nonExistingCommand,
+  permittedCommand,
+} from 'test/utils';
 
 describe('Check execution manager based on execa library', () => {
   let dt: Manager;
@@ -13,8 +18,7 @@ describe('Check execution manager based on execa library', () => {
   const CLIOptions: Keyv = new Keyv();
 
   beforeAll(async () => {
-    // TODO: move the filename to test/utils.ts
-    await CLIOptions.set('configFile', 'runner.test.yaml');
+    await CLIOptions.set('configFile', configFilename);
   });
 
   beforeEach(async () => {
@@ -39,10 +43,7 @@ describe('Check execution manager based on execa library', () => {
     let status: boolean = false;
     let logs: Map<string, string> = new Map<string, string>();
 
-    // TODO: receive this command from config object
-    // take only the first element of this array to make sure
-    // that there may be more than one permitted command
-    [status, logs] = await dt.newCommand('create');
+    [status, logs] = await dt.newCommand(permittedCommand(config));
 
     expect(logs.get('stdout')).toEqual(expect.any(String));
     expect(logs.get('stderr')).toEqual('');
@@ -53,8 +54,7 @@ describe('Check execution manager based on execa library', () => {
     let status: boolean = true;
     let logs: Map<string, string> = new Map<string, string>();
 
-    // TODO: move the command name to test/utils.ts
-    [status, logs] = await dt.newCommand('asdfghjkl');
+    [status, logs] = await dt.newCommand(nonExistingCommand);
 
     expect(status).toBe(false);
     expect(logs.get('stdout')).toBeUndefined();
@@ -75,10 +75,7 @@ describe('Check execution manager based on execa library', () => {
     expect(commandStatus).toEqual(expStatus);
   });
 
-  // TODO: test for status as well
-  // only the status is failing, why?
-  it.failing('Should hold correct history of command executions', async () => {
-    const newCommandStatus: boolean[] = [];
+  it('Should hold correct history of command executions', async () => {
     const pastCommands: Array<ExecuteCommandDto> = [
       {
         name: 'create',
@@ -90,29 +87,24 @@ describe('Check execution manager based on execa library', () => {
         name: 'execute',
       },
     ];
-    // pastCommands.map(async (command) => await dt.newCommand(command.name));
-    pastCommands.map(async (command) => {
-      const [collectStatus] = await dt.newCommand(command.name);
-      newCommandStatus.push(collectStatus);
-    });
+    await Promise.all(
+      pastCommands.map(async (command) => dt.newCommand(command.name)),
+    );
+
     const pastCommandsActual = dt.checkHistory();
 
     expect(pastCommandsActual).toStrictEqual(pastCommands);
-
-    const expStatus = {
-      name: 'execute',
-      status: 'invalid',
-      logs: {
-        stdout: '',
-        stderr: '',
-      },
-    };
-
-    const commandStatus: CommandStatus = dt.checkStatus();
-    expect(commandStatus).toEqual(expStatus);
-    expect(newCommandStatus).toEqual([true, false, false]);
   });
 
-  // TODO: write test to check for the status of valid and invalid commands
-  // executed in that order
+  it('Should return correct command execution status for a series of commands', async () => {
+    const commands = ['non-existing-command', 'create'];
+    const commandStatus = await Promise.all(
+      commands.map(async (command) => {
+        const [status] = await dt.newCommand(command);
+        return status;
+      }),
+    );
+
+    expect(commandStatus).toEqual([false, true]);
+  });
 });

@@ -99,7 +99,7 @@ describe('Test AppController', () => {
     ]);
   });
 
-  it.failing('Should return correct command status after valid command execution followed by invalid command execution', async () => {
+  it('Should return correct command status after valid command execution followed by invalid command execution', async () => {
     await newCommandTest({ name: 'create' }, HttpStatus.OK, {
       status: 'success',
     });
@@ -111,6 +111,14 @@ describe('Test AppController', () => {
     const unsuccessStatus = await controller.cmdStatus();
 
     expect(successStatus).toEqual({
+      name: 'create',
+      status: 'valid',
+      logs: {
+        stdout: 'hello world',
+        stderr: '',
+      },
+    });
+    expect(unsuccessStatus).toEqual({
       name: 'test',
       status: 'invalid',
       logs: {
@@ -118,7 +126,6 @@ describe('Test AppController', () => {
         stderr: '',
       },
     });
-    expect(unsuccessStatus).toEqual(successStatus);
   });
 
   it('Should return correct command status without any prior command execution', async () => {

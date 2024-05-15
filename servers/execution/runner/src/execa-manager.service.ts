@@ -34,7 +34,9 @@ export default class ExecaManager implements Manager {
       );
       await command.task.run().then((value) => {
         status = value;
-        command.status = value ? 'valid' : command.status;
+        if (value) {
+          command.status = 'valid';
+        }
 
         if (command.task !== undefined) {
           logs = command.task.checkLogs();
