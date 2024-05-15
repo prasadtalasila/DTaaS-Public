@@ -46,26 +46,26 @@ export default class ExecaManager implements Manager {
     return [status, logs];
   }
 
-  checkStatus(): CommandStatus {
-    let commandStatus: CommandStatus = {
-      name: 'none',
-      status: 'invalid',
+  private static createStatus(name: string, status: string) {
+    return {
+      name,
+      status,
       logs: {
         stdout: '',
         stderr: '',
       },
     };
+  }
+
+  checkStatus(): CommandStatus {
+    let commandStatus: CommandStatus = ExecaManager.createStatus(
+      'none',
+      'invalid',
+    );
     const command: Command | undefined = this.commandQueue.activeCommand();
 
     if (command !== undefined && command.task === undefined) {
-      commandStatus = {
-        name: command.name,
-        status: command.status,
-        logs: {
-          stdout: '',
-          stderr: '',
-        },
-      };
+      commandStatus = ExecaManager.createStatus(command.name, command.status);
     }
     if (command !== undefined && command.task !== undefined) {
       commandStatus = {
