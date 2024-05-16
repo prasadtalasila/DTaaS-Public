@@ -44,21 +44,21 @@ export function getRequest(query: Query) {
 }
 
 const invalidQuery = (name: string) => ({
-    reqBody: {
+  reqBody: {
+    name,
+  },
+  HttpStatus: HttpStatus.BAD_REQUEST,
+  resBody: {
+    POST: {
+      status: 'invalid command',
+    },
+    GET: {
       name,
+      status: 'invalid',
+      logs: { stdout: '', stderr: '' },
     },
-    HttpStatus: HttpStatus.BAD_REQUEST,
-    resBody: {
-      POST: {
-        status: 'invalid command',
-      },
-      GET: {
-        name,
-        status: 'invalid',
-        logs: { stdout: '', stderr: '' },
-      },
-    },
-  });
+  },
+});
 
 export const queriesJSON = {
   permitted: {
