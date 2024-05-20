@@ -13,7 +13,7 @@
     "clean": "npx rimraf build node_modules coverage dist src.svg test.svg",
     "check:final": "concurrently -s all -g -n syntax,format,graph,build,test \"yarn syntax\" \"yarn format\" \"yarn graph\" \"yarn build\" \"yarn test\"",
     "format": "prettier --ignore-path ../.gitignore --write \"**/*.{ts,tsx,css,scss}\"",
-    "start": "npx cross-env NODE_OPTIONS='--es-module-specifier-resolution=node --experimental-specifier-resolution=node' NODE_NO_WARNINGS=1 node dist/src/main.js",
+    "start": "npx cross-env NODE_OPTIONS=--es-module-specifier-resolution=node --experimental-specifier-resolution=node NODE_NO_WARNINGS=1 node dist/src/main.js",
     "syntax": "npx eslint . --fix",
     "pretest": "npx rimraf runner.test.yaml script && npx shx cp test/config/runner.test.yaml runner.test.yaml && npx shx mkdir script && npx shx cp test/data/script/* script/.",
     "posttest": "npx rimraf runner.test.yaml script",

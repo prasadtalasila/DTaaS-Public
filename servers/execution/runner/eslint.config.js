@@ -1,4 +1,3 @@
-import airbnb from 'eslint-config-airbnb-base';
 import { fixupConfigRules } from '@eslint/compat';
 import { FlatCompat } from '@eslint/eslintrc';
 import globals from 'globals';
@@ -31,7 +30,6 @@ export default [
       },
       parser: tsParser,
       parserOptions: {
-        project: true,
         project: './tsconfig.json',
         requireConfigFile: false,
         ecmaVersion: 2022,
