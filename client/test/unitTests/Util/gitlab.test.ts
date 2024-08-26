@@ -1,5 +1,5 @@
-import { Gitlab } from '@gitbeaker/rest';
-import GitlabInstance from 'util/gitlab';
+import { Gitlab , ProjectSchema, PipelineTriggerTokenSchema, GroupSchema, RepositoryTreeSchema } from '@gitbeaker/rest';
+import { GitlabInstance } from 'util/gitlab';
 
 jest.mock('@gitbeaker/rest');
 

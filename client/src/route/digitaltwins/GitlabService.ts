@@ -1,6 +1,7 @@
 import { GitlabInstance } from 'util/gitlab';
 import { getAuthority } from 'util/envUtil';
 import { Asset } from '../../components/asset/Asset';
+import { Asset } from '../../components/asset/Asset';
 
 class GitlabService {
   private gitlabInstance: GitlabInstance;

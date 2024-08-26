@@ -1,5 +1,6 @@
 import { Gitlab } from '@gitbeaker/rest';
 import { Asset } from '../components/asset/Asset';
+import { Asset } from '../components/asset/Asset';
 
 const GROUP_NAME = 'DTaaS';
 const DT_DIRECTORY = 'digital_twins';

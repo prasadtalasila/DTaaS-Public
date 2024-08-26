@@ -1,6 +1,7 @@
 import { ProjectSchema, PipelineTriggerTokenSchema } from '@gitbeaker/rest';
 import DigitalTwin from 'util/gitlabDigitalTwin';
 import { GitlabInstance } from 'util/gitlab';
+import { GitlabInstance } from 'util/gitlab';
 
 type LogEntry = { status: string; DTName: string; runnerTag: string };
 

@@ -1,10 +1,19 @@
 import * as React from 'react';
 import { useEffect, useState, Dispatch, SetStateAction } from 'react';
+import { useEffect, useState, Dispatch, SetStateAction } from 'react';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import { AlertColor, CardActions, Grid } from '@mui/material';
+import { AlertColor, CardActions, Grid } from '@mui/material';
 import styled from '@emotion/styled';
+import DigitalTwin from 'util/gitlabDigitalTwin';
+import { GitlabInstance } from 'util/gitlab';
+import { getAuthority } from 'util/envUtil';
+import CustomSnackbar from 'route/digitaltwins/Snackbar';
+import { useDispatch } from 'react-redux';
+import { setDigitalTwin } from 'store/digitalTwin.slice';
+import LogDialog from 'route/digitaltwins/LogDialog';
 import DigitalTwin from 'util/gitlabDigitalTwin';
 import { GitlabInstance } from 'util/gitlab';
 import { getAuthority } from 'util/envUtil';
@@ -24,7 +33,7 @@ interface AssetCardExecuteProps {
 }
 
 interface CardButtonsContainerExecuteProps {
-  digitalTwin: DigitalTwin;
+  assetName: string;
   setSnackbarOpen: Dispatch<SetStateAction<boolean>>;
   setSnackbarMessage: Dispatch<SetStateAction<string>>;
   setSnackbarSeverity: Dispatch<SetStateAction<AlertColor>>;
@@ -51,6 +60,7 @@ const Description = styled(Typography)`
 
 const formatName = (name: string) =>
   name.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase());
+  name.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase());
 
 function CardActionAreaContainer(asset: Asset) {
   return (
@@ -76,7 +86,7 @@ function CardActionAreaContainer(asset: Asset) {
 }
 
 function CardButtonsContainerExecute({
-  digitalTwin,
+  assetName,
   setSnackbarOpen,
   setSnackbarMessage,
   setSnackbarSeverity,
@@ -90,7 +100,7 @@ function CardButtonsContainerExecute({
   return (
     <CardActions style={{ justifyContent: 'flex-end' }}>
       <StartStopButton
-        digitalTwin={digitalTwin}
+        assetName={assetName}
         setSnackbarOpen={setSnackbarOpen}
         setSnackbarMessage={setSnackbarMessage}
         setSnackbarSeverity={setSnackbarSeverity}
@@ -127,9 +137,6 @@ function AssetCard({ asset, buttons }: AssetCardProps) {
 }
 
 function AssetCardExecute({ asset }: AssetCardExecuteProps) {
-  const [digitalTwin, setDigitalTwin] = useState<DigitalTwin>(
-    new DigitalTwin('', new GitlabInstance('', '', '')),
-  );
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] =
@@ -140,6 +147,8 @@ function AssetCardExecute({ asset }: AssetCardExecuteProps) {
     [],
   );
 
+  const dispatch = useDispatch();
+
   useEffect(() => {
     const gitlabInstance = new GitlabInstance(
       sessionStorage.getItem('username') || '',
@@ -147,7 +156,12 @@ function AssetCardExecute({ asset }: AssetCardExecuteProps) {
       sessionStorage.getItem('access_token') || '',
     );
     gitlabInstance.init();
-    setDigitalTwin(new DigitalTwin(asset.name, gitlabInstance));
+    dispatch(
+      setDigitalTwin({
+        assetName: asset.name,
+        digitalTwin: new DigitalTwin(asset.name, gitlabInstance),
+      }),
+    );
   }, []);
 
   return (
@@ -156,7 +170,7 @@ function AssetCardExecute({ asset }: AssetCardExecuteProps) {
         asset={asset}
         buttons={
           <CardButtonsContainerExecute
-            digitalTwin={digitalTwin}
+            assetName={asset.name}
             setSnackbarOpen={setSnackbarOpen}
             setSnackbarMessage={setSnackbarMessage}
             setSnackbarSeverity={setSnackbarSeverity}
@@ -176,7 +190,7 @@ function AssetCardExecute({ asset }: AssetCardExecuteProps) {
       <LogDialog
         showLog={showLog}
         setShowLog={setShowLog}
-        name={digitalTwin.DTName}
+        name={asset.name}
         executionCount={executionCount}
         jobLogs={jobLogs}
       />
