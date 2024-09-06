@@ -3,7 +3,6 @@ import { Grid } from '@mui/material';
 import { GitlabInstance } from 'util/gitlab';
 import { Asset } from './Asset';
 import AssetCardExecute from './AssetCard';
-import AssetCardExecute from './AssetCard';
 
 const outerGridContainerProps = {
   container: true,

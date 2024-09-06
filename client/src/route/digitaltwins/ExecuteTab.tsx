@@ -1,6 +1,5 @@
 import React from 'react';
 import { Grid, Box, Typography } from '@mui/material';
-import { Grid, Box, Typography } from '@mui/material';
 import ExecuteDigitalTwin from 'route/digitaltwins/ExecuteDigitalTwin';
 import { GitlabInstance, FolderEntry } from 'util/gitlab';
 

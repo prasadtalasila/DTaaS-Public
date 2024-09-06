@@ -1,10 +1,8 @@
 import * as React from 'react';
 import { useEffect, useState, Dispatch, SetStateAction } from 'react';
-import { useEffect, useState, Dispatch, SetStateAction } from 'react';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import { AlertColor, CardActions, Grid } from '@mui/material';
 import { AlertColor, CardActions, Grid } from '@mui/material';
 import styled from '@emotion/styled';
 import DigitalTwin from 'util/gitlabDigitalTwin';
@@ -13,11 +11,6 @@ import { getAuthority } from 'util/envUtil';
 import CustomSnackbar from 'route/digitaltwins/Snackbar';
 import { useDispatch } from 'react-redux';
 import { setDigitalTwin } from 'store/digitalTwin.slice';
-import LogDialog from 'route/digitaltwins/LogDialog';
-import DigitalTwin from 'util/gitlabDigitalTwin';
-import { GitlabInstance } from 'util/gitlab';
-import { getAuthority } from 'util/envUtil';
-import CustomSnackbar from 'route/digitaltwins/Snackbar';
 import LogDialog from 'route/digitaltwins/LogDialog';
 import StartStopButton from './StartStopButton';
 import LogButton from './LogButton';
@@ -59,7 +52,6 @@ const Description = styled(Typography)`
 `;
 
 const formatName = (name: string) =>
-  name.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase());
   name.replace(/-/g, ' ').replace(/^./, (char) => char.toUpperCase());
 
 function CardActionAreaContainer(asset: Asset) {
