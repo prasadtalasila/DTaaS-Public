@@ -156,6 +156,6 @@ jobs:
     uses: ./.github/workflows/docker.yml
     with: 
         registry: ghcr.io
-        image-name: into-cps-association/libms
+        image-name: prasadtalasila/libms
         version: ${{ needs.get_version.outputs.version }}
         dockerfile: libms.dockerfile
