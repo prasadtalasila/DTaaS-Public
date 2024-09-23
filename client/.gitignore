@@ -1,2 +1,3 @@
 playwright/.auth/
 test-results/
+.env
