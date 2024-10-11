@@ -10,17 +10,19 @@ assignees: ''
 ### Describe the feature
 
 A clear and concise description of the new feature using
-"As a [...] I want to [...] So That [...]" idiom (see [explanation](https://www.agilealliance.org/glossary/user-story-template/).
+"As a [...] I want to [...] So That [...]" idiom (see
+[explanation](https://www.agilealliance.org/glossary/user-story-template/).
 
 Ex. As a **user**, I want to **access git repos via lib microservice**
 so that **I can access git repos as directories on server**
 
-### Is your feature request related to a problem?
+### Describe the problems your feature request solves
 
 A clear and concise description of what the problem is.
 Ex. I'm always frustrated when [...]
 
-Remember to reference an existing issue this feature request proposes to solve.
+Remember to reference an existing issue this feature request
+proposes to solve.
 
 ### Describe the solution you'd like
 
@@ -28,7 +30,8 @@ A clear and concise description of what you want to happen.
 
 ### Describe alternatives you've considered
 
-A clear and concise description of any alternative solutions or features you've considered.
+A clear and concise description of any alternative solutions or
+features you've considered.
 
 ### Additional context
 
