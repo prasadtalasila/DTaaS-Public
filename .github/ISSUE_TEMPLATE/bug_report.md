@@ -7,7 +7,6 @@ assignees: ''
 
 ---
 
-<!-- markdownlint-disable-next-line MD041 -->
 ### Describe the bug
 
 A clear and concise description of what the bug is.
