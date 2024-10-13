@@ -121,7 +121,7 @@ build/
 # Test reports
 coverage/
 playwright-report/
-playwright/
+client/playwright/
 test_results/
 
 # Mac temp files
@@ -164,4 +164,7 @@ runner.yml
 .workspace
 
 # command scripts for runner
-servers/execution/runner/script*
+servers/execution/runner/lifecycle*
+
+# certs
+*.pem
