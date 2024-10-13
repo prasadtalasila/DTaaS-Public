@@ -62,7 +62,6 @@
     "vscode": {
       "extensions": [
 				"AlexShen.classdiagram-ts",
-				"bierner.markdown-emoji",
 				"christian-kohler.npm-intellisense",
 				"DavidAnson.vscode-markdownlin",
 				"donjayamanne.githistory",
@@ -70,7 +69,6 @@
 				"humao.rest-client",
 				"johnpapa.vscode-peacock",
 				"mhutchie.git-graph",
-				"esbenp.prettier-vscode",
 				"SimonSiefke.svg-preview",
 				"redhat.vscode-yaml",
 				"VisualStudioExptTeam.vscodeintellicode",
