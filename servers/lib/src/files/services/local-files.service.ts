@@ -2,8 +2,8 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as fs from 'fs';
 import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
-import { Project } from 'src/types';
-import { IFilesService } from '../interfaces/files.service.interface';
+import { Project } from 'src/types.js';
+import { IFilesService } from '../interfaces/files.service.interface.js';
 
 @Injectable()
 export default class LocalFilesService implements IFilesService {
@@ -45,7 +45,7 @@ export default class LocalFilesService implements IFilesService {
 
       return LocalFilesService.formatResponse(name, content);
     } catch (error) {
-      throw new InternalServerErrorException('Error reading file');
+      throw new InternalServerErrorException('Error reading file', error);
     }
   }
 

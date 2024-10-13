@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import * as dotenv from 'dotenv';
-import AppModule from './app.module';
-import cloudCMD from './cloudcmd/cloudcmd';
+import AppModule from './app.module.js';
+import cloudCMD from './cloudcmd/cloudcmd.js';
 
 type BootstrapOptions = {
   config?: string;
@@ -15,7 +15,7 @@ export default async function bootstrap(options?: BootstrapOptions) {
     path: options?.config ?? '.env',
     override: true,
   });
-  if (configFile.error) {
+  if (configFile.error && process.env.LOCAL_PATH === undefined) {
     // eslint-disable-next-line no-console
     console.error(configFile.error);
     if (options.runHelp) {

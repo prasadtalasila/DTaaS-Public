@@ -37,16 +37,71 @@ APOLLO_PATH='/lib'
 GRAPHQL_PLAYGROUND='true'
 ```
 
-## :package: :ship: NPM package
+## Service Endpoint
 
-### Github Package Registry
+The URL endpoint for this microservice is located at: `localhost:PORT/lib`
+
+The [API](./API.md) page shows sample queries and responses.
+
+## Manual testing
+
+As of now, some features require manual testing or attention.
+
+### CloudCMD (a npm package dependency)
+
+Due to how CloudCMD works,
+it is required to manually run `yarn test:http` with `LOCAL_PATH` both as an
+absolute path and local path. For example, the manual tests
+need to be done with the following `LOCAL_PATH` values.
+
+| OS      | Absolute Path                 | Relative Path |
+| ------- | ----------------------------- | ------------- |
+| Windows | C:\DTaaS\files                | ..\..\files  |
+| Linux   | /Users/\<Username\>/DTaaS/files | ../../files   |
+
+### PM2
+
+the pm2 might not close spawned processes correctly,
+therefore please use the following command to kill a process.
+`pm2 del <id>`.
+
+**NOTE:** to see the processes spawned by pm2 use `pm2 list`
+
+## :package: :ship: Packages
+
+### Docker images
+
+The docker version of lib microservice is packaged with the DTaaS
+application release.
+Please see [publishing](../../docker/README.md) page
+for more information publishing docker images.
+
+### Default NPM Registry
+
+The default registry for npm packages is [npmjs](https://registry.npmjs.org).
+
+```bash
+sudo npm install -g @into-cps-association/libms
+```
+
+The steps for publishing the package to npmjs are listed in
+[npm packages](../../docs/developer/npm-packages.md) page.
+
+The libms is also published on this registry, usually per release
+of the DTaaS application. The package on npmjs is more stable
+than the package on github npm registry.
+
+### Github NPM Package Registry
 
 The Github actions workflow of
 [lib microservice](../../.github/workflows/lib-ms.yml) publishes the **libms**
 into
 [packages](https://github.com/orgs/INTO-CPS-Association/packages?repo_name=DTaaS).
 
-### Verdaccio - Local Package Registry
+A new libmspackage is published to github packages for each version
+of libms microservice.
+
+### Verdaccio - Local NPM Package Registry
 
 Use the instructions in
 [publish npm package](../../docs/developer/npm-packages.md) for help
@@ -54,6 +109,44 @@ with publishing **libms npm package** in local computer.
 
 Application of the advice given on that page for **libms** will require
 running the following commands.
+
+## Use in Docker Environment
+
+### Adjust Configuration (Optional)
+
+The microservices require configuration and the docker version
+of the microservices uses the configuration
+file available in `config/.env.default`.
+
+Please add a `.env` file with the environment variables for
+the docker compose file to use.
+e.g.
+
+```sh
+PORT='4001'
+MODE='local'
+LOCAL_PATH='..\..\files'
+```
+
+### Use
+
+The commands to start and stop the appliation are:
+
+**NOTE**: the docker compose file is located in the `servers/lib` directory.
+
+```bash
+docker compose -f compose.lib.dev.yml up -d
+```
+
+This command brings up the lib docker container and makes
+the website available at <http://localhost:4001>.
+The `config/.env.default` file is used as the microservice configuration.
+If the configuration values are changed, please restart the container.
+
+```bash
+docker compose -f compose.lib.dev.yml down
+docker compose -f compose.lib.dev.yml up -d
+```
 
 ### Publish
 
@@ -69,9 +162,3 @@ yarn publish #increments version, publishes to registry and adds a git tag
 ```bash
 npm unpublish  --registry http://localhost:4873/ @into-cps-association/libms@0.2.0
 ```
-
-## Service Endpoint
-
-The URL endpoint for this microservice is located at: `localhost:PORT/lib`
-
-The [API](./API.md) page shows sample queries and responses.

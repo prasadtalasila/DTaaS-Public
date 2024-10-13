@@ -1,4 +1,5 @@
 // files-service.factory.spec.ts
+import { describe, it, expect, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import FilesServiceFactory from '../../src/files/services/files-service.factory';
@@ -32,6 +33,6 @@ describe('FilesServiceFactory', () => {
 
   it('should throw an error when MODE is invalid', () => {
     jest.spyOn(configService, 'get').mockReturnValue('invalid');
-    expect(() => serviceFactory.create()).toThrowError(`Invalid MODE: invalid`);
+    expect(() => serviceFactory.create()).toThrow(`Invalid MODE: invalid`);
   });
 });
