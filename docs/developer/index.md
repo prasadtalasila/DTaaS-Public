@@ -30,12 +30,6 @@ There is a devcontainer configuration (`.devcontainer/devcontainer.json`)
 for the project. Please use it to get a dockerized development environment.
 DevContainer is the easiest way to get started.
 
-### DevContainers
-
-There is a devcontainer configuration (`.devcontainer/devcontainer.json`)
-for the project. Please use it to get a dockerized development environment.
-DevContainer is the easiest way to get started.
-
 ### Ubuntu/Linux
 
 The code base has been developed for most part on
@@ -182,6 +176,13 @@ The project code qualities are measured based on:
 
 - Linting issues identified by
   [Code Climate](https://codeclimate.com/github/INTO-CPS-Association/DTaaS)
+  The codeclimate is being migrated to [qlty](https://docs.qlty.sh).
+  Please [install qlty](https://docs.qlty.sh/cli/quickstart) and use
+  the following command to check for code quality issues.
+  `qlty check --no-fail --sample 5 --no-formatters` and resolve
+  any issues identified by the **qlty**.
+  (Please note that qlty only checks the files that changed from
+  the default branch, i.e., `feature/distributed-demo`).
 - Test coverage report collected by
   [Codecov](https://codecov.io/gh/INTO-CPS-Association/DTaaS)
 - Successful [github actions](https://github.com/INTO-CPS-Association/DTaaS/actions)
