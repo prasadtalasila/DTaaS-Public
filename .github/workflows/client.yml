@@ -59,7 +59,13 @@ jobs:
         with:
           files: client/coverage/all/coverage-final.json
           flags: client-unit-integration-tests 
-        
+
+      - name: Upload the build directory of react client
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: client/
+
       - name: Run e2e tests
         continue-on-error: true
         run: |
@@ -71,7 +77,7 @@ jobs:
         with:
           name: playwright-report-linux
           path: client/playwright-report/**
-          retention-days: 30
+          retention-days: 5
 
       - name: Upload Playwright Report (Windows)
         uses: actions/upload-artifact@v4
@@ -79,7 +85,7 @@ jobs:
         with:
           name: playwright-report-windows
           path: client/playwright-report/**
-          retention-days: 30
+          retention-days: 5
 
       - name: Upload e2e test coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -114,7 +120,7 @@ jobs:
     with: 
       image-name: dtaas-web
       version: ${{ needs.get_version.outputs.version }}
-      dockerfile: client.dockerfile
+      dockerfile: client.built.dockerfile
     secrets: inherit
 
   publish-docker-image-dockerhub:
@@ -128,7 +134,7 @@ jobs:
     with: 
       image-name: dtaas-web
       version: ${{ needs.get_version.outputs.version }}
-      dockerfile: client.dockerfile
+      dockerfile: client.built.dockerfile
       readme-file: client/DOCKER.md
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
