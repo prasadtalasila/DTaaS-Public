@@ -40,7 +40,7 @@ describe('Check execution manager based on execa library', () => {
   });
 
   it('Should execute a valid command', async () => {
-    let status: boolean = false;
+    let status = false;
     let logs: Map<string, string> = new Map<string, string>();
 
     [status, logs] = await dt.newCommand(permittedCommand(config));
@@ -51,7 +51,7 @@ describe('Check execution manager based on execa library', () => {
   });
 
   it('Should not execute an invalid command', async () => {
-    let status: boolean = true;
+    let status = true;
     let logs: Map<string, string> = new Map<string, string>();
 
     [status, logs] = await dt.newCommand(nonExistingCommand);

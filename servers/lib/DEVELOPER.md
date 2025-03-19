@@ -49,7 +49,7 @@ As of now, some features require manual testing or attention.
 
 ### CloudCMD (a npm package dependency)
 
-Due to how CloudCMD works,
+Due to the way CloudCMD works,
 it is required to manually run `yarn test:http` with `LOCAL_PATH` both as an
 absolute path and local path. For example, the manual tests
 need to be done with the following `LOCAL_PATH` values.
