@@ -66,20 +66,21 @@ First, update the configuration in `docs.ini`:
 
 ```ini
 [docs.substitute]
-VERSION='DTaaS-vX.Y.Z'
-URL='https://github.com/INTO-CPS-Association/DTaaS/releases/download/vX.Y.Z/DTaaS-vX.Y.Z.zip'
-FILES=[
-    'docs/admin/localhost.md',
-    'docs/admin/server.md',
-    ...
-]
+VERSION=DTaaS-vX.Y.Z
+URL=https://github.com/INTO-CPS-Association/DTaaS/releases/download/vX.Y.Z/DTaaS-vX.Y.Z.zip
+FILES=docs/admin/localhost.md,
+    docs/admin/localhost-secure.md,
+    docs/admin/server.md,
+    docs/admin/services.md,
+    docs/admin/gitlab/index.md,
+    docs/admin/guides/localhost_portainer.md
 ```
 
 Then run the content replacement script:
 
 ```bash
-pip install -r script/docs-requirements.txt
-python script/docs.py
+pip install -r script/docs/requirements.txt
+python script/docs/main.py
 ```
 
 This script:
