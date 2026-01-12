@@ -41,7 +41,7 @@ Creation of the required TLS certificates is possible through
 
 ### OAuth Provider
 
-**[GitLab Instance](https://about.GitLab.com/install/)** -
+**[GitLab Instance](https://about.gitlab.com/install/)** -
 The DTaaS uses GitLab OAuth2.0 authorization for user authorization.
 You can either have an on-premise instance of GitLab, or
 use [gitlab.com](https://gitlab.com) itself.
