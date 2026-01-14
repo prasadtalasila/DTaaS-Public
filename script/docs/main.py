@@ -12,9 +12,9 @@ from fileops import load_template, process_file
 def get_paths(script_dir: Path) -> tuple:
     """Get required file paths."""
     project_root = script_dir.parent.parent
-    config_path = project_root / 'docs.ini'
-    clone_path = project_root / 'docs' / 'publish' / 'clone.md'
-    release_path = project_root / 'docs' / 'publish' / 'release.md'
+    config_path = project_root / "docs.ini"
+    clone_path = project_root / "docs" / "publish" / "clone.md"
+    release_path = project_root / "docs" / "publish" / "release.md"
     return project_root, config_path, clone_path, release_path
 
 
@@ -35,11 +35,7 @@ def create_replacer(clone_path: Path, release_path: Path, config):
     clone_content = load_template(clone_path)
     release_template = load_template(release_path)
 
-    release_content = substitute_variables(
-        release_template,
-        config.version,
-        config.url
-    )
+    release_content = substitute_variables(release_template, config.version, config.url)
 
     return MarkdownReplacer(clone_content, release_content)
 
@@ -68,5 +64,5 @@ def main():
     print(f"\nCompleted: {modified} file(s) modified")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

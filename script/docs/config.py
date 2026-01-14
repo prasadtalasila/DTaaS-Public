@@ -2,7 +2,7 @@
 
 import configparser
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 
 class Config:
@@ -26,23 +26,19 @@ def load_config(config_path: Path) -> Config:
         Config object with version, url, and file list
     """
     if not config_path.exists():
-        raise FileNotFoundError(
-            f"Configuration file not found: {config_path}"
-        )
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
     parser = configparser.ConfigParser()
-    parser.read(config_path, encoding='utf-8')
+    parser.read(config_path, encoding="utf-8")
 
-    section = 'docs.substitute'
-    version = parser.get(section, 'VERSION', fallback='').strip()
-    url = parser.get(section, 'URL', fallback='').strip()
-    files_raw = parser.get(section, 'FILES', fallback='')
+    section = "docs.substitute"
+    version = parser.get(section, "VERSION", fallback="").strip()
+    url = parser.get(section, "URL", fallback="").strip()
+    files_raw = parser.get(section, "FILES", fallback="")
 
-    files = [f.strip() for f in files_raw.split(',') if f.strip()]
+    files = [f.strip() for f in files_raw.split(",") if f.strip()]
 
     if not version or not url or not files:
-        raise ValueError(
-            f"Section [{section}] must contain VERSION, URL, FILES"
-        )
+        raise ValueError(f"Section [{section}] must contain VERSION, URL, FILES")
 
     return Config(version, url, files)

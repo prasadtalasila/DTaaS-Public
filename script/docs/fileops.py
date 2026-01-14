@@ -2,7 +2,6 @@
 
 import sys
 from pathlib import Path
-from typing import Tuple
 
 
 def load_template(file_path: Path) -> str:
@@ -16,18 +15,14 @@ def load_template(file_path: Path) -> str:
         File content as string
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError as e:
         print(f"Template file not found: {e}", file=sys.stderr)
         sys.exit(1)
 
 
-def process_file(
-    file_path: Path,
-    replacer,
-    relative_path: str
-) -> bool:
+def process_file(file_path: Path, replacer, relative_path: str) -> bool:
     """
     Process single markdown file.
 
@@ -62,11 +57,11 @@ def process_file(
 
 def _read_file(file_path: Path) -> str:
     """Read file content."""
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
 
 
 def _write_file(file_path: Path, content: str) -> None:
     """Write file content."""
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)

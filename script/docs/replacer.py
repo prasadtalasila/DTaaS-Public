@@ -41,24 +41,17 @@ class MarkdownReplacer:
     def _create_pattern(self, clone_content: str) -> re.Pattern:
         """Create flexible regex pattern for matching."""
         # Replace 'cd ' commands before escaping (word boundary needed)
-        flexible = re.sub(
-            r'\bcd\s+\S+',
-            'CD_PATH_PLACEHOLDER',
-            clone_content
-        )
+        flexible = re.sub(r"\bcd\s+\S+", "CD_PATH_PLACEHOLDER", clone_content)
 
         # Escape regex special characters
         pattern = re.escape(flexible)
 
         # Restore cd with flexible path matching
-        pattern = pattern.replace(
-            'CD_PATH_PLACEHOLDER',
-            r'cd\s+.+?(?=\n|$)'
-        )
+        pattern = pattern.replace("CD_PATH_PLACEHOLDER", r"cd\s+.+?(?=\n|$)")
 
         # Allow flexible whitespace
-        pattern = pattern.replace(r'\ ', r'\s+')
-        pattern = pattern.replace(r'\n', r'\s*\n\s*')
+        pattern = pattern.replace(r"\ ", r"\s+")
+        pattern = pattern.replace(r"\n", r"\s*\n\s*")
 
         return re.compile(pattern, re.MULTILINE)
 
@@ -75,6 +68,6 @@ def substitute_variables(template: str, version: str, url: str) -> str:
     Returns:
         Template with substituted values
     """
-    result = template.replace('VERSION', version)
-    result = result.replace('URL', url)
+    result = template.replace("VERSION", version)
+    result = result.replace("URL", url)
     return result
