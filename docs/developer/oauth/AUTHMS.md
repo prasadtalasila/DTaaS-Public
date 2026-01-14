@@ -2,8 +2,8 @@
 
 This document details the workflow and implementation
 of the DTaaS Auth Microservice. Please go through
-the [System Design](DESIGN.md) and the summary of
-the [OAuth2.0 technology](OAUTH2.0.md) to be able to
+the [System Design](design.md) and the summary of
+the [OAuth2.0 technology](oauth2.0.md) to be able to
 understand the content here better.
 
 ## Workflow

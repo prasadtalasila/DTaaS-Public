@@ -212,3 +212,6 @@ coverage.xml
 #ignore developer files
 docker/.env
 docker/conf.dev
+
+# local research papers
+.research-papers

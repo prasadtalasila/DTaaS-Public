@@ -110,12 +110,16 @@ nav:
         - Architecture: developer/system/architecture.md
         - Current Status: developer/system/current-status.md
       - OAuth2 Authorization:
-        - Concepts: developer/oauth/OAUTH2.0.md
-        - System Design: developer/oauth/DESIGN.md
-        - Microservice: developer/oauth/AUTHMS.md
+        - Concepts: developer/oauth/oauth2.0.md
+        - System Design: developer/oauth/design.md
+        - Microservice: developer/oauth/authms.md
       - Testing: developer/testing/intro.md
       - Docker: developer/docker/docker.md
       - NPM Packages: developer/npm-packages.md
+      - DTaaS CLI: developer/cli.md
+      - Client: developer/client/client.md
+      - Library Microservice: developer/servers/lib/lib-ms.md
+      - Runner Microservice: developer/servers/execution/runner/runner.md
       - DevOps Framework:
         - Overview: developer/devops/overview.md
         - GitLab CI/CD Infrastructure: developer/devops/gitlab-ci-cd.md
