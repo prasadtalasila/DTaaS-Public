@@ -106,7 +106,7 @@ redirect_uri=REDIRECT_URI'
 
 The request to get a token by exchanging an authorization code,
 is actually a POST request (for most OAuth2 providers).
-The <http:>https://gitlab.foo.com/oauth/token</http:> API endpoint handles
+The <http:><https://gitlab.foo.com/oauth/token></http:> API endpoint handles
 the token exchange requests. The parameters sent with the
 POST request are the client ID, the client secret, the AUTHCODE and the
 redirect uri. The grant type parameter is always set to the string
@@ -156,7 +156,7 @@ authentication code for an access token.
   "Authorization": Bearer <TOKEN>
   ```
 
-Here, <http:>https://gitlab.foo.com/api/v4/user</http:> is the API endpoint
+Here, <http:><https://gitlab.foo.com/api/v4/user></http:> is the API endpoint
 that responds with user information.
 An authorization header is required on the request,
 with a valid access token. The required header
@@ -407,7 +407,7 @@ labels:
 - Domain - This would be a domain
   (example: gmail.com), and only
   email IDs (user identities) of that
-  domain (example: johndoe@gmail.com)
+  domain (example: <johndoe@gmail.com>)
   would be allowed access to the corresponding route.
 
 Configuring any of these two properties of

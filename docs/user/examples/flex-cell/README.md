@@ -141,7 +141,7 @@ chmod +x lifecycle/create
 ```
 
 This example requires Java 11. The **create** script installs Java 11;
-however if you have already installed other Java versions, your default _java_
+however if you have already installed other Java versions, your default *java*
 might be pointing to another version. You can check and modify the default
 version using the following commands.
 
