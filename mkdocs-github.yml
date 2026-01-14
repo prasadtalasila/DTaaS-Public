@@ -101,6 +101,7 @@ nav:
         - Remove user: admin/guides/remove_user.md
         - Link services: admin/guides/link_service.md
         - Common Assets: admin/guides/common_workspace_readonly.md
+        - Renew Certificates: admin/guides/renew_certs.md
   - FAQ: FAQ.md
   - Developer:
       - Developer Guide: developer/index.md
