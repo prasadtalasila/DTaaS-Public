@@ -42,12 +42,12 @@ cd DTaaS/deploy/services/gitlab
 ```
 
 In this guide we will assume the contents of the zip file have been extracted
-to the directory: `/home/Desktop/DTaaS`.
+to the directory: `/Users/username/DTaaS`.
 
 !!! tip
     The path given here is for Linux OS.
        It can be Windows compatible as well, for example: `C:\\DTaaS`. Make
-       sure to use this path and format in place of `/home/Desktop/DTaaS` in this
+       sure to use this path and format in place of `/Users/username/DTaaS` in this
        guide.
 
 ## Starting Portainer
@@ -125,7 +125,7 @@ above, here is a summary:
 
   | URL Path | Example Value | Explanation |
   | :------------ | :--------------- | :--------------- |
-  | DTAAS_DIR | '/home/Desktop/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash. |
+  | DTAAS_DIR | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash. |
   | username1 | 'user1' | Your gitlab username |
 
 <!-- markdownlint-disable MD046 -->

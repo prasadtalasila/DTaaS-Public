@@ -2,7 +2,7 @@ site_name: Digital Twin as a Service (DTaaS)
 
 repo_url: https://github.com/into-cps-association/DTaaS
 repo_name: DTaaS
-copyright: Copyright &copy; 2022 - 2024 The INTO-CPS Association
+copyright: Copyright &copy; 2022 - 2026 The INTO-CPS Association
 
 theme:
   name: material
@@ -149,7 +149,7 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets      
+  - pymdownx.snippets
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -158,7 +158,7 @@ markdown_extensions:
   - pymdownx.details
   - admonition
   - pymdownx.tabbed:
-      alternate_style: true   
+      alternate_style: true
   - mdx_math:
       enable_dollar_delimiter: True
 

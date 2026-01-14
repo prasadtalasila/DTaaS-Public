@@ -1,8 +1,14 @@
 # GitLab Runner Integration
 
-This document outlines the steps needed to create a Docker container named
-`gitlab-runner` which will contain a single runner that will be responsible for
-the execution of Digital Twins. There are two installation scenarios:
+This document outlines the steps needed to create a `gitlab-runner`
+that will be responsible for the execution of Digital Twins. Many such
+runners can be installaed and linked with the integrated GitLab.
+
+An illustration of the intended installation setup is shown below.
+
+![GitLab Runner Integration](gitlab-integrated-runner.png))
+
+There are two installation scenarios:
 
 1. __Localhost Installation__ - You are using the integrated runner locally with
    a GitLab instance hosted at `https://localhost/gitlab`.
@@ -18,8 +24,8 @@ execute digital twins from the Digital Twins Preview Page.
 
 A GitLab Runner picks up CI/CD jobs by communicating with a GitLab instance.
 For an explanation of how to set up a GitLab instance that integrates with a
-DTaaS application, refer to [our GitLab instance document](./index.md)
-and [our GitLab integration guide](./integration.md).
+DTaaS application, refer to [our GitLab instance document](index.md)
+and [our GitLab integration guide](integration.md).
 
 The rest of this document assumes you have a running DTaaS application with a
 GitLab instance running.

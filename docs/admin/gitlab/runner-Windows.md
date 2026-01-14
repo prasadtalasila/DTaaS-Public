@@ -3,6 +3,14 @@
 This guide documents how to properly set up and configure GitLab runners with
 Docker on Windows for the Digital Twins as a Service (DTaaS) project.
 
+This document outlines the steps needed to properly set up and
+configure GitLab runners on Windows.
+An illustration of the intended installation setup is shown below.
+
+![GitLab Runner Integration](gitlab-integrated-runner.png))
+
+There are two installation scenarios:
+
 ## Step-by-Step Setup Process
 
 ### 1. Install GitLab Runner

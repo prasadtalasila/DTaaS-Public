@@ -27,10 +27,9 @@ This user needs to have ownership permissions over the project.
     The DTaaS website expects a default branch named
     `main` to exist. The website client performs all the git
     operations on this branch.
+    On the other hand, it is possible to change the preferred
+    default branch name in [settings page](../website/settings.md).
 <!-- markdownlint-enable MD046 -->
-
-You can change name of the default branch in
-the [settings](../website/settings.md) page.
 
 ## Git commands
 
@@ -67,7 +66,7 @@ For example, with `PAT1` as PAT of
 `dtaas/user1` repository, the command to clone the repository is
 
 ```sh
-$git clone https://user1:PAT1@shared.dtaas-digitaltwin.com/gitlab/dtaas/user1.git
+$git clone https://user1:PAT1@dtaas-digitaltwin.com/gitlab/dtaas/user1.git
 $cd user1
 ```
 

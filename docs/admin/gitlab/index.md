@@ -1,15 +1,37 @@
 # Local GitLab Instance
 
-This guide helps with installation of a dedicated
-[GitLab](https://gitlab.com) service. This GitLab installation can be used
-as OAuth2 authorization provider to the DTaaS software.
-In addition, it is also possible to use the integrated GitLab for
-enabling the digital twin DevOps experimental features of the DTaaS.
+This guide helps with installation of a dedicated local
+[GitLab](https://gitlab.com) instance. This GitLab installation can be used
+as OAuth2 authorization provider and DevOps backend to the DTaaS software.
 
-There are two possible ways you can install GitLab:
+## Design
+
+There are two possible ways you can install GitLab alongside the DTaaS:
 
 * At dedicated domain name (ex: <http:>_gitlab.foo.com_</http:>)
 * At a URL path on existing WWW server (ex: <http:>foo.com/gitlab</http>)
+
+The first is a two server installation setup where the GitLab and the DTaaS
+are installation on two servers. An illustration of this setup is shown below.
+
+![GitLab independent install](gitlab-independent-install.png)
+
+🗒️ The text starting with `/` at the beginning indicates the URL route
+at which a certain service is available. For example, user workspace
+is available at <https://localhost/user1>.
+
+The above figure shows integration of the DTaaS with a GitLab instance
+hosted at separate hostname, for example at <https://gitlab.foo.com>.
+
+The second installation setup involves installation of both the GitLab
+and the DTaaS on the same server.
+An illustration of the integrated single-server installation setup is
+shown below.
+
+![GitLab integrated install](gitlab-integrated-install.png)
+
+This figure shows integration of GitLab instance hosted along side
+the DTaaS. The integrated GitLab is hosted behind the Traefik proxy.
 
 This guide illustrates the installation of GitLab at:
 <http:>foo.com/gitlab</http>. But the instructions and `compose.gitlab.yml`
@@ -53,7 +75,7 @@ Edit the `.env` file available in this directory to contain the following variab
 
 | Variable    | Example Value                                | Explanation                                                                                                                  |
 | :---------- | :------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| DTAAS_DIR | '/home/Desktop/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash.                                    |
+| DTAAS_DIR | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash.                                    |
 | SERVER_DNS  | either `foo.com` or `localhost`                               | The server DNS, if you are deploying with a dedicated server. Remember not use _http(s)_ at the beginning of the DNS string. |
 
 **NOTE**: The DTaaS client uses the `react-oidc-context` node package, which

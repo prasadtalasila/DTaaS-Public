@@ -1,26 +1,23 @@
-# Contributors
+# Thanks
 
+## Funding Sources
+
+This project has been funded by the following projects.
+
+* Security for the Digital Twin as a Service Platform - a project sponsored by
+  Thomas B. Thriges Foundation
+* CP-SENS (Cyber-Physical Sensing for Machinery and Structures) -
+  a Grand Solution project funded by the Innovation Fund Denmark under
+  the grant agreement 2081-00006B.
+* The DIGITbrain (Digital Twins for Manufacturing SMEs) - a European Union’s
+  Horizon 2020 research and innovation program under grant agreement No 952071.
+* Digital Twins for Cyber-Physical Systems (DiT4CPS) - a project sponsored by
+  the Grundfos Foundation.
+
+## Developers
+
+Please see the list of contributors on
 [code contributors](https://github.com/INTO-CPS-Association/DTaaS/graphs/contributors)
-
-## Users
-
-Cláudio Ângelo Gonçalves Gomes,
-Dmitri Tcherniak,
-Elif Ecem Bas,
-Farshid Naseri,
-Giuseppe Abbiati,
-Hannes Iven,
-Hao Feng,
-Henrik Ejersbo,
-Lars Vosteen,
-Lei Zhao,
-Mirgita Frasheri,
-Morten Haahr Kristensen,
-Neena Goveas,
-Tanusree Roy,
-Santiago Gil Arboleda,
-Swarup Mahato,
-Valdemar Tang
 
 ## Example Contributors
 

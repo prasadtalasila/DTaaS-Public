@@ -2,7 +2,7 @@ site_name: Digital Twin as a Service (DTaaS)
 
 repo_url: https://github.com/into-cps-association/DTaaS
 repo_name: DTaaS
-copyright: Copyright &copy; 2022 - 2024 The INTO-CPS Association
+copyright: Copyright &copy; 2022 - 2026 The INTO-CPS Association
 
 theme:
   name: material

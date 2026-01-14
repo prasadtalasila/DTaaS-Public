@@ -2,28 +2,9 @@
 
 This guide helps with integration of a local GitLab instance with
 a DTaaS server installation, and integrating the OAuth Authorization feature
-with the DTaaS installation.
-
-## Design
-
-An illustration of the two server installation setup is shown below.
-
-![GitLab independent install](gitlab-independent-install.png)
-
-🗒️ The text starting with `/` at the beginning indicates the URL route
-at which a certain service is available. For example, user workspace
-is available at <https://localhost/user1>.
-
-The above figure shows integration of the DTaaS with a GitLab instance
-hosted at separate hostname, for example at <https://gitlab.foo.com>.
-
-An illustration of the integrated single-server installation setup is
-shown below.
-
-![GitLab integrated install](gitlab-integrated-install.png)
-
-This figure shows integration of GitLab instance hosted along side
-the DTaaS. The integrated GitLab is hosted behind the Traefik proxy.
+with the DTaaS installation. Please complete
+[installation of Gitlab](index.md) before attempting the integration steps
+given here.
 
 After following this guide, the GitLab instance will be integrated
 as OAuth provider for both DTaaS client application and
