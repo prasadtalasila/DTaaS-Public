@@ -123,10 +123,10 @@ The `.env.local` file contains environment variables that are used by the
 compose file. Portainer allows you to modify them as shown in the screenshot
 above, here is a summary:
 
-  | URL Path | Example Value | Explanation |
-  | :------------ | :--------------- | :--------------- |
-  | DTAAS_DIR | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash. |
-  | username1 | 'user1' | Your gitlab username |
+| URL Path      | Example Value           | Explanation                                                                        |
+| :------------ | :---------------------- | :--------------------------------------------------------------------------------- |
+| DTAAS_DIR     | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash. |
+| username1     | 'user1'                 | Your gitlab username                                                               |
 
 <!-- markdownlint-disable MD046 -->
 <!-- prettier-ignore -->

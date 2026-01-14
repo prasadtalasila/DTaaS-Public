@@ -33,14 +33,14 @@ whether the level of the water stays below a maximum threshold.
 This example uses two models and one tool.
 The specific assets used are:
 
-| Asset Type | Names of Assets | Visibility | Reuse in Other Examples |
-| :--- | :--- | :--- | :--- |
-| Models | watertankcontroller-c.fmu | Private | Yes |
-|        | singlewatertank-20sim.fmu | Private | Yes |
-|        | m1.fmu                    | Private | No  |
-|        | RtI.fmu                   | Private | Yes |
-| Specification | m1.smv | Private | No |
-| Tool | maestro-2.3.0-jar-with-dependencies.jar | Common | Yes |
+| Asset Type    | Names of Assets                         | Visibility | Reuse in Other Examples |
+| :------------ | :-------------------------------------- | :--------- | :---------------------- |
+| Models        | watertankcontroller-c.fmu               | Private    | Yes                     |
+|               | singlewatertank-20sim.fmu               | Private    | Yes                     |
+|               | m1.fmu                                  | Private    | No                      |
+|               | RtI.fmu                                 | Private    | Yes                     |
+| Specification | m1.smv                                  | Private    | No                      |
+| Tool          | maestro-2.3.0-jar-with-dependencies.jar | Common     | Yes                     |
 
 The `multimodelFI.json` and `simulation-config.json`
 are two DT configuration files used for executing the digital twin.
@@ -50,11 +50,11 @@ You can change these two files to customize the DT to your needs.
 
 ## Lifecycle Phases
 
-| Lifecycle Phase    | Completed Tasks |
-| -------- | ------- |
-| Create  | Installs Java Development Kit for Maestro tool<br>Generates and compiles the monitor FMU    |
-| Execute | Produces and stores output in data/water_tank_FI_monitor/output directory|
-| Clean   | Clears run logs and outputs |
+| Lifecycle Phase | Completed Tasks                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Create          | Installs Java Development Kit for Maestro tool<br>Generates and compiles the monitor FMU |
+| Execute         | Produces and stores output in data/water_tank_FI_monitor/output directory                |
+| Clean           | Clears run logs and outputs                                                              |
 
 ## Run the example
 

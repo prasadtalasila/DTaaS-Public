@@ -121,11 +121,11 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 Three REST API methods are active. The route paths and the responses given
 for these two sources are:
 
-| REST API Route                 | HTTP Method | Return Value | Comment |
-| :----------------------------- | :-------- | :----------- | :------ |
-| localhost:port | POST  | Returns the execution status of command | Executes the command provided. Each invocation appends to _array_ of commands executed so far. |
-| localhost:port | GET |  Returns the execution status of the last command sent via POST request. |  |
-| localhost:port/history | GET | Returns the array of POST requests received so far. |  |
+| REST API Route                 | HTTP Method | Return Value                                                            | Comment                                                                                        |
+| :----------------------------- | :---------- | :---------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
+| localhost:port                 | POST        | Returns the execution status of command                                 | Executes the command provided. Each invocation appends to _array_ of commands executed so far. |
+| localhost:port                 | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                |
+| localhost:port/history         | GET         | Returns the array of POST requests received so far.                     |                                                                                                |
 
 #### POST Request to /
 

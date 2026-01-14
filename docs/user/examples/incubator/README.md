@@ -66,11 +66,11 @@ The RabbitMQ and InfluxDB configuration parameters need to be updated.
 
 The lifecycles that are covered include:
 
-| Lifecycle Phase    | Completed Tasks |
-| --------- | ------- |
-| Create    | Potentially updates the system and installs Python dependencies |
-| Execute   | Executes the Incubator digital twin and produces output in the terminal and in _incubator/log.log_. |
-| Clean     | Removes the log file. |
+| Lifecycle Phase | Completed Tasks                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Create          | Potentially updates the system and installs Python dependencies                                     |
+| Execute         | Executes the Incubator digital twin and produces output in the terminal and in _incubator/log.log_. |
+| Clean           | Removes the log file.                                                                               |
 
 ## Run the example
 

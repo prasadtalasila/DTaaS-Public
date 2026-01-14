@@ -68,8 +68,8 @@ The development priorities for the DTaaS software development team are:
 
 * Create npm package for DevOps features of React Client
 * Improve python package of
-  [platform services](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/deploy/services/cli) and
-  [DTaaS CLI](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/cli)
+  [platform services](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/deploy/services/cli)
+  and [DTaaS CLI](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/cli)
 * Upgrade software stack of user workspaces
 * Increased automation of installation procedures
 * DT Configuration DSL ín the form of YAML schema

@@ -67,12 +67,12 @@ your RabbitMQ credentials.
 
 The example uses the following assets:
 
-| Asset Type | Names of Assets | Visibility | Reuse in other Examples |
-| :--- | :--- | :--- | :--- |
-| Service | common/services/NuRV_orbit | Common | Yes |
-| DT | common/digital_twins/incubator | Common | Yes |
-| Specification | safe-operation.smv | Private | No |
-| Script | execute.py | Private | No |
+| Asset Type    | Names of Assets                | Visibility | Reuse in other Examples |
+| :------------ | :----------------------------- | :--------- | :---------------------- |
+| Service       | common/services/NuRV_orbit     | Common     | Yes                     |
+| DT            | common/digital_twins/incubator | Common     | Yes                     |
+| Specification | safe-operation.smv             | Private    | No                      |
+| Script        | execute.py                     | Private    | No                      |
 
 The *safe-operation.smv* file contains the default monitored specification as
 described in the [Simulated scenario section](#simulated-scenario).
@@ -82,11 +82,11 @@ These can be configured as desired.
 
 The lifecycle phases for this example include:
 
-| Lifecycle phase | Completed tasks |
-| ------ | ------- |
-| create    | Downloads the necessary tools and creates a virtual python environment with the necessary dependencies |
-| execute   | Runs a python script that starts up the necessary services as well as the Incubator simulation. Various status messages are printed to the console, including the monitored system states and monitor verdict. |
-| clean     | Removes created *data* directory and incubator log files. |
+| Lifecycle phase | Completed tasks                                                                                                                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| create          | Downloads the necessary tools and creates a virtual python environment with the necessary dependencies                                                                                                         |
+| execute         | Runs a python script that starts up the necessary services as well as the Incubator simulation. Various status messages are printed to the console, including the monitored system states and monitor verdict. |
+| clean           | Removes created *data* directory and incubator log files.                                                                                                                                                      |
 
 If required, change the execute permissions of lifecycle scripts you need to execute.
 This can be done using the following command

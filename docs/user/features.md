@@ -53,14 +53,14 @@ on-premise and commercial cloud (DevOps) service providers.
 The DTaaS software platform has some pre-installed services available.
 The currently available services are:
 
-| Service  | Advantage                                                                                                                                                                                                   |
-| :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| InfluxDB |  Internet of Things (IoT) device management and data visualization platform. This can be used to store data for digital twins and provide alerts to users. |
-| RabbitMQ | Communication broker for communication between physical and digital twins                                                                                                                                   |
-| Grafana  | Visualization dashboards for their digital twins.                                                                                                                                                           |
-| MQTT     | Lightweight data transfer broker for IoT devices / physical twins feeding data into digital twins.                                                                                                          |
-| MongoDB  | NoSQL document database for storing metadata of data from physical twins                                                                                                                                    |
-| PostgreSQL | An SQL database server for storing historic and time-series data |
+| Service    | Advantage                                                                                                                                                                                                   |
+| :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| InfluxDB   | Internet of Things (IoT) device management and data visualization platform. This can be used to store data for digital twins and provide alerts to users.                                                   |
+| RabbitMQ   | Communication broker for communication between physical and digital twins                                                                                                                                   |
+| Grafana    | Visualization dashboards for their digital twins.                                                                                                                                                           |
+| MQTT       | Lightweight data transfer broker for IoT devices / physical twins feeding data into digital twins.                                                                                                          |
+| MongoDB    | NoSQL document database for storing metadata of data from physical twins                                                                                                                                    |
+| PostgreSQL | An SQL database server for storing historic and time-series data                                                                                                                                            |
 
 The users can publish and reuse the digital twin assets
 available on the platform. In addition, users can run their

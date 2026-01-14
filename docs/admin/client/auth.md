@@ -49,12 +49,12 @@ Here are the steps to get started:
 - You will need the following information from the OAuth application
   registered on GitLab:
 
-|GitLab Variable Name|Variable Name in Client env.js|Default Value|
-|--- |--- |--- |
-|OAuth Provider|REACT_APP_AUTH_AUTHORITY|[https://gitlab.foo.com/](https://gitlab.foo.com/)|
-|Application ID|REACT_APP_CLIENT_ID||
-|Callback URL|REACT_APP_REDIRECT_URI|[https://foo.com/Library](https://foo.com/Library)|
-|Scopes|REACT_APP_GITLAB_SCOPES|openid, profile, read_user, read_repository, api|
+| GitLab Variable Name | Variable Name in Client env.js | Default Value                                      |
+| -------------------- | ------------------------------ | -------------------------------------------------- |
+| OAuth Provider       | REACT_APP_AUTH_AUTHORITY       | [https://gitlab.foo.com/](https://gitlab.foo.com/) |
+| Application ID       | REACT_APP_CLIENT_ID            |                                                    |
+| Callback URL         | REACT_APP_REDIRECT_URI         | [https://foo.com/Library](https://foo.com/Library) |
+| Scopes               | REACT_APP_GITLAB_SCOPES        | openid, profile, read_user, read_repository, api   |
 
   ![Summary for Client OAuth Application](client-oauth-id.png)
 

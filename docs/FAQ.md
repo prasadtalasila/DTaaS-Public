@@ -2,11 +2,11 @@
 
 ## Abreviations
 
-| Term | Full Form |
-| :--- | :--- |
-| DT | Digital Twin |
+| Term  | Full Form                 |
+| :---- | :------------------------ |
+| DT    | Digital Twin              |
 | DTaaS | Digital Twin as a Service |
-| PT | Physical Twin |
+| PT    | Physical Twin             |
 
 ## General Questions
 
@@ -241,15 +241,15 @@
     Legend: high performance (**H**), mid performance (**M**)
     and low performance (**L**)
 
-    | DT Platforms | License | DT Development Process | Connectivity | Security | Processing power, performance and Scalability | Data Storage | Visualization | Modeling and Simulation |
-    | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-    | Microsoft Azure DT | Commercial Cloud | H | H | H | M | H | H | H |
-    | AWS IOT Greengrass | Open source commercial | H | H | H | M | H | H | H |
-    | Eclipse Ditto | Open source | M | H | M | H | H | L | L |
-    | Asset Administration Shell | Open source | H | H | L | H | M | L | M |
-    | PTC Thingworx | Commercial | H | H | H | H | H | M | M |
-    | GE Predix | Commercial | M | H | H | M | L | M | L |
-    | AU's DTaaS | Open source | H | H | L | L | M | M | M |
+| DT Platforms               | License                | DT Development Process | Connectivity | Security | Processing power, performance and Scalability | Data Storage | Visualization | Modeling and Simulation |
+| :------------------------- | :--------------------- | :--------------------- | :----------- | :------- | :-------------------------------------------- | :----------- | :------------ | :---------------------- |
+| Microsoft Azure DT         | Commercial Cloud       | H                      | H            | H        | M                                             | H            | H             | H                       |
+| AWS IOT Greengrass         | Open source commercial | H                      | H            | H        | M                                             | H            | H             | H                       |
+| Eclipse Ditto              | Open source            | M                      | H            | M        | H                                             | H            | L             | L                       |
+| Asset Administration Shell | Open source            | H                      | H            | L        | H                                             | M            | L             | M                       |
+| PTC Thingworx              | Commercial             | H                      | H            | H        | H                                             | H            | M             | M                       |
+| GE Predix                  | Commercial             | M                      | H            | H        | M                                             | L            | M             | L                       |
+| AU's DTaaS                 | Open source            | H                      | H            | L        | L                                             | M            | M             | M                       |
 
     Adopted by Tanusree Roy from Table 4 and 5 of the following paper.
 

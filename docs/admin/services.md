@@ -239,16 +239,16 @@ the correct certificate files and permissions for secure operation.
 After the installation is complete, you can see the following services active
 at the following ports / URLs.
 
-| service | external url |
-| :--- | :--- |
-| RabbitMQ Broker | services.foo.com:8083 |
+| service                            | external url          |
+| :--------------------------------- | :-------------------- |
+| RabbitMQ Broker                    | services.foo.com:8083 |
 | RabbitMQ Broker Management Website | services.foo.com:8084 |
-| MQTT Broker | services.foo.com:8085 |
-| Influx | services.foo.com:8086 |
-| PostgreSQL | services.foo.com:5432 |
-| MongoDB database | services.foo.com:8087 |
-| Grafana | services.foo.com:8088 |
-| ThingsBoard | services.foo.com:8089 |
+| MQTT Broker                        | services.foo.com:8085 |
+| Influx                             | services.foo.com:8086 |
+| PostgreSQL                         | services.foo.com:5432 |
+| MongoDB database                   | services.foo.com:8087 |
+| Grafana                            | services.foo.com:8088 |
+| ThingsBoard                        | services.foo.com:8089 |
 
 Please note that the TCP ports used by the services can be changed
 by updating the `config/service.env` file and rerunning the docker commands.

@@ -11,10 +11,10 @@ by **vagrant**. The purpose is two fold:
 
 There are two scripts in this directory:
 
-| Script name | Purpose | Default |
-| :--- | :--- | :--- |
-| `user.sh` | user installation | :white_check_mark: |
-| `developer.sh` | developer installation | :x: |
+| Script name    | Purpose                | Default            |
+| :------------- | :--------------------- | :----------------- |
+| `user.sh`      | user installation      | :white_check_mark: |
+| `developer.sh` | developer installation | :x:                |
 
 If you are installing the DTaaS for developers, the default installation
 caters to your needs. You can skip the next step and continue with the

@@ -75,8 +75,8 @@ Edit the `.env` file available in this directory to contain the following variab
 
 | Variable    | Example Value                                | Explanation                                                                                                                  |
 | :---------- | :------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| DTAAS_DIR | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash.                                    |
-| SERVER_DNS  | either `foo.com` or `localhost`                               | The server DNS, if you are deploying with a dedicated server. Remember not use _http(s)_ at the beginning of the DNS string. |
+| DTAAS_DIR   | '/Users/username/DTaaS'                      | Full path to the DTaaS directory. This is an absolute path with no trailing slash.                                           |
+| SERVER_DNS  | either `foo.com` or `localhost`              | The server DNS, if you are deploying with a dedicated server. Remember not use _http(s)_ at the beginning of the DNS string. |
 
 **NOTE**: The DTaaS client uses the `react-oidc-context` node package, which
 incorrectly causes redirects to use the `HTTPS` URL scheme. This is a

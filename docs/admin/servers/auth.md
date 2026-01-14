@@ -77,14 +77,14 @@ You will need the following information from
 the OAuth application registered on GitLab:
 
 <!-- markdownlint-disable MD013 -->
-| GitLab Variable Name | Variable Name in .env of docker compose file | Default Value |
-| :--- | :--- | :--- |
-|OAuth Provider|OAUTH_URL|[https://gitlab.foo.com/](https://gitlab.foo.com/)|
-|Application ID|OAUTH_CLIENT_ID |_xx_|
-|Application Secret|OAUTH_CLIENT_SECRET|_xx_|
-|Callback URL|(to be directly entered in GitLab OAuth registration)||
-|Forward-auth secret|OAUTH_SECRET|_random-secret-string_ (password for forward-auth, can be changed to your preferred string)|
-|Scopes|read_user||
+| GitLab Variable Name | Variable Name in .env of docker compose file          | Default Value                                                                               |
+| :------------------- | :---------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+| OAuth Provider       | OAUTH_URL                                             | [https://gitlab.foo.com/](https://gitlab.foo.com/)                                          |
+| Application ID       | OAUTH_CLIENT_ID                                       | _xx_                                                                                        |
+| Application Secret   | OAUTH_CLIENT_SECRET                                   | _xx_                                                                                        |
+| Callback URL         | (to be directly entered in GitLab OAuth registration) |                                                                                             |
+| Forward-auth secret  | OAUTH_SECRET                                          | _random-secret-string_ (password for forward-auth, can be changed to your preferred string) |
+| Scopes               | read_user                                             |                                                                                             |
 <!-- markdownlint-enable MD013 -->
 
 ## Development Environment

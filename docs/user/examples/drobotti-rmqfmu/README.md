@@ -45,14 +45,14 @@ during co-simulation.
 This example uses two models, one tool, one data, and two scripts to create
 mock physical twin. The specific assets used are:
 
-| Asset Type | Names of Assets | Visibility | Reuse in Other Examples |
-| :--- | :--- | :--- | :--- |
-| Models | distance-from-zero.fmu | Private | No |
-|  | rmq-vhost.fmu | Private | Yes |
-| Tool | maestro-2.3.0-jar-with-dependencies.jar | Common | Yes |
-| Data | drobotti_playback_data.csv | private | No |
-| Mock PT | rmq-publisher.py | Private | No |
-|  | consume.py | Private | No |
+| Asset Type | Names of Assets                         | Visibility | Reuse in Other Examples |
+| :--------- | :-------------------------------------- | :--------- | :---------------------- |
+| Models     | distance-from-zero.fmu                  | Private    | No                      |
+|            | rmq-vhost.fmu                           | Private    | Yes                     |
+| Tool       | maestro-2.3.0-jar-with-dependencies.jar | Common     | Yes                     |
+| Data       | drobotti_playback_data.csv              | private    | No                      |
+| Mock PT    | rmq-publisher.py                        | Private    | No                      |
+|            | consume.py                              | Private    | No                      |
 
 This DT has many configuration files.
 The `coe.json` and `multimodel.json`
@@ -65,11 +65,11 @@ for mock PT python scripts. Please add your credentials in both these files.
 
 ## Lifecycle Phases
 
-| Lifecycle Phase    | Completed Tasks |
-| -------- | ------- |
-| Create  | Installs Java Development Kit for Maestro tool and pip packages for python scripts |
-| Execute | Runs both DT and mock PT |
-| Clean   | Clears run logs and outputs |
+| Lifecycle Phase | Completed Tasks                                                                    |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Create          | Installs Java Development Kit for Maestro tool and pip packages for python scripts |
+| Execute         | Runs both DT and mock PT                                                           |
+| Clean           | Clears run logs and outputs                                                        |
 
 ## Run the example
 

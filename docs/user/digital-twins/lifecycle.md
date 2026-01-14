@@ -26,15 +26,15 @@ undertaken in each phase are outlined in this section.
  A DT lifecycle consists of **explore, create, execute, save, analyse, evolve**
  and **terminate** phases.
 
-| Phase | Main Activities |
-| :---- | :---- |
-| **explore** | selection of suitable assets based on the user needs and checking their compatibility for the purposes of creating a DT. |
-| **create** | specification of DT configuration. If DT already exists, there is no creation phase at the time of reuse. |
-| **execute** | automated / manual execution of a DT based on its configuration. The DT configuration must checked before starting the execution phase. |
-| **analyse** | checking the outputs of a DT and making a decision. The outputs can be text files, or visual dashboards. |
-| **evolve** | reconfigure DT primarily based on analysis. |
-| **save** | involves saving the state of DT to enable future recovery. |
-| **terminate** | stop the execution of DT. |
+| Phase         | Main Activities                                                                                                                         |
+| :------------ | :-------------------------------------------------------------------------------------------------------------------------------------- |
+| **explore**   | selection of suitable assets based on the user needs and checking their compatibility for the purposes of creating a DT.                |
+| **create**    | specification of DT configuration. If DT already exists, there is no creation phase at the time of reuse.                               |
+| **execute**   | automated / manual execution of a DT based on its configuration. The DT configuration must checked before starting the execution phase. |
+| **analyse**   | checking the outputs of a DT and making a decision. The outputs can be text files, or visual dashboards.                                |
+| **evolve**    | reconfigure DT primarily based on analysis.                                                                                             |
+| **save**      | involves saving the state of DT to enable future recovery.                                                                              |
+| **terminate** | stop the execution of DT.                                                                                                               |
 
 A digital twin faithfully tracking the physical twin lifecycle will have to
 support all the phases. It is also possible for digital twin engineers to add

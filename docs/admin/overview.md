@@ -26,15 +26,15 @@ Each version serves a different purpose.
 
 Otherwise, use the installation setup that fits your needs.
 
-| Installation Setup | Purpose |
-| :----- | :----- |
-| [localhost](localhost.md) | Install DTaaS on your computer for a single user; does not need a web server. _This setup does not require domain name._ |
-| [secure localhost](./localhost-secure.md) | Install DTaaS on your computer for a single user over HTTPS with integrated [GitLab installation](gitlab/index.md); does not need a web server. _This setup does not require domain name._ |
-| [Server](server.md) | Install DTaaS on server for multiple users. Please check the [requirements](requirements.md). It is also possible to host the application over HTTPS with integrated [GitLab installation](gitlab/index.md)|
-| [One vagrant machine](vagrant/single-machine.md) | Install DTaaS on a virtual machine; can be used for single or multiple users. |
-| [Two vagrant machines](vagrant/two-machines.md) | Install DTaaS on two virtual machines; can be used for single or multiple users. |
-|   | The core DTaaS application is installed on the first virtual machine and all the services (RabbitMQ, MQTT, InfluxDB, Grafana and MongoDB) are installed on second virtual machine. |
-| [Independent Packages](packages.md) | Can be used independently; do not need full installation of DTaaS. |
+| Installation Setup                               | Purpose                                                                                                                                                                                                     |
+| :----------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [localhost](localhost.md)                        | Install DTaaS on your computer for a single user; does not need a web server. _This setup does not require domain name._                                                                                    |
+| [secure localhost](./localhost-secure.md)        | Install DTaaS on your computer for a single user over HTTPS with integrated [GitLab installation](gitlab/index.md); does not need a web server. _This setup does not require domain name._                  |
+| [Server](server.md)                              | Install DTaaS on server for multiple users. Please check the [requirements](requirements.md). It is also possible to host the application over HTTPS with integrated [GitLab installation](gitlab/index.md) |
+| [One vagrant machine](vagrant/single-machine.md) | Install DTaaS on a virtual machine; can be used for single or multiple users.                                                                                                                               |
+| [Two vagrant machines](vagrant/two-machines.md)  | Install DTaaS on two virtual machines; can be used for single or multiple users.                                                                                                                            |
+|                                                  | The core DTaaS application is installed on the first virtual machine and all the services (RabbitMQ, MQTT, InfluxDB, Grafana and MongoDB) are installed on second virtual machine.                          |
+| [Independent Packages](packages.md)              | Can be used independently; do not need full installation of DTaaS.                                                                                                                                          |
 
 The [installation steps](steps.md) is a good place to start the installation process.
 

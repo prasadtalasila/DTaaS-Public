@@ -53,13 +53,13 @@ data model (twin schema).
 
 The current endpoints used in this implementation are:
 
-| Digital or Physical Twin | Endpoint |
-| :--- | :--- |
-| Flex-cell DT System | MaestroEndpoint |
-| DT UR5e | FMIEndpoint |
-| DT Kuka lbr iiwa 7 | FMIEndpoint |
-| PT UR5e | MQTTEndpoint and RabbitMQEndpoint |
-| PT Kuka lbr iiwa 7 | MQTTEndpoint and RabbitMQEndpoint |
+| Digital or Physical Twin | Endpoint                          |
+| :----------------------- | :-------------------------------- |
+| Flex-cell DT System      | MaestroEndpoint                   |
+| DT UR5e                  | FMIEndpoint                       |
+| DT Kuka lbr iiwa 7       | FMIEndpoint                       |
+| PT UR5e                  | MQTTEndpoint and RabbitMQEndpoint |
+| PT Kuka lbr iiwa 7       | MQTTEndpoint and RabbitMQEndpoint |
 
 The Flex-cell DT System uses another configuration to be integrated
 with the Maestro co-simulation engine.
@@ -78,29 +78,29 @@ which is implemented by FMU blocks and their connections.
 This example uses seven models, five tools, six data files, two functions,
 and one script. The specific assets used are:
 
-| Asset Type | Names of Assets | Visibility | Reuse in Other Examples |
-| :--- | :--- | :--- | :--- |
-| Model | kukalbriiwa_model.fmu | Private | No |
-|  | kuka_irw_gripper_rg6.urdf | Private | No |
-|  | kuka.aasx | Private | No |
-|  | ur5e_model.fmu | Private | No |
-|  | ur5e_gripper_2fg7.urdf | Private | No |
-|  | ur5e.aasx | Private | No |
-|  | rmq-vhost.fmu | Private | Yes |
-| Tool | maestro-2.3.0-jar-with-dependencies.jar | Common | Yes |
-|  | TwinManagerFramework-0.0.2.jar | Private | Yes |
-|  | urinterface (installed with pip) | Private | No |
-|  | kukalbrinterface | Private | No |
-|  | robots_flexcell | Private | No |
-|  | FlexCellDTaaS.java (main script) | Private | No |
-| Data | publisher-flexcell-physical.py | Private | No |
-|  | ur5e_mqtt_publisher.py | Private | No |
-|  | connections.conf | Private | No |
-|  | outputs.csv | Private | No |
-|  | kukalbriiwa7_actual.csv | Private | No |
-|  | ur5e_actual.csv | Private | No |
-| Function | plots.py | Private | No |
-|  | prepare.py | Private | No |
+| Asset Type | Names of Assets                         | Visibility | Reuse in Other Examples |
+| :--------- | :-------------------------------------- | :--------- | :---------------------- |
+| Model      | kukalbriiwa_model.fmu                   | Private    | No                      |
+|            | kuka_irw_gripper_rg6.urdf               | Private    | No                      |
+|            | kuka.aasx                               | Private    | No                      |
+|            | ur5e_model.fmu                          | Private    | No                      |
+|            | ur5e_gripper_2fg7.urdf                  | Private    | No                      |
+|            | ur5e.aasx                               | Private    | No                      |
+|            | rmq-vhost.fmu                           | Private    | Yes                     |
+| Tool       | maestro-2.3.0-jar-with-dependencies.jar | Common     | Yes                     |
+|            | TwinManagerFramework-0.0.2.jar          | Private    | Yes                     |
+|            | urinterface (installed with pip)        | Private    | No                      |
+|            | kukalbrinterface                        | Private    | No                      |
+|            | robots_flexcell                         | Private    | No                      |
+|            | FlexCellDTaaS.java (main script)        | Private    | No                      |
+| Data       | publisher-flexcell-physical.py          | Private    | No                      |
+|            | ur5e_mqtt_publisher.py                  | Private    | No                      |
+|            | connections.conf                        | Private    | No                      |
+|            | outputs.csv                             | Private    | No                      |
+|            | kukalbriiwa7_actual.csv                 | Private    | No                      |
+|            | ur5e_actual.csv                         | Private    | No                      |
+| Function   | plots.py                                | Private    | No                      |
+|            | prepare.py                              | Private    | No                      |
 
 ## Lifecycle Phases
 
@@ -115,15 +115,15 @@ The lifecycles that are covered include:
 1. Terminating the background processes and cleaning up the outputs in
    the termination phase.
 
-| Lifecycle Phase    | Completed Tasks |
-| --------- | ------- |
-| Create    | Installs Java Development Kit for Maestro tool, Compiles source code of TwinManager to create a usable jar package (used as tool) |
-| Prepare | Takes the RabbitMQ and MQTT credentials in connections.conf file and configures different assets of DT. |
-| Execute   | The TwinManager executes the flex-cell DT and produces output in `data/flex-cell/output` directory |
-| Save   | Save the experimental results |
-| Analyze | Uses plotting functions to generate plots of co-simulation results |
-| Terminate | Terminating the background processes |
-| Clean | Cleans up the output data                      |
+| Lifecycle Phase | Completed Tasks                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Create          | Installs Java Development Kit for Maestro tool, Compiles source code of TwinManager to create a usable jar package (used as tool) |
+| Prepare         | Takes the RabbitMQ and MQTT credentials in connections.conf file and configures different assets of DT.                           |
+| Execute         | The TwinManager executes the flex-cell DT and produces output in `data/flex-cell/output` directory                                |
+| Save            | Save the experimental results                                                                                                     |
+| Analyze         | Uses plotting functions to generate plots of co-simulation results                                                                |
+| Terminate       | Terminating the background processes                                                                                              |
+| Clean           | Cleans up the output data                                                                                                         |
 
 ## Run the example
 

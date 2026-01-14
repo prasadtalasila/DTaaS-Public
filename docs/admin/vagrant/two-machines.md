@@ -92,14 +92,14 @@ to install the DTaaS platform services.
 After the services are up and running,
 you can see the following services active within server2 (_services.foo.com_).
 
-| service | external url |
-| :--- | :--- |
-| InfluxDB database | services.foo.com |
-| Grafana visualization service | services.foo.com:3000 |
-| MQTT Broker | services.foo.com:1883 |
-| RabbitMQ Broker | services.foo.com:5672 |
+| service                            | external url           |
+| :--------------------------------- | :--------------------- |
+| InfluxDB database                  | services.foo.com       |
+| Grafana visualization service      | services.foo.com:3000  |
+| MQTT Broker                        | services.foo.com:1883  |
+| RabbitMQ Broker                    | services.foo.com:5672  |
 | RabbitMQ Broker management website | services.foo.com:15672 |
-| MongoDB database | services.foo.com:27017 |
+| MongoDB database                   | services.foo.com:27017 |
 
 ### Install DTaaS Application
 

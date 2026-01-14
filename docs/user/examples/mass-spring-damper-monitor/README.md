@@ -31,14 +31,14 @@ whether the displacement of the two masses stays below a maximum threshold.
 
 This example uses two models and one tool. The specific assets used are:
 
-| Asset Type | Names of Assets | Visibility | Reuse in Other Examples |
-| :--- | :--- | :--- | :--- |
-| Models | MassSpringDamper1.fmu | Private | Yes |
-|        | MassSpringDamper2.fmu | Private | Yes |
-|        | m2.fmu | Private | No |
-|        | RtI.fmu                   | Private | Yes |
-| Specification | m2.smv | Private | No |
-| Tool | maestro-2.3.0-jar-with-dependencies.jar | Common | Yes |
+| Asset Type    | Names of Assets                         | Visibility | Reuse in Other Examples |
+| :------------ | :-------------------------------------- | :--------- | :---------------------- |
+| Models        | MassSpringDamper1.fmu                   | Private    | Yes                     |
+|               | MassSpringDamper2.fmu                   | Private    | Yes                     |
+|               | m2.fmu                                  | Private    | No                      |
+|               | RtI.fmu                                 | Private    | Yes                     |
+| Specification | m2.smv                                  | Private    | No                      |
+| Tool          | maestro-2.3.0-jar-with-dependencies.jar | Common     | Yes                     |
 
 The `co-sim.json` and `time.json`
 are two DT configuration files used for executing the digital twin.
@@ -46,11 +46,11 @@ You can change these two files to customize the DT to your needs.
 
 ## Lifecycle Phases
 
-| Lifecycle Phase    | Completed Tasks |
-| -------- | ------- |
-| Create  | Installs Java Development Kit for Maestro tool<br>Generates and compiles the monitor FMU    |
-| Execute | Produces and stores output in data/mass-spring-damper-monitor/output directory|
-| Clean   | Clears run logs and outputs |
+| Lifecycle Phase | Completed Tasks                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Create          | Installs Java Development Kit for Maestro tool<br>Generates and compiles the monitor FMU |
+| Execute         | Produces and stores output in data/mass-spring-damper-monitor/output directory           |
+| Clean           | Clears run logs and outputs                                                              |
 
 ## Run the example
 
