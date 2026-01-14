@@ -27,7 +27,7 @@ services:
     volumes:
       - ./config.js:/dtaas/client/build/env.js
     ports:
-      - "4000:4000"
+      - '4000:4000'
 ```
 
 ### Create Configuration

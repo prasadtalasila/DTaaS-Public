@@ -16,7 +16,7 @@ The documentation is generated based on the configuration files:
 Install Mkdocs using the following command.
 
 ```bash
-pip install -r docs/requirements.txt
+pip install -r script/docs/mkdocs-requirements.txt
 ```
 
 ## Fix Linting Errors
@@ -30,6 +30,16 @@ mdl docs
 
 from top-directory of the project and fix any identified issues. This needs
 to be done before committing changes to the documentation.
+
+## Format Tables
+
+The column widths in markdown tables are supposed to be equal. If they are not,
+`qlty` throws up errors. To format the tables correctly, run from top-directory
+of the project
+
+```sh
+python script/docs/format_tables.py
+```
 
 ## Create documentation
 
