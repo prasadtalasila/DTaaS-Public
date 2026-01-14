@@ -119,15 +119,19 @@ container respectively, depending on your installation scenario:
 1. Localhost Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/docker/.env.local up -d
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/docker/.env.local down
+    docker compose -f deploy/services/runner/compose.runner.local.yml \
+      --env-file deploy/docker/.env.local up -d
+    docker compose -f deploy/services/runner/compose.runner.local.yml \
+      --env-file deploy/docker/.env.local down
     ```
 
 1. Server Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/docker/.env.server up -d
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/docker/.env.server down
+    docker compose -f deploy/services/runner/compose.runner.server.yml \
+      --env-file deploy/docker/.env.server up -d
+    docker compose -f deploy/services/runner/compose.runner.server.yml \
+      --env-file deploy/docker/.env.server down
     ```
 
 Once the container starts, the runner within it will run automatically. You can

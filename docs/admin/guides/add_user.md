@@ -35,7 +35,8 @@ This brings up the containers, without the backend authorization.
 **4. Restart the docker container responsible for backend authorization.**
 
 ```bash
-docker compose -f compose.server.yml --env-file .env up -d --force-recreate traefik-forward-auth
+docker compose -f compose.server.yml --env-file .env up \
+  -d --force-recreate traefik-forward-auth
 ```
 
 **5. The new users are now added to the DTaaS instance, with authorization enabled.**

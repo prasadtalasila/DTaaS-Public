@@ -93,7 +93,8 @@ Take special care in setting strong passwords.
     certs/services.foo.com/postgres.key
   cp certs/services.foo.com/fullchain.pem \
     certs/services.foo.com/postgres.crt
-  chown 999:999 certs/services.foo.com/postgres.key certs/services.foo.com/postgres.crt
+  chown 999:999 certs/services.foo.com/postgres.key \
+    certs/services.foo.com/postgres.crt
   chmod 600 certs/services.foo.com/postgres.key
   chmod 644 certs/services.foo.com/postgres.crt
   ```

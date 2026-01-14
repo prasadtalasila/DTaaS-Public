@@ -27,7 +27,8 @@ Please do the following:
 - Run the command for these changes to take effect:
 
   ```bash
-  docker compose -f compose.server.yml --env-file .env up -d --force-recreate traefik-forward-auth
+  docker compose -f compose.server.yml --env-file .env up \
+    -d --force-recreate traefik-forward-auth
   ```
 
 The extra users now have no backend authorization.

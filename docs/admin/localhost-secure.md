@@ -192,7 +192,8 @@ of the newly registered OAuth2 application.
 To update the client website configuration, run
 
 ```bash
-docker compose -f compose.local.secure.yml --env-file .env.local up -d --force-recreate client
+docker compose -f compose.local.secure.yml --env-file .env.local up \
+  -d --force-recreate client
 ```
 
 ## Use
@@ -221,7 +222,8 @@ docker compose -f compose.local.secure.yml --env-file .env.local down
 To restart only a specific container, for example `client`
 
 ```bash
-docker compose -f compose.local.secure.yml --env-file .env.local up -d --force-recreate client
+docker compose -f compose.local.secure.yml --env-file .env.local up \
+  -d --force-recreate client
 ```
 
 ## References

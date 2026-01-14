@@ -59,12 +59,16 @@ Copy the renewed certificates to the appropriate DTaaS directories:
 
 ```bash
 # Copy certificates to DTaaS docker deployment
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /path/to/DTaaS/deploy/docker/certs/your-domain.com/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem /path/to/DTaaS/deploy/docker/certs/your-domain.com/
+sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem \
+  /path/to/DTaaS/deploy/docker/certs/your-domain.com/
+sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem \
+  /path/to/DTaaS/deploy/docker/certs/your-domain.com/
 
 # Copy certificates to DTaaS services deployment
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /path/to/DTaaS/deploy/services/certs/your-domain.com/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem /path/to/DTaaS/deploy/services/certs/your-domain.com/
+sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem \
+  /path/to/DTaaS/deploy/services/certs/your-domain.com/
+sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem \
+  /path/to/DTaaS/deploy/services/certs/your-domain.com/
 ```
 
 ### Step 4: Verify Container Volume Mappings
@@ -86,7 +90,8 @@ Navigate to the DTaaS docker deployment directory and restart Traefik:
 
 ```bash
 cd /path/to/DTaaS/deploy/docker
-docker compose -f compose.server.secure.yml --env-file .env.server up -d --force-recreate traefik
+docker compose -f compose.server.secure.yml --env-file .env.server up \
+  -d --force-recreate traefik
 ```
 
 ### Step 6: Restart Platform Services
@@ -132,7 +137,8 @@ cat /path/to/DTaaS/deploy/services/certs/your-domain.com/fullchain.pem \
 
 # Restart MongoDB with new certificates
 cd /path/to/DTaaS/deploy/services
-docker compose -f compose.services.secure.yml --env-file config/services.env up -d --force-recreate mongodb
+docker compose -f compose.services.secure.yml \
+  --env-file config/services.env up -d --force-recreate mongodb
 ```
 
 ## Verification

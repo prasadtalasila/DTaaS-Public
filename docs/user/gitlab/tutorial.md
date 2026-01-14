@@ -66,7 +66,8 @@ For example, with `PAT1` as PAT of
 `dtaas/user1` repository, the command to clone the repository is
 
 ```sh
-$git clone https://user1:PAT1@dtaas-digitaltwin.com/gitlab/dtaas/user1.git
+$git clone \
+  https://user1:PAT1@dtaas-digitaltwin.com/gitlab/dtaas/user1.git
 $cd user1
 ```
 

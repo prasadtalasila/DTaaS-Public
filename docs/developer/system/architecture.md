@@ -98,7 +98,7 @@ the documentation is available in the table.
 | Platform Services         | [Third-party Services](./../../admin/services.md) (MQTT, InfluxDB, RabbitMQ, Grafana, PostgreSQL, and ThingsBoard                        |
 | DT Lifecycle Manager      | Not available yet                                                                                                                        |
 | Security                  | GitLab [client OAuth](../../admin/client/auth.md) and [server OAuth](../../admin/servers/auth.md)                                        |
-| Digital Twins as Services | [DT Runner](../../user/servers/execution/runner/README.md)                                                                               |
+| Digital Twins as Services | [DT Runner](../../user/servers/execution/runner/readme.md)                                                                               |
 | Accounting                | Not available yet                                                                                                                        |
 | Execution Manager         | Not available yet                                                                                                                        |
 
