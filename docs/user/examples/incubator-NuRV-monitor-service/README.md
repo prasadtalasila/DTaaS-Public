@@ -60,10 +60,10 @@ received of either state, the full state (the new updated state and
 the previous other state) is pushed to the NuRV monitor server whereafter
 the verdict is printed to the console.
 
-## Digital Twin configuration
+## Digital Twin Configuration
 
-Before running the example, please configure the *simulation.conf* file with
-your RabbitMQ credentials.
+Before running the example, the *simulation.conf* file should be configured with
+the appropriate RabbitMQ credentials.
 
 The example uses the following assets:
 

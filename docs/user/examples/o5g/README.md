@@ -1,7 +1,7 @@
 # Firefighter Mission in a Burning Building
 
-In an firefighter mission it is important to monitor the oxygen levels of
-each firefighters Self Contained Breating Aparatus (SCBA) in context of
+In a firefighter mission, it is important to monitor the oxygen levels of
+each firefighter's Self Contained Breathing Apparatus (SCBA) in the context of
 their mission.
 
 ## Physical Twin Overview
@@ -48,8 +48,8 @@ by Leucker et al.
 
 ### Quick Check
 
-Before runnnig this example please make sure the following files
-are at the correct locations:
+Before running this example, the following files
+must be verified to be at the correct locations:
 
 ```txt
 /workspace/examples/

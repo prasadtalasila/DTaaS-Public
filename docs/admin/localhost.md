@@ -1,8 +1,8 @@
 # Install DTaaS on localhost
 
 The installation instructions provided in this README are
-ideal for running the DTaaS on both localhost.
-This installation is ideal for single users intending to use
+suitable for running DTaaS on localhost.
+This installation is intended for single users running
 DTaaS on their own computers.
 
 ## Design
@@ -13,7 +13,7 @@ setup is shown here.
 ![Traefik OAuth](./localhost.png)
 
 🗒️ The text starting with `/` at the beginning indicates the URL route
-at which a certain service is available. For example, user workspace
+at which a certain service is available. For example, the user workspace
 is available at <http://localhost/user1>.
 
 ## Requirements
@@ -34,10 +34,10 @@ The installation requirements to run this docker version of the DTaaS are:
 
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase already exists, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git
@@ -51,8 +51,8 @@ cd DTaaS
     1. The filepaths shown here follow POSIX convention.
        The installation procedures also work with Windows
        paths.
-    1. The description below refers to filenames. All the file
-       paths mentioned below are relatively to the top-level
+    1. The description below refers to filenames. All file
+       paths mentioned below are relative to the top-level
        **DTaaS** directory.
 <!-- markdownlint-enable MD046 -->
 
@@ -64,30 +64,30 @@ The docker compose configuration is in `deploy/docker/.env.local`;
 it is a sample file.
 It contains environment variables
 that are used by the docker compose files.
-It can be updated to suit your local installation scenario.
+It can be updated to suit the local installation scenario.
 It contains the following environment variables.
 
-Edit all the fields according to your specific case.
+All fields should be edited according to the specific case.
 
 | URL Path      | Example Value           | Explanation                                                                        |
 | :------------ | :---------------------- | :--------------------------------------------------------------------------------- |
 | DTAAS_DIR     | '/Users/username/DTaaS' | Full path to the DTaaS directory. This is an absolute path with no trailing slash. |
-| username1     | 'user1'                 | Your GitLab username                                                               |
+| username1     | 'user1'                 | The GitLab username                                                                |
 
 :clipboard: Important points to note:
 
 1. The path examples given here are for Linux OS.
-   These paths can be Windows OS compatible paths as well.
+   These paths can also be Windows OS compatible paths.
 1. The client configuration file is located at
    `deploy/config/client/env.local.js`.
-   Beyond this, it is not necessary to modify this file.
+   Beyond this, modification of this file is not necessary.
 
 ### Create User Workspace
 
-The existing filesystem for installation is setup for `user1`.
-A new filesystem directory needs to be created for the selected user.
+The existing filesystem for installation is configured for `user1`.
+A new filesystem directory must be created for the selected user.
 
-Please execute the following commands from the top-level directory
+The following commands should be executed from the top-level directory
 of the DTaaS project.
 
 ```bash
@@ -116,11 +116,11 @@ docker compose -f compose.local.yml --env-file .env.local up \
 ## Use
 
 The application will be accessible at:
-<http://localhost> from web browser.
-Sign in using your [GitLab](https://gitlab.com) account.
+<http://localhost> from a web browser.
+Sign in using a [GitLab](https://gitlab.com) account.
 
-All the functionality of DTaaS should be available to you
-through the single page client now.
+All the functionality of DTaaS should be available
+through the single page client.
 
 ## Limitations
 

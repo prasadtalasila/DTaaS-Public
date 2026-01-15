@@ -11,7 +11,7 @@ on a manufacturing cell.
 The case study focuses on the robot positioning in
 the discrete cartesian space of the flex-cell working space.
 Therefore, it is possible to send (X,Y,Z) commands to both robots,
-which refer to the target hole and height they want should move to.
+which refer to the target hole and height to which they should move.
 
 The flex-cell case study is managed using the `TwinManager`
 (formerly `DT Manager`), which is packed as a jar library in the tools,
@@ -164,9 +164,9 @@ lifecycle/create
 
 ### Prepare
 
-Configure different assets of DT with these credentials.
+This step configures different assets of the DT with connection credentials.
 The `functions/flex-cell/prepare.py` script is used for this purpose.
-The only thing needed to set up the connection is to update the file
+The only step needed to set up the connection is to update the file
 `/workspace/examples/data/flex-cell/input/connections.conf` with
 the connection parameters for MQTT and RabbitMQ and then execute
 the `prepare` script.
@@ -237,13 +237,13 @@ Removes the output generated during execute phase.
 lifecycle/clean
 ```
 
-## Examining the results
+## Examining the Results
 
-Executing this Digital Twin will generate a co-simulation output,
-but the results can also be monitored from updating
+Executing this Digital Twin generates a co-simulation output.
+The results can also be monitored by updating
 the `/workspace/examples/tools/flex-cell/FlexCellDTaaS.java` with
-a specific set of `getAttributeValue` commands, such as shown in the code.
-That main file enables the online execution and comparison on Digital Twin
+a specific set of `getAttributeValue` commands, as shown in the code.
+That main file enables the online execution and comparison of Digital Twin
 and Physical Twin at the same time and at the same abstraction level.
 
 The output is generated to the

@@ -2,8 +2,8 @@
 
 ## Overview
 
-This example shows multi-stage execution and dynamic reconfiguration
-of a digital twin (DT). Two features of DTs are demonstrated here:
+This example demonstrates multi-stage execution and dynamic reconfiguration
+of a digital twin (DT). Two features of DTs are demonstrated:
 
 * Fault injection into live DT
 * Dynamic auto-reconfiguration of live DT

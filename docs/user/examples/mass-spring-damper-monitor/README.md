@@ -2,7 +2,7 @@
 
 ## Overview
 
-This digital twin is derives from te Mass String Damper digital twin.
+This digital twin is derived from the Mass Spring Damper digital twin.
 
 The mass spring damper digital twin (DT) comprises two mass spring dampers
 and demonstrates how a co-simulation based DT can be used within DTaaS.
@@ -42,7 +42,7 @@ This example uses two models and one tool. The specific assets used are:
 
 The `co-sim.json` and `time.json`
 are two DT configuration files used for executing the digital twin.
-You can change these two files to customize the DT to your needs.
+These two files can be modified to customize the DT for specific requirements.
 
 ## Lifecycle Phases
 

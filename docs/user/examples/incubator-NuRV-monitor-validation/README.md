@@ -30,7 +30,7 @@ A diagram depicting the logical software structure of the example can be seen be
 
 ![DT structure](dt-structure.png)
 
-## Digital Twin configuration
+## Digital Twin Configuration
 
 The example uses the following assets:
 

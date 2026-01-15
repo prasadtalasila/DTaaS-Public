@@ -2,8 +2,8 @@
 
 ## Overview
 
-The three-tank system is a simple case study allows us to represent a system
-that is composed of three individual components that are coupled in
+The three-tank system is a simple case study that represents a system
+composed of three individual components coupled in
 a cascade as follows: The first tank is connected to the input of
 the second tank, and the output of the second tank is connected to
 the input of the third tank.

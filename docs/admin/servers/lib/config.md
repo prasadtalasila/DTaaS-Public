@@ -1,6 +1,6 @@
 # :gear: Configure Library Microservice
 
-The microservices requires config specified in yaml format.
+The microservice requires configuration specified in YAML format.
 The template configuration file is:
 
 ```yaml
@@ -25,8 +25,8 @@ The `local-path` variable is the relative filepath to the
 location of the local directory which will be served to users
 by the Library microservice.
 
-Replace the default values the appropriate values for your setup.
-Please save this config in a file as a yaml file, for example as `libms.yaml`.
+The default values should be replaced with appropriate values for the deployment.
+This configuration should be saved as a YAML file, for example as `libms.yaml`.
 
 ## Operation Modes
 
@@ -60,7 +60,7 @@ enables library microservice to clone
 HTTP(S) protocol is supported.
 The `.git` suffix is optional.
 
-Replace the default values the appropriate values for your setup.
+The default values should be replaced with appropriate values for the deployment.
 
 The **libms** looks for
 `libms.yaml` file in the working directory from which it is run.

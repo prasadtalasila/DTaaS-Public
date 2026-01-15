@@ -1,107 +1,104 @@
 # DTaaS Website Screenshots
 
-This page contains a screenshot driven preview of the website serving
+This page provides a screenshot-driven preview of the website serving
 the DTaaS software platform.
 
 ## Visit the DTaaS Application
 
-Start off by simply visiting the website
-of the DTaaS instance for which you are a user.
+Navigation begins by visiting the website
+of the DTaaS instance for which the user is registered.
 
 ![Visit the URL](visit-dtaas-1.png)
 
 ## Redirected to Authorization Provider
 
-You will be redirected to the GitLab
-Authorization for DTaaS.
+The browser redirects to the GitLab
+Authorization page for DTaaS.
 
 ![GitLab Sign on](gitlab-auth-1.png)
 
-Enter your email/username and password.
-If the email ID registered with DTaaS, is
-the same as your Google Login email ID, you
-can also opt to sign in using Google.
+The email/username and password should be entered.
+If the email ID registered with DTaaS matches
+a GitLab Login email ID.
 
-You will be redirected to the OAuth
+The browser redirects to the OAuth
 Application page.
 
 ## Permit DTaaS Server to Use GitLab
 
 ![Server Auth Permission](gitlab-auth-2.png)
 
-Click on Authorize to allow the OAuth
+Clicking on Authorize permits the OAuth
 application to access the information
-connected to your GitLab account. This
-is a necessary step.
+associated with the GitLab account. This
+is a required step.
 
-You are now logged into the DTaaS server.
-You will be redirected to the login page
-of the DTaaS website.
+After successful authentication, redirection to the login page
+of the DTaaS website occurs.
 
-The DTaaS website uses
+The DTaaS website employs
 an additional layer of security -
 the third-party authorization
 protocol known as
 [OAuth](https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce).
 This protocol provides secure access to a DTaaS
-installation if users have a working active accounts at the selected OAuth
-service provider. This also uses GitLab as OAuth provider.
+installation for users with active accounts at the selected OAuth
+service provider. This implementation also uses GitLab as the OAuth provider.
 
 ![GitLab signin button](gitlab-sso-1.png)
 
-You can see the GitLab signin button. A click on this button takes you to
-GitLab instance providing authorization for DTaaS. You will not need to
-sign in to GitLab again, unless you have explicitly logged out
-of your GitLab account.
+The GitLab signin button is displayed. Clicking this button redirects to the
+GitLab instance providing authorization for DTaaS. Re-authentication to
+GitLab is not required, unless explicit logout from the GitLab account
+has occurred.
 
 ## Permit DTaaS Website to Use GitLab
 
-The DTaaS website needs your permission to use your GitLab account for
-authorization. Click on **Authorize** button.
+The DTaaS website requires permission to use the GitLab account for
+authorization. The **Authorize** button must be clicked.
 
 ![GitLab OAuth permission](gitlab-sso-2.png)
 
-After successful authorization, you will be redirected to the **Library**
-page of the DTaaS website.
+After successful authorization, redirection to the **Library**
+page of the DTaaS website occurs.
 
-There are two icons on the top-right of the webpage. The hyperlink on
-**question mark icon** redirects to help page while the hyperlink on
-**github icon** redirects to github code repository.
+Two icons are located on the top-right of the webpage. The hyperlink on
+the **question mark icon** redirects to the help page, while the hyperlink on
+the **github icon** redirects to the GitHub code repository.
 
 ## Check Website Access
 
-If you have trouble logging into the application, please check for
-the correct configuration of the website by going to
-<https://foo.com/config/user>. The following display must appear
-for correctly configured application.
+For troubleshooting login issues, the website configuration can be verified
+by navigating to <https://foo.com/config/user>. The following display
+indicates a correctly configured application.
 
 ![Configuration Check](config.png)
 
 ## Overview of menu items
 
 The menu is hidden by default. Only the icons of menu items are visible.
-You can click on the :octicons-three-bars-16: icon in the top-left corner
-of the page to see the menu.
+Clicking on the :octicons-three-bars-16: icon in the top-left corner
+of the page reveals the menu.
 
 ![Menu](menu.png)
 
-There are three menu items:
+Three menu items are available:
 
-**Library**: for management of reusable library assets. You can upload,
-download, create and modify new files on this page.
+**Library**: For management of reusable library assets. Files can be uploaded,
+downloaded, created, and modified on this page.
 
-**Digital Twins**: for management of digital twins. You are presented with
-the Jupyter Lab page from which you can run the digital twins.
+**Digital Twins**: For management of digital twins. A Jupyter Lab page is presented
+from which digital twins can be executed.
 
 **Workbench**: Not all digital twins can be managed within Jupyter Lab.
-You have more tools at your disposal on this page.
+Additional tools are available on this page.
 
 ## Library tabs and their help text
 
 ![Menu](library.png)
 
-You can see five tabs each corresponding to one type of digital twin assets.
-Each tab provides help text to guide users on the type of an asset.
+Five tabs are displayed, each corresponding to one type of digital twin asset.
+Each tab provides help text to guide users on the asset type.
 
 ??? tip "Functions"
     The functions responsible for pre- and post-processing of: data inputs,
@@ -154,30 +151,30 @@ Each tab provides help text to guide users on the type of an asset.
     These are ready to use digital twins created by one or more users.
     These digital twins can be reconfigured later for specific use cases.
 
-There are two sub-tabs, namely **private** and **common**. The library assets
-in private category are visible only to the logged in user while the library
-assets in common category are available to all the users.
+Two sub-tabs exist: **private** and **common**. Library assets
+in the private category are visible only to the logged-in user, while library
+assets in the common category are available to all users.
 
 Further explanation on the placement of reusable assets within each type
 and the underlying directory structure on the server
-is in the [assets page](../servers/lib/assets.md#file-system-structure)
+is available on the [assets page](../servers/lib/assets.md#file-system-structure).
 
 !!! note
-    You can upload assets (files) using the **upload** button.
+    Assets (files) can be uploaded using the **upload** button.
 
-:fontawesome-solid-circle-info: The file manager is based on Jupyter notebook
-and all the tasks you can perform in the Jupyter Notebook can be
-undertaken here.
+:fontawesome-solid-circle-info: The file manager is based on Jupyter Notebook,
+and all tasks available in Jupyter Notebook can be
+performed here.
 
 ## Digital Twins page
 
 ![Menu](digital_twins.png)
 
-The digital twins page has three tabs and the central pane opens Jupyter lab.
-There are three tabs with helpful instructions on the suggested tasks you can
-undertake in the **Create - Execute - Analyze** life cycle phases of
-digital twin. You can see more explanation on
-the [life cycle phases of digital twin](../digital-twins/lifecycle.md).
+The digital twins page contains three tabs, and the central pane opens Jupyter Lab.
+The three tabs provide helpful instructions on suggested tasks for the
+**Create - Execute - Analyze** lifecycle phases of
+a digital twin. More explanation is available on
+the [lifecycle phases of digital twin](../digital-twins/lifecycle.md).
 
 ??? Create tip
     Create digital twins from tools provided within user workspaces.
@@ -207,14 +204,14 @@ the [life cycle phases of digital twin](../digital-twins/lifecycle.md).
     the data directory. These scripts can either be executed from VSCode
     and graphical results or can be executed from VNC GUI.
 
-:fontawesome-solid-circle-info: The reusable assets (files) seen in
-the file manager are available in the Jupyter Lab. In addition, there is
-a git plugin installed in the Jupyter Lab using which you can link your
-files with the external git repositories.
+:fontawesome-solid-circle-info: The reusable assets (files) displayed in
+the file manager are also available in Jupyter Lab. Additionally, a
+git plugin is installed in Jupyter Lab that enables linking
+files with external git repositories.
 
 ## Workbench
 
-The **workbench** page provides links to four integrated tools.
+The **workbench** page provides links to four integrated tools:
 
 * Desktop
 * VS Code
@@ -223,41 +220,41 @@ The **workbench** page provides links to four integrated tools.
 
 ![Workbench](workbench.png)
 
-The hyperlinks open in new browser tab. The screenshots of pages opened
-in new browser are:
+The hyperlinks open in new browser tabs. Screenshots of the pages opened
+in new browsers are shown:
 
 ![Workbench Tools](workbench_tools.png)
 
 !!! tip "Terminal"
-    The Terminal hyperlink does not exist on workbench page.
-    If you want terminal. Please use the tools dropdown
-    in the Jupyter Notebook.
+    The Terminal hyperlink does not exist on the workbench page.
+    For terminal access, the tools dropdown
+    in Jupyter Notebook should be used.
     ![Open terminal in user workspace](../../admin/guides/open_terminal_in_workspace.gif)
 
 ## Digital Twins Preview Page
 
-There is a fifth link on the Workbench page. It is **Digital Twins Preview Page**.
-It is an experimental feature at the moment. Clicking on the link opens a new page
-that is similar to the Digital Twins page.
+A fifth link exists on the Workbench page: **Digital Twins Preview Page**.
+This is an experimental feature. Clicking on the link opens a new page
+similar to the Digital Twins page.
 
-There are two tabs, namely **Manage** and **Execute**.
+Two tabs are available: **Manage** and **Execute**.
 
 ![Digital Twins Preview Page - Manage](dt_preview_manage.png)
 
 ![Digital Twins Preview Page - Execute](dt_preview_execute.png)
 
 ??? Manage tip
-    Read the complete description of digital twins.
-    If necessary, users can delete a digital twin, removing it
-    from the workspace with all its associated data. Users can
-    also reconfigure the digital twin.
+    Complete descriptions of digital twins can be read.
+    If necessary, a digital twin can be deleted, removing it
+    from the workspace along with all associated data. Digital twins
+    can also be reconfigured.
 
 ??? Execute tip
-    Execute the Digital Twins using GitLab CI/CD workflows.
+    Digital Twins can be executed using GitLab CI/CD workflows.
 
 ## Finally logout
 
 ![Logout](logout.png)
 
-You have to close the browser in order to completely exit
+The browser must be closed to completely exit
 the DTaaS software platform.

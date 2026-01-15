@@ -1,16 +1,16 @@
 # Remove User
 
-This page provides steps to remove a user from a DTaaS installation.
+This page provides steps for removing a user from a DTaaS installation.
 The username **alice** is used here to illustrate the steps involved in
 removing a user account.
 
-Please do the following:
+The following steps should be performed:
 
 **1. Remove an existing user with the [DTaaS CLI](../cli.md).**
 
 **2. Remove backend authorization for the user:**
 
-- Go to the _docker_ directory
+- Navigate to the _docker_ directory
 
   ```bash
   cd <DTaaS>/docker
@@ -33,16 +33,16 @@ Please do the following:
 
 The extra users now have no backend authorization.
 
-**3. Remove users to GitLab instance (optional):**
+**3. Remove users from GitLab instance (optional):**
 
-Please see
+The
 [GitLab docs](https://docs.gitlab.com/ee/user/profile/account/delete_account.html)
-for more help.
+provide additional guidance.
 
 **4. The user account is now deleted.**
 
 ## Caveat
 
-You cannot delete the two base users that the DTaaS software
-is installed with. You can only delete the extra users that
-have been added to the software.
+The two base users that the DTaaS software
+was installed with cannot be deleted. Only the extra users that
+have been added to the software can be deleted.

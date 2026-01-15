@@ -51,21 +51,21 @@ installation.
 
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase is already available, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git
 cd DTaaS/deploy/services
 ```
 
-Please follow the steps outlined here for installation.
+The steps outlined here should be followed for installation.
 The `services.foo.com` website hostname is used for illustration.
-Please replace the same with your server's hostname.
-These steps assume that you have downloaded the DTaaS repository
-and have navigated to the `deploy/services` directory.
+This should be replaced with the appropriate server hostname.
+These steps assume that the DTaaS repository has been downloaded
+and navigation to the `deploy/services` directory has been completed.
 
 ## Create Common Config
 
@@ -146,8 +146,8 @@ Once ThingsBoard is installed, the service can be started.
 
 The password for the default ThingsBoard system admin should be changed
 as soon as possible.
-Use the following commands to change the password,
-and add a new tenant to **ThingsBoard** service.
+The following commands can be used to change the password
+and add a new tenant to the **ThingsBoard** service.
 
 ```bash
 chmod +x script/thingsboard.py

@@ -2,10 +2,10 @@
 
 ## Overview
 
-This is a case study of an Incubator with the purpose of understanding
+This is a case study of an Incubator intended to demonstrate
 the steps and processes involved in developing a digital twin system.
-This incubator is an insulated container with the ability to keep a temperature
-and heat, but not cool. A picture of the incubator is given below.
+This incubator is an insulated container with the ability to maintain a temperature
+and provide heating, but not cooling. A picture of the incubator is provided below.
 
 ![Incubator Picture](figures/incubator_pt.png)
 
@@ -56,11 +56,11 @@ The mock physical twin is executed from
 ## Digital Twin Configuration
 
 This example uses a plethora of Python scripts to run the digital twin.
-By default it is configured to run with a mock physical twin.
-Furthermore, it depends on a RabbitMQ and an InfluxDB instances.
+By default, it is configured to run with a mock physical twin.
+Furthermore, it depends on RabbitMQ and InfluxDB instances.
 
 There is one configuration file: `simulation.conf`.
-The RabbitMQ and InfluxDB configuration parameters need to be updated.
+The RabbitMQ and InfluxDB configuration parameters must be updated.
 
 ## Lifecycle Phases
 

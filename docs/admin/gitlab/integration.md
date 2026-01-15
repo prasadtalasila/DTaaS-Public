@@ -1,13 +1,13 @@
 # GitLab Integration Guide
 
-This guide helps with integration of a local GitLab instance with
-a DTaaS server installation, and integrating the OAuth Authorization feature
-with the DTaaS installation. Please complete
-[installation of Gitlab](index.md) before attempting the integration steps
-given here.
+This guide provides instructions for integrating a local GitLab instance with
+a DTaaS server installation and integrating the OAuth Authorization feature
+with the DTaaS installation. The
+[installation of Gitlab](index.md) should be completed before attempting the integration steps
+described here.
 
 After following this guide, the GitLab instance will be integrated
-as OAuth provider for both DTaaS client application and
+as an OAuth provider for both the DTaaS client application and
 Traefik Forward Auth backend authorization.
 
 !!! note
@@ -24,65 +24,65 @@ Traefik Forward Auth backend authorization.
 
 ### 1. Set up the DTaaS server over HTTPS
 
-Follow the existing guides
+The existing guides should be followed
 to set up the DTaaS web application over HTTPS connection on either
 [localhost](../localhost-secure.md) (<https://localhost>) or
 a [custom domain](../server.md) (<https://foo.com>).
 
 !!! note
-    You may ignore steps related to configuring OAuth application tokens
-    at <https://gitlab.com>. We will be using the initial installation to host
-    the local GitLab instance, on which we will later create the OAuth
-    application tokens.
+    Steps related to configuring OAuth application tokens
+    at <https://gitlab.com> may be ignored. The initial installation will host
+    the local GitLab instance, on which the OAuth
+    application tokens will later be created.
 
 ### 2. Set up the GitLab Instance
 
-Follow the [guide](index.md) to set up a GitLab instance.
+The [guide](index.md) should be followed to set up a GitLab instance.
 
-After this step, you will have a
+After this step, a
 functioning GitLab instance (at either <https://localhost/gitlab>
-or <https://foo.com/gitlab>).
-Login credentials of the root user.
+or <https://foo.com/gitlab>) will be available,
+along with login credentials for the root user.
 
 ### 3. Create Users
 
-The newly installed GitLab only contains `root` user. The users specified
-in ìnstallation configuration files (`.env.local` / `.env.server`) need
-to be created in this integrated GitLab server.
+The newly installed GitLab only contains a `root` user. The users specified
+in installation configuration files (`.env.local` / `.env.server`) must
+be created in this integrated GitLab server.
 
 ### 4. Create OAuth Tokens in GitLab
 
-Login as a non-root user and
-follow these guides to create OAuth Application Tokens for -
+Log in as a non-root user and
+follow these guides to create OAuth Application Tokens for the
 [backend](../servers/auth.md) and
-[client](../client/auth.md). Please note that
-[backend](../servers/auth.md) is not required
+[client](../client/auth.md). Note that
+the [backend](../servers/auth.md) is not required
 for <https://localhost> installation.
 
-After this step you will have credentials for the application tokens titled
-"DTaaS Server Authorization" and "DTaaS Client Authorization", which we will use
-in the next step.
+After this step, credentials for the application tokens titled
+"DTaaS Server Authorization" and "DTaaS Client Authorization" will be available
+for use in the next step.
 
 ### 5. Use Valid Oauth Application Tokens
 
-We can now use the OAuth tokens generated on the GitLab instance to enable
+The OAuth tokens generated on the GitLab instance can now be used to enable
 authorization.
 
-If the DTaaS application is hosted at <https://localhost>, then configure
+If the DTaaS application is hosted at <https://localhost>, configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/config/client/env.local.js_.
-1. _deploy/docker/.env.local_ Add localpath and username.
+1. _deploy/docker/.env.local_ - Add localpath and username.
 
-If the DTaaS application is hosted at <https://foo.com>, then configure
+If the DTaaS application is hosted at <https://foo.com>, configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/config/client/env.js_.
-1. _deploy/docker/.env.server_ - Add  localpath and username,
+1. _deploy/docker/.env.server_ - Add localpath and username,
    OAuth client ID and client secret from the
-   **DTaaS Server Authorization** token
+   **DTaaS Server Authorization** token.
 
 ## Restart Services
 
@@ -127,17 +127,17 @@ docker compose -f compose.server.secure.yml --env-file .env.server up \
 
 ## Post Setup Usage
 
-If you have set up everything correctly:
+If the setup has been completed correctly:
 
-1. You will have a functioning path-prefixed GitLab instance available at
-   `https://foo.com/gitlab` that you may use in a similar manner to
+1. A functioning path-prefixed GitLab instance will be available at
+   `https://foo.com/gitlab` that can be used in a similar manner to
    [https://gitlab.com](https://gitlab.com).
-1. Data, configuration settings and logs pertaining to the GitLab installation
+1. Data, configuration settings, and logs pertaining to the GitLab installation
    will be available on the DTaaS server within the directory:
    _deploy/services/gitlab_.
 1. Traefik Forward Auth will use the path-prefixed GitLab instance for
-   authorization on the multi-user installation scenario i.e.
-   `foo.com` (but not on `localhost`).
+   authorization on the multi-user installation scenario (i.e.,
+   `foo.com` but not `localhost`).
 
 ## Federation of DTaaS
 

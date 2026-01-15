@@ -11,38 +11,37 @@ setup is shown here.
 
 The **traefik forward-auth** can use any OAuth2 provider, but within the DTaaS
 GitLab is used as authorization provider.
-You will use
-the OAuth the web / server application
-authorization flow.
+The OAuth web / server application
+authorization flow is utilized.
 
-Here are the steps to get started:
+The following steps outline the configuration process:
 
 **1. Choose GitLab Server:**
 
-- You need to set up OAuth authorization on a GitLab server.
-  The commercial gitlab.com is not suitable for multi-user authorization
-  (DTaaS requires this), so you'll need an on-premise GitLab instance.
-- You can use
-  [GitLab Omnibus Docker for this purpose](https://docs.gitlab.com/ee/install/docker.html).
-- Configure the OAuth application as an
+- OAuth authorization must be set up on a GitLab server.
+  An on-premise GitLab installation is preferrable to commercial
+  <https://gitlab.com>.
+- The
+  [GitLab Omnibus Docker](https://docs.gitlab.com/ee/install/docker.html)
+  can be used for this purpose.
+- The OAuth application should be configured as an
   [instance-wide authorization type](https://docs.gitlab.com/ee/integration/oauth_provider.html#create-an-instance-wide-application).
-  Select option to generate client secret and also selection option
-  for trusted application.
+  The options to generate client secret and trusted application should be selected.
 
 **2. Determine Website Hostname:**
 
-Before setting up OAuth on GitLab, decide on the hostname for your website.
-It's recommended to use a self-hosted GitLab instance, which you will use in
+Before setting up OAuth on GitLab, the hostname for the website should be determined.
+A self-hosted GitLab instance is recommended, which can be used in
 other parts of the DTaaS application.
 
 **3. Determine Callback and Logout URLs:**
 
 For the web / server authorization flow to function correctly,
-you need two URLs: a _callback URL_ and a _logout URL_.
+two URLs are required: a _callback URL_ and a _logout URL_.
 
 - The callback URL informs the OAuth provider of the
   page where
-  signed-in users should be redirected. It is the landing
+  signed-in users should be redirected. It represents the landing
   homepage of the DTaaS application.
   (either <http://foo.com/_oauth/> or <http://localhost/_oauth/>)
 - The logout URL is the URL for signout of gitlab and clear authorization
@@ -53,11 +52,11 @@ you need two URLs: a _callback URL_ and a _logout URL_.
 
 **4. Create OAuth Application:**
 
-Oauth application setup on GitLab can be located on Edit **Profile** ->
+Oauth application setup on GitLab can be located at Edit **Profile** ->
 **Application** <https://gitlab.foo.com/-/profile/applications>.
 
-During the creation of the OAuth application on GitLab, you need to specify
-the scope. Choose **_read_user_** scope.
+During the creation of the OAuth application on GitLab, the
+scope must be specified. The **_read_user_** scope should be selected.
 
 ![Creation of Server OAuth Application](server-oauth.png)
 
@@ -66,14 +65,14 @@ the scope. Choose **_read_user_** scope.
 After successfully creating the OAuth application, GitLab generates
 an _application ID_ and _client secret_.
 
-Both these values are long string of HEX values that you will need for
-your configuration files.
+Both these values are long strings of HEX values that are required for
+the configuration files.
 
 ![Server OAuth Application Credentials](server-oauth2.png)
 
 **6. Checklist: Required Information from OAuth Application:**
 
-You will need the following information from
+The following information is required from
 the OAuth application registered on GitLab:
 
 <!-- markdownlint-disable MD013 -->

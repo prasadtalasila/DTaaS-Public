@@ -32,7 +32,7 @@ This example uses two models and one tool. The specific assets used are:
 
 The `co-sim.json` and `time.json`
 are two DT configuration files used for executing the digital twin.
-You can change these two files to customize the DT to your needs.
+These two files can be modified to customize the DT for specific requirements.
 
 ## Lifecycle Phases
 
@@ -77,12 +77,12 @@ using the two FMU models.
 lifecycle/execute
 ```
 
-#### Examine the results
+#### Examine the Results
 
 The results can be found in the
 _/workspace/examples/data/mass-spring-damper/output directory_.
 
-You can also view run logs in the
+Run logs can also be viewed in the
 _/workspace/examples/digital_twins/mass-spring-damper_.
 
 ### Terminate phase

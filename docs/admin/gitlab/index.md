@@ -1,18 +1,18 @@
 # Local GitLab Instance
 
-This guide helps with installation of a dedicated local
+This guide provides instructions for installing a dedicated local
 [GitLab](https://gitlab.com) instance. This GitLab installation can be used
-as OAuth2 authorization provider and DevOps backend to the DTaaS software.
+as an OAuth2 authorization provider and DevOps backend for the DTaaS software.
 
 ## Design
 
-There are two possible ways you can install GitLab alongside the DTaaS:
+Two possible methods exist for installing GitLab alongside the DTaaS:
 
-* At dedicated domain name (ex: <http:>_gitlab.foo.com_</http:>)
-* At a URL path on existing WWW server (ex: <http:>foo.com/gitlab</http>)
+* At a dedicated domain name (e.g., <http:>_gitlab.foo.com_</http:>)
+* At a URL path on an existing WWW server (e.g., <http:>foo.com/gitlab</http>)
 
-The first is a two server installation setup where the GitLab and the DTaaS
-are installation on two servers. An illustration of this setup is shown below.
+The first is a two-server installation setup where GitLab and DTaaS
+are installed on separate servers. An illustration of this setup is shown below.
 
 ![GitLab independent install](gitlab-independent-install.png)
 
@@ -34,15 +34,15 @@ This figure shows integration of GitLab instance hosted along side
 the DTaaS. The integrated GitLab is hosted behind the Traefik proxy.
 
 This guide illustrates the installation of GitLab at:
-<http:>foo.com/gitlab</http>. But the instructions and `compose.gitlab.yml`
+<http:>foo.com/gitlab</http>. However, the instructions and `compose.gitlab.yml`
 can be adapted to install GitLab at a dedicated domain name.
 
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase already exists, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git

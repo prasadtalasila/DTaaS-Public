@@ -1,6 +1,6 @@
 # Configure Client Website
 
-This page describes various configuration options for react website.
+This page describes the various configuration options for the React website.
 
   ```js
   if (typeof window !== 'undefined') {

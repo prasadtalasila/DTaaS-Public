@@ -1,9 +1,9 @@
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase already exists, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git

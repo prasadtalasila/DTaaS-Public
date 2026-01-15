@@ -7,7 +7,7 @@ for multiple users.
 ## Design
 
 An illustration of the docker containers used and the authorization
-setup is shown here.
+setup is presented here.
 
 ![Traefik OAuth](server.png)
 
@@ -23,9 +23,9 @@ The installation requirements to run this docker version of the DTaaS are:
 
 ### Docker with Compose Plugin
 
-It is mandatory to have [Docker](https://www.docker.com/) installed
-on your computer. We highly recommend using
-[Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Docker installation is mandatory.
+[Docker](https://www.docker.com/) must be installed
+on the host computer.
 
 ### Domain name
 
@@ -35,16 +35,16 @@ It is also possible to use an IP address in place of domain name.
 
 ### TLS / HTTPS Certificate (Optional)
 
-It is possible to add HTTPS option to the DTaaS software installation.
-Creation of the required TLS certificates is possible through
+HTTPS functionality can be added to the DTaaS software installation.
+The required TLS certificates can be created through
 [certbot](https://certbot.eff.org/).
 
 ### OAuth Provider
 
 **[GitLab Instance](https://about.gitlab.com/install/)** -
 The DTaaS uses GitLab OAuth2.0 authorization for user authorization.
-You can either have an on-premise instance of GitLab, or
-use [gitlab.com](https://gitlab.com) itself.
+Either an on-premise instance of GitLab can be used, or
+[gitlab.com](https://gitlab.com) itself.
 
 ### User Accounts
 
@@ -72,18 +72,18 @@ It is possible to use <https://gitlab.com> or a local installation
 of GitLab can be used for this purpose.
 Based on your selection of gitlab instance, it is necessary
 to register these two OAuth2 applications and link them
-to your intended DTaaS installation.
+to the intended DTaaS installation.
 
-Please see
+The
 [GitLab oauth provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
-documentation for further help with creating these two OAuth applications.
+documentation provides further guidance on creating these two OAuth applications.
 
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase is already available, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git
@@ -115,7 +115,7 @@ that are used by the docker compose files.
 It can be updated to suit your local installation scenario.
 It contains the following environment variables.
 
-Edit all the fields according to your specific case.
+All fields should be edited according to the specific deployment case.
 
 | URL Path            | Example Value                 | Explanation                                                                                                                               |
 | :------------------ | :---------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -167,10 +167,10 @@ Further explanation on the client configuration is available in
 
 ### Create User Workspace
 
-The existing filesystem for installation is setup for `files/user1`.
-A new filesystem directory needs to be created for the selected user.
+The existing filesystem for installation is configured for `files/user1`.
+A new filesystem directory must be created for the selected user.
 
-Please execute the following commands from the top-level directory
+The following commands should be executed from the top-level directory
 of the DTaaS project.
 
 ```bash
@@ -197,7 +197,7 @@ rule.onlyu1.rule=Path(`/user2`)
 rule.onlyu1.whitelist = user2@localhost
 ```
 
-Please change the usernames and email addresses to the matching
+The usernames and email addresses should be changed to match the
 user accounts on the OAuth provider
 (either <https://gitlab.foo.com> or <https://gitlab.com>).
 
@@ -315,15 +315,15 @@ docker compose -f compose.server.secure.yml --env-file .env.server up \
 ## Use
 
 The application will be accessible at:
-<http(s)://foo.com> from web browser.
-Sign in using your account linked to
-either _gitlab.com_ or your local GitLab instance.
+<http(s)://foo.com> from a web browser.
+Users can sign in using accounts linked to
+either _gitlab.com_ or the local GitLab instance.
 
-All the functionality of DTaaS should be available to your users
-through the single page client now.
+All the functionality of DTaaS should be available to users
+through the single page client.
 
-You may have to click Sign in to GitLab on the Client page
-and authorize access to the shown application.
+Users may need to click Sign in to GitLab on the Client page
+and authorize access to the displayed application.
 
 ### Adding a new user
 

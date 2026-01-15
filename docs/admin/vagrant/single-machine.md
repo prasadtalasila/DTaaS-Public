@@ -1,26 +1,26 @@
 # DTaaS on Single Vagrant Machine
 
 These are installation instructions for running DTaaS software
-inside one vagrant Virtual Machine. The setup requires a
-machine which can spare 16GB RAM, 8 vCPUs and 50GB Hard Disk
+inside one Vagrant Virtual Machine. The setup requires a
+machine that can allocate 16GB RAM, 8 vCPUs and 50GB Hard Disk
 space to the vagrant box.
 
 ## Create Base Vagrant Box
 
-Create [**dtaas** Vagrant box](base-box.md).
-You would have created an SSH key pair - _vagrant_ and _vagrant.pub_.
-The _vagrant_ is the private SSH key and is needed for the next steps.
-Copy _vagrant_ SSH private key into the current directory
+Create the [**dtaas** Vagrant box](base-box.md).
+An SSH key pair - _vagrant_ and _vagrant.pub_ - will have been created.
+The _vagrant_ file is the private SSH key and is needed for the next steps.
+The _vagrant_ SSH private key should be copied into the current directory
 (`deploy/vagrant/single-machine`).
-This shall be useful for logging into the vagrant
+This key is useful for logging into the vagrant
 machines created for two-machine deployment.
 
 ## Target Installation Setup
 
 The goal is to use the [**dtaas** Vagrant box](base-box.md)
 to install the DTaaS software on one single vagrant machine.
-A graphical illustration of a successful installation can be
-seen here.
+A graphical illustration of a successful installation is
+presented here.
 
 ![Single vagrant machine](single-machine.png)
 
@@ -41,12 +41,12 @@ The used packages/docker containers are highlighed in blue color.
 ## Configure Server Settings
 
 A dummy **foo.com** URL has been used for illustration.
-Please change this to your unique website URL.
+This should be changed to the actual unique website URL.
 
-Please follow the next steps to make this installation work
-in your local environment.
+The following steps should be performed to make this installation work
+in the local environment.
 
-Update the **Vagrantfile**. Fields to update are:
+Update the **Vagrantfile**. The fields to update are:
 
 1. Hostname (`node.vm.hostname = "foo.com"`)
 1. MAC address (`:mac => "xxxxxxxx"`).

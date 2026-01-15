@@ -14,38 +14,37 @@
 
 ??? Question "What is DTaaS?"
 
-    DTaaS is software platform on which you can create and run digital twins.
-    Please see the [features](user/features.md) page
-    to get a sense of the things you can do in DaaS.
+    DTaaS is a software platform on which digital twins can be created and executed.
+    The [features](user/features.md) page provides
+    an overview of the capabilities available in DTaaS.
 
 ??? Question "What is the scope and current capabilities of DTaaS?"
 
-    1. DTaaS is a web based interface to allow you to invoke various tools
-       related to work you want to perform with one or more DTs.
+    1. DTaaS is a web-based interface that allows invocation of various tools
+       related to work to be performed with one or more DTs.
     1. DTaaS permits users to run DTs in their private workspaces.
-       These user workspaces are based on Ubuntu 20.04
+       These user workspaces are based on the Ubuntu 20.04
        Operating system.
-    1. DTaaS can help you create reusable DT assets only if DT
+    1. DTaaS can help create reusable DT assets only if DT
        asset authoring tools
-       can work in Ubuntu 20.04 xfce desktop environment.
-    1. DTs are just executables, as far as DTaaS is concerned.
-       Users are not constrained to work with DTs in a certain way.
-       The DTaaS suggests creation of DTs from reusable assets and provides
+       can operate in the Ubuntu 20.04 xfce desktop environment.
+    1. DTs are executables from the DTaaS perspective.
+       Users are not constrained to work with DTs in a specific manner.
+       DTaaS suggests creation of DTs from reusable assets and provides
        a suggestive structure for DTs. The [examples](./user/examples/index.md)
-       provide more insight into DTaaS way of working with DTs.
-       But this suggested workflow is not binding on the users.
-    1. DTs can be run as services with REST API from within user workspace
-       which can help with service-level DT composition.
+       provide more insight into the DTaaS workflow.
+       However, this suggested workflow is not mandatory.
+    1. DTs can be run as services with REST API from within user workspaces,
+       which can facilitate service-level DT composition.
 
 ??? Question "What can not be done inside DTaaS?"
 
-    1. DTaaS as such won't help you to install DTs that you get from elsewhere.
-    1. The current user interface of DTaaS web application is heavily reliant
-       on the use of Jupyter lab and notebook.
-       The **Digital Twins** page has Create / Execute / Analyze sections but
-       all point to Jupyter lab. Web interface. The functionality of these pages
+    1. DTaaS as such does not help install DTs obtained from external sources.
+    1. The current user interface of the DTaaS web application is heavily reliant
+       on the use of Jupyter Lab and Notebook.
+       The **Digital Twins** page has Create / Execute / Analyze sections, but
+       all point to Jupyter Lab web interface. The functionality of these pages
        is still under development.
-    1. DTaaS does not yet have DevOps like automation capabilities.
 
 ??? Question "Is there any fundamental difference between commercial solutions like Ansys Twin Builder and DTaaS?"
 
@@ -59,14 +58,14 @@
 
     Proprietary and commercially licensed software is not
     available by default on the software platform.
-    But users have private workspaces which are based
-    on Linux-based xfce Desktop environment.
+    However, users have private workspaces based
+    on a Linux xfce Desktop environment.
     Users can install proprietary and commercially licensed
-    software in their workspaces. Please see a
-    [screencast](FAQ/matlab-simulink.mp4) of using Matlab Simulink
+    software in their workspaces. A
+    [screencast](FAQ/matlab-simulink.mp4) demonstrates using Matlab Simulink
     within the DTaaS software.
-    The licensed software installed by one user is not available
-    to another user.
+    Licensed software installed by one user is not available
+    to other users.
 
 ## Digital Twin Assets
 
@@ -80,20 +79,20 @@
     in their own workspace.
     These authoring tools can then be used to create and publish new assets.
     User workspaces are private and are not shared with other users.
-    Thus any licensed software tools installed in their workspace is
-    only available to them.
+    Thus, any licensed software tools installed in a workspace are
+    only available to that user.
 
 ## Digital Twin Models
 
 ??? Question "Can DTaaS create new DT models?"
 
-    DTaaS is not a model creation  tool. You can put model creation tool
-    inside DTaaS and create new models.
-    The DTaaS itself does not create digital twin models but it can help
-    users create digital twin models. You can run
-    Linux desktop / terminal tools  inside the DTaaS. So you can create
-    models inside DTaaS and run them using tools that can run in Linux.
-    The Windows only tools can not run in DTaaS.
+    DTaaS is not a model creation tool. Model creation tools can be placed
+    inside DTaaS to create new models.
+    DTaaS itself does not create digital twin models but can help
+    users create digital twin models. Linux desktop/terminal tools
+    can be run inside DTaaS. Thus, models can be created
+    inside DTaaS and executed using tools that run on Linux.
+    Windows-only tools cannot run in DTaaS.
 
 ??? Question "How can DTaaS help to design geometric model? Does it support 3D modeling and simulation?"
 

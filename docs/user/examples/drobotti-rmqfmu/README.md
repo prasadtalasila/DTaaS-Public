@@ -57,11 +57,12 @@ mock physical twin. The specific assets used are:
 This DT has many configuration files.
 The `coe.json` and `multimodel.json`
 are two DT configuration files used for executing the digital twin.
-You can change these two files to customize the DT to your needs.
+These two files can be modified to customize the DT for specific requirements.
 
 The RabbitMQ access credentials need to be provided in `multimodel.json`.
 The `rabbitMQ-credentials.json` provides RabbitMQ access credentials
-for mock PT python scripts. Please add your credentials in both these files.
+for mock PT python scripts. The appropriate credentials should be added in
+both these files.
 
 ## Lifecycle Phases
 

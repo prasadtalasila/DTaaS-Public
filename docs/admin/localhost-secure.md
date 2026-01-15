@@ -1,20 +1,20 @@
 # Install DTaaS on localhost with GitLab Integration
 
-This installation is ideal for single users intending to use
+This installation is suitable for single users intending to use
 DTaaS on their own computers.
 
-The installation instructions provided in this README are
-ideal for running the **DTaaS on localhost served over HTTPS connection**.
+The installation instructions provided in this document are
+appropriate for running the **DTaaS on localhost served over HTTPS connection**.
 **The intention is to integrate GitLab into DTaaS so that both**
 **are running on localhost.**
 
-If you do not need GitLab running on localhost, please use
-the simpler [localhost setup](localhost.md).
+If GitLab running on localhost is not required,
+the simpler [localhost setup](localhost.md) should be used.
 
 ## Design
 
 An illustration of the docker containers used and the authorization
-setup is shown here.
+setup is presented here.
 
 ![Traefik OAuth](./localhost-https.png)
 
@@ -31,10 +31,10 @@ The installation requirements to run this docker version of the DTaaS are:
 
 ## Clone Codebase
 
-If you have not cloned the DTaaS git repository, cloning would be
+If the DTaaS git repository has not been cloned, cloning is
 the first step.
-In case you already have the codebase, you can skip the cloning step.
-To clone, do:
+If the codebase is already available, the cloning step can be skipped.
+To clone:
 
 ```bash
 git clone https://github.com/INTO-CPS-Association/DTaaS.git
@@ -54,10 +54,10 @@ cd DTaaS
 
 ### Create User Workspace
 
-The existing filesystem for installation is setup for `user1`.
-A new filesystem directory needs to be created for the selected user.
+The existing filesystem for installation is configured for `user1`.
+A new filesystem directory must be created for the selected user.
 
-Please execute the following commands from the top-level directory
+The following commands should be executed from the top-level directory
 of the DTaaS project.
 
 ```bash
@@ -69,10 +69,10 @@ on GitLab running at <https://localhost/gitlab>.
 
 ### Obtain TLS / HTTPS Certificate
 
-Use [mkcert](https://github.com/FiloSottile/mkcert) to generate
-TLS certificates using
+[mkcert](https://github.com/FiloSottile/mkcert) can be used to generate
+TLS certificates following
 [this guide](https://kifarunix.com/create-locally-trusted-ssl-certificates-with-mkcert-on-ubuntu-20-04/).
-The certificates need to be generated for `localhost`.
+The certificates should be generated for `localhost`.
 
 The names of the certificates must be `fullchain.pem` and `privkey.pem`.
 The `fullchain.pem` corresponds to public certificate and
@@ -97,7 +97,7 @@ that are used by the docker compose files.
 It can be updated to suit your local installation scenario.
 It contains the following environment variables.
 
-Edit all the fields according to your specific case.
+All fields should be edited according to the specific deployment case.
 
 | URL Path      | Example Value           | Explanation                                                                        |
 | :------------ | :---------------------- | :--------------------------------------------------------------------------------- |
@@ -141,19 +141,19 @@ GitLab on localhost and the GitLab service will be available at <https://localho
 
 The frontend website requires OAuth2 application registration on
 the integrated GitLab.
-The details of Oauth2 app for the frontend website are in
+The details of Oauth2 app for the frontend website are available in
 [client docs](client/auth.md).
 
-The default OAuth client application provided in `env.local.js` works.
-However, if you intend to run an
-[integrated GitLab instance](gitlab/index.md), then
+The default OAuth client application provided in `env.local.js` functions correctly.
+However, when running an
+[integrated GitLab instance](gitlab/index.md),
 this application needs to be created on GitLab running at <https://localhost/gitlab>.
 
-Remember to use <https://localhost/Library> as the Callback URL (`REACT_APP_REDIRECT_URI`).
+<https://localhost/Library> should be used as the Callback URL (`REACT_APP_REDIRECT_URI`).
 
-Please see
+The
 [GitLab oauth provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
-documentation for further help with creating this OAuth application.
+documentation provides further guidance on creating this OAuth application.
 
 ### Update Client Website Configuration
 
@@ -199,11 +199,11 @@ docker compose -f compose.local.secure.yml --env-file .env.local up \
 ## Use
 
 The application will be accessible at:
-<https://localhost> from web browser.
-Sign in using your <https://localhost/gitlab> account.
+<https://localhost> from a web browser.
+Users can sign in using their <https://localhost/gitlab> account.
 
-All the functionality of DTaaS should be available to you
-through the single page client now.
+All the functionality of DTaaS should be available
+through the single page client.
 
 ## Limitations
 

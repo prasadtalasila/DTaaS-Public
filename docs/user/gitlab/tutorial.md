@@ -1,23 +1,23 @@
 # Working with GitLab
 
-The DTaaS relies on GitLab for two purposes.
+The DTaaS platform relies on GitLab for two purposes:
 
-1. OAuth2 authorisation service
+1. OAuth2 authorization service
 1. DevOps service
 
 The [admin](../../admin/overview.md) documentation covers
-the OAuth2 authorisation configuration.
-This guide covers the use of git commands and project structure
-for GitLab DevOps service inside the DTaaS.
+the OAuth2 authorization configuration.
+This guide addresses the use of git commands and project structure
+for the GitLab DevOps service within the DTaaS.
 
 ## Preparation
 
-The first step is to create a GitLab project with *username*
-in GitLab user group named *dtaas*.
+The first step is to create a GitLab project with the *username*
+in the GitLab user group named *dtaas*.
 
 ![GitLab project create](create-repo.png)
 
-This user needs to have ownership permissions over the project.
+The user must have ownership permissions over the project.
 
 ![Project ownership](repo-ownership.png)
 
@@ -25,45 +25,45 @@ This user needs to have ownership permissions over the project.
 <!-- prettier-ignore -->
 !!! warning
     The DTaaS website expects a default branch named
-    `main` to exist. The website client performs all the git
+    `main` to exist. The website client performs all git
     operations on this branch.
-    On the other hand, it is possible to change the preferred
-    default branch name in [settings page](../website/settings.md).
+    The preferred default branch name can be changed in the
+    [settings page](../website/settings.md).
 <!-- markdownlint-enable MD046 -->
 
 ## Git commands
 
-The usual git commands and workflows should be used. There are two ways to
-use GitLab project as a remote git server.
+Standard git commands and workflows should be utilized. There are two methods for
+using a GitLab project as a remote git server:
 
-1. Over SSH using personal SSH key
+1. Over SSH using a personal SSH key
 1. Over HTTPS using
    [personal access tokens (PAT)](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
 
-This tutorial shows use of PAT for working with GitLab server.
+This tutorial demonstrates the use of PAT for working with the GitLab server.
 
-First step is to create PAT.
+The first step is to create a PAT.
 
 ![Create PAT](create-PAT.png)
 
-Copy this token and use it to clone the git repository.
+This token should be copied and used to clone the git repository.
 
 ## Library Assets
 
-The GitLab is used to store the reusable **Library**
+GitLab is used to store the reusable **Library**
 assets of all users.
-There is a [mandatory structure](../servers/lib/assets.md) for storing and
-using Library assets including digital twins. A properly initialised
+A [mandatory structure](../servers/lib/assets.md) exists for storing and
+using Library assets including digital twins. A properly initialized
 GitLab project should have the following structure.
 
 ![Project structure](./user-repo.png)
 
 Please pay special attention to `.gitlab-ci.yml`. It must be a valid
-GitLab DevOps configuration. You can also check
-[example repo](https://gitlab.com/dtaas/user1) for a sample structure.
+GitLab DevOps configuration. The
+[example repo](https://gitlab.com/dtaas/user1) provides a sample structure.
 
-For example, with `PAT1` as PAT of
-`dtaas/user1` repository, the command to clone the repository is
+For example, with `PAT1` as the PAT for the
+`dtaas/user1` repository, the command to clone the repository is:
 
 ```sh
 $git clone \
@@ -71,7 +71,7 @@ $git clone \
 $cd user1
 ```
 
-Add the required Library assets and then
+After adding the required Library assets:
 
 ```sh
 $git push origin
@@ -79,11 +79,11 @@ $git push origin
 
 ## Next Steps
 
-Remember to have a [GitLab runner](../../admin/gitlab/runner.md) integrated
-with your project repository. There might already be some runners installed
-with your DTaaS application. You can check them on the runners page.
-In addition, you can install your
-[own runners](../../admin/gitlab/runner.md) integrated into your repository.
+A [GitLab runner](../../admin/gitlab/runner.md) should be integrated
+with the project repository. Runners may already be installed
+with the DTaaS application. These can be verified on the runners page.
+Additionally, [custom runners](../../admin/gitlab/runner.md) can be installed
+and integrated with the repository.
 
-Now, the [Digital Twins Preview](../digital-twins/devops/ui.md) can be used
+The [Digital Twins Preview](../digital-twins/devops/ui.md) can then be used
 to access the DevOps features of the DTaaS platform.

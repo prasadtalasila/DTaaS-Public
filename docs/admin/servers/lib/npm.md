@@ -1,22 +1,22 @@
 # Host Library Microservice
 
-The **lib microservice** is a simplified file manager serving files
-over graphQL and HTTP API.
+The **lib microservice** is a simplified file manager that serves files
+over GraphQL and HTTP API.
 
 It has two features:
 
-* provide a listing of directory contents.
-* upload and download files
+* Provide a listing of directory contents.
+* Upload and download files
 
-This document provides instructions for installing npm package of
+This document provides instructions for installing the npm package of the
 library microservice and running the same as a standalone service.
 
 ## Setup the File System
 
 ### Outside DTaaS
 
-The package can be used independently of DTaaS. If this is your use case,
-you do not need any specific file structure. Any valid file directory
+The package can be used independently of DTaaS. In this use case,
+no specific file structure is required. Any valid file directory
 is sufficient.
 
 ### Inside DTaaS
@@ -26,9 +26,9 @@ their reusable assets.
 
 ![File System Layout](file-system-layout.png)
 
-There is a skeleton file structure in
+A skeleton file structure is available in the
 [DTaaS codebase](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/files).
-You can copy and create file system for your users.
+This can be copied to create a file system for users.
 
 ## :arrow_down: Install
 
