@@ -54,7 +54,7 @@ The following steps describe the setup process:
 
 | GitLab Variable Name | Variable Name in Client env.js | Default Value                                      |
 | -------------------- | ------------------------------ | -------------------------------------------------- |
-| OAuth 2.0 Provider       | REACT_APP_AUTH_AUTHORITY       | [https://gitlab.foo.com/](https://gitlab.foo.com/) |
+| OAuth 2.0 Provider   | REACT_APP_AUTH_AUTHORITY       | [https://gitlab.foo.com/](https://gitlab.foo.com/) |
 | Application ID       | REACT_APP_CLIENT_ID            |                                                    |
 | Callback URL         | REACT_APP_REDIRECT_URI         | [https://foo.com/Library](https://foo.com/Library) |
 | Scopes               | REACT_APP_GITLAB_SCOPES        | openid, profile, read_user, read_repository, api   |

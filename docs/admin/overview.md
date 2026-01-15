@@ -26,15 +26,15 @@ Each version serves a different purpose.
 
 Otherwise, the installation setup that fits specific needs should be selected.
 
-| Installation Setup                               | Purpose                                                                                                                                                                                                     |
-| :----------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [localhost](localhost.md)                        | Installation of the DTaaS on a local computer for a single user; does not require a web server. _This setup does not require a domain name._                                                                    |
+| Installation Setup                               | Purpose                                                                                                                                                                                                        |
+| :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [localhost](localhost.md)                        | Installation of the DTaaS on a local computer for a single user; does not require a web server. _This setup does not require a domain name._                                                                   |
 | [secure localhost](./localhost-secure.md)        | Installation of the DTaaS on a local computer for a single user over HTTPS with integrated [GitLab installation](gitlab/index.md); does not require a web server. _This setup does not require a domain name._ |
 | [Server](server.md)                              | Installation of the DTaaS on a server for multiple users. The [requirements](requirements.md) should be reviewed. Hosting over HTTPS with integrated [GitLab installation](gitlab/index.md) is also available. |
-| [One vagrant machine](vagrant/single-machine.md) | Installation of the DTaaS on a virtual machine; can be used for single or multiple users.                                                                                                                       |
-| [Two vagrant machines](vagrant/two-machines.md)  | Installation of the DTaaS on two virtual machines; can be used for single or multiple users.                                                                                                                    |
-|                                                  | The core DTaaS platform is installed on the first virtual machine, and all services (RabbitMQ, MQTT, InfluxDB, Grafana and MongoDB) are installed on the second virtual machine.                         |
-| [Independent Packages](packages.md)              | Can be used independently; does not require full installation of the DTaaS.                                                                                                                                      |
+| [One vagrant machine](vagrant/single-machine.md) | Installation of the DTaaS on a virtual machine; can be used for single or multiple users.                                                                                                                      |
+| [Two vagrant machines](vagrant/two-machines.md)  | Installation of the DTaaS on two virtual machines; can be used for single or multiple users.                                                                                                                   |
+|                                                  | The core DTaaS platform is installed on the first virtual machine, and all services (RabbitMQ, MQTT, InfluxDB, Grafana and MongoDB) are installed on the second virtual machine.                               |
+| [Independent Packages](packages.md)              | Can be used independently; does not require full installation of the DTaaS.                                                                                                                                    |
 
 The [installation steps](steps.md) is a recommended starting point for
 the installation process.

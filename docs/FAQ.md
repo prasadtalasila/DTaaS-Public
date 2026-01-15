@@ -250,7 +250,7 @@
 | Asset Administration Shell | Open source            | H                      | H            | L        | H                                             | M            | L             | M                       |
 | PTC Thingworx              | Commercial             | H                      | H            | H        | H                                             | H            | M             | M                       |
 | GE Predix                  | Commercial             | M                      | H            | H        | M                                             | L            | M             | L                       |
-| The DTaaS Platform                 | Open source            | H                      | H            | L        | L                                             | M            | M             | M                       |
+| The DTaaS Platform         | Open source            | H                      | H            | L        | L                                             | M            | M             | M                       |
 
     Adopted by Tanusree Roy from Table 4 and 5 of the following paper.
 

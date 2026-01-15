@@ -76,14 +76,14 @@ The following information is required from
 the OAuth 2.0 application registered on GitLab:
 
 <!-- markdownlint-disable MD013 -->
-| GitLab Variable Name | Variable Name in .env of docker compose file          | Default Value                                                                               |
-| :------------------- | :---------------------------------------------------- | :------------------------------------------------------------------------------------------ |
-| OAuth 2.0 Provider       | OAUTH_URL                                             | [https://gitlab.foo.com/](https://gitlab.foo.com/)                                          |
-| Application ID       | OAUTH_CLIENT_ID                                       | _xx_                                                                                        |
-| Application Secret   | OAUTH_CLIENT_SECRET                                   | _xx_                                                                                        |
+| GitLab Variable Name | Variable Name in .env of docker compose file               | Default Value                                                                               |
+| :------------------- | :--------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+| OAuth 2.0 Provider   | OAUTH_URL                                                  | [https://gitlab.foo.com/](https://gitlab.foo.com/)                                          |
+| Application ID       | OAUTH_CLIENT_ID                                            | _xx_                                                                                        |
+| Application Secret   | OAUTH_CLIENT_SECRET                                        | _xx_                                                                                        |
 | Callback URL         | (to be directly entered in GitLab OAuth  2.0 registration) |                                                                                             |
-| Forward-auth secret  | OAUTH_SECRET                                          | _random-secret-string_ (password for forward-auth, can be changed to your preferred string) |
-| Scopes               | read_user                                             |                                                                                             |
+| Forward-auth secret  | OAUTH_SECRET                                               | _random-secret-string_ (password for forward-auth, can be changed to your preferred string) |
+| Scopes               | read_user                                                  |                                                                                             |
 <!-- markdownlint-enable MD013 -->
 
 ## Development Environment

@@ -28,13 +28,13 @@ undertaken in each phase are outlined in this section[1].
 
 | Phase         | Main Activities                                                                                                                         |
 | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------- |
-| **explore**   | Selection of suitable assets based on user requirements and verification of their compatibility for DT creation.                         |
-| **create**    | Specification of DT configuration. For existing DTs, no creation phase is required at the time of reuse.                                 |
-| **execute**   | Automated or manual execution of a DT based on its configuration. The DT configuration must be verified before starting execution.       |
-| **analyse**   | Examination of DT outputs and decision-making. Outputs may include text files or visual dashboards.                                       |
-| **evolve**    | Reconfiguration of DT primarily based on analysis results.                                                                                |
-| **save**      | Preservation of DT state to enable future recovery.                                                                                       |
-| **terminate** | Cessation of DT execution.                                                                                                                |
+| **explore**   | Selection of suitable assets based on user requirements and verification of their compatibility for DT creation.                        |
+| **create**    | Specification of DT configuration. For existing DTs, no creation phase is required at the time of reuse.                                |
+| **execute**   | Automated or manual execution of a DT based on its configuration. The DT configuration must be verified before starting execution.      |
+| **analyse**   | Examination of DT outputs and decision-making. Outputs may include text files or visual dashboards.                                     |
+| **evolve**    | Reconfiguration of DT primarily based on analysis results.                                                                              |
+| **save**      | Preservation of DT state to enable future recovery.                                                                                     |
+| **terminate** | Cessation of DT execution.                                                                                                              |
 
 A digital twin faithfully tracking the physical twin lifecycle must
 support all the phases. Digital twin engineers may also add

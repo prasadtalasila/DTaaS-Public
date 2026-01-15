@@ -34,9 +34,9 @@ The following tools are currently available:
 | Tool                   | Advantage                                                                                                                                           |
 | :--------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Jupyter Lab            | Enables flexible creation and use of digital twins and their components through a web browser. All native JupyterLab use cases are supported.       |
-| Jupyter Notebook       | Facilitates web-based management of files and library assets.                                                                                        |
+| Jupyter Notebook       | Facilitates web-based management of files and library assets.                                                                                       |
 | VS Code in the browser | A widely-adopted IDE for software development. Digital twin-related assets can be developed within this environment.                                |
-| ungit                  | An interactive git client enabling repository management through a web browser.                                                                      |
+| ungit                  | An interactive git client enabling repository management through a web browser.                                                                     |
 
 In addition, an xfce-based remote desktop is accessible via a VNC client.
 The VNC client is available directly in the web browser.
@@ -56,11 +56,11 @@ The currently available services are:
 | Service    | Advantage                                                                                                                                                                                                   |
 | :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | InfluxDB   | Internet of Things (IoT) device management and data visualization platform. This service stores data for digital twins and provides alerting capabilities.                                                  |
-| RabbitMQ   | Communication broker facilitating message exchange between physical and digital twins.                                                                                                                       |
-| Grafana    | Visualization dashboard service for digital twin data presentation.                                                                                                                                          |
-| MQTT       | Lightweight data transfer broker for IoT devices and physical twins providing data to digital twins.                                                                                                         |
-| MongoDB    | NoSQL document database for storing metadata from physical twins.                                                                                                                                            |
-| PostgreSQL | SQL database server for storing historical and time-series data.                                                                                                                                             |
+| RabbitMQ   | Communication broker facilitating message exchange between physical and digital twins.                                                                                                                      |
+| Grafana    | Visualization dashboard service for digital twin data presentation.                                                                                                                                         |
+| MQTT       | Lightweight data transfer broker for IoT devices and physical twins providing data to digital twins.                                                                                                        |
+| MongoDB    | NoSQL document database for storing metadata from physical twins.                                                                                                                                           |
+| PostgreSQL | SQL database server for storing historical and time-series data.                                                                                                                                            |
 
 Users can publish and reuse digital twin assets
 available on the platform. Additionally, digital twins can be executed
