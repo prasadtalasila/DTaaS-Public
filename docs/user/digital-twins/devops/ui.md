@@ -20,7 +20,7 @@ The DT preview implements the **Create**, **Manage** and **Execute**
 stages of a [DT lifecycle](../lifecycle.md). The suggested sequence
 of use for different lifecycle stages are:
 
-![Suggested sequence of lifecycle stages](devops-lifecycle.png).
+![Suggested sequence of lifecycle stages](images/devops-lifecycle.png).
 
 There are dedicated
 tabs for **Create**, **Manage** and **Execute** stages.
@@ -35,7 +35,7 @@ The users select reusable DT assets and arrive on the Create tab.
 The following figure shows DT creation page after selecting
 _mass-spring-damper_ as a reusable asset for the new DT.
 
-![New DT creation](./dt-create-empty.png)
+![New DT creation](images/dt-create-empty.png)
 
 The left-side menu shows the possibility of creating
 [necessary structure](../../digital-twins/devops/file-structure.md)
@@ -62,7 +62,7 @@ Newly created DTs become immediately available on the **Manage** and
 
 ## Manage Tab
 
-![Manage Digital Twin Preview Page](dt_manage.png)
+![Manage Digital Twin Preview Page](images/dt_manage.png)
 
 The manage tab allows for different operations on a digital twin:
 
@@ -79,7 +79,7 @@ and
 The information page shown using the Details button, shows
 the README.md information stored inside the digital twin directory.
 
-![Digital Twin Details](dt_manage_details.png)
+![Digital Twin Details](images/dt_manage_details.png)
 
 A reconfigure button opens an editor and shows all the files corresponding
 to a digital twin. All of these files can be updated. These files
@@ -89,14 +89,14 @@ correspond to three categories.
 * **Configuration**
 * **Lifecycle**
 
-![Digital Twin Reconfigure](dt_manage_reconfigure.png)
+![Digital Twin Reconfigure](images/dt_manage_reconfigure.png)
 
 ## Execute Tab
 
-![Digital Twin Execute](dt_execute_running.png)
+![Digital Twin Execute](images/concurrent-execution.png)
 
 The execute tabs shows the possibility of executing multiple digital twins.
 Once an execution of digital twin is complete, you can see the execution
 log as well.
 
-![Digital Twin Execution Log](dt_execute_log.png)
+![Digital Twin Execution Log](images/dt_execute_log.png)

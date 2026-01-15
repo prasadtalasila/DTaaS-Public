@@ -74,7 +74,7 @@ indicates a correctly configured application.
 
 ![Configuration Check](images/config.png)
 
-## Overview of menu items
+## Menu Items
 
 The menu is hidden by default. Only the icons of menu items are visible.
 Clicking on the :octicons-three-bars-16: icon in the top-left corner
@@ -93,7 +93,7 @@ from which digital twins can be executed.
 **Workbench**: Not all digital twins can be managed within Jupyter Lab.
 Additional tools are available on this page.
 
-## Library tabs and their help text
+## Library Page
 
 ![Menu](images/library.png)
 
@@ -166,7 +166,7 @@ is available on the [assets page](../servers/lib/assets.md#file-system-structure
 and all tasks available in Jupyter Notebook can be
 performed here.
 
-## Digital Twins page
+## Digital Twins Page
 
 ![Menu](images/digital_twins.png)
 
@@ -220,10 +220,12 @@ The **workbench** page provides links to four integrated tools:
 
 ![Workbench](images/workbench.png)
 
-The hyperlinks open in new browser tabs. Screenshots of the pages opened
+Screenshots of the pages opened
 in new browsers are shown:
 
 ![Workbench Tools](images/workbench_tools.png)
+
+The hyperlinks open in new browser tabs.
 
 !!! tip "Terminal"
     The Terminal hyperlink does not exist on the workbench page.
@@ -231,26 +233,60 @@ in new browsers are shown:
     in Jupyter Notebook should be used.
     ![Open terminal in user workspace](../../admin/guides/open_terminal_in_workspace.gif)
 
+The **workbench** also has two links to DevOps-based implementation of
+composable digital twins.
+
+* Library Page Preview
+* Digital Twins Page Preview
+
+### Library Preview Page
+
+This page has the same philosophy of [Library page](#library-page) and provides
+similar user interface.
+
+![Library Preview Page](images/lib_preview_tools.png)
+
+Unlike the Library page, this preview page uses digital twin assets stored
+in a GitLab repository. New digital twins can be composed by selecting
+the required library assets.
+
+![Library Preview Page](images/lib_preview_selection.png)
+
+Upon clicking **Proceed** button, the digital twins create tab is opened.
+
 ## Digital Twins Preview Page
 
-A fifth link exists on the Workbench page: **Digital Twins Preview Page**.
-This is an experimental feature. Clicking on the link opens a new page
-similar to the Digital Twins page.
+The **Digital Twins Preview Page** provides means of managing digital twins
+using the DevOps methodology. This page has three tabs, namely **Create**,
+**Manage** and **Execute**.
 
-Two tabs are available: **Manage** and **Execute**.
+### Create Tab
+
+The library assets selected will be used on the **Create Tab**
+for creating new digital twins. The new digital twins are saved in
+the linked GitLab repository. Remember to add valid `.gitlab-ci.yml`
+configuration as it is used for execution of digital twin.
+
+![Digital Twins Preview Page - Create](images/dt_preview_create.png)
+
+### Manage Tab
+
+Complete descriptions of digital twins can be read.
 
 ![Digital Twins Preview Page - Manage](images/dt_preview_manage.png)
 
-![Digital Twins Preview Page - Execute](images/dt_preview_execute.png)
+If necessary, a digital twin can be deleted, removing it
+from the workspace along with all associated data. Digital twins
+can also be reconfigured.
 
-??? Manage tip
-    Complete descriptions of digital twins can be read.
-    If necessary, a digital twin can be deleted, removing it
-    from the workspace along with all associated data. Digital twins
-    can also be reconfigured.
+![Digital Twins Preview Page - Manage](images/dt_preview_manage_reconfigure.png)
 
-??? Execute tip
-    Digital Twins can be executed using GitLab CI/CD workflows.
+### Execute Tab
+
+Digital Twins can be executed using GitLab CI/CD workflows. Multiple
+digital twins can be executed simultaneously.
+
+![Digital Twins Preview Page - Execute](../digital-twins/devops/images/concurrent-execution.png)
 
 ## Finally logout
 

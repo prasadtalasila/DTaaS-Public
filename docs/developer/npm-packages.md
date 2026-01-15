@@ -1,6 +1,6 @@
 # Publish NPM packages
 
-The DTaaS software is developed as a monorepo with multiple npm packages.
+The DTaaS platform is developed as a monorepo with multiple npm packages.
 
 ## Default npm registry
 
@@ -18,7 +18,7 @@ yarn publish --registry="https://registry.npmjs.org" \
 ```
 
 At least one version of runner package is published to this registry
-for each release of DTaaS.
+for each release of the DTaaS platform.
 
 The publication steps for
 [library microservice](../admin/servers/lib/npm.md) and
