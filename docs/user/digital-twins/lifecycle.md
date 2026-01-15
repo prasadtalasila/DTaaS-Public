@@ -39,7 +39,7 @@ undertaken in each phase are outlined in this section[1].
 A digital twin faithfully tracking the physical twin lifecycle must
 support all the phases. Digital twin engineers may also add
 additional phases to their implementations. Consequently, the
-DTaaS software platform is designed to accommodate the needs of diverse DTs.
+DTaaS platform is designed to accommodate the needs of diverse DTs.
 
 A potential linear representation of the tasks undertaken in
 a digital twin lifecycle is shown here.
@@ -51,7 +51,7 @@ may be altered as needed.
 
 It is possible to map the lifecycle phases to
 the <font color="orange"> **Build-Use-Share**</font> approach
-of the DTaaS software platform.
+of the DTaaS platform.
 
 ![DT Lifecycle and Build-Use-Share](build-use-share.png)
 

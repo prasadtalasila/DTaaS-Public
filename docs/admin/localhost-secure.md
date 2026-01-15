@@ -16,7 +16,7 @@ the simpler [localhost setup](localhost.md) should be used.
 An illustration of the docker containers used and the authorization
 setup is presented here.
 
-![Traefik OAuth](./localhost-https.png)
+![Traefik OAuth 2.0](./localhost-https.png)
 
 🗒️ The text starting with `/` at the beginning indicates the URL route
 at which a certain service is available. For example, user workspace
@@ -33,7 +33,7 @@ The installation requirements to run this docker version of the DTaaS are:
 
 If the DTaaS git repository has not been cloned, cloning is
 the first step.
-If the codebase is already available, the cloning step can be skipped.
+If the codebase already exists, the cloning step can be skipped.
 To clone:
 
 ```bash
@@ -137,14 +137,14 @@ Use the instructions provided in
 [GitLab integration](gitlab/index.md) to bring up
 GitLab on localhost and the GitLab service will be available at <https://localhost/gitlab>
 
-### Register OAuth2 Application
+### Register OAuth 2.0 Application
 
-The frontend website requires OAuth2 application registration on
+The frontend website requires OAuth 2.0 application registration on
 the integrated GitLab.
-The details of Oauth2 app for the frontend website are available in
+The details of OAuth 2.0 application for the frontend website are available in
 [client docs](client/auth.md).
 
-The default OAuth client application provided in `env.local.js` functions correctly.
+The default OAuth 2.0 client application provided in `env.local.js` functions correctly.
 However, when running an
 [integrated GitLab instance](gitlab/index.md),
 this application needs to be created on GitLab running at <https://localhost/gitlab>.
@@ -152,8 +152,8 @@ this application needs to be created on GitLab running at <https://localhost/git
 <https://localhost/Library> should be used as the Callback URL (`REACT_APP_REDIRECT_URI`).
 
 The
-[GitLab oauth provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
-documentation provides further guidance on creating this OAuth application.
+[GitLab OAuth 2.0 provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
+documentation provides further guidance on creating this OAuth 2.0 application.
 
 ### Update Client Website Configuration
 
@@ -184,8 +184,8 @@ if (typeof window !== 'undefined') {
 };
 ```
 
-And then update OAuth2 client application ID (`REACT_APP_CLIENT_ID`) with that
-of the newly registered OAuth2 application.
+And then update OAuth 2.0 client application ID (`REACT_APP_CLIENT_ID`) with that
+of the newly registered OAuth 2.0 application.
 
 ### Restart DTaaS Client Website
 

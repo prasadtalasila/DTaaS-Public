@@ -6,7 +6,7 @@ assets is a fundamental feature of the platform[1].
 
 ## Kinds of Reusable Assets
 
-The DTaaS software categorizes all reusable library assets into
+The DTaaS platform categorizes all reusable library assets into
 six categories:
 
 ![Categories of Library Assets](library-assets.png)

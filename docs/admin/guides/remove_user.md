@@ -43,6 +43,6 @@ provide additional guidance.
 
 ## Caveat
 
-The two base users that the DTaaS software
+The two base users that the DTaaS platform
 was installed with cannot be deleted. Only the extra users that
 have been added to the software can be deleted.

@@ -12,13 +12,13 @@
 
 <!-- markdownlint-disable-file MD046 -->
 
-??? Question "What is DTaaS?"
+??? Question "What is the DTaaS platform?"
 
-    DTaaS is a software platform on which digital twins can be created and executed.
+    The DTaaS platform is a software platform on which digital twins can be created and executed.
     The [features](user/features.md) page provides
     an overview of the capabilities available in DTaaS.
 
-??? Question "What is the scope and current capabilities of DTaaS?"
+??? Question "What is the scope and current capabilities of the DTaaS platform?"
 
     1. DTaaS is a web-based interface that allows invocation of various tools
        related to work to be performed with one or more DTs.
@@ -28,7 +28,7 @@
     1. DTaaS can help create reusable DT assets only if DT
        asset authoring tools
        can operate in the Ubuntu 20.04 xfce desktop environment.
-    1. DTs are executables from the DTaaS perspective.
+    1. DTs are executables from the DTaaS platform perspective.
        Users are not constrained to work with DTs in a specific manner.
        DTaaS suggests creation of DTs from reusable assets and provides
        a suggestive structure for DTs. The [examples](./user/examples/index.md)
@@ -37,7 +37,7 @@
     1. DTs can be run as services with REST API from within user workspaces,
        which can facilitate service-level DT composition.
 
-??? Question "What can not be done inside DTaaS?"
+??? Question "What can not be done inside the DTaaS platform?"
 
     1. DTaaS as such does not help install DTs obtained from external sources.
     1. The current user interface of the DTaaS web application is heavily reliant
@@ -46,7 +46,7 @@
        all point to Jupyter Lab web interface. The functionality of these pages
        is still under development.
 
-??? Question "Is there any fundamental difference between commercial solutions like Ansys Twin Builder and DTaaS?"
+??? Question "Is there any fundamental difference between commercial solutions like Ansys Twin Builder and the DTaaS platform?"
 
     Commercial DT platforms like _Ansys Twin Builder_ provide tight integration
     between models, simulation and sensors. This leads to fewer choices in
@@ -63,13 +63,13 @@
     Users can install proprietary and commercially licensed
     software in their workspaces. A
     [screencast](FAQ/matlab-simulink.mp4) demonstrates using Matlab Simulink
-    within the DTaaS software.
+    within the DTaaS platform.
     Licensed software installed by one user is not available
     to other users.
 
 ## Digital Twin Assets
 
-??? Question "Can DTaaS be used to create new DT assets?"
+??? Question "Can the DTaaS platform be used to create new DT assets?"
 
     The core feature of DTaaS software is to help users
     create DTs from assets already available in the library.
@@ -84,35 +84,35 @@
 
 ## Digital Twin Models
 
-??? Question "Can DTaaS create new DT models?"
+??? Question "Can the DTaaS platform create new DT models?"
 
     DTaaS is not a model creation tool. Model creation tools can be placed
     inside DTaaS to create new models.
-    DTaaS itself does not create digital twin models but can help
+    The DTaaS platform itself does not create digital twin models but can help
     users create digital twin models. Linux desktop/terminal tools
     can be run inside DTaaS. Thus, models can be created
     inside DTaaS and executed using tools that run on Linux.
     Windows-only tools cannot run in DTaaS.
 
-??? Question "How can DTaaS help to design geometric model? Does it support 3D modeling and simulation?"
+??? Question "How can the DTaaS platform help to design geometric model? Does it support 3D modeling and simulation?"
 
     Well, DTaaS by itself does not produce any models. DTaaS only provides
     a platform and an ecosystem of services to facilitate digital twins to
     be run as services. Since each user has a Linux OS at their disposal,
     they can also run digital twins that have graphical interface.
-    In summary, DTaaS is neither a modeling nor simulation tool. If you need
+    In summary, the DTaaS platform is neither a modeling nor simulation tool. If you need
     these kinds of tools, you need to bring them onto the platform.
     For example, if you need Matlab for your work, you need to bring
     he licensed Matlab software.
 
-??? Question "Can DTaaS support only the information models (or behavioral models) or some other kind of models?"
+??? Question "Can the DTaaS platform support only the information models (or behavioral models) or some other kind of models?"
 
-    The DTaaS as such is agnostic to the kind of models you use. DTaaS can
+    The DTaaS platform as such is agnostic to the kind of models you use. DTaaS can
     run all kinds of models. This includes behavioral and data models.
     As long as you have models and the matching solvers that can run in
     Linux OS, you are good to go in DTaaS.
     In some cases, models and solvers (tools) are bundled together
-    to form monolithic DTs. The DTaaS does not limit you from running
+    to form monolithic DTs. The DTaaS platform does not limit you from running
     such DTs as well.
     DTaaS does not provide dedicated solvers. But if you can install
     a solver in your workspace, then you don't need the platform
@@ -126,7 +126,7 @@
 
 ## Communication Between Physical Twin and Digital Twin
 
-??? Question "How can DTaaS control the physical entity? Which technologies it uses for controlling the physical world?"
+??? Question "How can the DTaaS platform control the physical entity? Which technologies it uses for controlling the physical world?"
 
     At a very abstract level, there is a communication from physical entity
     to digital entity and back to physical entity. How this communication
@@ -149,7 +149,7 @@
 
 ??? Question "How can real-time data differ from static data and what is the procedure to identify dynamic data? Is there any UI or specific tool used here?"
 
-    DTaaS can not understand the static or dynamic nature of data.
+    The DTaaS platform can not understand the static or dynamic nature of data.
     It can facilitate storing names, units and any other text description
     of interesting quantities (weight of batter, voltage output etc).
     It can also store the data being sent by the physical twin.
@@ -189,47 +189,49 @@
 
 ## Data Management
 
-??? Question "Can DTaaS collect data directly from sensors?"
+??? Question "Can the DTaaS platform collect data directly from sensors?"
 
     Yes via platform services.
 
 ??? Question "Does DTaaS support data collection from different sources like hardware, software and network? Is there any user interface or any tracking instruments used for data collection?"
 
-    The DTaaS provids InfluxDB, RabbitMQ, MQTT and MongoDB services.
+    The DTaaS platform provids InfluxDB, PostgreSQL, RabbitMQ, MQTT, MongoDB and ThingsBoard services.
     Both the physical twin
     and digital twin can utilize these protocols for communication.
     The IoT (time-series) data can be collected using InfluxDB and MQTT
     broker services. There is a user interface for InfluxDB which can be
     used to analyze the data collected.
-    Users can also manually upload their data files into DTaaS.
+    Users can also manually upload their data files into the DTaaS.
 
-??? Question "Is DTaaS able to transmit data to cloud in real time?"
+??? Question "Is the DTaaS platform able to transmit data to cloud in real time?"
 
     Yes via platform services.
 
-??? Question "Which transmission protocol does DTaaS allow?"
+??? Question "Which transmission protocol does the DTaaS platform allow?"
 
     InfluxDB, RabbitMQ, MQTT and anything else that can be used from
     Cloud service providers.
 
-??? Question "Does DTaaS support multisource information and combined multi sensor input data? Can it provide analysis and decision-supporting inferences?"
+??? Question "Does the DTaaS platform support multisource information and combined multi sensor input data? Can it provide analysis and decision-supporting inferences?"
 
     You can store information from multiple sources. The existing InfluxDB
     services hosted on DTaaS already has a dedicated Influx / Flux query
     language for doing sensor fusion, analysis and inferences.
 
-??? Question "Which kinds of visualization technologies DTaaS can support (e.g. graphical, geometry, image, VR/AR representation)?"
+??? Question "Which kinds of visualization technologies the DTaaS platform can support (e.g. graphical, geometry, image, VR/AR representation)?"
 
     Graphical, geometric and images. If you need specific licensed software
     for the visualization, you will have to bring the license for it.
     DTaaS does not support AR/VR.
 
-## Platform Native Services on DTaaS Platform
+## Platform Native Services on the DTaaS Platform
 
-??? Question "Is DTaaS able to detect the anomalies about-to-fail components and prescribe solutions?"
+??? Question "Is the DTaaS platform able to detect the anomalies about-to-fail components and prescribe solutions?"
 
     This is the job of a digital twin. If you have a ready to use digital twin
     that does the job, DTaaS allows others to use your solution.
+    It is possible to perform anomaly detection using the platform services
+    such as Grafana, ThingsBoard and InfluxDB.
 
 ## Comparison with other DT Platforms
 
@@ -248,7 +250,7 @@
 | Asset Administration Shell | Open source            | H                      | H            | L        | H                                             | M            | L             | M                       |
 | PTC Thingworx              | Commercial             | H                      | H            | H        | H                                             | H            | M             | M                       |
 | GE Predix                  | Commercial             | M                      | H            | H        | M                                             | L            | M             | L                       |
-| AU's DTaaS                 | Open source            | H                      | H            | L        | L                                             | M            | M             | M                       |
+| The DTaaS Platform                 | Open source            | H                      | H            | L        | L                                             | M            | M             | M                       |
 
     Adopted by Tanusree Roy from Table 4 and 5 of the following paper.
 
@@ -272,7 +274,7 @@
 
 ??? Question "Does your platform adhere to GDPR compliance standards? If so, how?"
 
-    The DTaaS software platform does not store any personal information
+    The DTaaS platform does not store any personal information
     of users. It only stores username to identify users and these
     usernames do not contain enough information to deduce the true
     identify of users.
@@ -280,25 +282,25 @@
 ??? Question "Which security measures are deployed? How is data encrypted (if exists)?"
 
     The default installation requires a HTTPS terminating reverse proxy server
-    from user to the DTaaS software installation. The administrators of DTaaS
-    software can also install HTTPS certificates into the application.
+    from user to the DTaaS platform installation. The administrators of DTaaS
+    platform can also install HTTPS certificates into the application.
     The codebase can generate HTTPS application and the users also have
     the option of installing their own certificates obtained from
     certification agencies such as LetsEncrypt.
 
 ??? Question "What security measures does your cloud provider offer?"
 
-    The current installation of DTaaS software runs on Aarhus University
-    servers. The university network offers firewall access control to servers
+    The the DTaaS platform can be installed inside corporate server hosted
+    behind network firewalls
     so that only permitted user groups have access to the network and
     physical access to the server.
 
 ??? Question "How is user access controlled and authenticated?"
 
     There is a two-level authorization mechanism in place in each default
-    installation of DTaaS. The first-level is HTTP basic authorization
-    over secure HTTPS connection. The second-level is the OAuth PKCE
-    authorization flow for each user. The OAuth authorization is provider
+    installation of the DTaaS. The first-level is HTTP basic authorization
+    over secure HTTPS connection. The second-level is the OAuth 2.0 PKCE
+    authorization flow for each user. The OAuth 2.0 authorization is provider
     by a GitLab instance. The DTaaS does not store the account and
     authorization information of users.
 

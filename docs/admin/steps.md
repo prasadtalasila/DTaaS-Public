@@ -1,8 +1,8 @@
 # Installation Steps
 
-## Complete DTaaS Application
+## Complete the DTaaS Platform
 
-The DTaaS application is available in two flavors. One is
+The DTaaS platform is available in two flavors. One is
 **localhost**, which is suitable for single-user, local usage.
 The other is **production server**, which is suitable for multi-user
 setup.
@@ -11,7 +11,7 @@ In both cases, the installation is a three-step process.
 
 ### Setup Authorization
 
-DTaaS provides security using OAuth authorization for both
+DTaaS provides security using OAuth 2.0 authorization for both
 the [react client frontend](client/auth.md) and
 [backend services](servers/auth.md).
 
@@ -52,5 +52,5 @@ or [production server](server.md) pages should be followed.
 
 ## Independent Packages
 
-Each release of DTaaS also includes four reusable
+Each release of the DTaaS also includes four reusable
 packages. These packages have [dedicated documentation](packages.md).

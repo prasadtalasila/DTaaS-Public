@@ -3,7 +3,7 @@
 [DevOps](https://en.wikipedia.org/wiki/DevOps) has been
 a well established software development practice.
 We are bringing out an experimental feature of integration DevOps
-in the DTaaS.
+in the DTaaS platform.
 
 This feature requires specific installation setup.
 

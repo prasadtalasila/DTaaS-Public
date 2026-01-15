@@ -13,15 +13,15 @@ library microservice and running the same as a standalone service.
 
 ## Setup the File System
 
-### Outside DTaaS
+### Outside the DTaaS Platform
 
-The package can be used independently of DTaaS. In this use case,
+The package can be used independently of the DTaaS. In this use case,
 no specific file structure is required. Any valid file directory
 is sufficient.
 
-### Inside DTaaS
+### Inside the DTaaS Platform
 
-The users of DTaaS expect the following file system structure for
+The users of the DTaaS expect the following file system structure for
 their reusable assets.
 
 ![File System Layout](file-system-layout.png)

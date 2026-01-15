@@ -1,11 +1,11 @@
 # Third Party Software
 
-The DTaaS software platform utilizes numerous third-party software components.
+The DTaaS platform utilizes numerous third-party software components.
 These software components have their own licenses.
 
 ## User Installations
 
-The software included with DTaaS installation scripts is listed below:
+The software included with the DTaaS installation scripts is listed below:
 
 | Software Package                                                         | Usage     | License                                                                   |
 | :----------------------------------------------------------------------- | :-------- | :------------------------------------------------------------------------ |

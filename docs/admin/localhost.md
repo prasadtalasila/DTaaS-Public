@@ -1,6 +1,6 @@
 # Install DTaaS on localhost
 
-The installation instructions provided in this README are
+The installation instructions provided in this document are
 suitable for running DTaaS on localhost.
 This installation is intended for single users running
 DTaaS on their own computers.
@@ -10,7 +10,7 @@ DTaaS on their own computers.
 An illustration of the docker containers used and the authorization
 setup is shown here.
 
-![Traefik OAuth](./localhost.png)
+![Traefik OAuth 2.0](./localhost.png)
 
 🗒️ The text starting with `/` at the beginning indicates the URL route
 at which a certain service is available. For example, the user workspace

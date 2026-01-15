@@ -13,22 +13,22 @@ of the DTaaS instance for which the user is registered.
 ## Redirected to Authorization Provider
 
 The browser redirects to the GitLab
-Authorization page for DTaaS.
+Authorization page for the DTaaS.
 
 ![GitLab Sign on](gitlab-auth-1.png)
 
 The email/username and password should be entered.
-If the email ID registered with DTaaS matches
+If the email ID registered with the DTaaS matches
 a GitLab Login email ID.
 
-The browser redirects to the OAuth
+The browser redirects to the OAuth 2.0
 Application page.
 
 ## Permit DTaaS Server to Use GitLab
 
 ![Server Auth Permission](gitlab-auth-2.png)
 
-Clicking on Authorize permits the OAuth
+Clicking on Authorize permits the OAuth 2.0
 application to access the information
 associated with the GitLab account. This
 is a required step.
@@ -40,10 +40,10 @@ The DTaaS website employs
 an additional layer of security -
 the third-party authorization
 protocol known as
-[OAuth](https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce).
+[OAuth 2.0](https://auth0.com/docs/get-started/authentication-and-authorization-flow/authorization-code-flow-with-pkce).
 This protocol provides secure access to a DTaaS
-installation for users with active accounts at the selected OAuth
-service provider. This implementation also uses GitLab as the OAuth provider.
+installation for users with active accounts at the selected OAuth 2.0
+service provider. This implementation also uses GitLab as the OAuth 2.0 provider.
 
 ![GitLab signin button](gitlab-sso-1.png)
 
@@ -57,7 +57,7 @@ has occurred.
 The DTaaS website requires permission to use the GitLab account for
 authorization. The **Authorize** button must be clicked.
 
-![GitLab OAuth permission](gitlab-sso-2.png)
+![GitLab OAuth 2.0 permission](gitlab-sso-2.png)
 
 After successful authorization, redirection to the **Library**
 page of the DTaaS website occurs.

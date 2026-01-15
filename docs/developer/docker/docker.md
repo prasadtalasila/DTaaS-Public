@@ -1,7 +1,7 @@
 # Docker Workflow for DTaaS
 
 This document describes the building and use of different Docker files
-for development and installation of the DTaaS software.
+for development and installation of the DTaaS platform.
 
 **NOTE**: A local Docker CE installation is a prerequisite
 for using Docker workflows.
@@ -28,7 +28,7 @@ In addition, there are docker compose and configuration files.
 - **compose.dev.yml:** Docker Compose configuration for
   development environment.
 - **.env**: environment variables for docker compose file
-- **conf.dev** OAuth2 configuration required by
+- **conf.dev** OAuth 2.0 configuration required by
   the Traefik forward-auth service
 
 ## Build and Publish Docker Images
@@ -52,7 +52,7 @@ docker compose -f compose.dev.yml build
 
 The following steps describe how to use the application with Docker.
 
-The DTaaS application requires multiple configuration files. The list of
+The DTaaS platform requires multiple configuration files. The list of
 configuration files to be modified is provided for each scenario.
 
 ### Development Environment

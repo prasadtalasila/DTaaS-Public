@@ -24,10 +24,10 @@ execute digital twins from the Digital Twins Preview Page.
 
 A GitLab Runner picks up CI/CD jobs by communicating with a GitLab instance.
 For an explanation of how to set up a GitLab instance that integrates with a
-DTaaS application, refer to [our GitLab instance document](index.md)
+DTaaS platform, refer to [our GitLab instance document](index.md)
 and [our GitLab integration guide](integration.md).
 
-The rest of this document assumes you have a running DTaaS application with a
+The rest of this document assumes you have a running DTaaS platform with a
 GitLab instance running.
 
 ## Runner Scopes
@@ -77,7 +77,7 @@ configurations settings:
 1. __Localhost Installation__ - uses `deploy/docker/.env.local`
 1. __Server Installation__ - uses `deploy/docker/.env.server`
 
-These files are integral to running the DTaaS application, so it will be
+These files are integral to running the DTaaS platform, so it will be
 assumed that you have already configured these.
 
 We need to register the runner with the GitLab instance so that they may

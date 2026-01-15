@@ -1,9 +1,9 @@
 # DTaaS Examples
 
-Several example digital twins have been created for the DTaaS software.
+Several example digital twins have been created for the DTaaS platform.
 These examples can be explored, and the steps provided in
 this **Examples** section can be followed
-to experience features of the DTaaS software platform and understand
+to experience features of the DTaaS platform and understand
 best practices for managing digital twins within the platform.
 The following
 [slides](https://odin.cps.digit.au.dk/into-cps/dtaas/assets/20240917-Examples.pdf)
@@ -18,12 +18,11 @@ and
 [video](https://odin.cps.digit.au.dk/into-cps/dtaas/assets/videos/20240917-CPSENS-demo-Recorded-web.mp4))
 and Incubator
 ([video](https://odin.cps.digit.au.dk/into-cps/dtaas/assets/videos/Incubator-demo-web.mp4)).
-These two videos were recorded using DTaaS v0.5.0.
 
 ## Copy Examples
 
 The first step is to copy all example code into the
-user workspace within DTaaS.
+user workspace within a user workspace.
 The provided shell script copies all examples
 into the `/workspace/examples` directory.
 

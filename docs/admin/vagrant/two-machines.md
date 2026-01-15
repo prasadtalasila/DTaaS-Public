@@ -1,6 +1,6 @@
 # DTaaS on Two Vagrant Machines
 
-These are installation instructions for running the DTaaS application
+These are installation instructions for running the DTaaS platform
 in two Vagrant virtual machines (VMs). In this setup, all user workspaces
 are run on server1 while all platform services are run on server2.
 
@@ -28,7 +28,7 @@ machines created for two-machine deployment.
 ## Target Installation Setup
 
 The goal is to use this [**dtaas** vagrant box](base-box.md)
-to install the DTaaS software on server1 and
+to install the DTaaS platform on server1 and
 the default platform services on server2. Both servers
 are vagrant machines.
 
@@ -101,7 +101,7 @@ you can see the following services active within server2 (_services.foo.com_).
 | RabbitMQ Broker management website | services.foo.com:15672 |
 | MongoDB database                   | services.foo.com:27017 |
 
-### Install DTaaS Application
+### Install DTaaS Platform
 
 Execute the following commands from terminal
 

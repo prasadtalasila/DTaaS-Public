@@ -15,11 +15,11 @@ There is a two-level authorization mechanisms in place for the react website
 and the Traefik gateway.
 
 The react website component uses GitLab for user authorization using
-OAuth protocol.
+OAuth 2.0 protocol.
 
 ### Gateway Authorization
 
-The Traefik gateway has OAuth2 web server authorization provided by
+The Traefik gateway has OAuth 2.0 web server authorization provided by
 [Traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth)
 microservice. This authorization protects all the microservices
 and workspaces running in the backend.

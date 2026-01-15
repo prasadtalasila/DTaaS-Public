@@ -17,11 +17,11 @@ This page describes the various configuration options for the React website.
         "Endpoint for the Jupyter Notebook link",
       REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: 'Endpoint for the Library page preview',
       REACT_APP_WORKBENCHLINK_DT_PREVIEW: "Endpoint for the Digital Twins page preview",
-      REACT_APP_CLIENT_ID: 'AppID genereated by the gitlab OAuth provider',
+      REACT_APP_CLIENT_ID: 'AppID genereated by the gitlab OAuth 2.0 provider',
       REACT_APP_AUTH_AUTHORITY: 'URL of the private gitlab instance',
       REACT_APP_REDIRECT_URI: 'URL of the homepage for the logged in users of the website',
       REACT_APP_LOGOUT_REDIRECT_URI: 'URL of the homepage for the anonymous users of the website',
-      REACT_APP_GITLAB_SCOPES: 'OAuth scopes. These should match with the scopes set in gitlab OAuth provider',
+      REACT_APP_GITLAB_SCOPES: 'OAuth 2.0 scopes. These should match with the scopes set in gitlab OAuth 2.0 provider',
     };
   };
 

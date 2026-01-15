@@ -1,6 +1,6 @@
 # DTaaS on Single Vagrant Machine
 
-These are installation instructions for running DTaaS software
+These are installation instructions for running DTaaS platform
 inside one Vagrant Virtual Machine. The setup requires a
 machine that can allocate 16GB RAM, 8 vCPUs and 50GB Hard Disk
 space to the vagrant box.
@@ -18,7 +18,7 @@ machines created for two-machine deployment.
 ## Target Installation Setup
 
 The goal is to use the [**dtaas** Vagrant box](base-box.md)
-to install the DTaaS software on one single vagrant machine.
+to install the DTaaS platform on one single vagrant machine.
 A graphical illustration of a successful installation is
 presented here.
 

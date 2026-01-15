@@ -27,7 +27,7 @@ Following is a description of what each parameter does.
 
 The Group Name denotes the highest level of organizational abstraction
 concerned with on the storage service, namely Groups. A
-GitLab group is required to use DTaaS. Within the group, projects
+GitLab group is required to use the DTaaS. Within the group, projects
 reside, which must match the usernames of system users. More information about
 the [file organization](../digital-twins/devops/file-structure.md) is available.
 This parameter must be set to the case-insensitive name of the group.
@@ -37,7 +37,7 @@ This parameter must be set to the case-insensitive name of the group.
 ### Common Library Project name
 
 One project within the group serves as the Digital Twins *Library*.
-Through DTaaS, the files inside the Library are accessible to all users and
+Through the DTaaS, the files inside the Library are accessible to all users and
 can be copied to individual user projects as needed. This parameter specifies
 the project name of the Library, and must match that name.
 
@@ -64,7 +64,7 @@ which branch's Digital Twins are executed.
 The (GitLab) runners responsible for executing Digital Twin code must be
 associated with a tag. Only one tag can be specified, and it **cannot** be
 left blank, or the job of running the twin will not be processed.
-This is a limitation of DTaaS.
+This is a limitation of the DTaaS.
 
 **Default**: linux
 
@@ -87,7 +87,7 @@ Digital Twins should be visible, ready to be executed, edited, and shared.
 
 ## 💭 Summary
 
-This document has described how to edit the settings for initializing DTaaS
+This document has described how to edit the settings for initializing the DTaaS
 to a project and for continuous use (i.e., modifying Runner Tag and Branch).
 The need to save changes and how to return to default
 values if a mistake is made have been discussed.

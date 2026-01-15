@@ -5,7 +5,7 @@ a DTaaS installation.
 
 ## Prerequisite
 
-The DTaaS application with base users and essential
+The DTaaS platform with base users and essential
 containers must be operational before the CLI can be utilized.
 
 ## Installation
@@ -34,7 +34,7 @@ pip install dtaas
 ## Usage
 
 !!! note
-    The base DTaaS system should be up and running before
+    The base DTaaS platform should be up and running before
     adding/deleting users with the CLI.
 
 ### Configure

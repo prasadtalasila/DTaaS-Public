@@ -13,14 +13,14 @@ to provide a standalone library microservice.
 
 ## Setup the File System
 
-### Outside DTaaS
+### Outside the DTaaS Platform
 
-The package can be used independently of DTaaS. In this use case,
+The package can be used independently of the DTaaS. In this use case,
 no specific file structure is required. A valid file directory named
 `files` is sufficient and should be placed in the directory from
 which `compose.lib.yml` will be run.
 
-### Inside DTaaS
+### Inside the DTaaS Platform
 
 The users of DTaaS expect the following file system structure for
 their reusable assets.

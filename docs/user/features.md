@@ -65,7 +65,7 @@ The currently available services are:
 Users can publish and reuse digital twin assets
 available on the platform. Additionally, digital twins can be executed
 and made available as services to external clients[1]. These clients
-need not be registered users of the DTaaS software installation.
+need not be registered users of the DTaaS installation.
 
 ## References
 

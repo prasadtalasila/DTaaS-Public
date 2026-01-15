@@ -1,6 +1,6 @@
 # Running Multiple Digital Twins at the Same Time
 
-The DTaaS application allows for executing multiple Digital Twins in tandem with
+The DTaaS platform allows for executing multiple Digital Twins in tandem with
 one another. This can save hours of time when dealing with intensive Digital Twins
 or when you want to deploy them across different resources.
 

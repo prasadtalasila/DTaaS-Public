@@ -1,13 +1,13 @@
 # GitLab Integration Guide
 
 This guide provides instructions for integrating a local GitLab instance with
-a DTaaS server installation and integrating the OAuth Authorization feature
+a DTaaS server installation and integrating the OAuth 2.0 Authorization feature
 with the DTaaS installation. The
-[installation of Gitlab](index.md) should be completed before attempting the integration steps
-described here.
+[installation of Gitlab](index.md) should be completed before attempting
+the integration steps described here.
 
 After following this guide, the GitLab instance will be integrated
-as an OAuth provider for both the DTaaS client application and
+as an OAuth 2.0 provider for both the DTaaS client application and
 Traefik Forward Auth backend authorization.
 
 !!! note
@@ -30,9 +30,9 @@ to set up the DTaaS web application over HTTPS connection on either
 a [custom domain](../server.md) (<https://foo.com>).
 
 !!! note
-    Steps related to configuring OAuth application tokens
+    Steps related to configuring OAuth 2.0 application tokens
     at <https://gitlab.com> may be ignored. The initial installation will host
-    the local GitLab instance, on which the OAuth
+    the local GitLab instance, on which the OAuth 2.0
     application tokens will later be created.
 
 ### 2. Set up the GitLab Instance
@@ -50,10 +50,10 @@ The newly installed GitLab only contains a `root` user. The users specified
 in installation configuration files (`.env.local` / `.env.server`) must
 be created in this integrated GitLab server.
 
-### 4. Create OAuth Tokens in GitLab
+### 4. Create OAuth 2.0 Tokens in GitLab
 
 Log in as a non-root user and
-follow these guides to create OAuth Application Tokens for the
+follow these guides to create OAuth 2.0 Application Tokens for the
 [backend](../servers/auth.md) and
 [client](../client/auth.md). Note that
 the [backend](../servers/auth.md) is not required
@@ -63,32 +63,32 @@ After this step, credentials for the application tokens titled
 "DTaaS Server Authorization" and "DTaaS Client Authorization" will be available
 for use in the next step.
 
-### 5. Use Valid Oauth Application Tokens
+### 5. Use Valid OAuth 2.0 Application Tokens
 
-The OAuth tokens generated on the GitLab instance can now be used to enable
+The OAuth 2.0 tokens generated on the GitLab instance can now be used to enable
 authorization.
 
-If the DTaaS application is hosted at <https://localhost>, configure
+If the DTaaS platform is hosted at <https://localhost>, configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/config/client/env.local.js_.
 1. _deploy/docker/.env.local_ - Add localpath and username.
 
-If the DTaaS application is hosted at <https://foo.com>, configure
+If the DTaaS platform is hosted at <https://foo.com>, configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/config/client/env.js_.
 1. _deploy/docker/.env.server_ - Add localpath and username,
-   OAuth client ID and client secret from the
+   OAuth 2.0 client ID and client secret from the
    **DTaaS Server Authorization** token.
 
 ## Restart Services
 
 ### Localhost Installation
 
-The updated OAuth application configuration needs to be loaded into
+The updated OAuth 2.0 application configuration needs to be loaded into
 the **client website** service.
 
 ```sh
@@ -99,7 +99,7 @@ docker compose -f compose.local.yml --env-file .env.local up \
 
 ### Production Server Installation
 
-The updated OAuth application configuration needs to be loaded into
+The updated OAuth 2.0 application configuration needs to be loaded into
 the **client website** and the **forward-auth** services.
 
 The production server can be installed with either **http**
@@ -139,9 +139,9 @@ If the setup has been completed correctly:
    authorization on the multi-user installation scenario (i.e.,
    `foo.com` but not `localhost`).
 
-## Federation of DTaaS
+## Federation of DTaaS Installations
 
-It is possible to use a single GitLab to serve multiple instances of DTaaS.
+It is possible to use a single GitLab to serve multiple instances of the DTaaS installations.
 Please see
 [DTaaS and DevOps](https://odin.cps.digit.au.dk/into-cps/dtaas/assets/videos/20250502_DTaaS-and-DevOps.mp4)
 video for an overview of

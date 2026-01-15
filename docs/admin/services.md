@@ -1,7 +1,7 @@
 # Platform Services
 
 It is recommended to install certain third-party software for use
-by digital twins running inside the DTaaS software.
+by digital twins running inside the DTaaS platform.
 _These services can only be installed in secure (TLS) mode._
 
 The following services can be installed:
@@ -20,7 +20,7 @@ The following services can be installed:
 
 All these services run on raw TCP/UDP ports. Thus a direct network
 access to these services is required for both the DTs running inside
-the DTaaS software and the PT located outside the DTaaS software.
+the DTaaS platform and the PT located outside the platform.
 
 There are two possible choices here:
 
@@ -53,7 +53,7 @@ installation.
 
 If the DTaaS git repository has not been cloned, cloning is
 the first step.
-If the codebase is already available, the cloning step can be skipped.
+If the codebase already exists, the cloning step can be skipped.
 To clone:
 
 ```bash
@@ -256,7 +256,7 @@ by updating the `config/service.env` file and rerunning the docker commands.
 
 The firewall and network access settings of corporate / cloud network
 need to be configured to allow external access to the services.
-Otherwise the users of DTaaS will not be able to utilize these
+Otherwise the users of the DTaaS platform will not be able to utilize these
 services from their user workspaces.
 
 ## New User Accounts

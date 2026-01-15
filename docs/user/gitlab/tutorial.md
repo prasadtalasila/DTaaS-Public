@@ -2,11 +2,11 @@
 
 The DTaaS platform relies on GitLab for two purposes:
 
-1. OAuth2 authorization service
+1. OAuth 2.0 authorization service
 1. DevOps service
 
 The [admin](../../admin/overview.md) documentation covers
-the OAuth2 authorization configuration.
+the OAuth 2.0 authorization configuration.
 This guide addresses the use of git commands and project structure
 for the GitLab DevOps service within the DTaaS.
 
@@ -81,7 +81,7 @@ $git push origin
 
 A [GitLab runner](../../admin/gitlab/runner.md) should be integrated
 with the project repository. Runners may already be installed
-with the DTaaS application. These can be verified on the runners page.
+with the DTaaS platform. These can be verified on the runners page.
 Additionally, [custom runners](../../admin/gitlab/runner.md) can be installed
 and integrated with the repository.
 

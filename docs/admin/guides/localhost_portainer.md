@@ -1,6 +1,6 @@
 # Install DTaaS on localhost (GUI)
 
-The installation instructions provided in this README are
+The installation instructions provided in this document are
 ideal for running the DTaaS on localhost via a Graphical User
 Interface (GUI).
 This installation is ideal for single users intending to use
@@ -11,7 +11,7 @@ DTaaS on their own computers.
 An illustration of the docker containers used and the authorization
 setup is shown here.
 
-![Traefik OAuth](../localhost.png)
+![Traefik OAuth 2.0](../localhost.png)
 
 ## Requirements
 
@@ -94,7 +94,7 @@ You may use your file explorer or an equivalent application to duplicate the
 the selected username registered on <https://gitlab.com>.
 
 ALternatively, you may execute the following commands from the top-level
-directory of the DTaaS project.
+directory of the DTaaS.
 
 ```bash
 cp -R files/user1 files/username

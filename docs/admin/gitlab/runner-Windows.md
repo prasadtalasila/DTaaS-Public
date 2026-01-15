@@ -1,7 +1,7 @@
 # Setting up GitLab Runners with Docker on Windows for DTaaS
 
 This guide documents how to properly set up and configure GitLab runners with
-Docker on Windows for the Digital Twins as a Service (DTaaS) project.
+Docker on Windows for the DTaaS platform.
 
 This document outlines the steps needed to properly set up and
 configure GitLab runners on Windows.
@@ -62,7 +62,7 @@ This configuration is designed for the DTaaS digital twins which require
 a Linux environment to run properly. The pipelines use shell scripts with
 commands like `chmod +x`, which need a Linux-compatible environment.
 
-### 4. Configure Your config.toml File for DTaaS
+### 4. Configure Your config.toml
 
 The most important part is properly configuring your `config.toml` file, which
 is typically located at `C:\Users\YourUsername\.gitlab-runner\config.toml` or

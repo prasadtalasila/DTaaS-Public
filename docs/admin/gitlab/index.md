@@ -2,7 +2,7 @@
 
 This guide provides instructions for installing a dedicated local
 [GitLab](https://gitlab.com) instance. This GitLab installation can be used
-as an OAuth2 authorization provider and DevOps backend for the DTaaS software.
+as an OAuth 2.0 authorization provider and DevOps backend for the DTaaS platform.
 
 ## Design
 
@@ -59,13 +59,13 @@ needed to set up the docker container containing the local GitLab instance.
 1. `compose.gitlab.yml` and `.env` are the Docker compose and environment files
    to manage the containerized instance of GitLab
 
-If the DTaaS application and GitLab are to be hosted at <https://foo.com>, then
+If the DTaaS platform and GitLab are to be hosted at <https://foo.com>, then
 the client config file (`deploy/config/client/env.js`)
 needs to use the <https://foo.com/gitlab> as `REACT_APP_AUTH_AUTHORITY`.
 In addition, this hosting at <https://foo.com> also requires changes to
 config file (`.env.server`).
 
-If the DTaaS application and GitLab are to be hosted at <https://localhost>, then
+If the DTaaS platform and GitLab are to be hosted at <https://localhost>, then
 the client config file (`deploy/config/client/env.local.js`)
 needs to use the <https://localhost/gitlab> as `REACT_APP_AUTH_AUTHORITY`.
 If the application and the integrated GitLab are to be hosted at
@@ -125,7 +125,7 @@ for further help.
 
 ## Pending Tasks
 
-This README helps with installation of GitLab along side DTaaS application.
-But the OAuth2 integration between GitLab and DTaaS will still be pending.
+This document helps with installation of GitLab along side DTaaS application.
+But the OAuth 2.0 integration between GitLab and DTaaS will still be pending.
 Follow the [integration guide](integration.md) and the
 [runner setup guide](runner.md) to setup the GitLab integration.

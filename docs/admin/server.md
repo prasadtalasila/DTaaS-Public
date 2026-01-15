@@ -1,6 +1,6 @@
 # Install DTaaS on a Production Server
 
-The installation instructions provided in this README are
+The installation instructions provided in this document are
 ideal for hosting the DTaaS as web application
 for multiple users.
 
@@ -9,13 +9,13 @@ for multiple users.
 An illustration of the docker containers used and the authorization
 setup is presented here.
 
-![Traefik OAuth](server.png)
+![Traefik OAuth 2.0](server.png)
 
 🗒️ The text starting with `/` at the beginning indicates the URL route
 at which a certain service is available. For example, user workspace
 is available at <https://localhost/user1>.
 
-In the new application configuration, there are two OAuth2 applications.
+In the new application configuration, there are two OAuth 2.0 applications.
 
 ## Requirements
 
@@ -39,10 +39,10 @@ HTTPS functionality can be added to the DTaaS software installation.
 The required TLS certificates can be created through
 [certbot](https://certbot.eff.org/).
 
-### OAuth Provider
+### OAuth 2.0 Provider
 
 **[GitLab Instance](https://about.gitlab.com/install/)** -
-The DTaaS uses GitLab OAuth2.0 authorization for user authorization.
+The DTaaS uses GitLab OAuth 2.0 authorization for user authorization.
 Either an on-premise instance of GitLab can be used, or
 [gitlab.com](https://gitlab.com) itself.
 
@@ -53,17 +53,17 @@ Create user accounts in a linked GitLab instance for all the users.
 The default docker compose file contains two - _user1_ and _user2_.
 These names need to be changed to suitable usernames.
 
-### OAuth2 Application Registration
+### OAuth 2.0 Application Registration
 
 The multi-user installation setup requires dedicated authorization
 setup for both frontend website and backend services.
 Both these authorization requirements are satisfied
-using OAuth2 protocol.
+using OAuth 2.0 protocol.
 
 - The frontend website is a React single page application (SPA).
-- The details of Oauth2 app for the frontend website are in
+- The details of OAuth 2.0 application for the frontend website are in
   [client docs](client/auth.md).
-- The Oauth2 authorization for backend services is managed
+- The OAuth 2.0 authorization for backend services is managed
   by [Traefik forward-auth](https://github.com/thomseddon/traefik-forward-auth).
   The details of this authorization setup are in
   [server docs](servers/auth.md).
@@ -71,18 +71,18 @@ using OAuth2 protocol.
 It is possible to use <https://gitlab.com> or a local installation
 of GitLab can be used for this purpose.
 Based on your selection of gitlab instance, it is necessary
-to register these two OAuth2 applications and link them
+to register these two OAuth 2.0 applications and link them
 to the intended DTaaS installation.
 
 The
-[GitLab oauth provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
-documentation provides further guidance on creating these two OAuth applications.
+[GitLab OAuth 2.0 provider](https://docs.gitlab.com/ee/integration/oauth_provider.html)
+documentation provides further guidance on creating these two OAuth 2.0 applications.
 
 ## Clone Codebase
 
 If the DTaaS git repository has not been cloned, cloning is
 the first step.
-If the codebase is already available, the cloning step can be skipped.
+If the codebase already exists, the cloning step can be skipped.
 To clone:
 
 ```bash
@@ -122,8 +122,8 @@ All fields should be edited according to the specific deployment case.
 | DTAAS_DIR           | '/Users/username/DTaaS'       | Full path to the DTaaS directory. This is an absolute path with no trailing slash.                                                        |
 | SERVER_DNS          | <http>_foo.com_</http>        | The server DNS, if you are deploying with a dedicated server. Remember not use  <http:>http(s)</http:> at the beginning of the DNS string |
 | OAUTH_URL           | <http>_gitlab.foo.com_<http/> | The URL of your GitLab instance. It can be <http>_gitlab.com_<http/> if you are planning to use it for authorization.                     |
-| OAUTH_CLIENT_ID     | 'xx'                          | The ID of your server OAuth application                                                                                                   |
-| OAUTH_CLIENT_SECRET | 'xx'                          | The Secret of your server OAuth application                                                                                               |
+| OAUTH_CLIENT_ID     | 'xx'                          | The ID of your server OAuth 2.0 application                                                                                                   |
+| OAUTH_CLIENT_SECRET | 'xx'                          | The Secret of your server OAuth 2.0 application                                                                                               |
 | OAUTH_SECRET        | 'random-secret-string'        | Any private random string. This is a password you choose for local installation.                                                          |
 | username1           | 'user1'                       | The GitLab instance username of a user of DTaaS                                                                                           |
 | username2           | 'user2'                       | The GitLab instance username of a user of DTaaS                                                                                           |
@@ -152,8 +152,8 @@ Further explanation on the client configuration is available in
 <!-- markdownlint-disable MD046 -->
 <!-- prettier-ignore -->
 !!! tip
-    There is a default OAuth application registered on <https://gitlab.com>
-    for client. The corresponding OAuth application
+    There is a default OAuth 2.0 application registered on <https://gitlab.com>
+    for client. The corresponding OAuth 2.0 application
     details are:
 
     ```js
@@ -161,7 +161,7 @@ Further explanation on the client configuration is available in
     REACT_APP_AUTH_AUTHORITY: 'https://gitlab.com/',
     ```
 
-    **This can be used for test purposes**. Please use your own OAuth application
+    **This can be used for test purposes**. Please use your own OAuth 2.0 application
     for secure production deployments.
 <!-- markdownlint-enable MD046 -->
 
@@ -198,7 +198,7 @@ rule.onlyu1.whitelist = user2@localhost
 ```
 
 The usernames and email addresses should be changed to match the
-user accounts on the OAuth provider
+user accounts on the OAuth 2.0 provider
 (either <https://gitlab.foo.com> or <https://gitlab.com>).
 
 #### Caveat

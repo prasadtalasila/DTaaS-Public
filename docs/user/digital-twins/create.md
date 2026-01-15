@@ -100,7 +100,7 @@ The digital twin configuration is specified in the
 `digital twins/mass-spring-damper` directory. The co-simulation configuration
 is defined in two JSON files: `cosim.json` and `time.json`.
 Documentation for the digital twin can be placed in
-`digital twins/mass-spring-damper/README.md`.
+`digital twins/mass-spring-damper/document.md`.
 
 The launch program for this digital twin is located in
 `digital twins/mass-spring-damper/lifecycle/execute`. This launch program executes
