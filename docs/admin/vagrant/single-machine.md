@@ -40,7 +40,7 @@ The used packages/docker containers are highlighed in blue color.
 
 ## Configure Server Settings
 
-A dummy **foo.com** URL has been used for illustration.
+A dummy `foo.com` URL has been used for illustration.
 This should be changed to the actual unique website URL.
 
 The following steps should be performed to make this installation work

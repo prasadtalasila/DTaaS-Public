@@ -7,7 +7,7 @@ or when you want to deploy them across different resources.
 ## ⏯️ Running Digital Twins
 
 When you want to deploy a Digital Twin you can do this from the *Execution tab*
-on the *Digital Twin Preview page*. You can find this by clicking on the developer
+on the *Digital Twin Preview page*. You can find this by clicking on the Workbench
 icon ![icon](images/developer-icon.png) in the sidebar on the left hand side and
 locating *Digital Twins Preview* among the other links. Click to open the *Digital
 Twin Preview page* in a new tab.

@@ -147,7 +147,7 @@ available in
 
 Users can upload assets into their workspace using the Library page of the website.
 
-![Library Page](../../website/library.png)
+![Library Page](../../website/images/library.png)
 
 Navigation into a directory followed by clicking on the **upload**
 button allows uploading files or directories into the workspace.

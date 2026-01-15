@@ -21,8 +21,8 @@ https://foo.com/gitlab/dtaas/user2.git
 <!-- prettier-ignore -->
 !!! warning
     The assets being displayed on the Library preview page come from
-    the default branch of the backing GitLab project. Please create
-    a branch named `main` and make it the default
+    the `master` branch of the backing GitLab project. Please create
+    a branch named `master` and make it the default
     branch. This must be done for all the user repositories including
     the common repository.
 <!-- markdownlint-enable MD046 -->

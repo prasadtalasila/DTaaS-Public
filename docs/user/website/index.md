@@ -3,19 +3,19 @@
 This page provides a screenshot-driven preview of the website serving
 the DTaaS software platform.
 
-## Visit the DTaaS Application
+## Visit the DTaaS Installation
 
 Navigation begins by visiting the website
 of the DTaaS instance for which the user is registered.
 
-![Visit the URL](visit-dtaas-1.png)
+![Visit the URL](images/visit-dtaas-1.png)
 
 ## Redirected to Authorization Provider
 
 The browser redirects to the GitLab
 Authorization page for the DTaaS.
 
-![GitLab Sign on](gitlab-auth-1.png)
+![GitLab Sign on](images/gitlab-auth-1.png)
 
 The email/username and password should be entered.
 If the email ID registered with the DTaaS matches
@@ -26,7 +26,7 @@ Application page.
 
 ## Permit DTaaS Server to Use GitLab
 
-![Server Auth Permission](gitlab-auth-2.png)
+![Server Auth Permission](images/gitlab-auth-2.png)
 
 Clicking on Authorize permits the OAuth 2.0
 application to access the information
@@ -45,7 +45,7 @@ This protocol provides secure access to a DTaaS
 installation for users with active accounts at the selected OAuth 2.0
 service provider. This implementation also uses GitLab as the OAuth 2.0 provider.
 
-![GitLab signin button](gitlab-sso-1.png)
+![GitLab signin button](images/gitlab-sso-1.png)
 
 The GitLab signin button is displayed. Clicking this button redirects to the
 GitLab instance providing authorization for DTaaS. Re-authentication to
@@ -57,7 +57,7 @@ has occurred.
 The DTaaS website requires permission to use the GitLab account for
 authorization. The **Authorize** button must be clicked.
 
-![GitLab OAuth 2.0 permission](gitlab-sso-2.png)
+![GitLab OAuth 2.0 permission](images/gitlab-sso-2.png)
 
 After successful authorization, redirection to the **Library**
 page of the DTaaS website occurs.
@@ -72,7 +72,7 @@ For troubleshooting login issues, the website configuration can be verified
 by navigating to <https://foo.com/config/user>. The following display
 indicates a correctly configured application.
 
-![Configuration Check](config.png)
+![Configuration Check](images/config.png)
 
 ## Overview of menu items
 
@@ -80,7 +80,7 @@ The menu is hidden by default. Only the icons of menu items are visible.
 Clicking on the :octicons-three-bars-16: icon in the top-left corner
 of the page reveals the menu.
 
-![Menu](menu.png)
+![Menu](images/menu.png)
 
 Three menu items are available:
 
@@ -95,7 +95,7 @@ Additional tools are available on this page.
 
 ## Library tabs and their help text
 
-![Menu](library.png)
+![Menu](images/library.png)
 
 Five tabs are displayed, each corresponding to one type of digital twin asset.
 Each tab provides help text to guide users on the asset type.
@@ -168,7 +168,7 @@ performed here.
 
 ## Digital Twins page
 
-![Menu](digital_twins.png)
+![Menu](images/digital_twins.png)
 
 The digital twins page contains three tabs, and the central pane opens Jupyter Lab.
 The three tabs provide helpful instructions on suggested tasks for the
@@ -218,12 +218,12 @@ The **workbench** page provides links to four integrated tools:
 * Jupyter Lab
 * Jupyter Notebook
 
-![Workbench](workbench.png)
+![Workbench](images/workbench.png)
 
 The hyperlinks open in new browser tabs. Screenshots of the pages opened
 in new browsers are shown:
 
-![Workbench Tools](workbench_tools.png)
+![Workbench Tools](images/workbench_tools.png)
 
 !!! tip "Terminal"
     The Terminal hyperlink does not exist on the workbench page.
@@ -239,9 +239,9 @@ similar to the Digital Twins page.
 
 Two tabs are available: **Manage** and **Execute**.
 
-![Digital Twins Preview Page - Manage](dt_preview_manage.png)
+![Digital Twins Preview Page - Manage](images/dt_preview_manage.png)
 
-![Digital Twins Preview Page - Execute](dt_preview_execute.png)
+![Digital Twins Preview Page - Execute](images/dt_preview_execute.png)
 
 ??? Manage tip
     Complete descriptions of digital twins can be read.
@@ -254,7 +254,7 @@ Two tabs are available: **Manage** and **Execute**.
 
 ## Finally logout
 
-![Logout](logout.png)
+![Logout](images/logout.png)
 
 The browser must be closed to completely exit
 the DTaaS software platform.

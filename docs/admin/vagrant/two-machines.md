@@ -56,7 +56,7 @@ two vagrant configuration files, namely _boxes.json_ and _Vagrantfile_.
 
 ## Configure Server Settings
 
-:clipboard: A dummy **foo.com** and **services.foo.com** URLs
+:clipboard: A dummy `foo.com` and `services.foo.com` URLs
 have been used for illustration.
 These should be changed to the actual unique website URLs.
 
@@ -90,7 +90,7 @@ Follow the installation guide for [services](../services.md)
 to install the DTaaS platform services.
 
 After the services are up and running,
-you can see the following services active within server2 (_services.foo.com_).
+you can see the following services active within server2 (`services.foo.com`).
 
 | service                            | external url           |
 | :--------------------------------- | :--------------------- |
