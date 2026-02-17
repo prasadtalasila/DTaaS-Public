@@ -1,0 +1,167 @@
+---
+# Traefik Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: dtaas
+  labels:
+    app: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traefik
+  template:
+    metadata:
+      labels:
+        app: traefik
+    spec:
+      serviceAccountName: traefik
+      containers:
+      - name: traefik
+        image: traefik:v2.10
+        args:
+          - --log.level=DEBUG
+          - --api.insecure=true
+          - --providers.kubernetescrd=true
+          - --providers.kubernetesingress=true
+          - --entrypoints.web.address=:80
+          - --entrypoints.web-secure.address=:443
+          - --entrypoints.web.http.redirections.entrypoint.to=web-secure
+          - --entrypoints.web.http.redirections.entrypoint.scheme=https
+          - --entrypoints.web.http.redirections.entrypoint.permanent=true
+          - --providers.file.directory=/etc/traefik/dynamic
+          - --providers.file.watch=true
+        ports:
+        - name: web
+          containerPort: 80
+          protocol: TCP
+        - name: web-secure
+          containerPort: 443
+          protocol: TCP
+        - name: admin
+          containerPort: 8080
+          protocol: TCP
+        volumeMounts:
+        - name: traefik-tls-config
+          mountPath: /etc/traefik/dynamic
+          readOnly: true
+        - name: traefik-tls-cert
+          mountPath: /etc/traefik-certs
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: traefik-tls-config
+        configMap:
+          name: traefik-tls-config
+      - name: traefik-tls-cert
+        secret:
+          secretName: traefik-tls-cert
+
+---
+# Traefik Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: dtaas
+  labels:
+    app: traefik
+spec:
+  type: LoadBalancer
+  selector:
+    app: traefik
+  ports:
+  - name: web
+    port: 80
+    targetPort: web
+    protocol: TCP
+  - name: web-secure
+    port: 443
+    targetPort: web-secure
+    protocol: TCP
+  - name: admin
+    port: 8080
+    targetPort: admin
+    protocol: TCP
+
+---
+# ServiceAccount for Traefik
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traefik
+  namespace: dtaas
+
+---
+# ClusterRole for Traefik
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traefik
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - traefik.containo.us
+    resources:
+      - ingressroutes
+      - ingressroutetcps
+      - ingressrouteudps
+      - middlewares
+      - middlewaretcps
+      - tlsoptions
+      - tlsstores
+      - traefikservices
+      - serverstransports
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+# ClusterRoleBinding for Traefik
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: traefik
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: dtaas

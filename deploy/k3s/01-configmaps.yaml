@@ -1,0 +1,102 @@
+---
+# ConfigMap for client environment configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: client-config
+  namespace: dtaas
+data:
+  env.js: |
+    if (typeof window !== 'undefined') {
+      window.env = {
+        REACT_APP_ENVIRONMENT: 'prod',
+        REACT_APP_URL: 'https://foo.com/',
+        REACT_APP_URL_BASENAME: '',
+        REACT_APP_URL_DTLINK: '/lab',
+        REACT_APP_URL_LIBLINK: '',
+        REACT_APP_WORKBENCHLINK_VNCDESKTOP: '/tools/vnc/?password=vncpassword',
+        REACT_APP_WORKBENCHLINK_VSCODE: '/tools/vscode/',
+        REACT_APP_WORKBENCHLINK_JUPYTERLAB: '/lab',
+        REACT_APP_WORKBENCHLINK_JUPYTERNOTEBOOK: '',
+        REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/preview/library',
+        REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/preview/digitaltwins',
+
+        REACT_APP_CLIENT_ID: '1be55736756190b3ace4c2c4fb19bde386d1dcc748d20b47ea8cfb5935b8446c',
+        REACT_APP_AUTH_AUTHORITY: 'https://gitlab.foo.com/',
+        REACT_APP_REDIRECT_URI: 'https://foo.com/Library',
+        REACT_APP_LOGOUT_REDIRECT_URI: 'https://foo.com/',
+        REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
+      };
+    };
+
+---
+# ConfigMap for library microservice configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: libms-config
+  namespace: dtaas
+data:
+  libms.yaml: |
+    port: '4001'
+    mode: 'local'
+    local-path: '/dtaas/libms/files'
+    log-level: 'debug'
+    apollo-path: '/lib'
+    graphql-playground: 'true'
+    
+    git-repos:
+      - user1:
+          repo-url: 'https://gitlab.com/dtaas/user1.git'
+      - user2:
+          repo-url: 'https://gitlab.com/dtaas/user2.git'
+      - common:
+          repo-url: 'https://gitlab.com/dtaas/common.git'
+
+---
+# ConfigMap for Traefik dynamic TLS configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-tls-config
+  namespace: dtaas
+data:
+  tls.yml: |
+    tls:
+      certificates:
+        - certFile: /etc/traefik-certs/fullchain.pem
+          keyFile: /etc/traefik-certs/privkey.pem
+          stores:
+            - default
+
+---
+# ConfigMap for Traefik forward auth rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-forward-auth-config
+  namespace: dtaas
+data:
+  conf.server: |
+    rule.libms.action=auth
+    rule.libms.rule=PathPrefix(`/lib`)
+    
+    rule.onlyu1.action=auth
+    rule.onlyu1.rule=PathPrefix(`/user1`)
+    rule.onlyu1.whitelist = user1@emailservice.com
+    
+    rule.onlyu2.action=auth
+    rule.onlyu2.rule=PathPrefix(`/user2`)
+    rule.onlyu2.whitelist = user2@emailservice.com
+
+---
+# ConfigMap for DNS resolution
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resolv-config
+  namespace: dtaas
+data:
+  resolv.conf: |
+    nameserver 8.8.8.8
+    nameserver 8.8.4.4

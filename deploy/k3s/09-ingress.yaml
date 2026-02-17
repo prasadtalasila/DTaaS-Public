@@ -1,0 +1,143 @@
+---
+# Middleware for Traefik Forward Auth
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: traefik-forward-auth
+  namespace: dtaas
+spec:
+  forwardAuth:
+    address: http://traefik-forward-auth:4181
+    authResponseHeaders:
+      - X-Forwarded-User
+
+---
+# IngressRoute for Client (Main Application)
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: client
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`foo.com`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: client
+          port: 4000
+      middlewares:
+        - name: traefik-forward-auth
+  tls: {}
+
+---
+# IngressRoute for Library Microservice
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: libms
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`foo.com`) && PathPrefix(`/lib`)
+      kind: Rule
+      services:
+        - name: libms
+          port: 4001
+      middlewares:
+        - name: traefik-forward-auth
+  tls: {}
+
+---
+# IngressRoute for User1 Workspace
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: user1
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`foo.com`) && PathPrefix(`/user1`)
+      kind: Rule
+      services:
+        - name: ml-workspace-user1
+          port: 8080
+      middlewares:
+        - name: traefik-forward-auth
+  tls: {}
+
+---
+# IngressRoute for User2 Workspace
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: user2
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`foo.com`) && PathPrefix(`/user2`)
+      kind: Rule
+      services:
+        - name: ml-workspace-user2
+          port: 8080
+      middlewares:
+        - name: traefik-forward-auth
+  tls: {}
+
+---
+# IngressRoute for OAuth Redirect
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: oauth-redirect
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`foo.com`) && PathPrefix(`/_oauth`)
+      kind: Rule
+      services:
+        - name: traefik-forward-auth
+          port: 4181
+      middlewares:
+        - name: traefik-forward-auth
+  tls: {}
+
+---
+# HTTP to HTTPS Redirect IngressRoute
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: http-redirect
+  namespace: dtaas
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`foo.com`)
+      kind: Rule
+      services:
+        - name: client
+          port: 4000
+      middlewares:
+        - name: redirect-https
+
+---
+# Middleware for HTTPS Redirect
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: dtaas
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true

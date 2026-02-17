@@ -1,0 +1,26 @@
+# Environment files
+.env
+*.env
+!.env.template
+
+# Generated secrets (contains sensitive data)
+02-secrets-generated.yaml
+*-secrets-generated.yaml
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Certificate files
+*.pem
+*.crt
+*.key
+*.pfx
+*.p12

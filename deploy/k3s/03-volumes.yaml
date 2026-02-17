@@ -1,0 +1,133 @@
+---
+# PersistentVolume for DTaaS files
+# Note: Adjust storage path and capacity based on your cluster setup
+# For k3s, local-path provisioner is available by default
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dtaas-files-pv
+  namespace: dtaas
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /dtaas/files
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for DTaaS files
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dtaas-files-pvc
+  namespace: dtaas
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: local-path
+
+---
+# PersistentVolume for common files
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dtaas-common-pv
+  namespace: dtaas
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /dtaas/files/common
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for common files
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dtaas-common-pvc
+  namespace: dtaas
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+# PersistentVolume for user1
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dtaas-user1-pv
+  namespace: dtaas
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /dtaas/files/user1
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for user1
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dtaas-user1-pvc
+  namespace: dtaas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+
+---
+# PersistentVolume for user2
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dtaas-user2-pv
+  namespace: dtaas
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-path
+  hostPath:
+    path: /dtaas/files/user2
+    type: DirectoryOrCreate
+
+---
+# PersistentVolumeClaim for user2
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dtaas-user2-pvc
+  namespace: dtaas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path

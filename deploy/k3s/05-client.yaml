@@ -1,0 +1,73 @@
+---
+# Client Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: dtaas
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+      - name: client
+        image: intocps/dtaas-web:latest
+        ports:
+        - name: http
+          containerPort: 4000
+          protocol: TCP
+        volumeMounts:
+        - name: client-config
+          mountPath: /dtaas/client/build/env.js
+          subPath: env.js
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: client-config
+        configMap:
+          name: client-config
+
+---
+# Client Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+  namespace: dtaas
+  labels:
+    app: client
+spec:
+  type: ClusterIP
+  selector:
+    app: client
+  ports:
+  - name: http
+    port: 4000
+    targetPort: http
+    protocol: TCP

@@ -1,0 +1,155 @@
+---
+# User1 ML Workspace Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-workspace-user1
+  namespace: dtaas
+  labels:
+    app: ml-workspace-user1
+    user: user1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-workspace-user1
+  template:
+    metadata:
+      labels:
+        app: ml-workspace-user1
+        user: user1
+    spec:
+      containers:
+      - name: ml-workspace
+        image: mltooling/ml-workspace-minimal:0.13.2
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: AUTHENTICATE_VIA_JUPYTER
+          value: ""
+        - name: WORKSPACE_BASE_URL
+          value: "user1"
+        volumeMounts:
+        - name: common-files
+          mountPath: /workspace/common
+          readOnly: true
+        - name: user1-files
+          mountPath: /workspace
+        resources:
+          limits:
+            cpu: "4"
+            memory: 4Gi
+          requests:
+            cpu: "500m"
+            memory: 512Mi
+        securityContext:
+          capabilities:
+            add:
+            - SYS_ADMIN
+      volumes:
+      - name: common-files
+        persistentVolumeClaim:
+          claimName: dtaas-common-pvc
+      - name: user1-files
+        persistentVolumeClaim:
+          claimName: dtaas-user1-pvc
+
+---
+# User1 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-workspace-user1
+  namespace: dtaas
+  labels:
+    app: ml-workspace-user1
+    user: user1
+spec:
+  type: ClusterIP
+  selector:
+    app: ml-workspace-user1
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+
+---
+# User2 ML Workspace Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-workspace-user2
+  namespace: dtaas
+  labels:
+    app: ml-workspace-user2
+    user: user2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-workspace-user2
+  template:
+    metadata:
+      labels:
+        app: ml-workspace-user2
+        user: user2
+    spec:
+      containers:
+      - name: ml-workspace
+        image: mltooling/ml-workspace-minimal:0.13.2
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: AUTHENTICATE_VIA_JUPYTER
+          value: ""
+        - name: WORKSPACE_BASE_URL
+          value: "user2"
+        volumeMounts:
+        - name: common-files
+          mountPath: /workspace/common
+          readOnly: true
+        - name: user2-files
+          mountPath: /workspace
+        resources:
+          limits:
+            cpu: "4"
+            memory: 4Gi
+          requests:
+            cpu: "500m"
+            memory: 512Mi
+        securityContext:
+          capabilities:
+            add:
+            - SYS_ADMIN
+      volumes:
+      - name: common-files
+        persistentVolumeClaim:
+          claimName: dtaas-common-pvc
+      - name: user2-files
+        persistentVolumeClaim:
+          claimName: dtaas-user2-pvc
+
+---
+# User2 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-workspace-user2
+  namespace: dtaas
+  labels:
+    app: ml-workspace-user2
+    user: user2
+spec:
+  type: ClusterIP
+  selector:
+    app: ml-workspace-user2
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP

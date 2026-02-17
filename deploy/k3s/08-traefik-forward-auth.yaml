@@ -1,0 +1,118 @@
+---
+# Traefik Forward Auth Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik-forward-auth
+  namespace: dtaas
+  labels:
+    app: traefik-forward-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traefik-forward-auth
+  template:
+    metadata:
+      labels:
+        app: traefik-forward-auth
+    spec:
+      containers:
+      - name: traefik-forward-auth
+        image: thomseddon/traefik-forward-auth:latest
+        ports:
+        - name: http
+          containerPort: 4181
+          protocol: TCP
+        env:
+        - name: LOG_LEVEL
+          value: "trace"
+        - name: DEFAULT_PROVIDER
+          value: "generic-oauth"
+        - name: PROVIDERS_GENERIC_OAUTH_AUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-auth-url
+        - name: PROVIDERS_GENERIC_OAUTH_TOKEN_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-token-url
+        - name: PROVIDERS_GENERIC_OAUTH_USER_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-user-url
+        - name: PROVIDERS_GENERIC_OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-client-id
+        - name: PROVIDERS_GENERIC_OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-client-secret
+        - name: PROVIDERS_GENERIC_OAUTH_SCOPE
+          value: "read_user"
+        - name: SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-credentials
+              key: oauth-secret
+        - name: CONFIG
+          value: "/conf"
+        volumeMounts:
+        - name: auth-config
+          mountPath: /conf
+          readOnly: true
+        - name: resolv-config
+          mountPath: /etc/resolv.conf
+          subPath: resolv.conf
+          readOnly: true
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: auth-config
+        configMap:
+          name: traefik-forward-auth-config
+      - name: resolv-config
+        configMap:
+          name: resolv-config
+
+---
+# Traefik Forward Auth Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-forward-auth
+  namespace: dtaas
+  labels:
+    app: traefik-forward-auth
+spec:
+  type: ClusterIP
+  selector:
+    app: traefik-forward-auth
+  ports:
+  - name: http
+    port: 4181
+    targetPort: http
+    protocol: TCP

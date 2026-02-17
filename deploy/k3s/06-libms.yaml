@@ -1,0 +1,77 @@
+---
+# Library Microservice Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: libms
+  namespace: dtaas
+  labels:
+    app: libms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: libms
+  template:
+    metadata:
+      labels:
+        app: libms
+    spec:
+      containers:
+      - name: libms
+        image: intocps/libms:latest
+        ports:
+        - name: http
+          containerPort: 4001
+          protocol: TCP
+        volumeMounts:
+        - name: dtaas-files
+          mountPath: /dtaas/libms/files
+        - name: libms-config
+          mountPath: /dtaas/libms/config
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /lib
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /lib
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: dtaas-files
+        persistentVolumeClaim:
+          claimName: dtaas-files-pvc
+      - name: libms-config
+        configMap:
+          name: libms-config
+
+---
+# Library Microservice Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: libms
+  namespace: dtaas
+  labels:
+    app: libms
+spec:
+  type: ClusterIP
+  selector:
+    app: libms
+  ports:
+  - name: http
+    port: 4001
+    targetPort: http
+    protocol: TCP
