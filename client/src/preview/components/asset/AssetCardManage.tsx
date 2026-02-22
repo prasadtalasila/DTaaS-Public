@@ -8,7 +8,7 @@ import DetailsButton from 'components/asset/DetailsButton';
 import ReconfigureButton from 'components/asset/ReconfigureButton';
 import DeleteButton from 'components/asset/DeleteButton';
 import DetailsDialog from 'route/digitaltwins/manage/DetailsDialog';
-import ReconfigureDialog from 'preview/route/digitaltwins/manage/ReconfigureDialog';
+import ReconfigureDialog from 'route/digitaltwins/manage/ReconfigureDialog';
 import DeleteDialog from 'route/digitaltwins/manage/DeleteDialog';
 
 interface AssetCardManageProps {

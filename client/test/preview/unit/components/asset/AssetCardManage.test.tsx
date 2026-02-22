@@ -1,6 +1,5 @@
 import { screen } from '@testing-library/react';
 import AssetCardManage from 'preview/components/asset/AssetCardManage';
-import * as React from 'react';
 import { formatName } from 'model/backend/digitalTwin';
 import {
   asset,
@@ -18,7 +17,7 @@ jest.mock('route/digitaltwins/manage/DetailsDialog', () => ({
   default: () => <div data-testid="details-dialog" />,
 }));
 
-jest.mock('preview/route/digitaltwins/manage/ReconfigureDialog', () => ({
+jest.mock('route/digitaltwins/manage/ReconfigureDialog', () => ({
   __esModule: true,
   default: () => <div data-testid="reconfigure-dialog" />,
 }));
