@@ -50,21 +50,44 @@ const loadCreateTabAssets = async (
   );
 };
 
+const shouldLoadInstance = (
+  name: string | undefined,
+  data: DigitalTwinData | null | undefined,
+): boolean => !!name && !!data;
+
 const loadDigitalTwinInstance = async (
   name: string,
   digitalTwinData: DigitalTwinData | null | undefined,
   setDigitalTwinInstance: (instance: DigitalTwin | null) => void,
 ) => {
-  if (!name || !digitalTwinData) {
+  if (!shouldLoadInstance(name, digitalTwinData)) {
     setDigitalTwinInstance(null);
     return;
   }
   try {
-    const instance = await createDigitalTwinFromData(digitalTwinData, name);
+    const instance = await createDigitalTwinFromData(digitalTwinData!, name);
     setDigitalTwinInstance(instance);
     await fetchData(instance);
   } catch {
     setDigitalTwinInstance(null);
+  }
+};
+
+const loadAssets = async (
+  name: string | undefined,
+  digitalTwinData: DigitalTwinData | null | undefined,
+  tab: string,
+  assets: LibraryAsset[],
+  setDigitalTwinInstance: (instance: DigitalTwin | null) => void,
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
+  await loadDigitalTwinInstance(
+    name ?? '',
+    digitalTwinData,
+    setDigitalTwinInstance,
+  );
+  if (tab === 'create') {
+    await loadCreateTabAssets(assets, dispatch);
   }
 };
 
@@ -84,14 +107,14 @@ const useSidebarLoader = ({
 
   useEffect(() => {
     const loadFiles = async () => {
-      await loadDigitalTwinInstance(
-        name ?? '',
+      await loadAssets(
+        name,
         digitalTwinData,
+        tab,
+        assets,
         setDigitalTwinInstance,
+        dispatch,
       );
-      if (tab === 'create') {
-        await loadCreateTabAssets(assets, dispatch);
-      }
       setIsLoading(false);
     };
 

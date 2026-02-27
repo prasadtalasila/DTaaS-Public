@@ -61,13 +61,16 @@ function PreviewTab({ fileContent, fileType }: PreviewProps) {
     );
   }
 
+  let language = 'bash';
   if (fileType === 'json') {
-    return <SyntaxHighlighter language="json">{fileContent}</SyntaxHighlighter>;
+    language = 'json';
+  } else if (fileType === 'yaml' || fileType === 'yml') {
+    language = 'yaml';
   }
-  if (fileType === 'yaml' || fileType === 'yml') {
-    return <SyntaxHighlighter language="yaml">{fileContent}</SyntaxHighlighter>;
-  }
-  return <SyntaxHighlighter language="bash">{fileContent}</SyntaxHighlighter>;
+
+  return (
+    <SyntaxHighlighter language={language}>{fileContent}</SyntaxHighlighter>
+  );
 }
 
 export default PreviewTab;

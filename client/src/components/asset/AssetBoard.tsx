@@ -46,6 +46,26 @@ const AssetGridItem: React.FC<{
   </Grid>
 );
 
+const LoadingSpinner: React.FC = () => (
+  <Grid
+    container
+    justifyContent="center"
+    alignItems="center"
+    sx={{ minHeight: '10rem' }}
+  >
+    <CircularProgress />
+  </Grid>
+);
+
+const ErrorMessage: React.FC<{ error: string }> = ({ error }) => (
+  <em style={{ textAlign: 'center' }}>{error}</em>
+);
+
+const filterAssets = (assets: Asset[], filter: string): Asset[] =>
+  assets.filter((asset) =>
+    asset.name.toLowerCase().includes(filter.toLowerCase()),
+  );
+
 const AssetBoard: React.FC<AssetBoardProps> = ({ tab }) => {
   const allAssets = useSelector(
     selectAssetsByTypeAndPrivacy('Digital Twins', true),
@@ -80,26 +100,10 @@ const AssetBoard: React.FC<AssetBoardProps> = ({ tab }) => {
     dispatch(deleteAsset(deletedAssetPath));
   };
 
-  const filteredAssets = allAssets.filter((asset) =>
-    asset.name.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const filteredAssets = filterAssets(allAssets, filter);
 
-  if (error) {
-    return <em style={{ textAlign: 'center' }}>{error}</em>;
-  }
-
-  if (loading) {
-    return (
-      <Grid
-        container
-        justifyContent="center"
-        alignItems="center"
-        sx={{ minHeight: '10rem' }}
-      >
-        <CircularProgress />
-      </Grid>
-    );
-  }
+  if (error) return <ErrorMessage error={error} />;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <>

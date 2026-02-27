@@ -235,12 +235,11 @@ export const handleReconfigureFileClick = async (
   setters: FileStateSetters,
   options?: ReconfigureOptions,
 ) => {
-  if (!(context.asset instanceof DigitalTwin || context.asset === null)) {
-    return;
-  }
-  if (!options?.library) {
-    handleDTFileReconfigure(context, setters);
-  } else {
-    await handleLibraryFileReconfigure(context, setters, options);
+  if (context.asset instanceof DigitalTwin || context.asset === null) {
+    if (!options?.library) {
+      handleDTFileReconfigure(context, setters);
+    } else {
+      await handleLibraryFileReconfigure(context, setters, options);
+    }
   }
 };

@@ -37,6 +37,37 @@ export const saveChanges = async (
   dispatch(removeAllModifiedLibraryFiles());
 };
 
+const updateLibraryFile = async (
+  file: LibraryConfigFile,
+  digitalTwin: DigitalTwin,
+) => {
+  await digitalTwin.DTAssets.updateLibraryFileContent(
+    file.fileName,
+    file.fileContent,
+    file.assetPath,
+  );
+};
+
+const updateDigitalTwinFile = async (
+  file: FileState,
+  digitalTwin: DigitalTwin,
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
+  await digitalTwin.DTAssets.updateFileContent(file.name, file.content);
+
+  if (file.name === 'description.md') {
+    dispatch(
+      updateDescription({
+        assetName: digitalTwin.DTName,
+        description: file.content,
+      }),
+    );
+  }
+};
+
+const getFileName = (file: FileState | LibraryConfigFile): string =>
+  'assetPath' in file ? file.fileName : file.name;
+
 export const handleFileUpdate = async (
   file: FileState | LibraryConfigFile,
   digitalTwin: DigitalTwin,
@@ -44,25 +75,12 @@ export const handleFileUpdate = async (
 ) => {
   try {
     if ('assetPath' in file) {
-      await digitalTwin.DTAssets.updateLibraryFileContent(
-        file.fileName,
-        file.fileContent,
-        file.assetPath,
-      );
+      await updateLibraryFile(file, digitalTwin);
     } else {
-      await digitalTwin.DTAssets.updateFileContent(file.name, file.content);
-
-      if (file.name === 'description.md') {
-        dispatch(
-          updateDescription({
-            assetName: digitalTwin.DTName,
-            description: file.content,
-          }),
-        );
-      }
+      await updateDigitalTwinFile(file, digitalTwin, dispatch);
     }
   } catch (error) {
-    const fileName = 'assetPath' in file ? file.fileName : file.name;
+    const fileName = getFileName(file);
     dispatch(
       showSnackbar({
         message: `Error updating file ${fileName}: ${error}`,
