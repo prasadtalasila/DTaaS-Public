@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import AssetBoard from 'preview/components/asset/AssetBoard';
+import AssetBoard from 'components/asset/AssetBoard';
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import assetsReducer, { setAssets } from 'model/store/assets.slice';
 import digitalTwinReducer, {
@@ -24,21 +24,15 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('model/backend/util/digitalTwinAdapter', () => {
-  const adapterMocks = jest.requireActual(
-    'test/preview/__mocks__/adapterMocks',
-  );
+  const adapterMocks = jest.requireActual('test/__mocks__/adapterMocks');
   return adapterMocks.ADAPTER_MOCKS;
 });
 jest.mock('model/backend/util/init', () => {
-  const adapterMocks = jest.requireActual(
-    'test/preview/__mocks__/adapterMocks',
-  );
+  const adapterMocks = jest.requireActual('test/__mocks__/adapterMocks');
   return adapterMocks.INIT_MOCKS;
 });
 jest.mock('model/backend/gitlab/instance', () => {
-  const adapterMocks = jest.requireActual(
-    'test/preview/__mocks__/adapterMocks',
-  );
+  const adapterMocks = jest.requireActual('test/__mocks__/adapterMocks');
   return adapterMocks.GITLAB_MOCKS;
 });
 

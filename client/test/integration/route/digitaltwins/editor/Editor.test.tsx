@@ -6,13 +6,13 @@ import assetsReducer, { setAssets } from 'model/store/assets.slice';
 import digitalTwinReducer, {
   setDigitalTwin,
 } from 'model/backend/state/digitalTwin.slice';
-import { mockBackendInstance } from 'test/__mocks__/global_mocks';
-import fileSlice, { addOrUpdateFile } from 'model/store/file.slice';
-import DigitalTwin from 'model/backend/digitalTwin';
 import {
+  mockBackendInstance,
   mockLibraryAsset,
   createMockDigitalTwinData,
-} from 'test/preview/__mocks__/global_mocks';
+} from 'test/__mocks__/global_mocks';
+import fileSlice, { addOrUpdateFile } from 'model/store/file.slice';
+import DigitalTwin from 'model/backend/digitalTwin';
 import { handleFileClick } from 'route/digitaltwins/editor/sidebarFunctions';
 import LibraryAsset from 'model/backend/libraryAsset';
 import cartSlice, { addToCart } from 'model/store/cart.slice';
@@ -54,9 +54,13 @@ describe('Editor', () => {
     newDigitalTwinData: DigitalTwin,
   ): Promise<void> {
     await act(async () => {
-      await handleFileClick(
-        'file1.md',
-        newDigitalTwinData,
+      handleFileClick(
+        {
+          fileName: 'file1.md',
+          asset: newDigitalTwinData,
+          files: modifiedFiles,
+        },
+        'reconfigure',
         {
           setFileName,
           setFileContent,
@@ -65,8 +69,6 @@ describe('Editor', () => {
           setIsLibraryFile,
           setLibraryAssetPath,
         },
-        modifiedFiles,
-        'reconfigure',
       );
     });
   }

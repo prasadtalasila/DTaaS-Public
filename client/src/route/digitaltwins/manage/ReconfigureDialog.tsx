@@ -70,11 +70,9 @@ function ReconfigureDialog({
         name,
       );
       await saveChanges(
-        modifiedFiles,
-        modifiedLibraryFiles,
+        { modifiedFiles, modifiedLibraryFiles, name },
         digitalTwinInstance,
         dispatch,
-        name,
       );
     }
     setOpenSaveDialog(false);

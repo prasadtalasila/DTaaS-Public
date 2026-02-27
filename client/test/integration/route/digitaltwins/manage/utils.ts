@@ -5,8 +5,10 @@ import digitalTwinReducer, {
   setDigitalTwin,
 } from 'model/backend/state/digitalTwin.slice';
 import snackbarReducer from 'store/snackbar.slice';
-import { mockLibraryAsset } from 'test/preview/__mocks__/global_mocks';
-import { mockBackendInstance } from 'test/__mocks__/global_mocks';
+import {
+  mockLibraryAsset,
+  mockBackendInstance,
+} from 'test/__mocks__/global_mocks';
 import DigitalTwin from 'model/backend/digitalTwin';
 import LibraryAsset from 'model/backend/libraryAsset';
 import { FileState } from 'model/backend/interfaces/sharedInterfaces';

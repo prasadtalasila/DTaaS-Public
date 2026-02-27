@@ -11,7 +11,7 @@ import { Provider, useDispatch, useSelector } from 'react-redux';
 import store, { RootState } from 'store/store';
 
 import { showSnackbar } from 'store/snackbar.slice';
-import { mockDigitalTwin } from 'test/preview/__mocks__/global_mocks';
+import { mockDigitalTwin } from 'test/__mocks__/global_mocks';
 import { selectDigitalTwinByName } from 'store/selectors/digitalTwin.selectors';
 import { selectModifiedFiles } from 'model/store/file.slice';
 import { selectModifiedLibraryFiles } from 'model/store/libraryConfigFiles.slice';
@@ -155,9 +155,9 @@ describe('ReconfigureDialog', () => {
     });
   });
 
-  it('calls handleCloseLog when the close function is called', async () => {
-    await act(async () => {
-      await Reconfigure.handleCloseReconfigureDialog(setShowDialog);
+  it('calls handleCloseLog when the close function is called', () => {
+    act(() => {
+      Reconfigure.handleCloseReconfigureDialog(setShowDialog);
     });
 
     expect(setShowDialog).toHaveBeenCalledWith(false);

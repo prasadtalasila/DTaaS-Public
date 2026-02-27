@@ -23,14 +23,11 @@ describe('SidebarFunctions - handleAddFileClick and handleFileSubmit', () => {
     const testFiles = [
       { name: 'file1', content: 'content', isNew: true, isModified: false },
     ];
-    SidebarFunctions.handleFileSubmit(
-      testFiles,
-      'file2',
+    SidebarFunctions.handleFileSubmit(testFiles, 'file2', dispatch, {
       setErrorMessage,
-      dispatch,
       setIsFileNameDialogOpen,
       setNewFileName,
-    );
+    });
 
     expect(dispatch).toHaveBeenCalled();
     expect(setIsFileNameDialogOpen).toHaveBeenCalledWith(false);
@@ -40,14 +37,11 @@ describe('SidebarFunctions - handleAddFileClick and handleFileSubmit', () => {
     const testFiles = [
       { name: 'file1', content: 'content', isNew: true, isModified: false },
     ];
-    SidebarFunctions.handleFileSubmit(
-      testFiles,
-      'file1',
+    SidebarFunctions.handleFileSubmit(testFiles, 'file1', dispatch, {
       setErrorMessage,
-      dispatch,
       setIsFileNameDialogOpen,
       setNewFileName,
-    );
+    });
 
     expect(setErrorMessage).toHaveBeenCalledWith(
       'A file with this name already exists.',
@@ -58,14 +52,11 @@ describe('SidebarFunctions - handleAddFileClick and handleFileSubmit', () => {
     const testFiles = [
       { name: 'file1', content: 'content', isNew: true, isModified: false },
     ];
-    SidebarFunctions.handleFileSubmit(
-      testFiles,
-      '',
+    SidebarFunctions.handleFileSubmit(testFiles, '', dispatch, {
       setErrorMessage,
-      dispatch,
       setIsFileNameDialogOpen,
       setNewFileName,
-    );
+    });
 
     expect(setErrorMessage).toHaveBeenCalledWith("File name can't be empty.");
   });

@@ -7,6 +7,7 @@ import DigitalTwin from 'model/backend/digitalTwin';
 import { createDigitalTwinFromData } from 'model/backend/util/digitalTwinAdapter';
 import { fetchData } from 'route/digitaltwins/editor/sidebarFetchers';
 import LibraryAsset from 'model/backend/libraryAsset';
+import { DigitalTwinData } from 'model/backend/state/digitalTwin.slice';
 
 interface UseSidebarLoaderProps {
   readonly name?: string;
@@ -18,7 +19,10 @@ interface UseSidebarLoaderResult {
   readonly digitalTwinInstance: DigitalTwin | null;
 }
 
-const dispatchLibraryFiles = (asset: LibraryAsset, dispatch: ReturnType<typeof useDispatch>) => {
+const dispatchLibraryFiles = (
+  asset: LibraryAsset,
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
   asset.configFiles.forEach((configFile) => {
     dispatch(
       addOrUpdateLibraryFile({
@@ -31,6 +35,37 @@ const dispatchLibraryFiles = (asset: LibraryAsset, dispatch: ReturnType<typeof u
       }),
     );
   });
+};
+
+const loadCreateTabAssets = async (
+  assets: LibraryAsset[],
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
+  if (assets.length === 0) return;
+  await Promise.all(
+    assets.map(async (asset) => {
+      await asset.getConfigFiles();
+      dispatchLibraryFiles(asset, dispatch);
+    }),
+  );
+};
+
+const loadDigitalTwinInstance = async (
+  name: string,
+  digitalTwinData: DigitalTwinData | null | undefined,
+  setDigitalTwinInstance: (instance: DigitalTwin | null) => void,
+) => {
+  if (!name || !digitalTwinData) {
+    setDigitalTwinInstance(null);
+    return;
+  }
+  try {
+    const instance = await createDigitalTwinFromData(digitalTwinData, name);
+    setDigitalTwinInstance(instance);
+    await fetchData(instance);
+  } catch {
+    setDigitalTwinInstance(null);
+  }
 };
 
 const useSidebarLoader = ({
@@ -49,30 +84,13 @@ const useSidebarLoader = ({
 
   useEffect(() => {
     const loadFiles = async () => {
-      if (name && digitalTwinData) {
-        try {
-          const instance = await createDigitalTwinFromData(
-            digitalTwinData,
-            name,
-          );
-          setDigitalTwinInstance(instance);
-          await fetchData(instance);
-        } catch {
-          setDigitalTwinInstance(null);
-        }
-      } else {
-        setDigitalTwinInstance(null);
-      }
-
+      await loadDigitalTwinInstance(
+        name ?? '',
+        digitalTwinData,
+        setDigitalTwinInstance,
+      );
       if (tab === 'create') {
-        if (assets.length > 0) {
-          await Promise.all(
-            assets.map(async (asset) => {
-              await asset.getConfigFiles();
-              dispatchLibraryFiles(asset, dispatch);
-            }),
-          );
-        }
+        await loadCreateTabAssets(assets, dispatch);
       }
       setIsLoading(false);
     };

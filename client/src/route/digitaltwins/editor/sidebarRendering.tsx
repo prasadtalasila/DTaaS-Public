@@ -3,66 +3,71 @@ import {
   LibraryConfigFile,
   FileState,
 } from 'model/backend/interfaces/sharedInterfaces';
-import DigitalTwin from 'model/backend/digitalTwin';
 import LibraryAsset from 'model/backend/libraryAsset';
-import { Dispatch, SetStateAction } from 'react';
 import { useDispatch } from 'react-redux';
 import {
   handleFileClick,
   AssetOrNull,
+  FileStateSetters,
 } from 'route/digitaltwins/editor/sidebarFunctions';
 
-interface FileStateSetters {
-  readonly setFileName: Dispatch<SetStateAction<string>>;
-  readonly setFileContent: Dispatch<SetStateAction<string>>;
-  readonly setFileType: Dispatch<SetStateAction<string>>;
-  readonly setFilePrivacy: Dispatch<SetStateAction<string>>;
-  readonly setIsLibraryFile: Dispatch<SetStateAction<boolean>>;
-  readonly setLibraryAssetPath: Dispatch<SetStateAction<string>>;
+export interface RenderContext {
+  readonly label: string;
+  readonly filesToRender: string[];
+  readonly asset: AssetOrNull;
+  readonly tab: string;
+  readonly files: FileState[];
+  readonly dispatch: ReturnType<typeof useDispatch>;
 }
 
+export interface RenderOptions {
+  readonly library?: boolean;
+  readonly libraryFiles?: LibraryConfigFile[];
+  readonly assetPath?: string;
+}
+
+const getBaseLabel = (label: string, asset: AssetOrNull): string =>
+  asset instanceof LibraryAsset && !asset.isPrivate
+    ? `common/${label.toLowerCase()}`
+    : label.toLowerCase();
+
+const getItemLabel = (item: string, asset: AssetOrNull): string =>
+  asset instanceof LibraryAsset && !asset.isPrivate ? `common/${item}` : item;
+
 export const renderFileTreeItems = (
-  label: string,
-  filesToRender: string[],
-  asset: DigitalTwin | LibraryAsset,
+  context: RenderContext,
   setters: FileStateSetters,
-  files: FileState[],
-  tab: string,
-  dispatch: ReturnType<typeof useDispatch>,
-  library?: boolean,
-  libraryFiles?: LibraryConfigFile[],
-  assetPath?: string,
+  options?: RenderOptions,
 ) => {
-  const baseLabel =
-    asset instanceof LibraryAsset && !asset.isPrivate
-      ? `common/${label.toLowerCase()}`
-      : label.toLowerCase();
+  const baseLabel = getBaseLabel(context.label, context.asset);
 
   return (
     <TreeItem
-      key={`${baseLabel}-${label}`}
-      itemId={`${baseLabel}-${label}`}
-      label={label as TreeItemProps['label']}
+      key={`${baseLabel}-${context.label}`}
+      itemId={`${baseLabel}-${context.label}`}
+      label={context.label as TreeItemProps['label']}
     >
-      {filesToRender.map((item, index) => {
-        const itemLabel =
-          asset instanceof LibraryAsset && !asset.isPrivate
-            ? `common/${item}`
-            : item;
-
+      {context.filesToRender.map((item, index) => {
+        const itemLabel = getItemLabel(item, context.asset);
         return (
           <TreeItem
             key={`${baseLabel}-${item}-${index}`}
             itemId={`${baseLabel}-${item}`}
             label={itemLabel}
-            onClick={() =>
-              handleFileClick(item, asset, setters, files, tab, {
-                dispatch,
-                library,
-                libraryFiles,
-                assetPath,
-              })
-            }
+            onClick={() => {
+              if (!context.asset) return;
+              handleFileClick(
+                { fileName: item, asset: context.asset, files: context.files },
+                context.tab,
+                setters,
+                {
+                  dispatch: context.dispatch,
+                  library: options?.library,
+                  libraryFiles: options?.libraryFiles,
+                  assetPath: options?.assetPath,
+                },
+              );
+            }}
           />
         );
       })}
@@ -71,43 +76,35 @@ export const renderFileTreeItems = (
 };
 
 export const renderFileSection = (
-  label: string,
-  type: string,
-  filesToRender: string[],
-  asset: AssetOrNull,
+  context: RenderContext,
   setters: FileStateSetters,
-  files: FileState[],
-  tab: string,
-  dispatch: ReturnType<typeof useDispatch>,
-  library?: boolean,
-  fileLibrary?: LibraryConfigFile[],
+  options?: RenderOptions,
 ) => {
-  const baseLabel =
-    asset instanceof LibraryAsset && !asset.isPrivate
-      ? `common/${label.toLowerCase()}`
-      : label.toLowerCase();
+  const baseLabel = getBaseLabel(context.label, context.asset);
 
   return (
     <TreeItem
-      key={`${baseLabel}-${label}`}
-      itemId={`${baseLabel}-${label}`}
-      label={label}
+      key={`${baseLabel}-${context.label}`}
+      itemId={`${baseLabel}-${context.label}`}
+      label={context.label}
     >
-      {filesToRender.map((item, index) => (
+      {context.filesToRender.map((item, index) => (
         <TreeItem
           key={`${baseLabel}-${item}-${index}`}
           itemId={`${baseLabel}-${item}`}
           label={item}
           onClick={() => {
-            if (!asset) {
-              // Handle the case where there's no asset
-              return;
-            }
-            handleFileClick(item, asset, setters, files, tab, {
-              dispatch,
-              library,
-              libraryFiles: fileLibrary,
-            });
+            if (!context.asset) return;
+            handleFileClick(
+              { fileName: item, asset: context.asset, files: context.files },
+              context.tab,
+              setters,
+              {
+                dispatch: context.dispatch,
+                library: options?.library,
+                libraryFiles: options?.libraryFiles,
+              },
+            );
           }}
         />
       ))}

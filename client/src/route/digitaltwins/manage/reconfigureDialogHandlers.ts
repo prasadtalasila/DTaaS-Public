@@ -10,25 +10,29 @@ import { updateDescription } from 'model/backend/state/digitalTwin.slice';
 import { showSnackbar } from 'store/snackbar.slice';
 import DigitalTwin, { formatName } from 'model/backend/digitalTwin';
 
+export interface SaveContext {
+  readonly modifiedFiles: FileState[];
+  readonly modifiedLibraryFiles: LibraryConfigFile[];
+  readonly name: string;
+}
+
 export const saveChanges = async (
-  modifiedFiles: FileState[],
-  modifiedLibraryFiles: LibraryConfigFile[],
+  context: SaveContext,
   digitalTwin: DigitalTwin,
   dispatch: ReturnType<typeof useDispatch>,
-  name: string,
 ) => {
   const fileUpdatePromises = [
-    ...modifiedFiles.map((file) =>
+    ...context.modifiedFiles.map((file) =>
       handleFileUpdate(file, digitalTwin, dispatch),
     ),
-    ...modifiedLibraryFiles.map((file) =>
+    ...context.modifiedLibraryFiles.map((file) =>
       handleFileUpdate(file, digitalTwin, dispatch),
     ),
   ];
 
   await Promise.all(fileUpdatePromises);
 
-  showSuccessSnackbar(dispatch, name);
+  showSuccessSnackbar(dispatch, context.name);
   dispatch(removeAllModifiedFiles());
   dispatch(removeAllModifiedLibraryFiles());
 };

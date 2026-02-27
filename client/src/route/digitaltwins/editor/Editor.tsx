@@ -19,8 +19,12 @@ interface EditorProps {
   readonly setIsLibraryFile: React.Dispatch<React.SetStateAction<boolean>>;
   readonly libraryAssetPath: string;
   readonly setLibraryAssetPath: React.Dispatch<React.SetStateAction<string>>;
-  readonly setOpenDeleteFileDialog?: React.Dispatch<React.SetStateAction<boolean>>;
-  readonly setOpenChangeFileNameDialog?: React.Dispatch<React.SetStateAction<boolean>>;
+  readonly setOpenDeleteFileDialog?: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+  readonly setOpenChangeFileNameDialog?: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 }
 
 function Editor({

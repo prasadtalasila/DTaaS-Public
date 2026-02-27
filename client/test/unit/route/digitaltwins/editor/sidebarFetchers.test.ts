@@ -1,7 +1,4 @@
-import {
-  mockDigitalTwin,
-  mockLibraryAsset,
-} from 'test/preview/__mocks__/global_mocks';
+import { mockDigitalTwin, mockLibraryAsset } from 'test/__mocks__/global_mocks';
 import * as SidebarFetchers from 'route/digitaltwins/editor/sidebarFetchers';
 import * as FileUtils from 'util/fileUtils';
 
@@ -25,14 +22,18 @@ describe('sidebarFetchers', () => {
     const updateFileStateSpy = jest.spyOn(FileUtils, 'updateFileState');
 
     await SidebarFetchers.fetchAndSetFileContent(
-      'file1.md',
-      mockDigitalTwin,
-      setFileName,
-      setFileContent,
-      setFileType,
-      setFilePrivacy,
-      true,
-      'assetPath',
+      {
+        fileName: 'file1.md',
+        digitalTwin: mockDigitalTwin,
+        library: true,
+        assetPath: 'assetPath',
+      },
+      {
+        setFileName,
+        setFileContent,
+        setFileType,
+        setFilePrivacy,
+      },
     );
 
     expect(getLibraryFileContentSpy).toHaveBeenCalledTimes(1);
@@ -45,12 +46,16 @@ describe('sidebarFetchers', () => {
       .mockResolvedValue('fileContent');
 
     await SidebarFetchers.fetchAndSetFileContent(
-      'file1.md',
-      mockDigitalTwin,
-      setFileName,
-      setFileContent,
-      setFileType,
-      setFilePrivacy,
+      {
+        fileName: 'file1.md',
+        digitalTwin: mockDigitalTwin,
+      },
+      {
+        setFileName,
+        setFileContent,
+        setFileType,
+        setFilePrivacy,
+      },
     );
 
     expect(getFileContentSpy).toHaveBeenCalledTimes(1);
@@ -62,12 +67,16 @@ describe('sidebarFetchers', () => {
       .mockRejectedValue('error');
 
     await SidebarFetchers.fetchAndSetFileContent(
-      'file1.md',
-      mockDigitalTwin,
-      setFileName,
-      setFileContent,
-      setFileType,
-      setFilePrivacy,
+      {
+        fileName: 'file1.md',
+        digitalTwin: mockDigitalTwin,
+      },
+      {
+        setFileName,
+        setFileContent,
+        setFileType,
+        setFilePrivacy,
+      },
     );
 
     expect(setFileContent).toHaveBeenCalledWith(

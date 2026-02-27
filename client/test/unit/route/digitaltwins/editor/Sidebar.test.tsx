@@ -3,10 +3,7 @@ import Sidebar from 'route/digitaltwins/editor/Sidebar';
 import * as SidebarFunctions from 'route/digitaltwins/editor/sidebarFunctions';
 import { Provider, useSelector } from 'react-redux';
 import store, { RootState } from 'store/store';
-import {
-  mockDigitalTwin,
-  mockLibraryAsset,
-} from 'test/preview/__mocks__/global_mocks';
+import { mockDigitalTwin, mockLibraryAsset } from 'test/__mocks__/global_mocks';
 import { addOrUpdateLibraryFile } from 'model/store/libraryConfigFiles.slice';
 import * as ReactRedux from 'react-redux';
 import useSidebarLoader from 'route/digitaltwins/editor/useSidebarLoader';

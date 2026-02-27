@@ -11,7 +11,7 @@ import { RootState } from 'store/store';
 import Filter from 'components/asset/Filter';
 import { Asset } from 'model/backend/Asset';
 import { AssetCardExecute } from 'components/asset/AssetCard';
-import AssetCardManage from 'preview/components/asset/AssetCardManage';
+import AssetCardManage from 'components/asset/AssetCardManage';
 
 const outerGridContainerProps = {
   container: true,

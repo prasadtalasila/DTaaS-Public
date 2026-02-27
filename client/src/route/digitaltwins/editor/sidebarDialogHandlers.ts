@@ -20,29 +20,33 @@ export const handleCloseFileNameDialog = (
   setErrorMessage('');
 };
 
+export interface FileSubmitSetters {
+  readonly setErrorMessage: Dispatch<SetStateAction<string>>;
+  readonly setIsFileNameDialogOpen: Dispatch<SetStateAction<boolean>>;
+  readonly setNewFileName: Dispatch<SetStateAction<string>>;
+}
+
 export const handleFileSubmit = (
   files: FileState[],
   newFileName: string,
-  setErrorMessage: Dispatch<SetStateAction<string>>,
   dispatch: ReturnType<typeof useDispatch>,
-  setIsFileNameDialogOpen: Dispatch<SetStateAction<boolean>>,
-  setNewFileName: Dispatch<SetStateAction<string>>,
+  setters: FileSubmitSetters,
 ) => {
   const fileExists = files.some(
     (fileStore: { name: string }) => fileStore.name === newFileName,
   );
 
   if (fileExists) {
-    setErrorMessage('A file with this name already exists.');
+    setters.setErrorMessage('A file with this name already exists.');
     return;
   }
 
   if (newFileName === '') {
-    setErrorMessage("File name can't be empty.");
+    setters.setErrorMessage("File name can't be empty.");
     return;
   }
 
-  setErrorMessage('');
+  setters.setErrorMessage('');
   const type = getFileTypeFromExtension(newFileName);
 
   dispatch(
@@ -55,6 +59,6 @@ export const handleFileSubmit = (
     }),
   );
 
-  setIsFileNameDialogOpen(false);
-  setNewFileName('');
+  setters.setIsFileNameDialogOpen(false);
+  setters.setNewFileName('');
 };

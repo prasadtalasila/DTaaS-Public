@@ -14,7 +14,7 @@ interface EditorTabProps {
   readonly setFileContent: Dispatch<SetStateAction<string>>;
 }
 
-interface FileUpdateParams {
+export interface FileUpdateParams {
   readonly tab: string;
   readonly fileName: string;
   readonly filePrivacy: string;
@@ -22,62 +22,66 @@ interface FileUpdateParams {
   readonly libraryAssetPath: string;
 }
 
+export interface EditorHandlers {
+  readonly setEditorValue: Dispatch<SetStateAction<string>>;
+  readonly setFileContent: Dispatch<SetStateAction<string>>;
+  readonly dispatch: ReturnType<typeof useDispatch>;
+}
+
+const buildCreateAction = (params: FileUpdateParams, value: string) => {
+  const isPrivate = params.filePrivacy === 'private';
+  if (params.isLibraryFile) {
+    return addOrUpdateLibraryFile({
+      assetPath: params.libraryAssetPath,
+      fileName: params.fileName,
+      fileContent: value,
+      isNew: true,
+      isModified: true,
+      isPrivate,
+    });
+  }
+  return addOrUpdateFile({
+    name: params.fileName,
+    content: value,
+    isNew: true,
+    isModified: true,
+  });
+};
+
+const buildReconfigureAction = (params: FileUpdateParams, value: string) => {
+  if (params.isLibraryFile || params.libraryAssetPath !== '') {
+    return addOrUpdateLibraryFile({
+      assetPath: params.libraryAssetPath,
+      fileName: params.fileName,
+      fileContent: value,
+      isNew: false,
+      isModified: true,
+      isPrivate: true,
+    });
+  }
+  return addOrUpdateFile({
+    name: params.fileName,
+    content: value,
+    isNew: false,
+    isModified: true,
+  });
+};
+
 export const handleEditorChange = (
   params: FileUpdateParams,
   value: string | undefined,
-  setEditorValue: Dispatch<SetStateAction<string>>,
-  setFileContent: Dispatch<SetStateAction<string>>,
-  dispatch: ReturnType<typeof useDispatch>,
+  handlers: EditorHandlers,
 ) => {
   const updatedValue = value || '';
-  setEditorValue(updatedValue);
-  setFileContent(updatedValue);
+  handlers.setEditorValue(updatedValue);
+  handlers.setFileContent(updatedValue);
 
-  const isPrivate = params.filePrivacy === 'private';
+  const action =
+    params.tab === 'create'
+      ? buildCreateAction(params, updatedValue)
+      : buildReconfigureAction(params, updatedValue);
 
-  if (params.tab === 'create') {
-    if (!params.isLibraryFile) {
-      dispatch(
-        addOrUpdateFile({
-          name: params.fileName,
-          content: updatedValue,
-          isNew: true,
-          isModified: true,
-        }),
-      );
-    } else {
-      dispatch(
-        addOrUpdateLibraryFile({
-          assetPath: params.libraryAssetPath,
-          fileName: params.fileName,
-          fileContent: updatedValue,
-          isNew: true,
-          isModified: true,
-          isPrivate,
-        }),
-      );
-    }
-  } else if (params.isLibraryFile || params.libraryAssetPath !== '') {
-    dispatch(
-      addOrUpdateLibraryFile({
-        assetPath: params.libraryAssetPath,
-        fileName: params.fileName,
-        fileContent: updatedValue,
-        isNew: false,
-        isModified: true,
-        isPrivate: true,
-      }),
-    );
-  } else {
-    dispatch(
-      addOrUpdateFile({
-        name: params.fileName,
-        content: updatedValue,
-        isNew: false,
-        isModified: true,
-      }),
-    );
-  }
+  handlers.dispatch(action);
 };
 
 function EditorTab({
@@ -104,17 +108,9 @@ function EditorTab({
         value={editorValue}
         onChange={(value) =>
           handleEditorChange(
-            {
-              tab,
-              fileName,
-              filePrivacy,
-              isLibraryFile,
-              libraryAssetPath,
-            },
+            { tab, fileName, filePrivacy, isLibraryFile, libraryAssetPath },
             value,
-            setEditorValue,
-            setFileContent,
-            dispatch,
+            { setEditorValue, setFileContent, dispatch },
           )
         }
         options={{

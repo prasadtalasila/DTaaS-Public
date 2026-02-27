@@ -1,7 +1,7 @@
 import * as SidebarFunctions from 'route/digitaltwins/editor/sidebarFunctions';
 import * as FileUtils from 'util/fileUtils';
 import * as SidebarFetchers from 'route/digitaltwins/editor/sidebarFetchers';
-import { mockLibraryAsset } from 'test/preview/__mocks__/global_mocks';
+import { mockLibraryAsset } from 'test/__mocks__/global_mocks';
 import { FileState } from 'model/backend/interfaces/sharedInterfaces';
 
 jest.mock('util/fileUtils');
@@ -36,7 +36,11 @@ describe('SidebarFunctions - handleFileClick and handleCreateFileClick', () => {
       .spyOn(SidebarFunctions, 'handleCreateFileClick')
       .mockImplementation(jest.fn());
 
-    SidebarFunctions.handleFileClick('file', null, setters, files, tab);
+    SidebarFunctions.handleFileClick(
+      { fileName: 'file', asset: null, files },
+      tab,
+      setters,
+    );
 
     expect(handleCreateFileClick).toHaveBeenCalled();
   });
@@ -47,28 +51,30 @@ describe('SidebarFunctions - handleFileClick and handleCreateFileClick', () => {
       .spyOn(SidebarFunctions, 'handleReconfigureFileClick')
       .mockImplementation(jest.fn());
 
-    SidebarFunctions.handleFileClick('file', null, setters, files, tab);
+    SidebarFunctions.handleFileClick(
+      { fileName: 'file', asset: null, files },
+      tab,
+      setters,
+    );
 
     expect(handleReconfigureFileClick).toHaveBeenCalled();
   });
 
-  it('should not call updateFileState if no new file is found - create tab', async () => {
+  it('should not call updateFileState if no new file is found - create tab', () => {
     const testFiles: FileState[] = [
       { name: 'file1.md', content: 'content', isNew: false, isModified: false },
     ];
     const updateFileStateSpy = jest.spyOn(FileUtils, 'updateFileState');
 
-    await SidebarFunctions.handleCreateFileClick(
-      'nonExistentFile',
-      null,
-      testFiles,
+    SidebarFunctions.handleCreateFileClick(
+      { fileName: 'nonExistentFile', asset: null, files: testFiles },
       setters,
     );
 
     expect(updateFileStateSpy).not.toHaveBeenCalled();
   });
 
-  it('should call updateFileState if new file is found - create tab', async () => {
+  it('should call updateFileState if new file is found - create tab', () => {
     const testFiles: FileState[] = [
       { name: 'file1.md', content: 'content', isNew: true, isModified: false },
     ];
@@ -77,17 +83,15 @@ describe('SidebarFunctions - handleFileClick and handleCreateFileClick', () => {
       .spyOn(FileUtils, 'updateFileState')
       .mockImplementation(jest.fn());
 
-    await SidebarFunctions.handleCreateFileClick(
-      'file1.md',
-      null,
-      testFiles,
+    SidebarFunctions.handleCreateFileClick(
+      { fileName: 'file1.md', asset: null, files: testFiles },
       setters,
     );
 
     expect(updateFileStateSpy).toHaveBeenCalled();
   });
 
-  it('should call updateFileState if modified library file is found - create tab', async () => {
+  it('should call updateFileState if modified library file is found - create tab', () => {
     const testFiles: FileState[] = [
       { name: 'file1.md', content: 'content', isNew: true, isModified: false },
     ];
@@ -107,19 +111,16 @@ describe('SidebarFunctions - handleFileClick and handleCreateFileClick', () => {
       .spyOn(FileUtils, 'updateFileState')
       .mockImplementation(jest.fn());
 
-    await SidebarFunctions.handleCreateFileClick(
-      'file1.md',
-      mockLibraryAsset,
-      testFiles,
+    SidebarFunctions.handleCreateFileClick(
+      { fileName: 'file1.md', asset: mockLibraryAsset, files: testFiles },
       setters,
-      undefined,
-      testLibraryConfigFiles,
+      { libraryFiles: testLibraryConfigFiles },
     );
 
     expect(updateFileStateSpy).toHaveBeenCalled();
   });
 
-  it('should call fetchAndSetFileLibraryContent if new library file is found - create tab', async () => {
+  it('should call fetchAndSetFileLibraryContent if new library file is found - create tab', () => {
     const testFiles: FileState[] = [
       { name: 'file1.md', content: 'content', isNew: true, isModified: false },
     ];
@@ -139,13 +140,10 @@ describe('SidebarFunctions - handleFileClick and handleCreateFileClick', () => {
       .spyOn(SidebarFetchers, 'fetchAndSetFileLibraryContent')
       .mockImplementation(jest.fn());
 
-    await SidebarFunctions.handleCreateFileClick(
-      'file1.md',
-      mockLibraryAsset,
-      testFiles,
+    SidebarFunctions.handleCreateFileClick(
+      { fileName: 'file1.md', asset: mockLibraryAsset, files: testFiles },
       setters,
-      undefined,
-      testLibraryConfigFiles,
+      { libraryFiles: testLibraryConfigFiles },
     );
 
     expect(fetchAndSetFileLibraryContentSpy).toHaveBeenCalled();

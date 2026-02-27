@@ -50,11 +50,9 @@ describe('sidebarFunctions integration tests', () => {
     };
 
     handleCreateFileClick(
-      'testFile',
-      null,
-      files,
+      { fileName: 'testFile', asset: null, files },
       setters,
-      dispatch,
+      { dispatch },
     );
 
     expect(updateFileState).toHaveBeenCalled();
@@ -83,11 +81,9 @@ describe('sidebarFunctions integration tests', () => {
     };
 
     await handleReconfigureFileClick(
-      'testFile',
-      null,
-      files,
+      { fileName: 'testFile', asset: null, files },
       setters,
-      dispatch,
+      { dispatch },
     );
 
     expect(updateFileState).toHaveBeenCalled();
@@ -127,14 +123,11 @@ describe('sidebarFunctions integration tests', () => {
     const setIsFileNameDialogOpen = jest.fn();
     const setNewFileName = jest.fn();
 
-    handleFileSubmit(
-      files,
-      'testFile',
+    handleFileSubmit(files, 'testFile', dispatch, {
       setErrorMessage,
-      dispatch,
       setIsFileNameDialogOpen,
       setNewFileName,
-    );
+    });
 
     expect(setErrorMessage).toHaveBeenCalledWith(
       'A file with this name already exists.',
@@ -147,14 +140,11 @@ describe('sidebarFunctions integration tests', () => {
     const setIsFileNameDialogOpen = jest.fn();
     const setNewFileName = jest.fn();
 
-    handleFileSubmit(
-      files,
-      'newFile',
+    handleFileSubmit(files, 'newFile', dispatch, {
       setErrorMessage,
-      dispatch,
       setIsFileNameDialogOpen,
       setNewFileName,
-    );
+    });
 
     expect(setErrorMessage).toHaveBeenCalledWith('');
     expect(dispatch).toHaveBeenCalled();

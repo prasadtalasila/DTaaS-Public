@@ -2,10 +2,7 @@ import * as SidebarRendering from 'route/digitaltwins/editor/sidebarRendering';
 import * as SidebarFunctions from 'route/digitaltwins/editor/sidebarFunctions';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SimpleTreeView } from '@mui/x-tree-view';
-import {
-  mockDigitalTwin,
-  mockLibraryAsset,
-} from 'test/preview/__mocks__/global_mocks';
+import { mockDigitalTwin, mockLibraryAsset } from 'test/__mocks__/global_mocks';
 import { FileState, FileType } from 'model/backend/interfaces/sharedInterfaces';
 
 describe('SidebarRendering', () => {
@@ -63,9 +60,14 @@ describe('SidebarRendering', () => {
         render(
           <SimpleTreeView>
             {SidebarRendering.renderFileTreeItems(
-              'label',
-              ['file'],
-              asset,
+              {
+                label: 'label',
+                filesToRender: ['file'],
+                asset,
+                tab: 'create',
+                files,
+                dispatch,
+              },
               {
                 setFileName,
                 setFileContent,
@@ -74,9 +76,6 @@ describe('SidebarRendering', () => {
                 setIsLibraryFile,
                 setLibraryAssetPath: setIsLibraryAssetPath,
               },
-              files,
-              'create',
-              dispatch,
             )}
           </SimpleTreeView>,
         );
@@ -109,10 +108,14 @@ describe('SidebarRendering', () => {
         render(
           <SimpleTreeView>
             {SidebarRendering.renderFileSection(
-              'label',
-              'Digital Twins',
-              ['file'],
-              asset,
+              {
+                label: 'label',
+                filesToRender: ['file'],
+                asset,
+                tab: 'create',
+                files,
+                dispatch,
+              },
               {
                 setFileName,
                 setFileContent,
@@ -121,9 +124,6 @@ describe('SidebarRendering', () => {
                 setIsLibraryFile,
                 setLibraryAssetPath: setIsLibraryAssetPath,
               },
-              files,
-              'create',
-              dispatch,
             )}
           </SimpleTreeView>,
         );

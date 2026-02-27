@@ -21,13 +21,19 @@ export {
 
 export type AssetOrNull = DigitalTwin | LibraryAsset | null;
 
-interface FileStateSetters {
+export interface FileStateSetters {
   readonly setFileName: Dispatch<SetStateAction<string>>;
   readonly setFileContent: Dispatch<SetStateAction<string>>;
   readonly setFileType: Dispatch<SetStateAction<string>>;
   readonly setFilePrivacy: Dispatch<SetStateAction<string>>;
   readonly setIsLibraryFile: Dispatch<SetStateAction<boolean>>;
   readonly setLibraryAssetPath: Dispatch<SetStateAction<string>>;
+}
+
+export interface FileClickContext {
+  readonly fileName: string;
+  readonly asset: AssetOrNull;
+  readonly files: FileState[];
 }
 
 interface FileClickOptions {
@@ -37,172 +43,204 @@ interface FileClickOptions {
   readonly assetPath?: string;
 }
 
+interface CreateFileOptions {
+  readonly dispatch?: ReturnType<typeof useDispatch>;
+  readonly libraryFiles?: LibraryConfigFile[];
+}
+
+interface ReconfigureOptions {
+  readonly dispatch?: ReturnType<typeof useDispatch>;
+  readonly library?: boolean;
+  readonly libraryFiles?: LibraryConfigFile[];
+  readonly assetPath?: string;
+}
+
 export const handleFileClick = (
-  fileName: string,
-  asset: AssetOrNull,
-  setters: FileStateSetters,
-  files: FileState[],
+  context: FileClickContext,
   tab: string,
+  setters: FileStateSetters,
   options?: FileClickOptions,
 ) => {
   if (tab === 'create') {
-    handleCreateFileClick(
-      fileName,
-      asset,
-      files,
-      setters,
-      options?.dispatch,
-      options?.libraryFiles,
-    );
+    handleCreateFileClick(context, setters, {
+      dispatch: options?.dispatch,
+      libraryFiles: options?.libraryFiles,
+    });
   } else if (tab === 'reconfigure') {
-    handleReconfigureFileClick(
-      fileName,
-      asset,
-      files,
-      setters,
-      options?.dispatch,
-      options?.library,
-      options?.libraryFiles,
-      options?.assetPath,
-    );
+    handleReconfigureFileClick(context, setters, options);
+  }
+};
+
+const handleDTCreateFileClick = (
+  context: FileClickContext,
+  setters: FileStateSetters,
+) => {
+  const newFile = context.files.find(
+    (file) => file.name === context.fileName && file.isNew,
+  );
+  if (newFile) {
+    updateFileState({
+      fileName: newFile.name,
+      fileContent: newFile.content,
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+    });
+    setters.setIsLibraryFile(false);
+    setters.setLibraryAssetPath('');
+  }
+};
+
+const handleLibraryCreateFileClick = (
+  context: FileClickContext,
+  setters: FileStateSetters,
+  options?: CreateFileOptions,
+) => {
+  const asset = context.asset as LibraryAsset;
+  const libraryFile = options?.libraryFiles?.find(
+    (file) =>
+      file.fileName === context.fileName &&
+      file.assetPath === asset.path &&
+      file.isPrivate === asset.isPrivate,
+  );
+  if (libraryFile?.isModified) {
+    updateFileState({
+      fileName: libraryFile.fileName,
+      fileContent: libraryFile.fileContent,
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+      isPrivate: asset.isPrivate,
+    });
+    setters.setIsLibraryFile(true);
+    setters.setLibraryAssetPath(libraryFile.assetPath);
+  } else {
+    fetchAndSetFileLibraryContent({
+      fileName: libraryFile!.fileName,
+      libraryAsset: asset,
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+      isNew: true,
+      setIsLibraryFile: setters.setIsLibraryFile,
+      setLibraryAssetPath: setters.setLibraryAssetPath,
+      dispatch: options?.dispatch,
+    });
   }
 };
 
 export const handleCreateFileClick = (
-  fileName: string,
-  asset: AssetOrNull,
-  files: FileState[],
+  context: FileClickContext,
   setters: FileStateSetters,
-  dispatch?: ReturnType<typeof useDispatch>,
-  libraryFiles?: LibraryConfigFile[],
+  options?: CreateFileOptions,
 ) => {
-  if (asset instanceof DigitalTwin || asset === null) {
-    const newFile = files.find((file) => file.name === fileName && file.isNew);
-    if (newFile) {
-      updateFileState({
-        fileName: newFile.name,
-        fileContent: newFile.content,
-        setFileName: setters.setFileName,
-        setFileContent: setters.setFileContent,
-        setFileType: setters.setFileType,
-        setFilePrivacy: setters.setFilePrivacy,
-      });
-      setters.setIsLibraryFile(false);
-      setters.setLibraryAssetPath('');
-    }
+  if (context.asset instanceof DigitalTwin || context.asset === null) {
+    handleDTCreateFileClick(context, setters);
   } else {
-    const libraryFile = libraryFiles!.find(
-      (file) =>
-        file.fileName === fileName &&
-        file.assetPath === asset.path &&
-        file.isPrivate === asset.isPrivate,
-    );
-    if (libraryFile?.isModified) {
-      updateFileState({
-        fileName: libraryFile.fileName,
-        fileContent: libraryFile.fileContent,
-        setFileName: setters.setFileName,
-        setFileContent: setters.setFileContent,
-        setFileType: setters.setFileType,
-        setFilePrivacy: setters.setFilePrivacy,
-        isPrivate: asset.isPrivate,
-      });
-      setters.setIsLibraryFile(true);
-      setters.setLibraryAssetPath(libraryFile.assetPath);
-    } else {
-      fetchAndSetFileLibraryContent({
-        fileName: libraryFile!.fileName,
-        libraryAsset: asset,
-        setFileName: setters.setFileName,
-        setFileContent: setters.setFileContent,
-        setFileType: setters.setFileType,
-        setFilePrivacy: setters.setFilePrivacy,
-        isNew: true,
-        setIsLibraryFile: setters.setIsLibraryFile,
-        setLibraryAssetPath: setters.setLibraryAssetPath,
-        dispatch,
-      });
-    }
+    handleLibraryCreateFileClick(context, setters, options);
   }
 };
 
-export const handleReconfigureFileClick = async (
-  fileName: string,
-  asset: AssetOrNull,
-  files: FileState[],
+const handleDTFileReconfigure = (
+  context: FileClickContext,
   setters: FileStateSetters,
-  dispatch?: ReturnType<typeof useDispatch>,
-  library?: boolean,
-  libraryFiles?: LibraryConfigFile[],
-  assetPath?: string,
 ) => {
-  if (asset instanceof DigitalTwin || asset === null) {
-    if (library === undefined) {
-      const modifiedFile = files.find(
-        (file) => file.name === fileName && file.isModified && !file.isNew,
-      );
-      if (modifiedFile) {
-        updateFileState({
-          fileName: modifiedFile.name,
-          fileContent: modifiedFile.content,
-          setFileName: setters.setFileName,
-          setFileContent: setters.setFileContent,
-          setFileType: setters.setFileType,
-          setFilePrivacy: setters.setFilePrivacy,
-        });
-      } else {
-        fetchAndSetFileContent(
-          fileName,
-          asset,
-          setters.setFileName,
-          setters.setFileContent,
-          setters.setFileType,
-          setters.setFilePrivacy,
-        );
-      }
-      setters.setIsLibraryFile(false);
-      setters.setLibraryAssetPath('');
-    } else {
-      const modifiedLibraryFile = libraryFiles!.find(
-        (file) => file.fileName === fileName && file.assetPath === assetPath,
-      );
-      if (modifiedLibraryFile?.isModified) {
-        updateFileState({
-          fileName: modifiedLibraryFile.fileName,
-          fileContent: modifiedLibraryFile.fileContent,
-          setFileName: setters.setFileName,
-          setFileContent: setters.setFileContent,
-          setFileType: setters.setFileType,
-          setFilePrivacy: setters.setFilePrivacy,
-        });
-      } else {
-        fetchAndSetFileContent(
-          fileName,
-          asset,
-          setters.setFileName,
-          setters.setFileContent,
-          setters.setFileType,
-          setters.setFilePrivacy,
-          library,
-          assetPath,
-        );
-        const fileContent = await asset!.DTAssets.getLibraryFileContent(
-          assetPath!,
-          fileName,
-        );
-        dispatch!(
-          addOrUpdateLibraryFile({
-            assetPath: assetPath!,
-            fileName,
-            fileContent,
-            isNew: false,
-            isModified: false,
-            isPrivate: true,
-          }),
-        );
-      }
-      setters.setIsLibraryFile(true);
-      setters.setLibraryAssetPath(assetPath!);
-    }
+  const modifiedFile = context.files.find(
+    (file) => file.name === context.fileName && file.isModified && !file.isNew,
+  );
+  if (modifiedFile) {
+    updateFileState({
+      fileName: modifiedFile.name,
+      fileContent: modifiedFile.content,
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+    });
+  } else {
+    fetchAndSetFileContent(
+      {
+        fileName: context.fileName,
+        digitalTwin: context.asset as DigitalTwin | null,
+      },
+      {
+        setFileName: setters.setFileName,
+        setFileContent: setters.setFileContent,
+        setFileType: setters.setFileType,
+        setFilePrivacy: setters.setFilePrivacy,
+      },
+    );
+  }
+  setters.setIsLibraryFile(false);
+  setters.setLibraryAssetPath('');
+};
+
+const handleLibraryFileReconfigure = async (
+  context: FileClickContext,
+  setters: FileStateSetters,
+  options: ReconfigureOptions,
+) => {
+  const modifiedLibraryFile = options.libraryFiles?.find(
+    (file) =>
+      file.fileName === context.fileName &&
+      file.assetPath === options.assetPath,
+  );
+  if (modifiedLibraryFile?.isModified) {
+    updateFileState({
+      fileName: modifiedLibraryFile.fileName,
+      fileContent: modifiedLibraryFile.fileContent,
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+    });
+  } else {
+    fetchAndSetFileContent(
+      {
+        fileName: context.fileName,
+        digitalTwin: context.asset as DigitalTwin | null,
+        library: options.library,
+        assetPath: options.assetPath,
+      },
+      {
+        setFileName: setters.setFileName,
+        setFileContent: setters.setFileContent,
+        setFileType: setters.setFileType,
+        setFilePrivacy: setters.setFilePrivacy,
+      },
+    );
+    const fileContent = await (
+      context.asset as DigitalTwin
+    ).DTAssets.getLibraryFileContent(options.assetPath!, context.fileName);
+    options.dispatch!(
+      addOrUpdateLibraryFile({
+        assetPath: options.assetPath!,
+        fileName: context.fileName,
+        fileContent,
+        isNew: false,
+        isModified: false,
+        isPrivate: true,
+      }),
+    );
+  }
+  setters.setIsLibraryFile(true);
+  setters.setLibraryAssetPath(options.assetPath!);
+};
+
+export const handleReconfigureFileClick = async (
+  context: FileClickContext,
+  setters: FileStateSetters,
+  options?: ReconfigureOptions,
+) => {
+  if (!(context.asset instanceof DigitalTwin || context.asset === null)) {
+    return;
+  }
+  if (!options?.library) {
+    handleDTFileReconfigure(context, setters);
+  } else {
+    await handleLibraryFileReconfigure(context, setters, options);
   }
 };

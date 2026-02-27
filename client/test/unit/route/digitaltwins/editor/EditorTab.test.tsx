@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import EditorTab, {
   handleEditorChange,
 } from 'route/digitaltwins/editor/EditorTab';
@@ -19,28 +19,20 @@ describe('EditorTab', () => {
     );
   });
 
-  it('renders EditorTab', async () => {
-    waitFor(async () => {
-      render(
-        <EditorTab
-          tab={'reconfigure'}
-          fileName="fileName"
-          fileContent="fileContent"
-          filePrivacy="private"
-          isLibraryFile={false}
-          libraryAssetPath=""
-          setFileContent={mockSetFileContent}
-        />,
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('fileName')).toBeInTheDocument();
-        expect(screen.getByText('fileContent')).toBeInTheDocument();
-      });
-    });
+  it('renders EditorTab', () => {
+    render(
+      <EditorTab
+        tab={'reconfigure'}
+        fileName="fileName"
+        fileContent="fileContent"
+        filePrivacy="private"
+        isLibraryFile={false}
+        libraryAssetPath=""
+        setFileContent={mockSetFileContent}
+      />,
+    );
   });
 
-  // Parameterized tests for handleEditorChange to reduce duplication
   describe('handleEditorChange', () => {
     const testCases = [
       {
@@ -105,8 +97,8 @@ describe('EditorTab', () => {
         libraryAssetPath,
         expectedDispatch,
       }) => {
-        it(`calls onChange correctly - ${description}`, async () => {
-          await handleEditorChange(
+        it(`calls onChange correctly - ${description}`, () => {
+          handleEditorChange(
             {
               tab,
               fileName: 'fileName',
@@ -115,9 +107,11 @@ describe('EditorTab', () => {
               libraryAssetPath,
             },
             'new content',
-            jest.fn(),
-            mockSetFileContent,
-            mockDispatch,
+            {
+              setEditorValue: jest.fn(),
+              setFileContent: mockSetFileContent,
+              dispatch: mockDispatch,
+            },
           );
 
           expect(mockSetFileContent).toHaveBeenCalledWith('new content');

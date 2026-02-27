@@ -3,7 +3,7 @@ import digitalTwinReducer, {
   setDigitalTwin,
 } from 'model/backend/state/digitalTwin.slice';
 import * as React from 'react';
-import { createMockDigitalTwinData } from 'test/preview/__mocks__/global_mocks';
+import { createMockDigitalTwinData } from 'test/__mocks__/global_mocks';
 import { Provider } from 'react-redux';
 import { act, render, screen } from '@testing-library/react';
 import fileSlice, { addOrUpdateFile } from 'model/store/file.slice';

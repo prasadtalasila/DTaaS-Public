@@ -42,9 +42,10 @@ import { Provider } from 'react-redux';
 import {
   mockLibraryAsset,
   createMockDigitalTwinData,
-} from 'test/preview/__mocks__/global_mocks';
-import { mockBackendInstance } from 'test/__mocks__/global_mocks';
+  mockBackendInstance,
+} from 'test/__mocks__/global_mocks';
 import DigitalTwin from 'model/backend/digitalTwin';
+import LibraryAsset from 'model/backend/libraryAsset';
 import * as SidebarFunctions from 'route/digitaltwins/editor/sidebarFunctions';
 import cartSlice, { addToCart } from 'model/store/cart.slice';
 import '@testing-library/jest-dom';
@@ -162,7 +163,7 @@ describe('Sidebar', () => {
       ...mockLibraryAsset,
       configFiles: ['config1.json'],
       getConfigFiles: jest.fn().mockImplementation(async () => []),
-    };
+    } as unknown as LibraryAsset;
 
     store.dispatch(addToCart(mockAsset));
 
@@ -217,9 +218,15 @@ describe('Sidebar', () => {
   it('should open the sidebar dialog when a new file is added', async () => {
     jest
       .spyOn(SidebarFunctions, 'handleAddFileClick')
-      .mockImplementation((setIsFileNameDialogOpen: React.Dispatch<React.SetStateAction<boolean>>) => {
-        setIsFileNameDialogOpen(true);
-      });
+      .mockImplementation(
+        (
+          setIsFileNameDialogOpen: React.Dispatch<
+            React.SetStateAction<boolean>
+          >,
+        ) => {
+          setIsFileNameDialogOpen(true);
+        },
+      );
 
     await renderSidebar(ASSET_NAME, 'create');
 

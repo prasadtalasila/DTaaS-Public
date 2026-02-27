@@ -5,6 +5,20 @@ import LibraryAsset from 'model/backend/libraryAsset';
 import { Dispatch, SetStateAction } from 'react';
 import { useDispatch } from 'react-redux';
 
+export interface BasicFileStateSetters {
+  readonly setFileName: Dispatch<SetStateAction<string>>;
+  readonly setFileContent: Dispatch<SetStateAction<string>>;
+  readonly setFileType: Dispatch<SetStateAction<string>>;
+  readonly setFilePrivacy: Dispatch<SetStateAction<string>>;
+}
+
+export interface FetchFileContext {
+  readonly fileName: string;
+  readonly digitalTwin: DigitalTwin | null;
+  readonly library?: boolean;
+  readonly assetPath?: string;
+}
+
 export const fetchData = async (digitalTwin: DigitalTwin) => {
   await digitalTwin.getDescriptionFiles();
   await digitalTwin.getLifecycleFiles();
@@ -12,38 +26,34 @@ export const fetchData = async (digitalTwin: DigitalTwin) => {
   await digitalTwin.getAssetFiles();
 };
 
+const fetchFileContent = async (context: FetchFileContext): Promise<string> => {
+  if (context.library) {
+    return context.digitalTwin!.DTAssets.getLibraryFileContent(
+      context.assetPath!,
+      context.fileName,
+    );
+  }
+  return context.digitalTwin!.DTAssets.getFileContent(context.fileName);
+};
+
 export const fetchAndSetFileContent = async (
-  fileName: string,
-  digitalTwin: DigitalTwin | null,
-  setFileName: Dispatch<SetStateAction<string>>,
-  setFileContent: Dispatch<SetStateAction<string>>,
-  setFileType: Dispatch<SetStateAction<string>>,
-  setFilePrivacy: Dispatch<SetStateAction<string>>,
-  library?: boolean,
-  assetPath?: string,
+  context: FetchFileContext,
+  setters: BasicFileStateSetters,
 ) => {
   try {
-    let fileContent;
-    if (library) {
-      fileContent = await digitalTwin!.DTAssets.getLibraryFileContent(
-        assetPath!,
-        fileName,
-      );
-    } else {
-      fileContent = await digitalTwin!.DTAssets.getFileContent(fileName);
-    }
+    const fileContent = await fetchFileContent(context);
     if (fileContent) {
       updateFileState({
-        fileName,
+        fileName: context.fileName,
         fileContent,
-        setFileName,
-        setFileContent,
-        setFileType,
-        setFilePrivacy,
+        setFileName: setters.setFileName,
+        setFileContent: setters.setFileContent,
+        setFileType: setters.setFileType,
+        setFilePrivacy: setters.setFilePrivacy,
       });
     }
   } catch {
-    setFileContent(`Error fetching ${fileName} content`);
+    setters.setFileContent(`Error fetching ${context.fileName} content`);
   }
 };
 

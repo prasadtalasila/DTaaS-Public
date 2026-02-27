@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
-import AssetBoard from 'preview/components/asset/AssetBoard';
+import AssetBoard from 'components/asset/AssetBoard';
 import store from 'store/store';
 
-jest.mock('preview/components/asset/AssetCardManage', () => ({
+jest.mock('components/asset/AssetCardManage', () => ({
   __esModule: true,
   default: ({ onDelete }: { onDelete: () => void }) => (
     <div>
@@ -55,7 +55,7 @@ describe('AssetBoard', () => {
           assets: { items: mockAssets },
           digitalTwin: {
             shouldFetchDigitalTwins: false,
-            digitalTwin: {}, // Add empty digitalTwin object to prevent null error
+            digitalTwin: {},
           },
           executionHistory: {
             entries: [],
@@ -69,22 +69,18 @@ describe('AssetBoard', () => {
 
   it('renders AssetBoard with Manage Card', () => {
     renderAssetBoard('Manage');
-
     expect(screen.getByText('Asset Card Manage')).toBeInTheDocument();
   });
 
   it('renders AssetBoard with Execute Card', () => {
     renderAssetBoard('Execute');
-
     expect(screen.getByText('Asset Card Execute')).toBeInTheDocument();
   });
 
   it('dispatches deleteAsset action when onDelete is called', () => {
     renderAssetBoard('Manage');
-
     const deleteButton = screen.getByText('Delete');
     deleteButton.click();
-
     expect(mockDispatch).toHaveBeenCalledTimes(1);
   });
 });

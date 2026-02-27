@@ -4,7 +4,7 @@ import { Typography } from '@mui/material';
 import Layout from 'page/Layout';
 import TabComponent from 'components/tab/TabComponent';
 import { TabData } from 'components/tab/subcomponents/TabRender';
-import AssetBoard from 'preview/components/asset/AssetBoard';
+import AssetBoard from 'components/asset/AssetBoard';
 import { defaultFiles } from 'model/backend/gitlab/digitalTwinConfig/constants';
 import { addOrUpdateFile } from 'model/store/file.slice';
 import tabs from 'route/digitaltwins/DigitalTwinTabDataPreview';

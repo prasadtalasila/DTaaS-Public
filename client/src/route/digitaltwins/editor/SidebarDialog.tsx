@@ -63,14 +63,11 @@ const SidebarDialog = ({
       </Button>
       <Button
         onClick={() =>
-          handleFileSubmit(
-            files,
-            newFileName,
+          handleFileSubmit(files, newFileName, dispatch, {
             setErrorMessage,
-            dispatch,
             setIsFileNameDialogOpen,
             setNewFileName,
-          )
+          })
         }
         variant="contained"
         color="primary"
