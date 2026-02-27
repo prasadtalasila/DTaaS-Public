@@ -66,17 +66,12 @@ const filterAssets = (assets: Asset[], filter: string): Asset[] =>
     asset.name.toLowerCase().includes(filter.toLowerCase()),
   );
 
-const AssetBoard: React.FC<AssetBoardProps> = ({ tab }) => {
-  const allAssets = useSelector(
-    selectAssetsByTypeAndPrivacy('Digital Twins', true),
-  );
-  const [filter, setFilter] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const shouldFetchDigitalTwins = useSelector(
-    (state: RootState) => state.digitalTwin.shouldFetchDigitalTwins,
-  );
+const useFetchDigitalTwins = (
+  shouldFetch: boolean,
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
   const [loading, setLoading] = useState<boolean>(true);
-  const dispatch = useDispatch();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,12 +84,30 @@ const AssetBoard: React.FC<AssetBoardProps> = ({ tab }) => {
       }
     };
 
-    if (shouldFetchDigitalTwins) {
+    if (shouldFetch) {
       fetchData();
     } else {
       setLoading(false);
     }
-  }, [dispatch, shouldFetchDigitalTwins]);
+  }, [dispatch, shouldFetch]);
+
+  return { loading, error };
+};
+
+const AssetBoard: React.FC<AssetBoardProps> = ({ tab }) => {
+  const allAssets = useSelector(
+    selectAssetsByTypeAndPrivacy('Digital Twins', true),
+  );
+  const [filter, setFilter] = useState<string>('');
+  const shouldFetchDigitalTwins = useSelector(
+    (state: RootState) => state.digitalTwin.shouldFetchDigitalTwins,
+  );
+  const dispatch = useDispatch();
+
+  const { loading, error } = useFetchDigitalTwins(
+    shouldFetchDigitalTwins,
+    dispatch,
+  );
 
   const handleDelete = (deletedAssetPath: string) => {
     dispatch(deleteAsset(deletedAssetPath));

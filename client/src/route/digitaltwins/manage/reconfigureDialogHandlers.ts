@@ -68,6 +68,19 @@ const updateDigitalTwinFile = async (
 const getFileName = (file: FileState | LibraryConfigFile): string =>
   'assetPath' in file ? file.fileName : file.name;
 
+const handleUpdateError = (
+  error: unknown,
+  fileName: string,
+  dispatch: ReturnType<typeof useDispatch>,
+) => {
+  dispatch(
+    showSnackbar({
+      message: `Error updating file ${fileName}: ${error}`,
+      severity: 'error',
+    }),
+  );
+};
+
 export const handleFileUpdate = async (
   file: FileState | LibraryConfigFile,
   digitalTwin: DigitalTwin,
@@ -80,13 +93,7 @@ export const handleFileUpdate = async (
       await updateDigitalTwinFile(file, digitalTwin, dispatch);
     }
   } catch (error) {
-    const fileName = getFileName(file);
-    dispatch(
-      showSnackbar({
-        message: `Error updating file ${fileName}: ${error}`,
-        severity: 'error',
-      }),
-    );
+    handleUpdateError(error, getFileName(file), dispatch);
   }
 };
 

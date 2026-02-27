@@ -178,6 +178,59 @@ const handleDTFileReconfigure = (
   setters.setLibraryAssetPath('');
 };
 
+const applyModifiedLibraryFile = (
+  modifiedFile: LibraryConfigFile,
+  setters: FileStateSetters,
+  assetPath: string,
+) => {
+  updateFileState({
+    fileName: modifiedFile.fileName,
+    fileContent: modifiedFile.fileContent,
+    setFileName: setters.setFileName,
+    setFileContent: setters.setFileContent,
+    setFileType: setters.setFileType,
+    setFilePrivacy: setters.setFilePrivacy,
+  });
+  setters.setIsLibraryFile(true);
+  setters.setLibraryAssetPath(assetPath);
+};
+
+const fetchLibraryFile = async (
+  context: FileClickContext,
+  setters: FileStateSetters,
+  options: ReconfigureOptions,
+) => {
+  fetchAndSetFileContent(
+    {
+      fileName: context.fileName,
+      digitalTwin: context.asset as DigitalTwin | null,
+      library: options.library,
+      assetPath: options.assetPath,
+    },
+    {
+      setFileName: setters.setFileName,
+      setFileContent: setters.setFileContent,
+      setFileType: setters.setFileType,
+      setFilePrivacy: setters.setFilePrivacy,
+    },
+  );
+  const fileContent = await (
+    context.asset as DigitalTwin
+  ).DTAssets.getLibraryFileContent(options.assetPath!, context.fileName);
+  options.dispatch!(
+    addOrUpdateLibraryFile({
+      assetPath: options.assetPath!,
+      fileName: context.fileName,
+      fileContent,
+      isNew: false,
+      isModified: false,
+      isPrivate: true,
+    }),
+  );
+  setters.setIsLibraryFile(true);
+  setters.setLibraryAssetPath(options.assetPath!);
+};
+
 const handleLibraryFileReconfigure = async (
   context: FileClickContext,
   setters: FileStateSetters,
@@ -189,57 +242,25 @@ const handleLibraryFileReconfigure = async (
       file.assetPath === options.assetPath,
   );
   if (modifiedLibraryFile?.isModified) {
-    updateFileState({
-      fileName: modifiedLibraryFile.fileName,
-      fileContent: modifiedLibraryFile.fileContent,
-      setFileName: setters.setFileName,
-      setFileContent: setters.setFileContent,
-      setFileType: setters.setFileType,
-      setFilePrivacy: setters.setFilePrivacy,
-    });
+    applyModifiedLibraryFile(modifiedLibraryFile, setters, options.assetPath!);
   } else {
-    fetchAndSetFileContent(
-      {
-        fileName: context.fileName,
-        digitalTwin: context.asset as DigitalTwin | null,
-        library: options.library,
-        assetPath: options.assetPath,
-      },
-      {
-        setFileName: setters.setFileName,
-        setFileContent: setters.setFileContent,
-        setFileType: setters.setFileType,
-        setFilePrivacy: setters.setFilePrivacy,
-      },
-    );
-    const fileContent = await (
-      context.asset as DigitalTwin
-    ).DTAssets.getLibraryFileContent(options.assetPath!, context.fileName);
-    options.dispatch!(
-      addOrUpdateLibraryFile({
-        assetPath: options.assetPath!,
-        fileName: context.fileName,
-        fileContent,
-        isNew: false,
-        isModified: false,
-        isPrivate: true,
-      }),
-    );
+    await fetchLibraryFile(context, setters, options);
   }
-  setters.setIsLibraryFile(true);
-  setters.setLibraryAssetPath(options.assetPath!);
 };
+
+const isDigitalTwinAsset = (asset: AssetOrNull): boolean =>
+  asset instanceof DigitalTwin || asset === null;
 
 export const handleReconfigureFileClick = async (
   context: FileClickContext,
   setters: FileStateSetters,
   options?: ReconfigureOptions,
 ) => {
-  if (context.asset instanceof DigitalTwin || context.asset === null) {
-    if (!options?.library) {
-      handleDTFileReconfigure(context, setters);
-    } else {
-      await handleLibraryFileReconfigure(context, setters, options);
-    }
+  if (!isDigitalTwinAsset(context.asset)) return;
+
+  if (options?.library) {
+    await handleLibraryFileReconfigure(context, setters, options);
+  } else {
+    handleDTFileReconfigure(context, setters);
   }
 };

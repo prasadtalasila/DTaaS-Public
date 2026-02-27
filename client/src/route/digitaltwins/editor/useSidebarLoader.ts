@@ -19,6 +19,13 @@ interface UseSidebarLoaderResult {
   readonly digitalTwinInstance: DigitalTwin | null;
 }
 
+interface LoadAssetsConfig {
+  readonly name?: string;
+  readonly digitalTwinData: DigitalTwinData | null | undefined;
+  readonly tab: string;
+  readonly assets: LibraryAsset[];
+}
+
 const dispatchLibraryFiles = (
   asset: LibraryAsset,
   dispatch: ReturnType<typeof useDispatch>,
@@ -74,20 +81,17 @@ const loadDigitalTwinInstance = async (
 };
 
 const loadAssets = async (
-  name: string | undefined,
-  digitalTwinData: DigitalTwinData | null | undefined,
-  tab: string,
-  assets: LibraryAsset[],
+  config: LoadAssetsConfig,
   setDigitalTwinInstance: (instance: DigitalTwin | null) => void,
   dispatch: ReturnType<typeof useDispatch>,
 ) => {
   await loadDigitalTwinInstance(
-    name ?? '',
-    digitalTwinData,
+    config.name ?? '',
+    config.digitalTwinData,
     setDigitalTwinInstance,
   );
-  if (tab === 'create') {
-    await loadCreateTabAssets(assets, dispatch);
+  if (config.tab === 'create') {
+    await loadCreateTabAssets(config.assets, dispatch);
   }
 };
 
@@ -108,10 +112,7 @@ const useSidebarLoader = ({
   useEffect(() => {
     const loadFiles = async () => {
       await loadAssets(
-        name,
-        digitalTwinData,
-        tab,
-        assets,
+        { name, digitalTwinData, tab, assets },
         setDigitalTwinInstance,
         dispatch,
       );
