@@ -130,4 +130,69 @@ describe('sidebarFetchers', () => {
       'Error fetching file1.md content',
     );
   });
+
+  it('should not call updateFileState when fetchAndSetFileContent returns empty content', async () => {
+    jest
+      .spyOn(mockDigitalTwin.DTAssets, 'getFileContent')
+      .mockResolvedValue('');
+    const updateFileStateSpy = jest.spyOn(FileUtils, 'updateFileState');
+
+    await SidebarFetchers.fetchAndSetFileContent(
+      {
+        fileName: 'file1.md',
+        digitalTwin: mockDigitalTwin,
+      },
+      {
+        setFileName,
+        setFileContent,
+        setFileType,
+        setFilePrivacy,
+      },
+    );
+
+    expect(updateFileStateSpy).not.toHaveBeenCalled();
+  });
+
+  it('should not call updateFileState when fetchAndSetFileLibraryContent returns empty content', async () => {
+    jest
+      .spyOn(mockLibraryAsset.libraryManager, 'getFileContent')
+      .mockResolvedValue('');
+    const updateFileStateSpy = jest.spyOn(FileUtils, 'updateFileState');
+
+    await SidebarFetchers.fetchAndSetFileLibraryContent({
+      fileName: 'file1.md',
+      libraryAsset: mockLibraryAsset,
+      setFileName,
+      setFileContent,
+      setFileType,
+      setFilePrivacy,
+      isNew: false,
+      setIsLibraryFile,
+      setLibraryAssetPath,
+      dispatch,
+    });
+
+    expect(updateFileStateSpy).not.toHaveBeenCalled();
+    expect(setIsLibraryFile).toHaveBeenCalledWith(true);
+  });
+
+  it('should call fetchData on digital twin', async () => {
+    const getDescriptionFilesSpy = jest.spyOn(
+      mockDigitalTwin,
+      'getDescriptionFiles',
+    );
+    const getLifecycleFilesSpy = jest.spyOn(
+      mockDigitalTwin,
+      'getLifecycleFiles',
+    );
+    const getConfigFilesSpy = jest.spyOn(mockDigitalTwin, 'getConfigFiles');
+    const getAssetFilesSpy = jest.spyOn(mockDigitalTwin, 'getAssetFiles');
+
+    await SidebarFetchers.fetchData(mockDigitalTwin);
+
+    expect(getDescriptionFilesSpy).toHaveBeenCalledTimes(1);
+    expect(getLifecycleFilesSpy).toHaveBeenCalledTimes(1);
+    expect(getConfigFilesSpy).toHaveBeenCalledTimes(1);
+    expect(getAssetFilesSpy).toHaveBeenCalledTimes(1);
+  });
 });

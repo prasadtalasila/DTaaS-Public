@@ -1,9 +1,18 @@
-import { render } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import EditorTab, {
   handleEditorChange,
 } from 'route/digitaltwins/editor/EditorTab';
 import { addOrUpdateFile } from 'model/store/file.slice';
 import { addOrUpdateLibraryFile } from 'model/store/libraryConfigFiles.slice';
+
+jest.mock('@monaco-editor/react', () => ({
+  default: ({ onChange }: { onChange?: (value: string) => void }) => (
+    <textarea
+      data-testid="monaco-editor"
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  ),
+}));
 
 jest.mock('model/store/file.slice', () => ({
   addOrUpdateFile: jest.fn(),
@@ -119,5 +128,43 @@ describe('EditorTab', () => {
         });
       },
     );
+  });
+
+  it('renders the "select a file" overlay when fileName is empty', () => {
+    render(
+      <EditorTab
+        tab={'reconfigure'}
+        fileName=""
+        fileContent=""
+        filePrivacy="private"
+        isLibraryFile={false}
+        libraryAssetPath=""
+        setFileContent={mockSetFileContent}
+      />,
+    );
+
+    expect(
+      screen.getByText('Please select a file to edit.'),
+    ).toBeInTheDocument();
+  });
+
+  it('calls handleEditorChange via the editor onChange prop', () => {
+    render(
+      <EditorTab
+        tab={'create'}
+        fileName="test.md"
+        fileContent="initial"
+        filePrivacy="private"
+        isLibraryFile={false}
+        libraryAssetPath=""
+        setFileContent={mockSetFileContent}
+      />,
+    );
+
+    const editor = screen.getByTestId('monaco-editor');
+    fireEvent.change(editor, { target: { value: 'updated content' } });
+
+    expect(mockSetFileContent).toHaveBeenCalledWith('updated content');
+    expect(mockDispatch).toHaveBeenCalled();
   });
 });
