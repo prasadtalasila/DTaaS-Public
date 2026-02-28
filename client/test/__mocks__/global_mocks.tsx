@@ -175,6 +175,8 @@ export const mockDTAssets = {
   getDescription: jest.fn(),
   getFullDescription: jest.fn(),
   getConfigFiles: jest.fn(),
+  buildCreateFileActions: jest.fn().mockReturnValue([]),
+  buildTriggerAction: jest.fn().mockResolvedValue(null),
   createFiles: jest.fn(),
   getFilesFromAsset: jest.fn(),
   updateFileContent: jest.fn(),

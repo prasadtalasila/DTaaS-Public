@@ -55,7 +55,6 @@ export const renderFileTreeItems = (
             itemId={`${baseLabel}-${item}`}
             label={itemLabel}
             onClick={() => {
-              if (!context.asset) return;
               handleFileClick(
                 { fileName: item, asset: context.asset, files: context.files },
                 context.tab,
@@ -94,7 +93,6 @@ export const renderFileSection = (
           itemId={`${baseLabel}-${item}`}
           label={item}
           onClick={() => {
-            if (!context.asset) return;
             handleFileClick(
               { fileName: item, asset: context.asset, files: context.files },
               context.tab,

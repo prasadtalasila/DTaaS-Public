@@ -128,9 +128,69 @@ describe('EditorTab', () => {
         });
       },
     );
+
+    it('uses empty string when value is undefined', () => {
+      const mockSetEditorValue = jest.fn();
+
+      handleEditorChange(
+        {
+          tab: 'create',
+          fileName: 'fileName',
+          filePrivacy: 'private',
+          isLibraryFile: false,
+          libraryAssetPath: '',
+        },
+        undefined,
+        {
+          setEditorValue: mockSetEditorValue,
+          setFileContent: mockSetFileContent,
+          dispatch: mockDispatch,
+        },
+      );
+
+      expect(mockSetEditorValue).toHaveBeenCalledWith('');
+      expect(mockSetFileContent).toHaveBeenCalledWith('');
+      expect(mockDispatch).toHaveBeenCalledWith(
+        addOrUpdateFile({
+          name: 'fileName',
+          content: '',
+          isNew: true,
+          isModified: true,
+        }),
+      );
+    });
+
+    it('handles reconfigure tab with non-library file that has libraryAssetPath', () => {
+      handleEditorChange(
+        {
+          tab: 'reconfigure',
+          fileName: 'fileName',
+          filePrivacy: 'private',
+          isLibraryFile: false,
+          libraryAssetPath: 'some/path',
+        },
+        'content',
+        {
+          setEditorValue: jest.fn(),
+          setFileContent: mockSetFileContent,
+          dispatch: mockDispatch,
+        },
+      );
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        addOrUpdateLibraryFile({
+          assetPath: 'some/path',
+          fileName: 'fileName',
+          fileContent: 'content',
+          isNew: false,
+          isModified: true,
+          isPrivate: true,
+        }),
+      );
+    });
   });
 
-  it('renders the "select a file" overlay when fileName is empty', () => {
+  it('renders the "select a file" message and no editor when fileName is empty', () => {
     render(
       <EditorTab
         tab={'reconfigure'}
@@ -146,6 +206,7 @@ describe('EditorTab', () => {
     expect(
       screen.getByText('Please select a file to edit.'),
     ).toBeInTheDocument();
+    expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument();
   });
 
   it('calls handleEditorChange via the editor onChange prop', () => {
@@ -166,5 +227,24 @@ describe('EditorTab', () => {
 
     expect(mockSetFileContent).toHaveBeenCalledWith('updated content');
     expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it('renders editor and no message when a file is selected', () => {
+    render(
+      <EditorTab
+        tab={'create'}
+        fileName="test.md"
+        fileContent="content"
+        filePrivacy="private"
+        isLibraryFile={false}
+        libraryAssetPath=""
+        setFileContent={mockSetFileContent}
+      />,
+    );
+
+    expect(
+      screen.queryByText('Please select a file to edit.'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
   });
 });

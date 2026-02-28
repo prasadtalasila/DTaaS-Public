@@ -101,43 +101,35 @@ function EditorTab({
   }, [fileContent]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <Editor
-        height="400px"
-        defaultLanguage="markdown"
-        value={editorValue}
-        onChange={(value) =>
-          handleEditorChange(
-            { tab, fileName, filePrivacy, isLibraryFile, libraryAssetPath },
-            value,
-            { setEditorValue, setFileContent, dispatch },
-          )
-        }
-        options={{
-          readOnly: fileName === '',
-        }}
-      />
-      {fileName === '' && (
+    <div style={{ position: 'relative', height: '400px' }}>
+      {fileName === '' ? (
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+            height: '100%',
             backgroundColor: 'rgba(255, 255, 255, 0.7)',
             color: 'black',
-            zIndex: 1,
             fontSize: '16px',
             fontWeight: 'bold',
-            pointerEvents: 'none',
           }}
         >
           Please select a file to edit.
         </div>
+      ) : (
+        <Editor
+          height="400px"
+          defaultLanguage="markdown"
+          value={editorValue}
+          onChange={(value) =>
+            handleEditorChange(
+              { tab, fileName, filePrivacy, isLibraryFile, libraryAssetPath },
+              value,
+              { setEditorValue, setFileContent, dispatch },
+            )
+          }
+        />
       )}
     </div>
   );
