@@ -118,7 +118,7 @@ const handleLibraryCreateFileClick = (
     setters.setLibraryAssetPath(libraryFile.assetPath);
   } else {
     fetchAndSetFileLibraryContent({
-      fileName: libraryFile!.fileName,
+      fileName: context.fileName,
       libraryAsset: asset,
       setFileName: setters.setFileName,
       setFileContent: setters.setFileContent,

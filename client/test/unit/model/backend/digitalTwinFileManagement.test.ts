@@ -1,15 +1,15 @@
 import DigitalTwin from 'model/backend/digitalTwin';
-import { FileType } from 'model/backend/interfaces/sharedInterfaces';
+import {
+  FileType,
+  LibraryAssetInterface,
+} from 'model/backend/interfaces/sharedInterfaces';
 import { getBranchName } from 'model/backend/gitlab/digitalTwinConfig/settingsUtility';
 import {
   createDT,
   getAssetFilesFn,
   prepareAllAssetFilesFn,
 } from 'model/backend/util/digitalTwinFileManagement';
-import {
-  mockBackendInstance,
-  mockDTAssets,
-} from 'test/__mocks__/global_mocks';
+import { mockBackendInstance, mockDTAssets } from 'test/__mocks__/global_mocks';
 
 jest.mock('model/backend/util/digitalTwinUtils', () => ({
   ...jest.requireActual('model/backend/util/digitalTwinUtils'),
@@ -80,9 +80,7 @@ describe('digitalTwinFileManagement', () => {
       expect(result).toBe(
         'testDT digital twin files initialized successfully.',
       );
-      expect(
-        mockDT.backend.api.commitMultipleActions,
-      ).toHaveBeenCalledWith(
+      expect(mockDT.backend.api.commitMultipleActions).toHaveBeenCalledWith(
         1,
         getBranchName(),
         'Create testDT digital twin',
@@ -106,9 +104,7 @@ describe('digitalTwinFileManagement', () => {
 
       await createDT(mockDT, files, [], []);
 
-      expect(
-        mockDT.backend.api.commitMultipleActions,
-      ).toHaveBeenCalledWith(
+      expect(mockDT.backend.api.commitMultipleActions).toHaveBeenCalledWith(
         1,
         getBranchName(),
         'Create testDT digital twin',
@@ -125,9 +121,7 @@ describe('digitalTwinFileManagement', () => {
       expect(result).toBe(
         'testDT digital twin files initialized successfully.',
       );
-      expect(
-        mockDT.backend.api.commitMultipleActions,
-      ).not.toHaveBeenCalled();
+      expect(mockDT.backend.api.commitMultipleActions).not.toHaveBeenCalled();
     });
 
     it('should return error when projectId is missing', async () => {
@@ -151,9 +145,9 @@ describe('digitalTwinFileManagement', () => {
       (mockDT.DTAssets.buildCreateFileActions as jest.Mock).mockReturnValue(
         fileActions,
       );
-      (
-        mockDT.backend.api.commitMultipleActions as jest.Mock
-      ).mockRejectedValue(new Error('Commit error'));
+      (mockDT.backend.api.commitMultipleActions as jest.Mock).mockRejectedValue(
+        new Error('Commit error'),
+      );
 
       const result = await createDT(mockDT, files, [], []);
 
@@ -179,20 +173,28 @@ describe('digitalTwinFileManagement', () => {
       ];
 
       (mockDT.DTAssets.getFilesFromAsset as jest.Mock).mockResolvedValue([
-        { name: 'data.json', content: 'asset data', path: 'p', isPrivate: false },
+        {
+          name: 'data.json',
+          content: 'asset data',
+          path: 'p',
+          isPrivate: false,
+        },
       ]);
       (mockDT.DTAssets.buildCreateFileActions as jest.Mock)
         .mockReturnValueOnce([]) // file actions
         .mockReturnValueOnce(assetFileActions); // asset actions
 
-      const result = await createDT(mockDT, [], cartAssets as any, []);
+      const result = await createDT(
+        mockDT,
+        [],
+        cartAssets as unknown as LibraryAssetInterface[],
+        [],
+      );
 
       expect(result).toBe(
         'testDT digital twin files initialized successfully.',
       );
-      expect(
-        mockDT.backend.api.commitMultipleActions,
-      ).toHaveBeenCalledWith(
+      expect(mockDT.backend.api.commitMultipleActions).toHaveBeenCalledWith(
         1,
         getBranchName(),
         'Create testDT digital twin',
@@ -279,7 +281,7 @@ describe('digitalTwinFileManagement', () => {
 
       const result = await prepareAllAssetFilesFn(
         mockDT,
-        cartAssets as any,
+        cartAssets as unknown as LibraryAssetInterface[],
         [],
       );
 
@@ -315,7 +317,7 @@ describe('digitalTwinFileManagement', () => {
 
       const result = await prepareAllAssetFilesFn(
         mockDT,
-        cartAssets as any,
+        cartAssets as unknown as LibraryAssetInterface[],
         [],
       );
 

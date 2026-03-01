@@ -153,21 +153,23 @@ ${triggerKey}:
           } => file.isNew,
     );
 
-    for (const file of newFiles) {
-      const fileType = (file as FileState).type;
-      const mainFolderPathUpdated = file.isFromCommonLibrary
-        ? `${mainFolderPath}/common`
-        : mainFolderPath;
-      const lifecycleFolderPathUpdated = file.isFromCommonLibrary
-        ? `${mainFolderPathUpdated}/lifecycle`
-        : lifecycleFolderPath;
-      const filePath =
-        fileType === FileType.LIFECYCLE
-          ? lifecycleFolderPathUpdated
-          : mainFolderPathUpdated;
-      const commitMessage = `Add ${file.name} to ${fileType} folder`;
-      await this.fileHandler.createFile(file, filePath, commitMessage);
-    }
+    await Promise.all(
+      newFiles.map(async (file) => {
+        const fileType = (file as FileState).type;
+        const mainFolderPathUpdated = file.isFromCommonLibrary
+          ? `${mainFolderPath}/common`
+          : mainFolderPath;
+        const lifecycleFolderPathUpdated = file.isFromCommonLibrary
+          ? `${mainFolderPathUpdated}/lifecycle`
+          : lifecycleFolderPath;
+        const filePath =
+          fileType === FileType.LIFECYCLE
+            ? lifecycleFolderPathUpdated
+            : mainFolderPathUpdated;
+        const commitMessage = `Add ${file.name} to ${fileType} folder`;
+        await this.fileHandler.createFile(file, filePath, commitMessage);
+      }),
+    );
   }
 
   async getFilesFromAsset(assetPath: string, isPrivate: boolean) {

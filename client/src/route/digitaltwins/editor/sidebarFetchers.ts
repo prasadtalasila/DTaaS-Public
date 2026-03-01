@@ -27,13 +27,19 @@ export const fetchData = async (digitalTwin: DigitalTwin) => {
 };
 
 const fetchFileContent = async (context: FetchFileContext): Promise<string> => {
+  if (!context.digitalTwin) {
+    throw new Error('Digital twin is not available');
+  }
   if (context.library) {
-    return context.digitalTwin!.DTAssets.getLibraryFileContent(
-      context.assetPath!,
+    if (!context.assetPath) {
+      throw new Error('Asset path is required for library file fetch');
+    }
+    return context.digitalTwin.DTAssets.getLibraryFileContent(
+      context.assetPath,
       context.fileName,
     );
   }
-  return context.digitalTwin!.DTAssets.getFileContent(context.fileName);
+  return context.digitalTwin.DTAssets.getFileContent(context.fileName);
 };
 
 export const fetchAndSetFileContent = async (

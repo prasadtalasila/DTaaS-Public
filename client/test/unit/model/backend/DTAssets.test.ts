@@ -515,10 +515,9 @@ describe('DTAssets', () => {
         'common/digital_twins/myDT',
       );
 
-      expect(dtAssets.fileHandler.getLibraryConfigFileNames).toHaveBeenCalledWith(
-        'common/digital_twins/myDT',
-        true,
-      );
+      expect(
+        dtAssets.fileHandler.getLibraryConfigFileNames,
+      ).toHaveBeenCalledWith('common/digital_twins/myDT', true);
       expect(result).toEqual(['config.json', 'settings.yml']);
     });
   });

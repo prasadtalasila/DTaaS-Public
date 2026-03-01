@@ -269,9 +269,7 @@ describe('GitlabAPI', () => {
 
       const result = await api.listPipelineJobs(1, 10);
 
-      expect(result).toEqual([
-        { id: 1, name: 'build', status: 'success' },
-      ]);
+      expect(result).toEqual([{ id: 1, name: 'build', status: 'success' }]);
       expect(mockClient.Jobs.all).toHaveBeenCalledWith(1, { pipelineId: 10 });
     });
   });
