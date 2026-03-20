@@ -10,11 +10,7 @@ function SignIn() {
     auth.signinRedirect();
   };
 
-  return (
-    <BoxForSignIn>
-      {signInButton(startAuthProcess)}
-    </BoxForSignIn>
-  );
+  return <BoxForSignIn>{signInButton(startAuthProcess)}</BoxForSignIn>;
 }
 
 function BoxForSignIn(props: { children: React.ReactNode }) {
