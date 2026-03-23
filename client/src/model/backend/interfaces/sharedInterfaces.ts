@@ -195,31 +195,26 @@ export type LibraryConfigFile = {
   isModified: boolean;
   isPrivate: boolean;
 };
+export type NewFileInput =
+  | FileState
+  | {
+      name: string;
+      content: string;
+      isNew: boolean;
+      isFromCommonLibrary: boolean;
+    };
+
 // DTAssets.ts
 
 export interface DTAssetsFileCreator {
   buildCreateFileActions(
-    files:
-      | FileState[]
-      | Array<{
-          name: string;
-          content: string;
-          isNew: boolean;
-          isFromCommonLibrary: boolean;
-        }>,
+    files: NewFileInput[],
     mainFolderPath: string,
     lifecycleFolderPath: string,
   ): CommitAction[];
 
   createFiles(
-    files:
-      | FileState[]
-      | Array<{
-          name: string;
-          content: string;
-          isNew: boolean;
-          isFromCommonLibrary: boolean;
-        }>,
+    files: NewFileInput[],
     mainFolderPath: string,
     lifecycleFolderPath: string,
   ): Promise<void>;

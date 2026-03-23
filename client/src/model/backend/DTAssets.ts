@@ -7,6 +7,7 @@ import {
   FileHandlerInterface,
   FileState,
   FileType,
+  NewFileInput,
 } from 'model/backend/interfaces/sharedInterfaces';
 import FileHandler from 'model/backend/fileHandler';
 
@@ -18,6 +19,21 @@ export function getFilePath(
   return file.type === FileType.LIFECYCLE
     ? lifecycleFolderPath
     : mainFolderPath;
+}
+
+function resolveCreateFilePath(
+  file: NewFileInput,
+  mainFolderPath: string,
+  lifecycleFolderPath: string,
+): string {
+  const fileType = (file as FileState).type;
+  const mainPath = file.isFromCommonLibrary
+    ? `${mainFolderPath}/common`
+    : mainFolderPath;
+  const lifecyclePath = file.isFromCommonLibrary
+    ? `${mainPath}/lifecycle`
+    : lifecycleFolderPath;
+  return fileType === FileType.LIFECYCLE ? lifecyclePath : mainPath;
 }
 
 class DTAssets implements DTAssetsInterface {
@@ -34,58 +50,17 @@ class DTAssets implements DTAssetsInterface {
   }
 
   buildCreateFileActions(
-    files:
-      | FileState[]
-      | Array<{
-          name: string;
-          content: string;
-          isNew: boolean;
-          isFromCommonLibrary: boolean;
-        }>,
+    files: NewFileInput[],
     mainFolderPath: string,
     lifecycleFolderPath: string,
   ): CommitAction[] {
-    const newFiles = (
-      files as Array<
-        | FileState
-        | {
-            name: string;
-            content: string;
-            isNew: boolean;
-            isFromCommonLibrary: boolean;
-          }
-      >
-    ).filter(
-      (
-        file,
-      ): file is
-        | FileState
-        | {
-            name: string;
-            content: string;
-            isNew: boolean;
-            isFromCommonLibrary: boolean;
-          } => file.isNew,
-    );
-
-    return newFiles.map((file) => {
-      const fileType = (file as FileState).type;
-      const mainFolderPathUpdated = file.isFromCommonLibrary
-        ? `${mainFolderPath}/common`
-        : mainFolderPath;
-      const lifecycleFolderPathUpdated = file.isFromCommonLibrary
-        ? `${mainFolderPathUpdated}/lifecycle`
-        : lifecycleFolderPath;
-      const filePath =
-        fileType === FileType.LIFECYCLE
-          ? lifecycleFolderPathUpdated
-          : mainFolderPathUpdated;
-      return {
+    return files
+      .filter((file): file is NewFileInput => file.isNew)
+      .map((file) => ({
         action: 'create' as const,
-        filePath: `${filePath}/${file.name}`,
+        filePath: `${resolveCreateFilePath(file, mainFolderPath, lifecycleFolderPath)}/${file.name}`,
         content: file.content,
-      };
-    });
+      }));
   }
 
   async buildTriggerAction(): Promise<CommitAction | null> {
@@ -119,53 +94,22 @@ ${triggerKey}:
   }
 
   async createFiles(
-    files:
-      | FileState[]
-      | Array<{
-          name: string;
-          content: string;
-          isNew: boolean;
-          isFromCommonLibrary: boolean;
-        }>,
+    files: NewFileInput[],
     mainFolderPath: string,
     lifecycleFolderPath: string,
   ): Promise<void> {
-    const newFiles = (
-      files as Array<
-        | FileState
-        | {
-            name: string;
-            content: string;
-            isNew: boolean;
-            isFromCommonLibrary: boolean;
-          }
-      >
-    ).filter(
-      (
-        file,
-      ): file is
-        | FileState
-        | {
-            name: string;
-            content: string;
-            isNew: boolean;
-            isFromCommonLibrary: boolean;
-          } => file.isNew,
+    const newFiles = files.filter(
+      (file): file is NewFileInput => file.isNew,
     );
 
     await Promise.all(
       newFiles.map(async (file) => {
+        const filePath = resolveCreateFilePath(
+          file,
+          mainFolderPath,
+          lifecycleFolderPath,
+        );
         const fileType = (file as FileState).type;
-        const mainFolderPathUpdated = file.isFromCommonLibrary
-          ? `${mainFolderPath}/common`
-          : mainFolderPath;
-        const lifecycleFolderPathUpdated = file.isFromCommonLibrary
-          ? `${mainFolderPathUpdated}/lifecycle`
-          : lifecycleFolderPath;
-        const filePath =
-          fileType === FileType.LIFECYCLE
-            ? lifecycleFolderPathUpdated
-            : mainFolderPathUpdated;
         const commitMessage = `Add ${file.name} to ${fileType} folder`;
         await this.fileHandler.createFile(file, filePath, commitMessage);
       }),
