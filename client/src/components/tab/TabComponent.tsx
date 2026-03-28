@@ -6,16 +6,6 @@ import {
   Tabs,
 } from 'components/tab/subcomponents/TabStyles';
 
-export function constructURL(assetType: string, scope: string, libURL: string) {
-  let assetTab = assetType.toLowerCase();
-  let scopeTab = scope.toLowerCase();
-
-  assetTab = assetTab === 'digital twins' ? 'digital_twins' : assetTab;
-  scopeTab = scopeTab === 'private' ? '' : `${scopeTab}/`;
-
-  return `${libURL}tree/${scopeTab}${assetTab}`;
-}
-
 function renderScopeTabList(
   scope: TabData[][],
   subIndex: number,

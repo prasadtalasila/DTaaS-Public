@@ -1,12 +1,25 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TabComponent, constructURL } from 'components/tab/TabComponent';
-import { assetType } from 'route/library/LibraryTabData';
-import { createCombinedTabs, createTabs } from 'route/library/Library';
+import { TabComponent } from 'components/tab/TabComponent';
+import { assetType } from 'route/library/cart/LibraryTabDataPreview';
+import {
+  createCombinedTabs,
+  createTabs,
+} from 'route/library/cart/LibraryPreview';
 
 jest.mock('components/tab/TabComponent', () => ({
   __esModule: true,
   ...jest.requireActual('components/tab/TabComponent'),
+}));
+
+jest.mock('components/asset/AssetLibrary', () => ({
+  __esModule: true,
+  default: () => <div data-testid="asset-library" />,
+}));
+
+jest.mock('components/cart/ShoppingCart', () => ({
+  __esModule: true,
+  default: () => <div data-testid="shopping-cart" />,
 }));
 
 describe('TabComponent', () => {
@@ -45,8 +58,8 @@ describe('TabComponent', () => {
 
     if (modelsTab) {
       const isModelsBody = screen.getAllByText(modelsTab.body);
-      const modelsbodylength = isModelsBody.length;
-      expect(modelsbodylength).not.toBeLessThan(0);
+      const modelsBodyLength = isModelsBody.length;
+      expect(modelsBodyLength).not.toBeLessThan(0);
     }
   });
 
@@ -69,15 +82,5 @@ describe('TabComponent', () => {
     expect(
       screen.queryByText(assetTypeTabs[1].body.props.children),
     ).not.toBeInTheDocument();
-  });
-
-  test('constructs correct URLs for Iframes', () => {
-    const gitlabName = 'user';
-    const LIBURL = `http://localhost.com:4000/${gitlabName}/`;
-    const assets = 'Digital Twins';
-    const scope = 'Common';
-    const expectedURL = `${LIBURL}tree/common/digital_twins`;
-
-    expect(constructURL(assets, scope, LIBURL)).toBe(expectedURL);
   });
 });

@@ -19,14 +19,14 @@ export async function testPublicLayout() {
 
 export async function testDrawer() {
   expect(screen.getByTestId(/ChevronLeftIcon/)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /^Library$/ })).toBeInTheDocument();
-  expect(screen.getByTestId(/ExtensionIcon/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Workbench/ })).toBeInTheDocument();
+  expect(screen.getByTestId(/EngineeringIcon/)).toBeInTheDocument();
   expect(
     screen.getByRole('link', { name: /^Digital Twins$/ }),
   ).toBeInTheDocument();
   expect(screen.getByTestId(/PeopleIcon/)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /Workbench/ })).toBeInTheDocument();
-  expect(screen.getByTestId(/EngineeringIcon/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /^Library$/ })).toBeInTheDocument();
+  expect(screen.getByTestId(/ExtensionIcon/)).toBeInTheDocument();
 
   await itOpensAndClosesTheDrawer();
 }

@@ -1,6 +1,6 @@
 import { screen, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { assetType, scope } from 'route/library/LibraryTabData';
+import { assetType, scope } from 'route/library/cart/LibraryTabDataPreview';
 import {
   normalizer,
   closestDiv,
@@ -8,6 +8,26 @@ import {
   setupIntegrationTest,
 } from 'test/integration/integration.testUtil';
 import { testLayout } from 'test/integration/Routes/routes.testUtil';
+
+jest.mock('components/asset/AssetLibrary', () => ({
+  __esModule: true,
+  default: ({
+    pathToAssets,
+    privateRepo,
+  }: {
+    pathToAssets: string;
+    privateRepo: boolean;
+  }) => {
+    const assetTypeSegment = pathToAssets.replace(' ', '_').toLowerCase();
+    const scopeSegment = privateRepo ? '' : 'common/';
+    return (
+      <iframe
+        title={pathToAssets}
+        src={`https://example.com/URL_LIBtree/${scopeSegment}${assetTypeSegment}`}
+      />
+    );
+  },
+}));
 
 const setup = () => setupIntegrationTest('/library');
 

@@ -9,29 +9,8 @@ export function cleanURL(url: string): string {
   return url?.trim().replace(/^\/|\/$/g, ''); // Remove leading and trailing slashes
 }
 
-/**
- * Injects the `username` into the `baseURL` and `endpoint` to create a link.
- * @param baseURL Example `https://intocps.org` Any leading or trailing slashes will be removed.
- * @param endpoint (optional). Example `bar` Any leading or trailing slashes will be removed.
- * @returns a complete URL: `baseUrl` / `username` / `endpoint`
- */
-const useUserLink = (baseURL: string, endpoint?: string): string => {
-  const username = useSelector((state: RootState) => state.auth).userName;
-  const cleanBaseURL = cleanURL(baseURL);
-  const cleanEndpoint = cleanURL(endpoint ?? '');
-  return `${cleanBaseURL}/${username}/${cleanEndpoint}`;
-};
-
-export function useURLforDT(): string {
-  return useUserLink(useAppURL(), globalThis.env.REACT_APP_URL_DTLINK);
-}
-
 export function useURLbasename(): string {
   return cleanURL(globalThis.env.REACT_APP_URL_BASENAME);
-}
-
-export function useURLforLIB(): string {
-  return useUserLink(useAppURL(), globalThis.env.REACT_APP_URL_LIBLINK);
 }
 
 export function useAppURL(): string {
@@ -108,10 +87,6 @@ export function useWorkbenchLinkValues(): KeyLinkPair[] {
     });
 
   return workbenchLinkValues;
-}
-
-export function useGetDTPagePreviewLink(): string {
-  return useUserLink(useAppURL(), 'preview/digitaltwins');
 }
 
 export function getClientID(): string {

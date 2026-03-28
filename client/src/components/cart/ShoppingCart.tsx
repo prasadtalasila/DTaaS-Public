@@ -60,10 +60,7 @@ function ShoppingCart() {
         <Button variant="contained" onClick={() => setOpenDialog(true)}>
           Clear
         </Button>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/preview/digitaltwins')}
-        >
+        <Button variant="contained" onClick={() => navigate('/digitaltwins')}>
           Proceed
         </Button>
       </Box>

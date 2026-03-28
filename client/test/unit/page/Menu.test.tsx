@@ -44,23 +44,23 @@ describe('Menu', () => {
 
     await userEvent.click(chevronLeftButton!);
 
-    const libraryButton = screen.getByRole('link', { name: /Library/ });
-    expect(libraryButton).toBeInTheDocument();
+    const workbenchButton = screen.getByRole('link', { name: /Workbench/ });
+    expect(workbenchButton).toBeInTheDocument();
 
-    expect(screen.getByTestId(/ExtensionIcon/)).toBeInTheDocument();
+    expect(screen.getByTestId(/EngineeringIcon/)).toBeInTheDocument();
 
     expect(
       screen.getByRole('link', { name: /Digital Twins/ }),
     ).toBeInTheDocument();
     expect(screen.getByTestId(/PeopleIcon/)).toBeInTheDocument();
 
-    expect(screen.getByRole('link', { name: /Workbench/ })).toBeInTheDocument();
-    expect(screen.getByTestId(/EngineeringIcon/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Library/ })).toBeInTheDocument();
+    expect(screen.getByTestId(/ExtensionIcon/)).toBeInTheDocument();
   });
 
   it('changes the width of the drawer when the isOpen state changes', () => {
-    const libraryButton = screen.getByRole('link', { name: /Library/ });
-    const buttonsDiv = closestDiv(libraryButton);
+    const workbenchButton = screen.getByRole('link', { name: /Workbench/ });
+    const buttonsDiv = closestDiv(workbenchButton);
     expect(buttonsDiv).toHaveStyle('width:calc(56px + 1px);');
 
     act(() => {

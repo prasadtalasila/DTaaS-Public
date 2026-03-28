@@ -31,11 +31,11 @@ const LinkIcons: LinkIconsType = {
   },
   LIBRARY_PREVIEW: {
     icon: <LibraryBooksOutlined />,
-    name: 'Library page preview',
+    name: 'Library page',
   },
   DT_PREVIEW: {
     icon: <TabIcon />,
-    name: 'Digital Twins page preview',
+    name: 'Digital Twins page',
   },
   GITHUB: {
     icon: <GitHubIcon />,

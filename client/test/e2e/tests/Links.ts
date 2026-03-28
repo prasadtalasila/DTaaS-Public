@@ -25,8 +25,8 @@ export const workbenchLinks: LinkType[] = [
   { text: 'VSCode-btn', url: `./${testUsername}/tools/vscode` },
   { text: 'JupyterLab-btn', url: `./${testUsername}/lab` },
   { text: 'Jupyter Notebook-btn', url: `./${testUsername}` },
-  { text: 'Library page preview-btn', url: `./preview/library` },
-  { text: 'Digital Twins page preview-btn', url: `./preview/digitaltwins` },
+  { text: 'Library page-btn', url: `./library` },
+  { text: 'Digital Twins page-btn', url: `./digitaltwins` },
 ];
 
 export default links;

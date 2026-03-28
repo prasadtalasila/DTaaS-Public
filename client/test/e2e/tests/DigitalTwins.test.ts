@@ -18,7 +18,7 @@ test.describe('Digital Twin Log Cleaning', () => {
     await saveRunnerSettings(page);
 
     // Navigate directly to the Digital Twins page
-    await page.goto('./preview/digitaltwins');
+    await page.goto('./digitaltwins');
 
     // Navigate to the Execute tab
     await page.getByRole('tab', { name: 'Execute' }).click();

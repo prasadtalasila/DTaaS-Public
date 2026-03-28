@@ -7,25 +7,25 @@ automated end-to-end tests.
 An on-premise or third-party GitLab instance without CAPTCHA protection is
 therefore required.
 
-An active internet connection is required while these tests run because they simulate
-real user interactions with a GitLab account.
+Make sure you have an active internet connection while running these tests,
+as the tests simulate real user interactions with your GitLab account.
 
-Two test setups are supported.
+There are two possible testing setups you can create.
 
-1. Host the website on the developer computer and run tests from the developer computer.
+1. Host website on the developer computer and test from developer computer.
    This is the default E2E testing scenario.
    The DTaaS client application runs at `http://localhost:4000`.
 1. Host the website on the integration server and run tests from the
    integration server.
    The DTaaS client application runs at `https://intocps.org`.
 
-The following sections describe the configuration and `yarn` test commands
-for both scenarios.
+The following sections describe configuration and yarn test commands for
+both these scenarios.
 
 ## Install Playwright
 
-The E2E tests use the Playwright test runner.
-If it is not installed, use the following command.
+The E2E tests use playwright test runner. You also need to have the software
+installed. If it is not installed, you can install it with the following command.
 
 ```bash
 yarn playwright install --with-deps
@@ -47,15 +47,16 @@ following callback URLs.
 | Localhost                      | `http://localhost:4000` |
 | External / Integration server  | `https://intocps.org`   |
 
-GitLab still runs on a remote machine.
-Running both GitLab and the React client website on localhost is not supported.
+The GitLab will still be running on a remote machine.
+It is not possible to run both the GitLab and react client website on localhost.
 
 ### Client Configuration
 
-Before running E2E tests, update the client configuration file at `config/test.js`.
+Before running the E2E tests, you need to update
+the client configuration file available at `config/test.js`.
 
-Ensure that the configuration in `config/test.js` matches the test environment.
-For example, adjust:
+Make sure the configuration in `config/test.js` matches
+the details of your testing environment. For instance, you need to adjust:
 
 - `REACT_APP_URL`
 - `REACT_APP_AUTH_AUTHORITY`
@@ -67,8 +68,8 @@ Additional information on environment settings is available in the
 [authorisation](../../docs/admin/client/auth.md) and
 [client configuration](../../docs/admin/client/config.md) pages.
 
-The following example values are suitable for testing on the developer
-computer (`localhost`).
+Here's an example of relevant values for variables. This example is suitable for
+testing on developer computer, i.e., `localhost`.
 
 ```js
 window.env = {
@@ -77,13 +78,17 @@ window.env = {
   REACT_APP_URL_BASENAME: '',
   REACT_APP_URL_DTLINK: '/lab',
   REACT_APP_URL_LIBLINK: '',
-  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/preview/library',
-  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/preview/digitaltwins',
+  REACT_APP_WORKBENCHLINK_VNCDESKTOP: '/tools/vnc/?password=vncpassword',
+  REACT_APP_WORKBENCHLINK_VSCODE: '/tools/vscode/',
+  REACT_APP_WORKBENCHLINK_JUPYTERLAB: '/lab',
+  REACT_APP_WORKBENCHLINK_JUPYTERNOTEBOOK: '',
+  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/library',
+  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/digitaltwins',
 
   REACT_APP_CLIENT_ID:
     '934b98f03f1b6f743832b2840bf7cccaed93c3bfe579093dd0942a433691ccc0',
   REACT_APP_AUTH_AUTHORITY: 'https://gitlab.intocps.org/',
-  REACT_APP_REDIRECT_URI: 'http://localhost:4000/Library',
+  REACT_APP_REDIRECT_URI: 'http://localhost:4000/library',
   REACT_APP_LOGOUT_REDIRECT_URI: 'http://localhost:4000/',
   REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
 };
@@ -99,13 +104,17 @@ window.env = {
   REACT_APP_URL_BASENAME: '',
   REACT_APP_URL_DTLINK: '/lab',
   REACT_APP_URL_LIBLINK: '',
-  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/preview/library',
-  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/preview/digitaltwins',
+  REACT_APP_WORKBENCHLINK_VNCDESKTOP: '/tools/vnc/?password=vncpassword',
+  REACT_APP_WORKBENCHLINK_VSCODE: '/tools/vscode/',
+  REACT_APP_WORKBENCHLINK_JUPYTERLAB: '/lab',
+  REACT_APP_WORKBENCHLINK_JUPYTERNOTEBOOK: '',
+  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/library',
+  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/digitaltwins',
 
   REACT_APP_CLIENT_ID:
     '934b98f03f1b6f743832b2840bf7cccaed93c3bfe579093dd0942a433691ccc0',
   REACT_APP_AUTH_AUTHORITY: 'https://gitlab.intocps.org/',
-  REACT_APP_REDIRECT_URI: 'https://intocps.org/Library',
+  REACT_APP_REDIRECT_URI: 'https://intocps.org/library',
   REACT_APP_LOGOUT_REDIRECT_URI: 'https://intocps.org/',
   REACT_APP_GitLab_SCOPES: 'openid profile read_user read_repository api',
 };
@@ -113,13 +122,13 @@ window.env = {
 
 ### Test User Credentials
 
-A test environment file named `test/.env` is required to store GitLab user
-credentials and the DTaaS application URL.
-These credentials are used by Playwright to simulate real user interactions
-during E2E tests.
+You need to create a test environment file named `test/.env`
+in which you will store the GitLab user credentials and
+the DTaaS application URL for the website. The credentials will be
+used by playwright to simulate real user interactions during the E2E tests.
 
-A template `test/.env` for running the DTaaS client application on
-the developer computer (`localhost`) is shown below:
+A template for `test/.env` for running the DTaaS client application
+on the developer computer, i.e., `localhost` is given here:
 
 ```env
 REACT_APP_TEST_USERNAME=your_username
@@ -135,9 +144,8 @@ If you do not have a secondary gitlab runner, you can use the same one for both.
 They will be the ones used in the e2e tests for executing twins and taking
 measurements.
 
-The following is an example `test/.env` for a setup where tests run on
-the developer machine and the DTaaS client application runs on a remote
-integration server:
+Here's an example `test/.env` for test setup on the developer machine and
+and the DTaaS client application running on a remote integration server:
 
 ```env
 REACT_APP_TEST_USERNAME=TestUsername
@@ -154,7 +162,7 @@ Replace _intocps.org_ with the actual application URL.
 
 ### Localhost
 
-Run end-to-end tests as follows:
+You can run the end-to-end tests as follows:
 
 ```bash
 yarn install
@@ -163,8 +171,8 @@ yarn config:test
 yarn test:e2e
 ```
 
-The `yarn test:e2e` command launches the test runner and the DTaaS client application,
-then executes all end-to-end tests.
+The `yarn test:e2e` command launches the test runner, the DTaaS client application
+and execute all end-to-end tests.
 The client application is terminated at the end of end-to-end tests.
 
 ## Testing on the integration server
@@ -175,7 +183,7 @@ The E2E tests are executed from the developer computer.
 The same codebase commit should be used on both the developer computer
 and integration server.
 
-Notes:
+Points to note:
 
 1. To run tests on the integration server, disable HTTPS authorisation
    (if configured) on the Traefik server and make the website
@@ -187,7 +195,7 @@ Notes:
    This appears to be caused by interaction between the developer computer,
    Traefik gateway, and the client website hosted behind Traefik.
 
-Run end-to-end tests as follows:
+You can run the end-to-end tests as follows:
 
 ```bash
 yarn install
