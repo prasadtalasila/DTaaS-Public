@@ -59,7 +59,7 @@ describe('envUtil', () => {
     );
   });
 
-  test('GetURL should return the correct enviroment variables', () => {
+  test('GetURL should return the correct environment variables', () => {
     expect(useURLbasename()).toBe(testBasename);
   });
 
@@ -101,10 +101,27 @@ describe('envUtil', () => {
     const result = useWorkbenchLinkValues();
 
     const libraryPreview = result.find((el) => el.key === 'LIBRARY_PREVIEW');
-    expect(libraryPreview?.link).toBe('/library');
+    expect(libraryPreview?.link).toBe('./library');
 
     const dtPreview = result.find((el) => el.key === 'DT_PREVIEW');
-    expect(dtPreview?.link).toBe('/digitaltwins');
+    expect(dtPreview?.link).toBe('./digitaltwins');
+  });
+
+  it('should preserve absolute preview URLs from env vars', () => {
+    globalThis.env.REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW =
+      'https://foo.com/library';
+    globalThis.env.REACT_APP_WORKBENCHLINK_DT_PREVIEW =
+      'https://foo.com/digitaltwins';
+
+    const result = useWorkbenchLinkValues();
+    const libraryPreview = result.find((el) => el.key === 'LIBRARY_PREVIEW');
+    const dtPreview = result.find((el) => el.key === 'DT_PREVIEW');
+
+    expect(libraryPreview?.link).toBe('https://foo.com/library');
+    expect(dtPreview?.link).toBe('https://foo.com/digitaltwins');
+
+    globalThis.env.REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW = '/library';
+    globalThis.env.REACT_APP_WORKBENCHLINK_DT_PREVIEW = '/digitaltwins';
   });
 
   it('should return only preview links when services are empty', () => {

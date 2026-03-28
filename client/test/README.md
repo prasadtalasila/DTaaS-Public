@@ -116,7 +116,7 @@ window.env = {
   REACT_APP_AUTH_AUTHORITY: 'https://gitlab.intocps.org/',
   REACT_APP_REDIRECT_URI: 'https://intocps.org/library',
   REACT_APP_LOGOUT_REDIRECT_URI: 'https://intocps.org/',
-  REACT_APP_GitLab_SCOPES: 'openid profile read_user read_repository api',
+  REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
 };
 ```
 

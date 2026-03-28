@@ -36,13 +36,25 @@ function buildUserLink(
   return `${cleanBaseURL}/${username}/${cleanEndpoint}`;
 }
 
+function normalizeWorkbenchRouteLink(link: string): string {
+  const trimmedLink = link.trim();
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmedLink)) {
+    return trimmedLink;
+  }
+  if (trimmedLink.startsWith('./') || trimmedLink.startsWith('../')) {
+    return trimmedLink;
+  }
+  return `./${cleanURL(trimmedLink)}`;
+}
+
 /**
  * @returns an array of `KeyLinkPair` objects, where each object contains a `key` and a `link`.
  *
  * Workspace tool links (Desktop, VS Code, Jupyter Lab, Jupyter Notebook) are derived from the
  * services JSON fetched from `{appURL}/{username}/services` and stored in the Redux store.
  *
- * Preview links (LIBRARY_PREVIEW, DT_PREVIEW) continue to be read from environment variables.
+ * Preview links (LIBRARY_PREVIEW, DT_PREVIEW) are read from environment variables and normalized
+ * to basename-safe relative routes.
  */
 export function useWorkbenchLinkValues(): KeyLinkPair[] {
   const username = useSelector((state: RootState) => state.auth).userName ?? '';
@@ -80,7 +92,7 @@ export function useWorkbenchLinkValues(): KeyLinkPair[] {
         ) {
           workbenchLinkValues.push({
             key: keyWithoutPrefix,
-            link: value,
+            link: normalizeWorkbenchRouteLink(value),
           });
         }
       }
