@@ -13,14 +13,7 @@ const ScopesString: z.ZodLiteral<string> = z.literal(
   'openid profile read_user read_repository api',
 );
 
-const pathKeys = [
-  'REACT_APP_URL_BASENAME',
-  'REACT_APP_URL_DTLINK',
-  'REACT_APP_URL_LIBLINK',
-  'REACT_APP_CLIENT_ID',
-  'REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW',
-  'REACT_APP_WORKBENCHLINK_DT_PREVIEW',
-];
+const pathKeys = ['REACT_APP_URL_BASENAME', 'REACT_APP_CLIENT_ID'];
 
 const urlKeys = [
   'REACT_APP_URL',

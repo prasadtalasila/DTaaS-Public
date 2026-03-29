@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import tabs from 'preview/route/digitaltwins/DigitalTwinTabDataPreview';
+import tabs from 'route/digitaltwins/DigitalTwinTabData';
 import userEvent from '@testing-library/user-event';
 import {
   closestDiv,
@@ -9,7 +9,7 @@ import {
 } from 'test/integration/integration.testUtil';
 import { testLayout } from 'test/integration/Routes/routes.testUtil';
 
-jest.mock('preview/components/asset/AssetBoard', () => ({
+jest.mock('components/asset/AssetBoard', () => ({
   __esModule: true,
   default: ({ tab }: { tab: string }) => (
     <iframe
@@ -19,7 +19,7 @@ jest.mock('preview/components/asset/AssetBoard', () => ({
   ),
 }));
 
-jest.mock('preview/route/digitaltwins/create/CreatePage', () => ({
+jest.mock('route/digitaltwins/create/CreatePage', () => ({
   __esModule: true,
   default: () => (
     <iframe title="JupyterLight-Demo-Create" src="https://example.com/URL_DT" />

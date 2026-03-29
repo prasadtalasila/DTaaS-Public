@@ -2,7 +2,7 @@ import WorkBench from 'route/workbench/Workbench';
 import LayoutPublic from 'page/LayoutPublic';
 import PrivateRoute from 'route/auth/PrivateRoute';
 import Library from 'route/library/cart/LibraryPreview';
-import DigitalTwins from 'preview/route/digitaltwins/DigitalTwinsPreview';
+import DigitalTwins from 'route/digitaltwins/DigitalTwins';
 import SignIn from 'route/auth/Signin';
 import Account from 'route/account/Account';
 import Config from 'route/config/Config';

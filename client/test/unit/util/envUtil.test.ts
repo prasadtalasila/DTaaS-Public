@@ -36,10 +36,6 @@ describe('envUtil', () => {
     REACT_APP_ENVIRONMENT: 'test',
     REACT_APP_URL: testAppURL,
     REACT_APP_URL_BASENAME: testBasename,
-    REACT_APP_URL_DTLINK: 'testDT',
-    REACT_APP_URL_LIBLINK: '',
-    REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/library',
-    REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/digitaltwins',
 
     REACT_APP_CLIENT_ID: testAppID,
     REACT_APP_AUTH_AUTHORITY: testAuthority,
@@ -97,34 +93,25 @@ describe('envUtil', () => {
     );
   });
 
-  it('should include LIBRARY_PREVIEW and DT_PREVIEW from env vars', () => {
+  it('should include LIBRARY and DIGITALTWINS routes', () => {
     const result = useWorkbenchLinkValues();
 
-    const libraryPreview = result.find((el) => el.key === 'LIBRARY_PREVIEW');
-    expect(libraryPreview?.link).toBe('./library');
+    const library = result.find((el) => el.key === 'LIBRARY');
+    expect(library?.link).toBe('./library');
 
-    const dtPreview = result.find((el) => el.key === 'DT_PREVIEW');
-    expect(dtPreview?.link).toBe('./digitaltwins');
+    const digitalTwins = result.find((el) => el.key === 'DIGITALTWINS');
+    expect(digitalTwins?.link).toBe('./digitaltwins');
   });
 
-  it('should preserve absolute preview URLs from env vars', () => {
-    globalThis.env.REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW =
-      'https://foo.com/library';
-    globalThis.env.REACT_APP_WORKBENCHLINK_DT_PREVIEW =
-      'https://foo.com/digitaltwins';
-
+  it('should always return basename-safe relative app routes', () => {
     const result = useWorkbenchLinkValues();
-    const libraryPreview = result.find((el) => el.key === 'LIBRARY_PREVIEW');
-    const dtPreview = result.find((el) => el.key === 'DT_PREVIEW');
-
-    expect(libraryPreview?.link).toBe('https://foo.com/library');
-    expect(dtPreview?.link).toBe('https://foo.com/digitaltwins');
-
-    globalThis.env.REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW = '/library';
-    globalThis.env.REACT_APP_WORKBENCHLINK_DT_PREVIEW = '/digitaltwins';
+    expect(result.find((el) => el.key === 'LIBRARY')?.link).toBe('./library');
+    expect(result.find((el) => el.key === 'DIGITALTWINS')?.link).toBe(
+      './digitaltwins',
+    );
   });
 
-  it('should return only preview links when services are empty', () => {
+  it('should return only static route links when services are empty', () => {
     const emptyState = {
       auth: { userName: testUsername },
       workbench: { services: {}, status: 'idle' },
@@ -143,8 +130,8 @@ describe('envUtil', () => {
     workspaceKeys.forEach((key) => {
       expect(result.find((el) => el.key === key)).toBeUndefined();
     });
-    expect(result.find((el) => el.key === 'LIBRARY_PREVIEW')).toBeDefined();
-    expect(result.find((el) => el.key === 'DT_PREVIEW')).toBeDefined();
+    expect(result.find((el) => el.key === 'LIBRARY')).toBeDefined();
+    expect(result.find((el) => el.key === 'DIGITALTWINS')).toBeDefined();
   });
 
   it('cleanURL should remove leading and trailing slashes', () => {

@@ -7,7 +7,7 @@ import { TabData } from 'components/tab/subcomponents/TabRender';
 import AssetBoard from 'components/asset/AssetBoard';
 import { defaultFiles } from 'model/backend/gitlab/digitalTwinConfig/constants';
 import { addOrUpdateFile } from 'model/store/file.slice';
-import tabs from 'route/digitaltwins/DigitalTwinTabDataPreview';
+import tabs from 'route/digitaltwins/DigitalTwinTabData';
 import CreatePage from 'route/digitaltwins/create/CreatePage';
 
 interface DTTabProps {
@@ -77,6 +77,6 @@ export const DTContent = () => {
   );
 };
 
-export default function DigitalTwinsPreview() {
+export default function DigitalTwins() {
   return <DTContent />;
 }

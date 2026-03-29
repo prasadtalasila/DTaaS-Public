@@ -36,15 +36,8 @@ function buildUserLink(
   return `${cleanBaseURL}/${username}/${cleanEndpoint}`;
 }
 
-function normalizeWorkbenchRouteLink(link: string): string {
-  const trimmedLink = link.trim();
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmedLink)) {
-    return trimmedLink;
-  }
-  if (trimmedLink.startsWith('./') || trimmedLink.startsWith('../')) {
-    return trimmedLink;
-  }
-  return `./${cleanURL(trimmedLink)}`;
+function toRelativeRoute(route: string): string {
+  return `./${cleanURL(route)}`;
 }
 
 /**
@@ -53,8 +46,7 @@ function normalizeWorkbenchRouteLink(link: string): string {
  * Workspace tool links (Desktop, VS Code, Jupyter Lab, Jupyter Notebook) are derived from the
  * services JSON fetched from `{appURL}/{username}/services` and stored in the Redux store.
  *
- * Preview links (LIBRARY_PREVIEW, DT_PREVIEW) are read from environment variables and normalized
- * to basename-safe relative routes.
+ * Internal page links are static and basename-safe relative routes.
  */
 export function useWorkbenchLinkValues(): KeyLinkPair[] {
   const username = useSelector((state: RootState) => state.auth).userName ?? '';
@@ -79,24 +71,14 @@ export function useWorkbenchLinkValues(): KeyLinkPair[] {
     }
   });
 
-  const prefix = 'REACT_APP_WORKBENCHLINK_';
-  Object.keys(globalThis.env)
-    .filter((key) => key.startsWith(prefix))
-    .forEach((key) => {
-      const value = globalThis.env[key];
-      if (value !== undefined) {
-        const keyWithoutPrefix = key.slice(prefix.length);
-        if (
-          keyWithoutPrefix === 'DT_PREVIEW' ||
-          keyWithoutPrefix === 'LIBRARY_PREVIEW'
-        ) {
-          workbenchLinkValues.push({
-            key: keyWithoutPrefix,
-            link: normalizeWorkbenchRouteLink(value),
-          });
-        }
-      }
-    });
+  workbenchLinkValues.push({
+    key: 'DIGITALTWINS',
+    link: toRelativeRoute('digitaltwins'),
+  });
+  workbenchLinkValues.push({
+    key: 'LIBRARY',
+    link: toRelativeRoute('library'),
+  });
 
   return workbenchLinkValues;
 }

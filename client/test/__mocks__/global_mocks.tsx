@@ -75,10 +75,6 @@ globalThis.env = {
   REACT_APP_ENVIRONMENT: 'test',
   REACT_APP_URL: mockAppURL,
   REACT_APP_URL_BASENAME: 'mock_url_basename',
-  REACT_APP_URL_DTLINK: '/lab',
-  REACT_APP_URL_LIBLINK: '',
-  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/library',
-  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/digitaltwins',
 
   REACT_APP_CLIENT_ID: mockClientID,
   REACT_APP_AUTH_AUTHORITY: mockAuthority,

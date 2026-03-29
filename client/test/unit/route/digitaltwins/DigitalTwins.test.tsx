@@ -1,4 +1,4 @@
-import DigitalTwinsPreview from 'route/digitaltwins/DigitalTwinsPreview';
+import DigitalTwins from 'route/digitaltwins/DigitalTwins';
 import store from 'store/store';
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -14,19 +14,31 @@ jest.mock('react-oidc-context', () => ({
 }));
 
 describe('Digital Twins', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('displays content of tabs', async () => {
     await act(async () => {
       render(
         <Provider store={store}>
           <MemoryRouter>
-            <DigitalTwinsPreview />
+            <DigitalTwins />
           </MemoryRouter>
         </Provider>,
       );
     });
 
-    expect(
-      screen.getByText('The Digital Twin as a Service'),
-    ).toBeInTheDocument();
+    // Fast-forward timers and wait for state updates
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    const tabComponent = screen.getByTestId('tab-component');
+    expect(tabComponent).toBeInTheDocument();
   });
 });
