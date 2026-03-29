@@ -1,11 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TabComponent } from 'components/tab/TabComponent';
-import { assetType } from 'route/library/cart/LibraryTabDataPreview';
-import {
-  createCombinedTabs,
-  createTabs,
-} from 'route/library/cart/LibraryPreview';
+import { assetType } from 'route/library/LibraryTabData';
+import { createCombinedTabs, createTabs } from 'route/library/Library';
 
 jest.mock('components/tab/TabComponent', () => ({
   __esModule: true,

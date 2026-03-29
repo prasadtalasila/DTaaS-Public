@@ -2,7 +2,7 @@ import { createStore } from 'redux';
 import { screen, waitFor, cleanup } from '@testing-library/react';
 import { useAuth } from 'react-oidc-context';
 import PrivateRoute from 'route/auth/PrivateRoute';
-import Library from 'route/library/cart/LibraryPreview';
+import Library from 'route/library/Library';
 import authReducer from 'store/auth.slice';
 import { mockUser } from 'test/__mocks__/global_mocks';
 import { renderWithRouter } from 'test/unit/unit.testUtil';
@@ -35,7 +35,7 @@ jest.mock('components/execution/ExecutionHistoryLoader', () => ({
   default: () => null,
 }));
 
-jest.mock('route/library/cart/LibraryPreview', () => ({
+jest.mock('route/library/Library', () => ({
   __esModule: true,
   default: () => <div>Functions</div>,
 }));

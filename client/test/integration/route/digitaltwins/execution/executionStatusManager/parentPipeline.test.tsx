@@ -6,7 +6,7 @@ import {
 } from 'model/backend/state/digitalTwin.slice';
 import { extractDataFromDigitalTwin } from 'model/backend/util/digitalTwinAdapter';
 import { mockDigitalTwin } from 'test/__mocks__/global_mocks';
-import { previewStore as store } from 'test/integration/integration.testUtil';
+import { Store } from 'test/integration/integration.testUtil';
 
 jest.useFakeTimers();
 
@@ -39,14 +39,14 @@ describe('PipelineChecks - parentPipeline', () => {
     setButtonText,
     digitalTwin,
     setLogButtonDisabled,
-    dispatch: store.dispatch,
+    dispatch: Store.dispatch,
     startTime,
   };
 
   beforeEach(() => {
     const digitalTwinData: DigitalTwinData =
       extractDataFromDigitalTwin(digitalTwin);
-    store.dispatch(
+    Store.dispatch(
       setDigitalTwin({
         assetName: 'mockedDTName',
         digitalTwin: digitalTwinData,
@@ -63,10 +63,10 @@ describe('PipelineChecks - parentPipeline', () => {
       digitalTwin.DTName,
       jest.fn(),
       jest.fn(),
-      store.dispatch,
+      Store.dispatch,
     );
 
-    const snackbarState = store.getState().snackbar;
+    const snackbarState = Store.getState().snackbar;
 
     const expectedSnackbarState = {
       items: [

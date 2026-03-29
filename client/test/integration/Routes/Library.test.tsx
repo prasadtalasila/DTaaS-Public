@@ -1,6 +1,6 @@
 import { screen, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { assetType, scope } from 'route/library/cart/LibraryTabDataPreview';
+import { assetType, scope } from 'route/library/LibraryTabData';
 import {
   normalizer,
   closestDiv,

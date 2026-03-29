@@ -1,8 +1,7 @@
 import * as PipelineUtils from 'route/digitaltwins/execution/executionStatusHandlers';
 import {
   dispatchAddExecHistoryEntry,
-  previewStore,
-  previewStore as store,
+  Store,
 } from 'test/integration/integration.testUtil';
 import { JobSchema } from '@gitbeaker/rest';
 import DigitalTwin from 'model/backend/digitalTwin';
@@ -14,7 +13,7 @@ describe('PipelineUtils - execution history', () => {
   let digitalTwin: DigitalTwin;
 
   beforeEach(() => {
-    digitalTwin = setupDigitalTwinBeforeEach(store);
+    digitalTwin = setupDigitalTwinBeforeEach(Store);
   });
 
   afterEach(() => {
@@ -32,29 +31,27 @@ describe('PipelineUtils - execution history', () => {
 
     const result = await PipelineUtils.startPipeline(
       digitalTwin,
-      previewStore.dispatch,
+      Store.dispatch,
       setLogButtonDisabled,
     );
 
     expect(result).toBe(mockExecutionId);
     expect(setLogButtonDisabled).toHaveBeenCalledWith(false);
 
-    const snackbarItems = previewStore.getState().snackbar.items;
-    expect(snackbarItems).toHaveLength(1);
-    expect(snackbarItems[0].message).toContain(
-      'Execution started successfully',
-    );
-    expect(snackbarItems[0].message).toContain('MockedDTName');
-    expect(snackbarItems[0].severity).toBe('success');
+    const snackbarState = Store.getState().snackbar;
+    expect(snackbarState.open).toBe(true);
+    expect(snackbarState.message).toContain('Execution started successfully');
+    expect(snackbarState.message).toContain('MockedDTName');
+    expect(snackbarState.severity).toBe('success');
 
-    const executionHistoryState = previewStore.getState().executionHistory;
+    const executionHistoryState = Store.getState().executionHistory;
     expect(executionHistoryState.selectedExecutionId).toBe(mockExecutionId);
   });
 
   it('updates pipeline state with executionId', async () => {
     const mockExecutionId = 'exec-456';
 
-    await dispatchAddExecHistoryEntry(previewStore, {
+    await dispatchAddExecHistoryEntry(Store, {
       id: mockExecutionId,
       dtName: 'mockedDTName',
       status: ExecutionStatus.TIMEOUT,
@@ -62,15 +59,15 @@ describe('PipelineUtils - execution history', () => {
 
     PipelineUtils.updatePipelineState(
       digitalTwin,
-      previewStore.dispatch,
+      Store.dispatch,
       mockExecutionId,
     );
 
-    const digitalTwinState = previewStore.getState().digitalTwin.digitalTwin;
+    const digitalTwinState = Store.getState().digitalTwin.digitalTwin;
     expect(digitalTwinState.mockedDTName.pipelineCompleted).toBe(false);
     expect(digitalTwinState.mockedDTName.pipelineLoading).toBe(true);
 
-    const executionHistoryState = previewStore.getState().executionHistory;
+    const executionHistoryState = Store.getState().executionHistory;
     const execution = executionHistoryState.entries.find(
       (e) => e.id === mockExecutionId,
     );
@@ -84,7 +81,7 @@ describe('PipelineUtils - execution history', () => {
       { jobName: 'job2', log: 'log2' },
     ];
 
-    await dispatchAddExecHistoryEntry(previewStore, {
+    await dispatchAddExecHistoryEntry(Store, {
       id: mockExecutionId,
       dtName: 'mockedDTName',
       status: ExecutionStatus.RUNNING,
@@ -98,7 +95,7 @@ describe('PipelineUtils - execution history', () => {
       mockJobLogs,
       jest.fn(),
       jest.fn(),
-      previewStore.dispatch,
+      Store.dispatch,
       mockExecutionId,
       ExecutionStatus.COMPLETED,
     );
@@ -112,7 +109,7 @@ describe('PipelineUtils - execution history', () => {
       ExecutionStatus.COMPLETED,
     );
 
-    const executionHistoryState = previewStore.getState().executionHistory;
+    const executionHistoryState = Store.getState().executionHistory;
     const execution = executionHistoryState.entries.find(
       (e) => e.id === mockExecutionId,
     );
@@ -133,7 +130,7 @@ describe('PipelineUtils - execution history', () => {
       mockPipelineId,
       mockExecutionId,
       ExecutionStatus.FAILED,
-      previewStore.dispatch,
+      Store.dispatch,
     );
 
     expect(result).toBe(false);
@@ -154,7 +151,7 @@ describe('PipelineUtils - execution history', () => {
       mockPipelineId,
       mockExecutionId,
       ExecutionStatus.COMPLETED,
-      previewStore.dispatch,
+      Store.dispatch,
     );
 
     expect(result).toBe(false);
@@ -165,7 +162,7 @@ describe('PipelineUtils - execution history', () => {
     const mockPipelineId = 777;
     const mockJob = { id: 1, name: 'success-job' } as JobSchema;
 
-    await dispatchAddExecHistoryEntry(previewStore, {
+    await dispatchAddExecHistoryEntry(Store, {
       id: mockExecutionId,
       dtName: 'mockedDTName',
       status: ExecutionStatus.RUNNING,
@@ -186,7 +183,7 @@ describe('PipelineUtils - execution history', () => {
       mockPipelineId,
       mockExecutionId,
       ExecutionStatus.COMPLETED,
-      previewStore.dispatch,
+      Store.dispatch,
     );
 
     expect(result).toBe(true);

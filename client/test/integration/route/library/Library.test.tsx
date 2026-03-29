@@ -1,4 +1,4 @@
-import LibraryPreview from 'route/library/cart/LibraryPreview';
+import Library from 'route/library/Library';
 import store from 'store/store';
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -14,7 +14,7 @@ jest.mock('react-oidc-context', () => ({
   useAuth: jest.fn(),
 }));
 
-describe('Library Preview', () => {
+describe('Library', () => {
   it('displays content of tabs', async () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: {
@@ -28,7 +28,7 @@ describe('Library Preview', () => {
       render(
         <Provider store={store}>
           <MemoryRouter>
-            <LibraryPreview />
+            <Library />
           </MemoryRouter>
         </Provider>,
       );
