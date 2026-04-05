@@ -48,7 +48,11 @@ services:
       - "traefik.http.services.libms.loadbalancer.server.port=4001"
       - "traefik.http.routers.libms.rule=Host(`${SERVER_DNS}`)&&PathPrefix(`/lib`)"
       - "traefik.http.routers.libms.tls=true"
-      - "traefik.http.routers.libms.middlewares=traefik-forward-auth"
+      - "traefik.http.routers.libms.middlewares=libms-cors,traefik-forward-auth"
+      - "traefik.http.middlewares.libms-cors.headers.accessControlAllowOriginList=http://localhost,http://host.docker.internal,http://${SERVER_DNS},https://${SERVER_DNS}"
+      - "traefik.http.middlewares.libms-cors.headers.accessControlAllowMethods=GET,POST,OPTIONS"
+      - "traefik.http.middlewares.libms-cors.headers.accessControlAllowHeaders=Authorization,Content-Type"
+      - "traefik.http.middlewares.libms-cors.headers.accessControlAllowCredentials=true"
     networks:
       - frontend
 
