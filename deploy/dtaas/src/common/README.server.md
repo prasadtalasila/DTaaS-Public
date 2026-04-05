@@ -28,8 +28,8 @@ authorization enforced by Traefik forward-auth.
 | `USERNAME1` | `user1` | First DTaaS user workspace name and URL prefix. |
 | `USERNAME2` | `user2` | Second DTaaS user workspace name and URL prefix. |
 
-3. Update `config/client/env.server.js` with your deployment URL.
-4. Update `config/forward-auth/conf.server` with allowed user e-mails.
+1. Update `config/client/env.server.js` with your deployment URL.
+2. Update `config/forward-auth/conf.server` with allowed user e-mails.
 
 ## Run
 

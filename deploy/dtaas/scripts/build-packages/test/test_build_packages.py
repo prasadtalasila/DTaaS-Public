@@ -93,9 +93,7 @@ def seed_source_tree(tmp_path: Path) -> None:
     ):
         (src / "assets" / image).write_bytes(b"png")
     for scenario in ("localhost", "secure-localhost", "server", "secure-server"):
-        (src / f"README.{scenario}.md").write_text(
-            f"# {scenario}\n", encoding="utf-8"
-        )
+        (src / f"README.{scenario}.md").write_text(f"# {scenario}\n", encoding="utf-8")
     (src / "LICENSE.md").write_text("license", encoding="utf-8")
     (src / ".env.local.example").write_text("USERNAME1=user1", encoding="utf-8")
     (src / ".env.server.example").write_text(
@@ -223,16 +221,16 @@ def test_build_creates_expected_structure(tmp_path):
     assert (secure_server / "certs" / "privkey.pem").exists()
     assert not (secure_server / "certs" / "foo.com").exists()
 
-    assert (localhost / "README.md").read_text(encoding="utf-8").strip() == "# localhost"
-    assert (
-        (secure_localhost / "README.md").read_text(encoding="utf-8").strip()
-        == "# secure-localhost"
-    )
+    assert (localhost / "README.md").read_text(
+        encoding="utf-8"
+    ).strip() == "# localhost"
+    assert (secure_localhost / "README.md").read_text(
+        encoding="utf-8"
+    ).strip() == "# secure-localhost"
     assert (server / "README.md").read_text(encoding="utf-8").strip() == "# server"
-    assert (
-        (secure_server / "README.md").read_text(encoding="utf-8").strip()
-        == "# secure-server"
-    )
+    assert (secure_server / "README.md").read_text(
+        encoding="utf-8"
+    ).strip() == "# secure-server"
 
     localhost_compose = (localhost / "docker-compose.yml").read_text(encoding="utf-8")
     secure_localhost_compose = (secure_localhost / "docker-compose.yml").read_text(
@@ -249,6 +247,8 @@ def test_build_creates_expected_structure(tmp_path):
     assert "traefik-forward-auth" not in secure_localhost_compose
     assert "traefik-forward-auth" in server_compose
     assert "traefik-forward-auth" in secure_server_compose
+    assert "/etc/resolv.conf" not in server_compose
+    assert "/etc/resolv.conf" not in secure_server_compose
 
 
 def test_clean_removes_generated_directories(tmp_path):

@@ -103,21 +103,6 @@ def copy_common_content(src: Path, dst: Path, scenario: Scenario) -> None:
     _copy_scenario_asset(src, dst, scenario)
 
 
-def write_package(
-    output_root: Path,
-    source_root: Path,
-    scenario: Scenario,
-    images: Images,
-) -> None:
-    """Write one generated package directory."""
-    target = output_root / scenario.name
-    if target.exists():
-        shutil.rmtree(target)
-    ensure_dir(target)
-    copy_common_content(source_root, target, scenario)
-    write_text(target / "docker-compose.yml", compose_content(scenario, images))
-
-
 def clean_packages(output_root: Path) -> None:
     """Remove generated package directories."""
     for scenario in SCENARIOS:
@@ -130,4 +115,9 @@ def build_packages(source_root: Path, output_root: Path, images: Images) -> None
     """Generate all package scenarios."""
     ensure_dir(output_root)
     for scenario in SCENARIOS:
-        write_package(output_root, source_root, scenario, images)
+        target = output_root / scenario.name
+        if target.exists():
+            shutil.rmtree(target)
+        ensure_dir(target)
+        copy_common_content(source_root, target, scenario)
+        write_text(target / "docker-compose.yml", compose_content(scenario, images))

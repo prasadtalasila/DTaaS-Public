@@ -221,11 +221,8 @@ def _forward_auth_labels(secure: bool) -> list[str]:
     ]
 
 
-def _forward_auth_volumes(secure: bool) -> list[str]:
-    volumes = ["./config/forward-auth/conf.server:/conf"]
-    if secure:
-        volumes.append("./config/forward-auth/resolv.conf:/etc/resolv.conf")
-    return volumes
+def _forward_auth_volumes() -> list[str]:
+    return ["./config/forward-auth/conf.server:/conf"]
 
 
 def forward_auth_lines(secure: bool, images: Images) -> list[str]:
@@ -234,7 +231,7 @@ def forward_auth_lines(secure: bool, images: Images) -> list[str]:
         f"  image: {images.forward_auth}",
         RESTART_UNLESS_STOPPED,
         SERVICE_VOLUMES,
-        *plain_items(_forward_auth_volumes(secure)),
+        *plain_items(_forward_auth_volumes()),
         "  environment:",
         *plain_items(_forward_auth_environment(secure)),
         SERVICE_LABELS,
