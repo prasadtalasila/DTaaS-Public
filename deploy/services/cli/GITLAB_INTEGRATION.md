@@ -22,9 +22,10 @@ Traefik Forward Auth backend authorization.
 
 ### 1. Set up the DTaaS server over HTTPS
 
-Follow the package guides in `deploy/dtaas/docker/`
-to set up the DTaaS web application over HTTPS connection on either
-localhost (<https://localhost>) or a custom domain (<https://foo.com>).
+Follow the secure package guides in `deploy/dtaas/docker/`:
+
+1. `secure-localhost` for localhost (<https://localhost>)
+1. `secure-server` for a custom domain (<https://foo.com>)
 
 > [!NOTE]
 > You may ignore steps related to configuring OAuth application tokens
@@ -74,8 +75,8 @@ the following files:
 1. **DTaaS Client Authorization** token in
    _deploy/dtaas/docker/secure-server/config/client/env.server.js_.
 1. _deploy/dtaas/docker/secure-server/.env_ - Add localpath and username,
-   OAuth client ID and client secret from the
-    **DTaaS Server Authorization** token
+   and set OAuth client ID and client secret from the
+   **DTaaS Server Authorization** token.
 
 ## Restart Services
 
