@@ -66,18 +66,18 @@ Be sure to save the generated runner authentication token.
 ## Configuring the Runner
 
 Depending on your installation scenario, the runner setup reads certain
-configuration settings from these files:
+configuration settings from this file:
 
-1. __Localhost Installation__ - `deploy/dtaas/docker/secure-localhost/.env`
-1. __Server Installation__ - `deploy/dtaas/docker/secure-server/.env`
+1. __Both Installation Scenarios__ - `deploy/services/runner/.env`
 
-If you have not created these files yet, copy them from the templates and edit
-the values:
+If you have not created this file yet, copy it from the template and edit the
+values:
 
 ```bash
-cp deploy/dtaas/docker/secure-localhost/.env.example deploy/dtaas/docker/secure-localhost/.env
-cp deploy/dtaas/docker/secure-server/.env.example deploy/dtaas/docker/secure-server/.env
+cp deploy/services/runner/.env.example deploy/services/runner/.env
 ```
+
+For server installation, set `SERVER_DNS` in `deploy/services/runner/.env`.
 
 We need to register the runner with the GitLab instance so that they may
 communicate with each other. `deploy/services/runner/runner-config.toml`
@@ -107,6 +107,17 @@ has the following template:
 A list of advanced configuration options is provided on the
 [GitLab documentation page](https://docs.gitlab.com/runner/configuration/advanced-configuration.html).
 
+## Optional: Self-Signed Certificate
+
+If your GitLab instance uses a self-signed certificate, copy
+`fullchain.pem` into `deploy/services/runner/`, then uncomment the
+certificate volume line in the compose file you use:
+
+1. `deploy/services/runner/compose.runner.local.yml` for localhost setup
+1. `deploy/services/runner/compose.runner.server.yml` for server setup
+
+If your GitLab instance uses a publicly trusted certificate, skip this step.
+
 ## Start the GitLab Runner
 
 You may use the following commands to start and stop the `gitlab-runner`
@@ -115,15 +126,15 @@ container respectively, depending on your installation scenario:
 1. Localhost Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env up -d
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env down
+    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/services/runner/.env up -d
+    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/services/runner/.env down
     ```
 
 1. Server Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env up -d
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env down
+    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/services/runner/.env up -d
+    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/services/runner/.env down
     ```
 
 Once the container starts, the runner within it will run automatically. You can

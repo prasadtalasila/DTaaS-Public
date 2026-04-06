@@ -1,4 +1,4 @@
-# Environment variables from deploy/dtaas/docker/secure-server/.env.example
+# Environment variables from deploy/services/runner/.env.example
 
 services:
   gitlab-runner:
@@ -8,6 +8,6 @@ services:
     volumes:
       - "./runner-config.toml:/etc/gitlab-runner/config.toml:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      # Maps the self-signed certificate for your server to the container
-      # Remove this if you are not using a self-signed certificate
-      - "./../../dtaas/docker/secure-server/certs/fullchain.pem:/etc/gitlab-runner/certs/${SERVER_DNS}.crt:ro"
+      # Optional: self-signed certificate mapping for server installation.
+      # Copy fullchain.pem into deploy/services/runner/ and uncomment below:
+      # - "./fullchain.pem:/etc/gitlab-runner/certs/${SERVER_DNS}.crt:ro"
