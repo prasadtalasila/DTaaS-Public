@@ -18,8 +18,8 @@ execute digital twins from the Digital Twins Preview Page.
 
 A GitLab Runner picks up CI/CD jobs by communicating with a GitLab instance.
 For an explanation of how to set up a GitLab instance that integrates with a
-DTaaS application, refer to [our GitLab instance document](../gitlab/README.md)
-and [our GitLab integration guide](../gitlab/INTEGRATION.md).
+DTaaS application, refer to [our platform services guide](../cli/README.md)
+and [our GitLab integration guide](../cli/GITLAB_INTEGRATION.md).
 
 The rest of this document assumes you have a running DTaaS application with a
 GitLab instance running.
@@ -66,13 +66,18 @@ Be sure to save the generated runner authentication token.
 ## Configuring the Runner
 
 Depending on your installation scenario, the runner setup reads certain
-configurations settings:
+configuration settings from these files:
 
-1. __Localhost Installation__ - uses `deploy/dtaas/docker/secure-localhost/.env.example`
-1. __Server Installation__ - uses `deploy/dtaas/docker/secure-server/.env.example`
+1. __Localhost Installation__ - `deploy/dtaas/docker/secure-localhost/.env`
+1. __Server Installation__ - `deploy/dtaas/docker/secure-server/.env`
 
-These files are integral to running the DTaaS application, so it will be
-assumed that you have already configured these.
+If you have not created these files yet, copy them from the templates and edit
+the values:
+
+```bash
+cp deploy/dtaas/docker/secure-localhost/.env.example deploy/dtaas/docker/secure-localhost/.env
+cp deploy/dtaas/docker/secure-server/.env.example deploy/dtaas/docker/secure-server/.env
+```
 
 We need to register the runner with the GitLab instance so that they may
 communicate with each other. `deploy/services/runner/runner-config.toml`
@@ -110,15 +115,15 @@ container respectively, depending on your installation scenario:
 1. Localhost Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env.example up -d
-    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env.example down
+    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env up -d
+    docker compose -f deploy/services/runner/compose.runner.local.yml --env-file deploy/dtaas/docker/secure-localhost/.env down
     ```
 
 1. Server Installation
 
     ```bash
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env.example up -d
-    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env.example down
+    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env up -d
+    docker compose -f deploy/services/runner/compose.runner.server.yml --env-file deploy/dtaas/docker/secure-server/.env down
     ```
 
 Once the container starts, the runner within it will run automatically. You can

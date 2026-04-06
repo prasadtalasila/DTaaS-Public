@@ -10,5 +10,4 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       # Maps the self-signed certificate for your server to the container
       # Remove this if you are not using a self-signed certificate
-      - "./../../dtaas/docker/secure-server/certs/fullchain.pem:
-        /etc/gitlab-runner/certs/${SERVER_DNS}.crt:ro"
+      - "./../../dtaas/docker/secure-server/certs/fullchain.pem:/etc/gitlab-runner/certs/${SERVER_DNS}.crt:ro"

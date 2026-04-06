@@ -9,10 +9,10 @@ Each version serves a different purpose.
 
 | Installation Setup | Purpose |
 | :----- | :----- |
-| [localhost package](dtaas/docker/localhost/README.md) | Install DTaaS on your computer for a single user over HTTP. |
-| [secure-localhost package](dtaas/docker/secure-localhost/README.md) | Install DTaaS on your computer for a single user over HTTPS. |
-| [server package](dtaas/docker/server/README.md) | Install DTaaS on server for multiple users over HTTP. |
-| [secure-server package](dtaas/docker/secure-server/README.md) | Install DTaaS on server for multiple users over HTTPS. |
+| [localhost package template](dtaas/src/common/README.localhost.md) | Install DTaaS on your computer for a single user over HTTP. |
+| [secure-localhost package template](dtaas/src/common/README.secure-localhost.md) | Install DTaaS on your computer for a single user over HTTPS. |
+| [server package template](dtaas/src/common/README.server.md) | Install DTaaS on server for multiple users over HTTP. |
+| [secure-server package template](dtaas/src/common/README.secure-server.md) | Install DTaaS on server for multiple users over HTTPS. |
 | [One vagrant machine](vagrant/single-machine/README.md) | Install DTaaS on a virtual machine; can be used for single or multiple users. |
 | [Two vagrant machines](vagrant/two-machine/README.md) | Install DTaaS on two virtual machines; can be used for single or multiple users. |
 |   | The core DTaaS application is installed on the first virtual machine and all the services (RabbitMQ, MQTT, InfluxDB, Grafana and MongoDB) are installed on second virtual machine. |

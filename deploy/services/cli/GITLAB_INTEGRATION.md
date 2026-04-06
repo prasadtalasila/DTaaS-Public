@@ -66,16 +66,16 @@ the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/dtaas/docker/secure-localhost/config/client/env.local.js_.
-1. _deploy/dtaas/docker/secure-localhost/.env.example_ Add localpath and username.
+1. _deploy/dtaas/docker/secure-localhost/.env_ - Add localpath and username.
 
 If the DTaaS application is hosted at <https://foo.com/>, then configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
-   _deploy/dtaas/docker/server/config/client/env.server.js_.
-1. _deploy/dtaas/docker/secure-server/.env.example_ - Add  localpath and username,
+   _deploy/dtaas/docker/secure-server/config/client/env.server.js_.
+1. _deploy/dtaas/docker/secure-server/.env_ - Add localpath and username,
    OAuth client ID and client secret from the
-   **DTaaS Server Authorization** token
+    **DTaaS Server Authorization** token
 
 ## Restart Services
 
@@ -94,18 +94,7 @@ docker compose -f docker-compose.yml --env-file .env up -d --force-recreate clie
 The updated OAuth application configuration needs to be loaded into
 the **client website** and the **forward-auth** services.
 
-The production server can be installed with either **http**
-or **https** option.
-If it is installed with **http** option, run the following commands.
-
-```sh
-cd deploy/dtaas/docker/server
-docker compose -f docker-compose.yml --env-file .env up -d --force-recreate client
-docker compose -f docker-compose.yml --env-file .env up -d --force-recreate traefik-forward-auth
-```
-
-If the production server is installed with **https** option,
-run the following commands.
+For production server installation, run the following commands:
 
 ```sh
 cd deploy/dtaas/docker/secure-server
