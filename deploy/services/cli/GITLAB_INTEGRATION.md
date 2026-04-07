@@ -22,7 +22,15 @@ Traefik Forward Auth backend authorization.
 
 ### 1. Set up the DTaaS server over HTTPS
 
-Follow the secure package guides in `deploy/dtaas/docker/`:
+Generated install packages in `deploy/dtaas/docker/` are gitignored. Build
+them first:
+
+```sh
+cd deploy/dtaas
+python scripts/build-packages/build-packages.py --build
+```
+
+Then follow the secure package guides in `deploy/dtaas/docker/`:
 
 1. `secure-localhost` for localhost (<https://localhost>)
 1. `secure-server` for a custom domain (<https://foo.com>)
@@ -67,16 +75,18 @@ the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/dtaas/docker/secure-localhost/config/client/env.local.js_.
-1. _deploy/dtaas/docker/secure-localhost/.env_ - Add localpath and username.
+1. _deploy/dtaas/docker/secure-localhost/.env_ - set `USERNAME1` to the GitLab
+   username that should own the workspace path.
 
 If the DTaaS application is hosted at <https://foo.com/>, then configure
 the following files:
 
 1. **DTaaS Client Authorization** token in
    _deploy/dtaas/docker/secure-server/config/client/env.server.js_.
-1. _deploy/dtaas/docker/secure-server/.env_ - Add localpath and username,
-   and set OAuth client ID and client secret from the
-   **DTaaS Server Authorization** token.
+1. _deploy/dtaas/docker/secure-server/.env_ - set `USERNAME1` and `USERNAME2`
+   to your GitLab usernames, and set `OAUTH_CLIENT_ID` and
+   `OAUTH_CLIENT_SECRET` to the Application ID and Secret from the
+   **DTaaS Server Authorization** OAuth application.
 
 ## Restart Services
 

@@ -49,11 +49,6 @@ def _copy_server_only_configs(src: Path, dst: Path, scenario: Scenario) -> None:
         dst / "config" / "forward-auth" / "conf.server",
     )
     copy_file(src / "config" / "libms.yaml", dst / "config" / "libms.yaml")
-    if scenario.secure:
-        copy_file(
-            src / "config" / "forward-auth" / "resolv.conf",
-            dst / "config" / "forward-auth" / "resolv.conf",
-        )
 
 
 def _copy_tls_config_and_placeholders(
@@ -70,8 +65,6 @@ def _copy_tls_config_and_placeholders(
     )
     ensure_dir(dst / "certs")
     write_text(dst / "certs" / ".gitkeep", "")
-    write_text(dst / "certs" / "fullchain.pem", "")
-    write_text(dst / "certs" / "privkey.pem", "")
 
 
 def _scenario_asset_name(scenario: Scenario) -> str:

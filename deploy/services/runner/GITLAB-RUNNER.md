@@ -65,6 +65,14 @@ Be sure to save the generated runner authentication token.
 
 ## Configuring the Runner
 
+Generated install packages in `deploy/dtaas/docker/` are gitignored. If you
+need `.env` templates for those package directories, build them first:
+
+```bash
+cd deploy/dtaas
+python scripts/build-packages/build-packages.py --build
+```
+
 Depending on your installation scenario, the runner setup reads certain
 configuration settings from this file:
 

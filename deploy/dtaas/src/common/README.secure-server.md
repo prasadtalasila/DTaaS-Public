@@ -31,6 +31,14 @@ authorization enforced by Traefik forward-auth.
 1. Update `config/client/env.server.js` with your deployment URL.
 2. Update `config/forward-auth/conf.server` with allowed user e-mails.
 3. Place certificates at `certs/fullchain.pem` and `certs/privkey.pem`.
+4. Ensure workspace folders exist for configured usernames:
+
+   ```bash
+   cp -R files/template "files/${USERNAME1}"
+   cp -R files/template "files/${USERNAME2}"
+   ```
+
+   If you keep defaults (`user1`, `user2`), these folders already exist.
 
 ## Run
 

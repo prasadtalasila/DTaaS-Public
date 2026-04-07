@@ -73,9 +73,6 @@ def seed_source_tree(tmp_path: Path) -> None:
     (src / "config" / "forward-auth" / "conf.server").write_text(
         "rule", encoding="utf-8"
     )
-    (src / "config" / "forward-auth" / "resolv.conf").write_text(
-        "dns", encoding="utf-8"
-    )
     (src / "config" / "traefik" / "tls.local.yml").write_text(
         "tls:\n  certificates:\n    - certFile: /etc/traefik-certs/fullchain.pem\n",
         encoding="utf-8",
@@ -217,9 +214,12 @@ def test_build_creates_expected_structure(tmp_path):
     assert not (secure_server / "localhost.png").exists()
     assert not (secure_server / "traefik-forward-auth.png").exists()
 
-    assert (secure_server / "certs" / "fullchain.pem").exists()
-    assert (secure_server / "certs" / "privkey.pem").exists()
+    assert (secure_server / "certs" / ".gitkeep").exists()
+    assert not (secure_server / "certs" / "fullchain.pem").exists()
+    assert not (secure_server / "certs" / "privkey.pem").exists()
     assert not (secure_server / "certs" / "foo.com").exists()
+    assert not (server / "config" / "forward-auth" / "resolv.conf").exists()
+    assert not (secure_server / "config" / "forward-auth" / "resolv.conf").exists()
 
     assert (localhost / "README.md").read_text(
         encoding="utf-8"
