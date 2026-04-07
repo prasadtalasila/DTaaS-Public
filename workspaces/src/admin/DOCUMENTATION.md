@@ -6,8 +6,10 @@ and management capabilities for the DTaaS workspace.
 ## Overview
 
 The service runs on port 8091 (configurable via `ADMIN_SERVER_PORT` environment
-variable) and is proxied through nginx. It supports path prefixes for multi-user
-deployments, allowing routes to be accessible at `/{path-prefix}/services`.
+variable) and is proxied through nginx. In workspace deployments, nginx exposes
+the service at `/{MAIN_USER}/services`. The service also supports optional custom
+path prefixes when started directly via CLI (`--path-prefix`), resulting in
+`/{path-prefix}/services`.
 
 ## Endpoints
 
@@ -19,10 +21,10 @@ services.
 **Request**:
 
 ```bash
-# Without path prefix
-curl http://localhost:8080/services
+# Through nginx in workspace container
+curl http://localhost:8080/{MAIN_USER}/services
 
-# With path prefix
+# Direct service with explicit path prefix
 curl http://localhost:8080/{path-prefix}/services
 ```
 
@@ -66,7 +68,7 @@ Health check endpoint for monitoring service availability.
 **Request**:
 
 ```bash
-# Without path prefix
+# Direct service without path prefix
 curl http://localhost:8091/health
 
 # With path prefix  
@@ -88,7 +90,7 @@ Root endpoint providing service metadata and available endpoints.
 **Request**:
 
 ```bash
-# Without path prefix
+# Direct service without path prefix
 curl http://localhost:8091/
 
 # With path prefix
@@ -112,7 +114,7 @@ curl http://localhost:8091/{path-prefix}
 
 ### Service Discovery Flow
 
-1. User accesses `http://{domain}/{path-prefix}/services` (or `/services` without prefix)
+1. User accesses `http://{domain}/{MAIN_USER}/services` via nginx, or direct service routes (`/services` or `/{path-prefix}/services`)
 2. nginx receives the request and routes it to the admin service on port 8091
 3. Admin service reads the `services_template.json` file
 4. JSON response is returned to the client
@@ -131,7 +133,7 @@ curl http://localhost:8091/{path-prefix}
 ## Environment Variables
 
 - `ADMIN_SERVER_PORT`: Port for the admin service (default: `8091`)
-- `PATH_PREFIX`: Optional path prefix for API routes (can also be set via CLI `--path-prefix` argument)
+- `PATH_PREFIX`: Optional path prefix for API routes (can also be set via CLI `--path-prefix` argument; defaults to no prefix)
 
 ## Development
 

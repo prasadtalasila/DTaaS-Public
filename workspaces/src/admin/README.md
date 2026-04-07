@@ -13,7 +13,8 @@ FastAPI service for workspace service discovery and management.
 ### As a Service (in workspace container)
 
 The service is automatically started when the workspace container starts.
-It runs on port 8091 and is accessible via the nginx reverse proxy at `/services`.
+It runs on port 8091 and is accessible via the nginx reverse proxy at
+`/{MAIN_USER}/services` (for example, `/user1/services`).
 
 ### As a CLI Utility
 

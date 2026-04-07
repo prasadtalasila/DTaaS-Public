@@ -1,228 +1,183 @@
-"""
-Unit tests for the admin service.
-
-Tests the /services endpoint and service discovery functionality.
-"""
+"""Unit tests for the admin service."""
 
 import json
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
-from admin.main import create_app, load_services, SERVICES_TEMPLATE_PATH
+from admin.__version__ import __version__
+from admin.main import (
+    SERVICES_TEMPLATE_PATH,
+    cli,
+    create_app,
+    load_services,
+    load_services_template,
+)
 
 
-@pytest.fixture(name='test_client')
+@pytest.fixture(autouse=True)
+def fixture_clear_services_template_cache():
+    """Clear template cache between tests for deterministic monkeypatch behavior."""
+    load_services_template.cache_clear()
+    yield
+    load_services_template.cache_clear()
+
+
+@pytest.fixture(name="test_client")
 def fixture_test_client():
-    """Create a test client for the FastAPI app."""
-    app = create_app()
-    return TestClient(app)
+    """Create a test client for the default app."""
+    return TestClient(create_app())
 
 
-@pytest.fixture(name='test_client_with_prefix')
+@pytest.fixture(name="test_client_with_prefix")
 def fixture_test_client_with_prefix():
-    """Create a test client for the FastAPI app with path prefix."""
-    app = create_app(path_prefix="user1")
-    return TestClient(app)
+    """Create a test client for the app with user prefix."""
+    return TestClient(create_app(path_prefix="user1"))
 
 
 def test_root_endpoint(test_client):
-    """Test the root endpoint returns service information."""
+    """Root endpoint returns service metadata."""
     response = test_client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert data["service"] == "Workspace Admin Service"
-    assert "endpoints" in data
+    assert data["version"] == __version__
     assert "/services" in data["endpoints"]
+    assert "/health" in data["endpoints"]
 
 
-def test_health_check(test_client):
-    """Test the health check endpoint."""
+def test_root_endpoint_with_prefix(test_client_with_prefix):
+    """Root endpoint reflects prefixed route metadata."""
+    response = test_client_with_prefix.get("/user1/")
+    assert response.status_code == 200
+    endpoints = response.json()["endpoints"]
+    assert "/user1/services" in endpoints
+    assert "/user1/health" in endpoints
+
+
+def test_health_endpoint_healthy(test_client):
+    """Health endpoint reports healthy when template is available."""
     response = test_client.get("/health")
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
+    payload = response.json()
+    assert payload["status"] == "healthy"
+    assert payload["checks"]["services_template"] == "ok"
 
 
-def test_services_endpoint(test_client):
-    """Test the /services endpoint returns service list."""
+def test_health_endpoint_unhealthy_when_template_missing(tmp_path, monkeypatch):
+    """Health endpoint reports unhealthy when template file is missing."""
+    missing_path = tmp_path / "missing-services.json"
+    monkeypatch.setattr("admin.main.SERVICES_TEMPLATE_PATH", missing_path)
+    response = TestClient(create_app()).get("/health")
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "unhealthy"
+    assert "not found" in payload["checks"]["services_template"]
+
+
+def test_services_endpoint_json_structure(test_client):
+    """Services endpoint returns expected JSON shape."""
     response = test_client.get("/services")
     assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
 
     services = response.json()
-
-    # Check that we have the expected services
-    assert "desktop" in services
-    assert "vscode" in services
-    assert "notebook" in services
-    assert "lab" in services
-
-    # Check desktop service structure
-    desktop = services["desktop"]
-    assert "name" in desktop
-    assert "description" in desktop
-    assert "endpoint" in desktop
-    assert desktop["name"] == "Desktop"
+    assert isinstance(services, dict)
+    for service_key, service_info in services.items():
+        assert isinstance(service_key, str)
+        assert isinstance(service_info, dict)
+        assert "name" in service_info
+        assert "description" in service_info
+        assert "endpoint" in service_info
 
 
-def test_services_endpoint_returns_all_services(test_client):
-    """Test /services endpoint returns all defined services."""
-    response = test_client.get("/services")
+def test_services_endpoint_with_prefix_uses_app_prefix(test_client_with_prefix, monkeypatch):
+    """Service payload prefix comes from create_app prefix, not PATH_PREFIX env."""
+    monkeypatch.setenv("PATH_PREFIX", "wrong-prefix")
+    response = test_client_with_prefix.get("/user1/services")
     assert response.status_code == 200
+    desktop_endpoint = response.json()["desktop"]["endpoint"]
+    assert "user1%2Ftools%2Fvnc%2Fwebsockify" in desktop_endpoint
+    assert "{PATH_PREFIX}" not in desktop_endpoint
 
-    services = response.json()
 
-    # Verify all expected services are present
-    required_services = ["desktop", "vscode", "notebook", "lab"]
-    for service_id in required_services:
-        assert service_id in services
+def test_path_prefix_not_accessible_without_prefix(test_client_with_prefix):
+    """Prefixed app should not expose non-prefixed routes."""
+    response = test_client_with_prefix.get("/services")
+    assert response.status_code == 404
 
 
 def test_load_services_preserves_structure():
-    """Test that load_services preserves the service structure."""
+    """load_services returns all expected service fields."""
     services = load_services()
+    for service in ("desktop", "vscode", "notebook", "lab"):
+        assert service in services
+        assert "name" in services[service]
+        assert "description" in services[service]
+        assert "endpoint" in services[service]
 
-    # Check all required services exist
-    required_services = ["desktop", "vscode", "notebook", "lab"]
-    for service_id in required_services:
-        assert service_id in services
-        assert "name" in services[service_id]
-        assert "description" in services[service_id]
-        assert "endpoint" in services[service_id]
+
+def test_load_services_missing_template(tmp_path, monkeypatch):
+    """load_services raises when template file is missing."""
+    monkeypatch.setattr("admin.main.SERVICES_TEMPLATE_PATH", tmp_path / "missing.json")
+    with pytest.raises(FileNotFoundError):
+        load_services("")
+
+
+def test_load_services_invalid_json(tmp_path, monkeypatch):
+    """load_services raises ValueError when template is invalid JSON."""
+    invalid_json = tmp_path / "invalid.json"
+    invalid_json.write_text("{ invalid json }", encoding="utf-8")
+    monkeypatch.setattr("admin.main.SERVICES_TEMPLATE_PATH", invalid_json)
+    with pytest.raises(ValueError, match="invalid JSON"):
+        load_services("")
+
+
+def test_create_app_with_various_prefixes():
+    """Prefix normalization supports trimmed slash forms."""
+    assert TestClient(create_app("/user1/")).get("/user1/health").status_code == 200
+    assert TestClient(create_app("user1")).get("/user1/health").status_code == 200
+    assert TestClient(create_app("")).get("/health").status_code == 200
+    assert TestClient(create_app("/")).get("/health").status_code == 200
+
+
+def test_create_app_rejects_invalid_prefix():
+    """Invalid prefixes are rejected."""
+    with pytest.raises(ValueError):
+        create_app("../../etc/passwd")
+    with pytest.raises(ValueError):
+        create_app("user@domain")
 
 
 def test_services_template_file_exists():
-    """Test that the services template file exists."""
+    """Services template file exists."""
     assert SERVICES_TEMPLATE_PATH.exists()
     assert SERVICES_TEMPLATE_PATH.is_file()
 
 
 def test_services_template_valid_json():
-    """Test that the services template is valid JSON."""
-    with open(SERVICES_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
-        services = json.load(f)
-
-    # Should not raise an exception
+    """Services template is valid JSON."""
+    with SERVICES_TEMPLATE_PATH.open("r", encoding="utf-8") as template_file:
+        services = json.load(template_file)
     assert isinstance(services, dict)
     assert len(services) > 0
 
 
 def test_cli_list_services(monkeypatch, capsys):
-    """Test CLI --list-services flag."""
-    import sys
-    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--list-services'])
-
-    from admin.main import cli
-
+    """CLI --list-services prints services and exits successfully."""
+    monkeypatch.setattr(sys, "argv", ["workspace-admin", "--list-services"])
     with pytest.raises(SystemExit) as exc_info:
         cli()
-
     assert exc_info.value.code == 0
-    captured = capsys.readouterr()
-    output = json.loads(captured.out)
+    output = json.loads(capsys.readouterr().out)
     assert "desktop" in output
     assert "vscode" in output
 
 
 def test_cli_version(monkeypatch):
-    """Test CLI --version flag."""
-    import sys
-    monkeypatch.setattr(sys, 'argv', ['workspace-admin', '--version'])
-
-    from admin.main import cli
-
+    """CLI --version exits successfully."""
+    monkeypatch.setattr(sys, "argv", ["workspace-admin", "--version"])
     with pytest.raises(SystemExit) as exc_info:
         cli()
-
-    # argparse exits with 0 for --version
     assert exc_info.value.code == 0
-
-
-def test_load_services_with_missing_endpoint():
-    """Test load_services handles services without endpoint field."""
-    services = load_services()
-    # All services should have endpoint field, even if empty
-    for service_info in services.values():
-        assert 'endpoint' in service_info
-
-
-def test_services_endpoint_json_structure(test_client):
-    """Test that services endpoint returns proper JSON structure."""
-    response = test_client.get("/services")
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "application/json"
-
-    services = response.json()
-    # Verify it's a dictionary with string keys
-    assert isinstance(services, dict)
-    for key, value in services.items():
-        assert isinstance(key, str)
-        assert isinstance(value, dict)
-        assert "name" in value
-        assert "description" in value
-        assert "endpoint" in value
-
-
-def test_root_endpoint_version(test_client):
-    """Test that root endpoint includes version."""
-    response = test_client.get("/")
-    data = response.json()
-    assert "version" in data
-    assert data["version"] == "0.1.0"
-
-
-def test_health_endpoint_returns_json(test_client):
-    """Test that health endpoint returns JSON."""
-    response = test_client.get("/health")
-    assert response.headers["content-type"] == "application/json"
-
-
-def test_root_endpoint_with_prefix(test_client_with_prefix):
-    """Test root endpoint with path prefix."""
-    response = test_client_with_prefix.get("/user1/")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["service"] == "Workspace Admin Service"
-
-
-def test_services_endpoint_with_prefix(test_client_with_prefix):
-    """Test services endpoint with path prefix."""
-    response = test_client_with_prefix.get("/user1/services")
-    assert response.status_code == 200
-    services = response.json()
-    assert "desktop" in services
-
-
-def test_health_endpoint_with_prefix(test_client_with_prefix):
-    """Test health endpoint with path prefix."""
-    response = test_client_with_prefix.get("/user1/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
-
-
-def test_path_prefix_not_accessible_without_prefix(test_client_with_prefix):
-    """Test that endpoints are not accessible without prefix when prefix is set."""
-    # When app has prefix, root-level routes should not work
-    response = test_client_with_prefix.get("/services")
-    assert response.status_code == 404
-
-
-def test_create_app_with_various_prefixes():
-    """Test creating app with different prefix formats."""
-    # Test with leading/trailing slashes - routes should work
-    app1 = create_app("/user1/")
-    client1 = TestClient(app1)
-    assert client1.get("/user1/health").status_code == 200
-
-    app2 = create_app("user1")
-    client2 = TestClient(app2)
-    assert client2.get("/user1/health").status_code == 200
-
-    app3 = create_app("")
-    client3 = TestClient(app3)
-    assert client3.get("/health").status_code == 200
-
-    app4 = create_app("/")
-    client4 = TestClient(app4)
-    assert client4.get("/health").status_code == 200
