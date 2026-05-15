@@ -28,7 +28,21 @@ data:
   SERVER_DNS: intocps.org   # Replace with your domain
   USERNAME1: user1          # Replace with your first username
   USERNAME2: user2          # Replace with your second username
+  ACME_EMAIL: admin@intocps.org  # Email for Let's Encrypt notifications
 ```
+
+### Using scripts/config.py
+
+The `scripts/config.py` script reads a `.env` file and applies values to the
+cluster. Copy the example file, fill in your values, then run:
+
+```bash
+cp .env.example .env
+# Edit .env
+python scripts/config.py
+```
+
+Run `python scripts/config.py --dry-run` to preview commands without applying.
 
 ## 🌐 Domain
 
@@ -40,23 +54,22 @@ Replace `intocps.org` in the following files with your actual domain:
 
 ## 🔒 TLS Certificates
 
-Create the namespace first, then the TLS secret from your certificate files:
+TLS certificates are obtained automatically from Let's Encrypt using Traefik's
+built-in ACME support (HTTP-01 challenge). No manual certificate management is
+required.
+
+**Prerequisites:**
+- Your domain's DNS A record must point to the Traefik LoadBalancer IP.
+- Port 80 must be reachable from the internet (for the HTTP-01 challenge).
+- Set `ACME_EMAIL` in your `.env` file before deploying.
+
+Traefik stores the issued certificates in the `traefik-acme-storage` PVC
+at `/data/acme.json`. Certificates renew automatically before expiry.
+
+Create the namespace before applying manifests:
 
 ```bash
 kubectl apply -f manifests/namespace.yaml
-
-kubectl create secret tls dtaas-tls \
-  --cert=./certs/fullchain.pem \
-  --key=./certs/privkey.pem \
-  --namespace=dtaas-workspace
-```
-
-Obtain certificates with Certbot if needed:
-
-```bash
-sudo certbot certonly --standalone -d <DOMAIN_NAME>
-sudo cp /etc/letsencrypt/live/<DOMAIN_NAME>/fullchain.pem ./certs/
-sudo cp /etc/letsencrypt/live/<DOMAIN_NAME>/privkey.pem ./certs/
 ```
 
 ## 👥 Usernames

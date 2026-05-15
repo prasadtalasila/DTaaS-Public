@@ -12,4 +12,5 @@ spec:
       services:
         - name: traefik-forward-auth
           port: 4181
-  tls: {}
+  tls:
+    certResolver: letsencrypt

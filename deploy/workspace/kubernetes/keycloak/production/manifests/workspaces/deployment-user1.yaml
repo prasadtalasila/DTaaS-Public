@@ -14,12 +14,12 @@ spec:
         app: user1
     spec:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 100
         fsGroup: 100
       containers:
         - name: workspace
           image: intocps/workspace:main-967bc10
+          securityContext:
+            runAsUser: 0
           env:
             - name: MAIN_USER
               valueFrom:
@@ -28,8 +28,8 @@ spec:
                   key: USERNAME1
           resources:
             requests:
-              cpu: 500m
-              memory: 1024Mi
+              cpu: 200m
+              memory: 512Mi
           ports:
             - containerPort: 8888
           volumeMounts:

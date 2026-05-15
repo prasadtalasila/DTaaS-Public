@@ -3,6 +3,4 @@ kind: TLSStore
 metadata:
   name: default
   namespace: dtaas-workspace
-spec:
-  defaultCertificate:
-    secretName: dtaas-tls
+spec: {}

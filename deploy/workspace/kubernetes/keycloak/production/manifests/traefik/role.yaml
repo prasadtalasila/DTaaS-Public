@@ -10,6 +10,7 @@ rules:
       - services
       - endpoints
       - secrets
+      - configmaps
     verbs:
       - get
       - list

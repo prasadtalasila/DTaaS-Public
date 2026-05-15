@@ -12,4 +12,5 @@ spec:
       services:
         - name: keycloak
           port: 8080
-  tls: {}
+  tls:
+    certResolver: letsencrypt

@@ -8,6 +8,7 @@ resources:
   - traefik/clusterrolebinding.yaml
   - traefik/role.yaml
   - traefik/rolebinding.yaml
+  - traefik/pvc-certs.yaml
   - traefik/deployment.yaml
   - traefik/service.yaml
   - keycloak/pvc.yaml

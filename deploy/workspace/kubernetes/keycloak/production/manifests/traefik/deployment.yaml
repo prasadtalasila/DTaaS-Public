@@ -17,6 +17,12 @@ spec:
       containers:
         - name: traefik
           image: traefik:v3.6.13
+          env:
+            - name: ACME_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: dtaas-config
+                  key: ACME_EMAIL
           args:
             - "--log.level=INFO"
             - "--providers.kubernetescrd=true"
@@ -26,6 +32,9 @@ spec:
             - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
             - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
             - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+            - "--certificatesresolvers.letsencrypt.acme.email=$(ACME_EMAIL)"
+            - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+            - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
           ports:
             - name: web
               containerPort: 80
@@ -38,3 +47,10 @@ spec:
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: acme-storage
+              mountPath: /data
+      volumes:
+        - name: acme-storage
+          persistentVolumeClaim:
+            claimName: traefik-acme-storage

@@ -16,9 +16,7 @@ secure multi-user deployments with Keycloak authentication.
 
 ✅ Sufficient system resources (at least 2GB RAM per workspace instance)
 
-✅ Valid TLS certificates
-
-✅ Domain name pointing to the cluster load balancer
+✅ Domain name pointing to the cluster load balancer (required for automatic TLS via Let's Encrypt)
 
 ✅ A Kubernetes StorageClass named `local-path` (install
 [rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
@@ -36,7 +34,7 @@ User Request → Traefik (Ingress) → Forward Auth → Keycloak (OIDC)
 The Kubernetes manifests in `manifests/` provide a production-ready setup:
 
 - **Traefik** reverse proxy with TLS termination (ports 80, 443)
-- **Automatic HTTP to HTTPS redirect**
+- **Automatic HTTPS certificates** via Let's Encrypt ACME (HTTP-01 challenge)
 - **OAuth2 authentication** via `traefik-forward-auth`
 - **Keycloak** identity provider for OIDC authentication
 - **Multiple workspace instances** (user1, user2) behind authentication
@@ -57,6 +55,7 @@ manifests/
 │   ├── clusterrolebinding.yaml
 │   ├── role.yaml
 │   ├── rolebinding.yaml
+│   ├── pvc-certs.yaml
 │   ├── deployment.yaml
 │   └── service.yaml
 ├── keycloak/                   # Keycloak identity provider
@@ -101,45 +100,24 @@ Follow the pre-install steps in [`CONFIGURATION.md`](CONFIGURATION.md).
 
 ### Apply Manifests
 
-Create the namespace first, then secrets
-(see [`CONFIGURATION.md`](CONFIGURATION.md) for details):
+Copy the example environment file and populate it with your values,
+then run the configuration script to apply settings to the cluster:
+
+```bash
+cp .env.example .env
+# Edit .env with your domain, credentials, and ACME email
+python scripts/config.py
+```
+
+Create the namespace and apply all manifests using Kustomize in two passes.
+The first pass installs the Traefik CRDs; the second pass applies the
+CRD instances once the API server has registered the new resource types:
 
 ```bash
 kubectl apply -f manifests/namespace.yaml
-
-kubectl create secret tls dtaas-tls \
-  --cert=./certs/fullchain.pem \
-  --key=./certs/privkey.pem \
-  --namespace=dtaas-workspace
-
-kubectl create secret generic dtaas-keycloak \
-  --from-literal=KEYCLOAK_ADMIN=<ADMIN_USERNAME> \
-  --from-literal=KEYCLOAK_ADMIN_PASSWORD=<STRONG_PASSWORD> \
-  --namespace=dtaas-workspace
-
-kubectl create secret generic dtaas-forward-auth \
-  --from-literal=PROVIDERS_OIDC_ISSUER_URL=https://<DOMAIN_NAME>/auth/realms/dtaas \
-  --from-literal=PROVIDERS_OIDC_CLIENT_ID=dtaas-workspace \
-  --from-literal=PROVIDERS_OIDC_CLIENT_SECRET=<CLIENT_SECRET> \
-  --from-literal=SECRET=$(openssl rand -base64 32) \
-  --namespace=dtaas-workspace
-```
-
-Apply all manifests using Kustomize in two passes. The first pass installs
-the Traefik CRDs; the second pass applies the CRD instances once the API
-server has registered the new resource types:
-
-```bash
 kubectl apply -k manifests/crds/
 kubectl apply -k manifests/
 ```
-
-> **Note:** Two passes are required because `kubectl apply` cannot
-> create CRD instances (IngressRoute, Middleware, TLSStore) in the same
-> API call that registers the CRDs. The second pass succeeds once the
-> API server has processed the new resource types. The CRDs live in a
-> separate `manifests/crds/` kustomization so that `kubectl delete -k manifests/`
-> does not delete cluster-scoped CRDs shared across namespaces.
 
 ### 🌵 Temporary Issues
 
@@ -186,13 +164,14 @@ kubectl delete pvc -n dtaas-workspace --all
 
 ### Certificate Issues
 
-**Problem**: "NET::ERR_CERT_INVALID" in browser
+**Problem**: "NET::ERR_CERT_INVALID" or certificate not issued
 
 **Solutions**:
 
-- Verify the TLS secret exists: `kubectl get secret dtaas-tls -n dtaas-workspace`
-- Check Traefik logs: `kubectl logs -n dtaas-workspace deploy/traefik`
-- For self-signed certs, add security exception in browser
+- Ensure port 80 is accessible from the internet (required for ACME HTTP-01 challenge)
+- Verify your domain A record resolves to the Traefik LoadBalancer IP
+- Check Traefik logs for ACME errors: `kubectl logs -n dtaas-workspace deploy/traefik`
+- Confirm `ACME_EMAIL` is set in `.env` and `dtaas-config` ConfigMap
 
 ### OAuth2 Issues
 
