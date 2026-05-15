@@ -1,6 +1,7 @@
 # Keycloak Setup Guide for DTaaS
 
-This guide explains how to configure Keycloak for authentication in the DTaaS workspace deployment.
+This guide explains how to configure Keycloak for authentication
+in the DTaaS workspace deployment.
 
 ## Key Benefits
 
@@ -36,9 +37,9 @@ placeholders for server hostname of the installation.
 Keycloak-specific environment variables are:
 
 | Variable | Purpose | Example |
-|----------|---------|---------|
+| -------- | ------- | ------- |
 | `KEYCLOAK_ADMIN` | Admin username | `admin` |
-| `KEYCLOAK_ADMIN_PASSWORD` | Admin password | `changeme` |
+| `KEYCLOAK_ADMIN_PASSWORD` | Admin password | `<ADMIN_PASSWORD>` |
 | `KEYCLOAK_REALM` | Realm name | `dtaas` |
 | `KEYCLOAK_CLIENT_ID` | OIDC client ID | `dtaas-workspace` |
 | `KEYCLOAK_CLIENT_SECRET` | OIDC client secret | `<from-Keycloak>` |
@@ -49,7 +50,7 @@ Edit Keycloak-configuration in `.env`:
 ```bash
 # Keycloak Admin Credentials (for initial setup)
 KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=changeme
+KEYCLOAK_ADMIN_PASSWORD=<ADMIN_PASSWORD>
 
 # Keycloak Realm
 KEYCLOAK_REALM=dtaas
@@ -67,12 +68,14 @@ The following instructions are part of post-install step.
 
 1. Navigate to `https://intocps.org/auth`
 2. Click **Administration Console**
-3. Login with credentials from the `.env` file (default: `admin` / `changeme`)
+3. Login with credentials from the secret `dtaas-keycloak`
 
 #### Create a Realm
 
-1. In the top-left dropdown (currently showing "Master"), click **Create Realm**  
-2. **Realm name**: `dtaas` (or match the `KEYCLOAK_REALM` in `.env`)  
+1. In the top-left dropdown (currently showing "Master"),
+   click **Create Realm**
+2. **Realm name**: `dtaas`
+   (or match the `KEYCLOAK_REALM` in the secret)
 3. Click **Create**
 4. Click on **Realm Settings** -> **User Profile**
 5. Click on **Create attribute** with
@@ -118,8 +121,8 @@ The following instructions are part of post-install step.
 5. Login settings:
    - **Root URL**: `https://intocps.org`
    - **Valid redirect URIs**:
-    - `https://intocps.org/_oauth/*`
-    - `https://intocps.org/*`
+     - `https://intocps.org/_oauth/*`
+     - `https://intocps.org/*`
    - **Valid post logout redirect URIs**: `https://intocps.org/*`
    - **Web origins**: `https://intocps.org`
    - Click **Save**
@@ -180,6 +183,7 @@ kubectl rollout restart deployment -n dtaas-workspace
 To use an external Keycloak instance (recommended for production):
 
 1. Update `KEYCLOAK_ISSUER_URL` in `.env`:
+
    ```bash
    KEYCLOAK_ISSUER_URL=https://keycloak.intocps.org/auth/realms/dtaas
    ```
@@ -246,11 +250,13 @@ To access custom user attributes:
 
 ### Role-Based Access Control (RBAC)
 
-RBAC is supported in Keycloak but not implemented in the traefik-forward-auth service by default.
+RBAC is supported in Keycloak but not implemented in the
+traefik-forward-auth service by default.
 
 ### Single Sign-On (SSO)
 
-Keycloak supports SSO across multiple applications. Configure additional clients for other services as needed.
+Keycloak supports SSO across multiple applications. Configure additional
+clients for other services as needed.
 
 ## References
 
