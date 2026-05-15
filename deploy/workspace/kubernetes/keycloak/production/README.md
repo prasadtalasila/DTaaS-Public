@@ -100,15 +100,6 @@ Follow the pre-install steps in [`CONFIGURATION.md`](CONFIGURATION.md).
 
 ### Apply Manifests
 
-Copy the example environment file and populate it with your values,
-then run the configuration script to apply settings to the cluster:
-
-```bash
-cp .env.example .env
-# Edit .env with your domain, credentials, and ACME email
-python scripts/config.py apply
-```
-
 Create the namespace and apply all manifests using Kustomize in two passes.
 The first pass installs the Traefik CRDs; the second pass applies the
 CRD instances once the API server has registered the new resource types:
@@ -117,6 +108,15 @@ CRD instances once the API server has registered the new resource types:
 kubectl apply -f manifests/namespace.yaml
 kubectl apply -k manifests/crds/
 kubectl apply -k manifests/
+```
+
+Then copy the example environment file, populate it with your values,
+and run the configuration script to apply settings to the cluster:
+
+```bash
+cp .env.example .env
+# Edit .env with your domain, credentials, and ACME email
+python scripts/config.py apply
 ```
 
 ### 🌵 Temporary Issues

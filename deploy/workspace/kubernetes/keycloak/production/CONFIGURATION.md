@@ -35,9 +35,13 @@ data:
 ### Using scripts/config.py
 
 The `scripts/config.py` script reads a `.env` file and applies values to the
-cluster. Copy the example file, fill in your values, then run:
+cluster. Copy the example file, fill in your values. Apply the base manifests
+first (so the ConfigMap and IngressRoutes exist), then run:
 
 ```bash
+kubectl apply -f manifests/namespace.yaml
+kubectl apply -k manifests/crds/
+kubectl apply -k manifests/
 cp .env.example .env
 # Edit .env with your domain, credentials, and email
 python scripts/config.py apply
@@ -48,9 +52,10 @@ applying them.
 
 The `apply` command performs these actions automatically:
 
-- Patches `dtaas-config` ConfigMap with `SERVER_DNS`, usernames and ACME email
+- Creates or updates the `dtaas-config` ConfigMap with `SERVER_DNS`, usernames and ACME email
 - Patches all IngressRoute `Host()` rules to use your domain
 - Updates the `client-config` ConfigMap URLs
+- Deploys the custom in-namespace DNS resolver (hairpin NAT fix)
 - Creates or updates Keycloak and forward-auth Kubernetes secrets
 
 ## 🌐 Domain

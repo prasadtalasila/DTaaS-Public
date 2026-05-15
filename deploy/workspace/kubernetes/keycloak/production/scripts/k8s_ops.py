@@ -71,27 +71,24 @@ def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
 
 
 def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
-    """Update dtaas-config ConfigMap with values from env.
+    """Create or update dtaas-config ConfigMap with values from env.
 
     Args:
         env: Dictionary of environment variables.
         dry_run: If True, print commands without executing them.
     """
     keys = ["SERVER_DNS", "USERNAME1", "USERNAME2", "ACME_EMAIL"]
-    pairs = {k: env[k] for k in keys if k in env}
-    items = ", ".join(f'"{k}": "{v}"' for k, v in pairs.items())
-    patch = f'{{"data": {{{items}}}}}'
-    if dry_run:
-        click.echo(f"[dry-run] kubectl patch configmap dtaas-config --patch='{patch}'")
+    literals = [f"--from-literal={k}={env[k]}" for k in keys if k in env]
+    if not literals:
         return
     result = kubectl(
-        "patch", "configmap", "dtaas-config",
-        "-n", NAMESPACE, "--type=merge", f"--patch={patch}",
+        "create", "configmap", "dtaas-config", "-n", NAMESPACE,
+        "--dry-run=client", "-o", "yaml", *literals,
     )
     if result.returncode != 0:
-        click.echo(f"Error patching configmap:\n{result.stderr.decode()}", err=True)
+        click.echo(f"Error generating dtaas-config:\n{result.stderr.decode()}", err=True)
         sys.exit(result.returncode)
-    click.echo("Patched ConfigMap dtaas-config.")
+    apply_yaml(result.stdout, dry_run, "ConfigMap dtaas-config")
 
 
 def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
