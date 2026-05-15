@@ -12,17 +12,23 @@ import click
 
 from ingress_ops import patch_ingressroutes
 from k8s_ops import (
+    apply_custom_dns_configmap,
     apply_forward_auth_secret,
     apply_keycloak_secret,
+    apply_yaml,
+    get_custom_dns_clusterip,
     get_lb_ip,
+    get_traefik_clusterip,
+    kubectl,
     patch_client_configmap,
     patch_configmap,
-    patch_forward_auth_aliases,
+    patch_forward_auth_dns,
 )
 from net_ops import resolve_dns, show_dns_fix_instructions
 
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_ENV = SCRIPT_DIR.parent / ".env"
+MANIFESTS_DIR = SCRIPT_DIR.parent / "manifests"
 
 
 def load_env(env_file: Path) -> dict[str, str]:
@@ -52,6 +58,35 @@ def cli() -> None:
     """DTaaS Kubernetes configuration CLI."""
 
 
+def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
+    """Apply the custom-dns deployment and configure forward-auth to use it.
+
+    Deploys an in-namespace CoreDNS instance that resolves SERVER_DNS to the
+    Traefik ClusterIP, fixing the hairpin NAT issue for forward-auth.
+
+    Args:
+        env: Dictionary of environment variables.
+        dry_run: If True, print commands without executing them.
+    """
+    dns = env.get("SERVER_DNS", "")
+    if not dns:
+        click.echo("Skipping custom-dns: SERVER_DNS not set.", err=True)
+        return
+    traefik_ip = get_traefik_clusterip()
+    if not traefik_ip:
+        click.echo("Skipping custom-dns: could not get Traefik ClusterIP.", err=True)
+        return
+    apply_custom_dns_configmap(traefik_ip, dns, dry_run)
+    for name in ("deployment.yaml", "service.yaml"):
+        manifest = MANIFESTS_DIR / "custom-dns" / name
+        apply_yaml(manifest.read_bytes(), dry_run, f"custom-dns/{name}")
+    dns_ip = get_custom_dns_clusterip()
+    if not dns_ip and not dry_run:
+        click.echo("custom-dns Service not yet ready; retry apply after pod starts.", err=True)
+        return
+    patch_forward_auth_dns(dns_ip or "PENDING", dry_run)
+
+
 @cli.command("apply")
 @click.option(
     "--env-file",
@@ -72,7 +107,7 @@ def apply_cmd(env_file: str, dry_run: bool) -> None:
     patch_configmap(env, dry_run)
     patch_ingressroutes(env, dry_run)
     patch_client_configmap(env, dry_run)
-    patch_forward_auth_aliases(env, dry_run)
+    _apply_custom_dns(env, dry_run)
     apply_keycloak_secret(env, dry_run)
     apply_forward_auth_secret(env, dry_run)
     click.echo("Configuration applied successfully.")

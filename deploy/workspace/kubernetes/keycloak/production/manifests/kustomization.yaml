@@ -17,6 +17,9 @@ resources:
   - client/configmap.yaml
   - client/deployment.yaml
   - client/service.yaml
+  - custom-dns/configmap.yaml
+  - custom-dns/deployment.yaml
+  - custom-dns/service.yaml
   - forward-auth/configmap.yaml
   - forward-auth/deployment.yaml
   - forward-auth/service.yaml

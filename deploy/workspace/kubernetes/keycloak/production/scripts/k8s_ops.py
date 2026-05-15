@@ -1,6 +1,7 @@
 """Kubernetes operations for DTaaS configuration management."""
 
 import json
+import re
 import subprocess
 import sys
 
@@ -189,38 +190,82 @@ def get_traefik_clusterip() -> str:
     return result.stdout.decode().strip() if result.returncode == 0 else ""
 
 
-def patch_forward_auth_aliases(env: dict[str, str], dry_run: bool) -> None:
-    """Patch forward-auth hostAliases to use Traefik ClusterIP for SERVER_DNS.
+def apply_custom_dns_configmap(traefik_clusterip: str, server_dns: str, dry_run: bool) -> None:
+    """Create or update the custom-dns CoreDNS ConfigMap.
 
-    This resolves the hairpin NAT issue where pods inside the cluster cannot
-    reach the LoadBalancer's external IP.
+    The ConfigMap configures a CoreDNS instance that overrides the cluster's
+    DNS resolution to route SERVER_DNS to the Traefik ClusterIP, fixing the
+    hairpin NAT issue.
 
     Args:
-        env: Dictionary of environment variables.
+        traefik_clusterip: ClusterIP of the Traefik service.
+        server_dns: The server DNS name to override.
         dry_run: If True, print commands without executing them.
     """
-    dns = env.get("SERVER_DNS", "")
-    if not dns:
-        click.echo("Skipping hostAliases patch: SERVER_DNS not set.", err=True)
-        return
-    cluster_ip = get_traefik_clusterip()
-    if not cluster_ip:
-        click.echo("Skipping hostAliases patch: could not get Traefik ClusterIP.", err=True)
-        return
-    patch = json.dumps({
-        "spec": {"template": {"spec": {"hostAliases": [{
-            "ip": cluster_ip,
-            "hostnames": [dns],
-        }]}}}
-    })
+    corefile = (
+        ".:53 {\n"
+        "    hosts {\n"
+        f"        {traefik_clusterip} {server_dns}\n"
+        "        fallthrough\n"
+        "    }\n"
+        "    forward . /etc/resolv.conf\n"
+        "    cache 30\n"
+        "    errors\n"
+        "    health :8080\n"
+        "    ready :8181\n"
+        "}\n"
+    )
+    result = kubectl(
+        "create", "configmap", "custom-dns-config",
+        "-n", NAMESPACE, "--dry-run=client", "-o", "yaml",
+        f"--from-literal=Corefile={corefile}",
+    )
+    if result.returncode != 0:
+        click.echo(f"Error generating custom-dns configmap:\n{result.stderr.decode()}", err=True)
+        sys.exit(result.returncode)
+    apply_yaml(result.stdout, dry_run, "ConfigMap custom-dns-config")
+
+
+def get_custom_dns_clusterip() -> str:
+    """Return the ClusterIP of the custom-dns Service."""
+    result = kubectl(
+        "get", "svc", "custom-dns", "-n", NAMESPACE,
+        "-o", "jsonpath={.spec.clusterIP}",
+    )
+    return result.stdout.decode().strip() if result.returncode == 0 else ""
+
+
+def patch_forward_auth_dns(dns_ip: str, dry_run: bool) -> None:
+    """Patch forward-auth to use a custom DNS server via dnsPolicy: None.
+
+    This overrides the default DNS for the pod so that SERVER_DNS resolves to
+    Traefik's ClusterIP, avoiding the hairpin NAT issue.
+
+    Args:
+        dns_ip: ClusterIP of the custom-dns Service.
+        dry_run: If True, print commands without executing them.
+    """
+    patch = json.dumps({"spec": {"template": {"spec": {
+        "dnsPolicy": "None",
+        "dnsConfig": {
+            "nameservers": [dns_ip],
+            "searches": [
+                f"{NAMESPACE}.svc.cluster.local",
+                "svc.cluster.local",
+                "cluster.local",
+            ],
+            "options": [{"name": "ndots", "value": "5"}],
+        },
+    }}}})
     if dry_run:
-        click.echo(f"[dry-run] Would patch forward-auth hostAliases: {dns} → {cluster_ip}")
+        click.echo(f"[dry-run] Would patch forward-auth dnsConfig → nameserver {dns_ip}")
         return
     res = kubectl(
         "patch", "deployment", "traefik-forward-auth", "-n", NAMESPACE,
         "--type=merge", f"--patch={patch}",
     )
     if res.returncode != 0:
-        click.echo(f"Error patching forward-auth hostAliases:\n{res.stderr.decode()}", err=True)
+        click.echo(f"Error patching forward-auth dnsConfig:\n{res.stderr.decode()}", err=True)
         sys.exit(res.returncode)
-    click.echo(f"Patched forward-auth hostAliases: {dns} → {cluster_ip}.")
+    click.echo(f"Patched forward-auth dnsConfig: nameserver → {dns_ip}.")
+

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-dns-config
+  namespace: dtaas-workspace
+data:
+  Corefile: |
+    .:53 {
+        hosts {
+            YOUR_TRAEFIK_CLUSTERIP YOUR_SERVER_DNS
+            fallthrough
+        }
+        forward . /etc/resolv.conf
+        cache 30
+        errors
+        health :8080
+        ready :8181
+    }
