@@ -16,7 +16,7 @@ spec:
       dnsPolicy: None
       dnsConfig:
         nameservers:
-          - YOUR_CUSTOM_DNS_IP
+          - 8.8.8.8
         searches:
           - dtaas-workspace.svc.cluster.local
           - svc.cluster.local
