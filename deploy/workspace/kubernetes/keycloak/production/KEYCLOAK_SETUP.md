@@ -32,9 +32,9 @@ User Request → Traefik → Forward Auth → Keycloak (OIDC)
 In this guide, either `<DOMAIN_NAME>` OR `intocps.org` are used as
 placeholders for server hostname of the installation.
 
-### 1. Configure Environment Variables
+### 1. Configure Kubernetes Secrets
 
-Keycloak-specific environment variables are:
+Keycloak-specific variables managed in Kubernetes Secrets:
 
 | Variable | Purpose | Example |
 | -------- | ------- | ------- |
@@ -45,19 +45,20 @@ Keycloak-specific environment variables are:
 | `KEYCLOAK_CLIENT_SECRET` | OIDC client secret | `<from-Keycloak>` |
 | `KEYCLOAK_ISSUER_URL` | OIDC issuer URL | `https://intocps.org/auth/realms/dtaas` |
 
-Edit Keycloak-configuration in `.env`:
+Create or update the Keycloak credentials secret:
 
 ```bash
-# Keycloak Admin Credentials (for initial setup)
-KEYCLOAK_ADMIN=<ADMIN_USERNAME>
-KEYCLOAK_ADMIN_PASSWORD=<ADMIN_PASSWORD>
+kubectl create secret generic dtaas-keycloak \
+  --from-literal=KEYCLOAK_ADMIN=<ADMIN_USERNAME> \
+  --from-literal=KEYCLOAK_ADMIN_PASSWORD=<ADMIN_PASSWORD> \
+  --namespace=dtaas-workspace
 
-# Keycloak Realm
-KEYCLOAK_REALM=dtaas
-
-# Keycloak Client Configuration (will be created in post-install step)
-KEYCLOAK_CLIENT_ID=dtaas-workspace
-KEYCLOAK_CLIENT_SECRET=<generated-secret>
+kubectl create secret generic dtaas-forward-auth \
+  --from-literal=PROVIDERS_OIDC_ISSUER_URL=https://<DOMAIN>/auth/realms/dtaas \
+  --from-literal=PROVIDERS_OIDC_CLIENT_ID=dtaas-workspace \
+  --from-literal=PROVIDERS_OIDC_CLIENT_SECRET=<KEYCLOAK_CLIENT_SECRET> \
+  --from-literal=SECRET=$(openssl rand -base64 32) \
+  --namespace=dtaas-workspace
 ```
 
 ### 2. Configure Keycloak

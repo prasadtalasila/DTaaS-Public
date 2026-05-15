@@ -102,9 +102,12 @@ kubectl apply -f \
 
 ### Apply Manifests
 
-Create Secrets (see [`CONFIGURATION.md`](CONFIGURATION.md) for details):
+Create the namespace first, then secrets
+(see [`CONFIGURATION.md`](CONFIGURATION.md) for details):
 
 ```bash
+kubectl apply -f manifests/namespace.yaml
+
 kubectl create secret tls dtaas-tls \
   --cert=./certs/fullchain.pem \
   --key=./certs/privkey.pem \
@@ -123,17 +126,10 @@ kubectl create secret generic dtaas-forward-auth \
   --namespace=dtaas-workspace
 ```
 
-▶️ Apply all manifests using Kustomize:
+Apply all manifests using Kustomize:
 
 ```bash
 kubectl apply -k manifests/
-```
-
-Or apply individual manifests:
-
-```bash
-kubectl apply -f manifests/namespace.yaml
-kubectl apply -f manifests/
 ```
 
 ### 🌵 Temporary Issues
