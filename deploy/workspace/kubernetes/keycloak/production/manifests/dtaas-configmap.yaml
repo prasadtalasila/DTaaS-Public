@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dtaas-config
+  namespace: dtaas-workspace
+data:
+  SERVER_DNS: intocps.org
+  USERNAME1: user1
+  USERNAME2: user2

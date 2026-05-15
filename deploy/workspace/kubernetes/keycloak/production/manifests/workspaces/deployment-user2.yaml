@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user2
+  namespace: dtaas-workspace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user2
+  template:
+    metadata:
+      labels:
+        app: user2
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+      containers:
+        - name: workspace
+          image: intocps/workspace:main-967bc10
+          env:
+            - name: MAIN_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: dtaas-config
+                  key: USERNAME2
+          ports:
+            - containerPort: 8888
+          volumeMounts:
+            - name: workspace-common
+              mountPath: /workspace/common
+              readOnly: true
+            - name: workspace-user2
+              mountPath: /workspace
+      volumes:
+        - name: workspace-common
+          persistentVolumeClaim:
+            claimName: workspace-common
+        - name: workspace-user2
+          persistentVolumeClaim:
+            claimName: workspace-user2

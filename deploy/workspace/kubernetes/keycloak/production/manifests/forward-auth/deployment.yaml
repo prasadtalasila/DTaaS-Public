@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik-forward-auth
+  namespace: dtaas-workspace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traefik-forward-auth
+  template:
+    metadata:
+      labels:
+        app: traefik-forward-auth
+    spec:
+      containers:
+        - name: traefik-forward-auth
+          image: thomseddon/traefik-forward-auth:latest
+          env:
+            - name: LOG_LEVEL
+              value: info
+            - name: DEFAULT_PROVIDER
+              value: oidc
+            - name: PROVIDERS_OIDC_ISSUER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: dtaas-forward-auth
+                  key: PROVIDERS_OIDC_ISSUER_URL
+            - name: PROVIDERS_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: dtaas-forward-auth
+                  key: PROVIDERS_OIDC_CLIENT_ID
+            - name: PROVIDERS_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dtaas-forward-auth
+                  key: PROVIDERS_OIDC_CLIENT_SECRET
+            - name: SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dtaas-forward-auth
+                  key: SECRET
+            - name: INSECURE_COOKIE
+              value: "false"
+            - name: CONFIG
+              value: /conf
+            - name: AUTH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: dtaas-config
+                  key: SERVER_DNS
+            - name: COOKIE_DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: dtaas-config
+                  key: SERVER_DNS
+            - name: URL_PATH
+              value: /_oauth
+          ports:
+            - containerPort: 4181
+          volumeMounts:
+            - name: forward-auth-config
+              mountPath: /conf
+              subPath: conf
+      volumes:
+        - name: forward-auth-config
+          configMap:
+            name: forward-auth-config
