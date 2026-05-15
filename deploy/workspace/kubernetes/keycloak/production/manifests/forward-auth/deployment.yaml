@@ -57,6 +57,10 @@ spec:
                   key: SERVER_DNS
             - name: URL_PATH
               value: /_oauth
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           ports:
             - containerPort: 4181
           volumeMounts:

@@ -26,6 +26,10 @@ spec:
                 configMapKeyRef:
                   name: dtaas-config
                   key: USERNAME2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           ports:
             - containerPort: 8888
           volumeMounts:

@@ -44,6 +44,8 @@ manifests/
 ├── kustomization.yaml          # Kustomize entry point
 ├── namespace.yaml              # dtaas-workspace Namespace
 ├── dtaas-configmap.yaml        # Shared non-secret configuration
+├── crds/                       # Traefik Custom Resource Definitions
+│   └── traefik.yaml
 ├── traefik/                    # Traefik ingress controller
 │   ├── serviceaccount.yaml
 │   ├── clusterrole.yaml
@@ -89,16 +91,6 @@ workspace data.
 ## ⚙️ Configuration
 
 Follow the pre-install steps in [`CONFIGURATION.md`](CONFIGURATION.md).
-
-### Install Traefik CRDs
-
-Traefik Custom Resource Definitions must be installed before applying
-the manifests:
-
-```bash
-kubectl apply -f \
-  https://raw.githubusercontent.com/traefik/traefik/v3.0/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
-```
 
 ### Apply Manifests
 

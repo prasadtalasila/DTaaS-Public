@@ -40,6 +40,10 @@ spec:
               value: xforwarded
             - name: KC_HTTP_ENABLED
               value: "true"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
           ports:
             - containerPort: 8080
           livenessProbe:
