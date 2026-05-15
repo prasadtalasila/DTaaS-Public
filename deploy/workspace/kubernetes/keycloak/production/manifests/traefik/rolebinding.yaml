@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: traefik-dtaas-workspace
+  namespace: dtaas-workspace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: traefik-dtaas-workspace
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: dtaas-workspace

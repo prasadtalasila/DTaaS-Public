@@ -40,9 +40,11 @@ Replace `intocps.org` in the following files with your actual domain:
 
 ## 🔒 TLS Certificates
 
-Create the TLS secret from your certificate files:
+Create the namespace first, then the TLS secret from your certificate files:
 
 ```bash
+kubectl apply -f manifests/namespace.yaml
+
 kubectl create secret tls dtaas-tls \
   --cert=./certs/fullchain.pem \
   --key=./certs/privkey.pem \

@@ -112,7 +112,7 @@ The following instructions are part of post-install step.
 2. Click **Create client**
 3. Configure the client:
    - **Client type**: OpenID Connect
-   - **Client ID**: `dtaas-workspace` (match `KEYCLOAK_CLIENT_ID` in `.env`)
+   - **Client ID**: `dtaas-workspace` (match `KEYCLOAK_CLIENT_ID` in the secret)
    - Click **Next**
 4. Capability config:
    - Client authentication: ON
@@ -130,7 +130,17 @@ The following instructions are part of post-install step.
 6. Get the client secret:
    - Go to the **Credentials** tab
    - Copy the **Client secret** value
-   - Update `KEYCLOAK_CLIENT_SECRET` in the `.env` file
+   - Update the `dtaas-forward-auth` Kubernetes Secret:
+
+     ```bash
+     kubectl create secret generic dtaas-forward-auth \
+       --from-literal=PROVIDERS_OIDC_ISSUER_URL=https://<DOMAIN>/auth/realms/dtaas \
+       --from-literal=PROVIDERS_OIDC_CLIENT_ID=dtaas-workspace \
+       --from-literal=PROVIDERS_OIDC_CLIENT_SECRET=<COPIED_CLIENT_SECRET> \
+       --from-literal=SECRET=$(openssl rand -base64 32) \
+       --namespace=dtaas-workspace \
+       --dry-run=client -o yaml | kubectl apply -f -
+     ```
 
 #### Create OAuth2 Client for DTaaS Client Service
 
@@ -183,10 +193,16 @@ kubectl rollout restart deployment -n dtaas-workspace
 
 To use an external Keycloak instance (recommended for production):
 
-1. Update `KEYCLOAK_ISSUER_URL` in `.env`:
+1. Update `PROVIDERS_OIDC_ISSUER_URL` in the `dtaas-forward-auth` secret:
 
    ```bash
-   KEYCLOAK_ISSUER_URL=https://keycloak.intocps.org/auth/realms/dtaas
+   kubectl create secret generic dtaas-forward-auth \
+     --from-literal=PROVIDERS_OIDC_ISSUER_URL=https://keycloak.intocps.org/auth/realms/dtaas \
+     --from-literal=PROVIDERS_OIDC_CLIENT_ID=dtaas-workspace \
+     --from-literal=PROVIDERS_OIDC_CLIENT_SECRET=<CLIENT_SECRET> \
+     --from-literal=SECRET=$(openssl rand -base64 32) \
+     --namespace=dtaas-workspace \
+     --dry-run=client -o yaml | kubectl apply -f -
    ```
 
 Update client redirect URIs in Keycloak to use the production domain
@@ -195,20 +211,30 @@ Update client redirect URIs in Keycloak to use the production domain
 
 - Change the default Keycloak admin password
 - Use strong client secrets
-- Store secrets securely (Docker secrets or external secret managers)
+- Store secrets securely (Kubernetes Secrets or external secret managers)
 - Rotate secrets regularly
 
 ### 2. Database Backend
 
-For production, configure Keycloak with a proper database (PostgreSQL, MySQL):
+For production, configure Keycloak with a proper database (PostgreSQL, MySQL)
+by adding the following environment variables to the Keycloak deployment:
 
 ```yaml
-keycloak:
-  environment:
-   - KC_DB=postgres
-   - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
-   - KC_DB_USERNAME=keycloak
-   - KC_DB_PASSWORD=<KC_DB_PASSWORD>
+env:
+  - name: KC_DB
+    value: postgres
+  - name: KC_DB_URL
+    value: jdbc:postgresql://postgres:5432/keycloak
+  - name: KC_DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: dtaas-keycloak
+        key: KC_DB_USERNAME
+  - name: KC_DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: dtaas-keycloak
+        key: KC_DB_PASSWORD
 ```
 
 ## Troubleshooting
@@ -221,15 +247,15 @@ keycloak:
 
 ### Authentication Loop/Redirect Issues
 
-- Verify `KEYCLOAK_ISSUER_URL` matches the realm name
+- Verify `PROVIDERS_OIDC_ISSUER_URL` in the `dtaas-forward-auth` secret matches the realm name
 - Ensure redirect URIs in the Keycloak client include `/_oauth/*`
 - Confirm `COOKIE_DOMAIN` matches the domain
 - Clear browser cookies and retry
 
 ### "Invalid Client" Error
 
-- Verify `KEYCLOAK_CLIENT_ID` matches the client ID in Keycloak
-- Ensure `KEYCLOAK_CLIENT_SECRET` is correct
+- Verify `PROVIDERS_OIDC_CLIENT_ID` in the `dtaas-forward-auth` secret matches the client ID in Keycloak
+- Ensure `PROVIDERS_OIDC_CLIENT_SECRET` in the `dtaas-forward-auth` secret is correct
 - Confirm client authentication is enabled for the client
 
 ### Forward Auth Not Working

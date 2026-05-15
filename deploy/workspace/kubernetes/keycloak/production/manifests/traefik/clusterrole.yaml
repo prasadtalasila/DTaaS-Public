@@ -4,16 +4,6 @@ metadata:
   name: traefik-dtaas-workspace
 rules:
   - apiGroups:
-      - ""
-    resources:
-      - services
-      - endpoints
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - extensions
       - networking.k8s.io
     resources:
@@ -30,20 +20,3 @@ rules:
       - ingresses/status
     verbs:
       - update
-  - apiGroups:
-      - traefik.io
-    resources:
-      - middlewares
-      - middlewaretcps
-      - ingressroutes
-      - traefikservices
-      - ingressroutetcps
-      - ingressrouteudps
-      - tlsoptions
-      - tlsstores
-      - serverstransports
-      - serverstransporttcps
-    verbs:
-      - get
-      - list
-      - watch

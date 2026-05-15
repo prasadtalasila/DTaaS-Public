@@ -20,6 +20,11 @@ secure multi-user deployments with Keycloak authentication.
 
 ✅ Domain name pointing to the cluster load balancer
 
+✅ A Kubernetes StorageClass named `local-path` (install
+[rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
+for single-node clusters, or replace `storageClassName` in PVC manifests with
+your cloud/NFS storage class)
+
 ## 🗒️ Design
 
 ```text
@@ -50,6 +55,8 @@ manifests/
 │   ├── serviceaccount.yaml
 │   ├── clusterrole.yaml
 │   ├── clusterrolebinding.yaml
+│   ├── role.yaml
+│   ├── rolebinding.yaml
 │   ├── deployment.yaml
 │   └── service.yaml
 ├── keycloak/                   # Keycloak identity provider
@@ -123,16 +130,16 @@ the Traefik CRDs; the second pass applies the CRD instances once the API
 server has registered the new resource types:
 
 ```bash
-kubectl apply -k manifests/
+kubectl apply -k manifests/crds/
 kubectl apply -k manifests/
 ```
 
 > **Note:** Two passes are required because `kubectl apply` cannot
 > create CRD instances (IngressRoute, Middleware, TLSStore) in the same
 > API call that registers the CRDs. The second pass succeeds once the
-> API server has processed the new resource types. Running
-> `kubectl apply -R -f manifests/` will produce the same CRD-not-found
-> errors and must not be used.
+> API server has processed the new resource types. The CRDs live in a
+> separate `manifests/crds/` kustomization so that `kubectl delete -k manifests/`
+> does not delete cluster-scoped CRDs shared across namespaces.
 
 ### 🌵 Temporary Issues
 
