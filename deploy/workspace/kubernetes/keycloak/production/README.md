@@ -117,7 +117,7 @@ and run the configuration script to apply settings to the cluster:
 cp .env.example .env
 cp manifests/dtaas-configmap.yaml.example manifests/dtaas-configmap.yaml
 # Edit .env with your domain, credentials, and ACME email
-python scripts/config.py apply
+cd scripts && python -m src.config apply
 ```
 
 ### 🌵 Temporary Issues

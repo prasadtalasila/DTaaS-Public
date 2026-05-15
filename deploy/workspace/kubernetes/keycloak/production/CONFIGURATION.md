@@ -32,9 +32,9 @@ data:
   ACME_EMAIL: admin@YOUR_SERVER_DNS  # Email for Let's Encrypt notifications
 ```
 
-### Using scripts/config.py
+### Using scripts/src/config.py
 
-The `scripts/config.py` script reads a `.env` file and applies values to the
+The `scripts/src/config.py` script reads a `.env` file and applies values to the
 cluster. Copy the example file, fill in your values. Apply the base manifests
 first (so the ConfigMap and IngressRoutes exist), then run:
 
@@ -44,10 +44,10 @@ kubectl apply -k manifests/crds/
 kubectl apply -k manifests/
 cp .env.example .env
 # Edit .env with your domain, credentials, and email
-python scripts/config.py apply
+cd scripts && python -m src.config apply
 ```
 
-Run `python scripts/config.py apply --dry-run` to preview commands without
+Run `cd scripts && python -m src.config apply --dry-run` to preview commands without
 applying them.
 
 The `apply` command performs these actions automatically:
@@ -61,10 +61,10 @@ The `apply` command performs these actions automatically:
 ## 🌐 Domain
 
 Set `SERVER_DNS` in `.env` to your fully qualified domain name. Then run
-`python scripts/config.py apply` to propagate the domain across all resources.
+`cd scripts && python -m src.config apply` to propagate the domain across all resources.
 
 The manifests use `YOUR_SERVER_DNS` as a placeholder. Do not edit them
-directly — let `config.py apply` handle the substitution.
+directly — let `src.config apply` handle the substitution.
 
 ## 🔍 DNS Verification
 
@@ -72,7 +72,7 @@ Before deploying, verify that your domain's DNS A record points to the Traefik
 LoadBalancer IP:
 
 ```bash
-python scripts/config.py network show
+cd scripts && python -m src.config network show
 ```
 
 Example output when DNS is correct:
@@ -102,7 +102,7 @@ the mismatch and provides fix instructions:
 ```
 
 DNS changes typically propagate within a few minutes. Run
-`python scripts/config.py network show` again to confirm before proceeding.
+`cd scripts && python -m src.config network show` again to confirm before proceeding.
 
 ## 🔒 TLS Certificates
 
@@ -113,7 +113,7 @@ required.
 **Prerequisites:**
 
 - DNS A record must point to the Traefik LoadBalancer IP (verify with
-  `python scripts/config.py network show`).
+  `cd scripts && python -m src.config network show`).
 - Port 80 must be reachable from the internet (for the HTTP-01 challenge).
 - Set `ACME_EMAIL` in your `.env` file before deploying.
 
@@ -129,7 +129,7 @@ kubectl apply -f manifests/namespace.yaml
 ## 👥 Usernames
 
 Update `USERNAME1` and `USERNAME2` in `.env`, then run
-`python scripts/config.py apply`.
+`cd scripts && python -m src.config apply`.
 
 Update the `PathPrefix` rules in:
 
@@ -191,7 +191,7 @@ For detailed Keycloak setup, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md).
 
 ## 🖥️ DTaaS Web Client Config
 
-The client ConfigMap URLs are patched automatically by `python scripts/config.py apply`.
+The client ConfigMap URLs are patched automatically by `cd scripts && python -m src.config apply`.
 
 ### 🔑🖥️ Client OAuth2 Setup
 
