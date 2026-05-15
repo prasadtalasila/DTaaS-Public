@@ -106,7 +106,7 @@ then run the configuration script to apply settings to the cluster:
 ```bash
 cp .env.example .env
 # Edit .env with your domain, credentials, and ACME email
-python scripts/config.py
+python scripts/config.py apply
 ```
 
 Create the namespace and apply all manifests using Kustomize in two passes.
@@ -140,7 +140,6 @@ To remove all deployed resources:
 
 ```bash
 kubectl delete -k manifests/
-kubectl delete namespace dtaas-workspace
 ```
 
 To remove PersistentVolumeClaims (deletes workspace data):

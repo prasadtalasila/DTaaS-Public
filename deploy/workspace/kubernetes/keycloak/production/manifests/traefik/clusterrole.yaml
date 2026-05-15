@@ -4,6 +4,14 @@ metadata:
   name: traefik-dtaas-workspace
 rules:
   - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
       - extensions
       - networking.k8s.io
     resources:

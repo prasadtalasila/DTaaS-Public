@@ -7,7 +7,7 @@ spec:
   entryPoints:
     - web-secure
   routes:
-    - match: Host(`intocps.org`) && PathPrefix(`/_oauth`)
+    - match: Host(`YOUR_SERVER_DNS`) && PathPrefix(`/_oauth`)
       kind: Rule
       services:
         - name: traefik-forward-auth

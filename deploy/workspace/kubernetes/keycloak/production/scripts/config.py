@@ -1,19 +1,26 @@
 """Configure Kubernetes resources for DTaaS from a .env file.
 
-Reads a .env file and applies the values to Kubernetes
-ConfigMaps and Secrets in the dtaas-workspace namespace.
-
 Usage:
-    python config.py [--env-file PATH] [--dry-run]
+    python config.py apply [--env-file PATH] [--dry-run]
+    python config.py network show [--env-file PATH]
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
 import click
 
-NAMESPACE = "dtaas-workspace"
+from ingress_ops import patch_ingressroutes
+from k8s_ops import (
+    apply_forward_auth_secret,
+    apply_keycloak_secret,
+    get_lb_ip,
+    patch_client_configmap,
+    patch_configmap,
+    patch_forward_auth_aliases,
+)
+from net_ops import resolve_dns, show_dns_fix_instructions
+
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_ENV = SCRIPT_DIR.parent / ".env"
 
@@ -40,132 +47,12 @@ def load_env(env_file: Path) -> dict[str, str]:
     return env
 
 
-def kubectl(*args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess:
-    """Run kubectl with the given arguments.
-
-    Args:
-        args: kubectl subcommand arguments.
-        stdin: Optional bytes to pass to stdin.
-
-    Returns:
-        The completed process result.
-    """
-    return subprocess.run(
-        ["kubectl", *args],
-        input=stdin,
-        capture_output=True,
-        check=False,
-    )
+@click.group()
+def cli() -> None:
+    """DTaaS Kubernetes configuration CLI."""
 
 
-def apply_yaml(yaml_bytes: bytes, dry_run: bool, label: str) -> None:
-    """Apply YAML bytes via kubectl apply or print for dry-run.
-
-    Args:
-        yaml_bytes: Raw YAML content to apply.
-        dry_run: If True, print the YAML instead of applying.
-        label: Human-readable label for progress messages.
-    """
-    if dry_run:
-        click.echo(f"[dry-run] Would apply {label}:\n{yaml_bytes.decode()}")
-        return
-    result = kubectl("apply", "-f", "-", stdin=yaml_bytes)
-    if result.returncode != 0:
-        click.echo(f"Error applying {label}:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
-    click.echo(f"Applied {label}.")
-
-
-def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
-    """Generate YAML for a Kubernetes secret using kubectl dry-run.
-
-    Args:
-        name: Secret name.
-        literals: Key/value pairs to store in the secret.
-
-    Returns:
-        YAML bytes for the secret resource.
-    """
-    args = [
-        "create", "secret", "generic", name,
-        "-n", NAMESPACE,
-        "--dry-run=client", "-o", "yaml",
-    ]
-    for k, v in literals.items():
-        args += [f"--from-literal={k}={v}"]
-    result = kubectl(*args)
-    if result.returncode != 0:
-        click.echo(f"Error generating secret {name}:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
-    return result.stdout
-
-
-def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
-    """Update dtaas-config ConfigMap with values from env.
-
-    Args:
-        env: Dictionary of environment variables.
-        dry_run: If True, print commands without executing them.
-    """
-    keys = ["SERVER_DNS", "USERNAME1", "USERNAME2", "ACME_EMAIL"]
-    pairs = {k: env[k] for k in keys if k in env}
-    items = ", ".join(f'"{k}": "{v}"' for k, v in pairs.items())
-    patch = f'{{"data": {{{items}}}}}'
-    if dry_run:
-        click.echo(f"[dry-run] kubectl patch configmap dtaas-config --patch='{patch}'")
-        return
-    result = kubectl(
-        "patch", "configmap", "dtaas-config",
-        "-n", NAMESPACE, "--type=merge", f"--patch={patch}",
-    )
-    if result.returncode != 0:
-        click.echo(f"Error patching configmap:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
-    click.echo("Patched ConfigMap dtaas-config.")
-
-
-def apply_keycloak_secret(env: dict[str, str], dry_run: bool) -> None:
-    """Create or update the dtaas-keycloak secret.
-
-    Args:
-        env: Dictionary of environment variables.
-        dry_run: If True, print commands without executing them.
-    """
-    required = ["KEYCLOAK_ADMIN", "KEYCLOAK_ADMIN_PASSWORD"]
-    if any(k not in env for k in required):
-        click.echo(f"Skipping keycloak secret: {required} not all set.")
-        return
-    yaml_bytes = secret_yaml("dtaas-keycloak", {
-        "KEYCLOAK_ADMIN": env["KEYCLOAK_ADMIN"],
-        "KEYCLOAK_ADMIN_PASSWORD": env["KEYCLOAK_ADMIN_PASSWORD"],
-    })
-    apply_yaml(yaml_bytes, dry_run, "secret dtaas-keycloak")
-
-
-def apply_forward_auth_secret(env: dict[str, str], dry_run: bool) -> None:
-    """Create or update the dtaas-forward-auth secret.
-
-    Args:
-        env: Dictionary of environment variables.
-        dry_run: If True, print commands without executing them.
-    """
-    required = [
-        "OAUTH_SECRET", "KEYCLOAK_CLIENT_ID",
-        "KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_ISSUER_URL",
-    ]
-    if any(k not in env for k in required):
-        click.echo(f"Skipping forward-auth secret: {required} not all set.")
-        return
-    yaml_bytes = secret_yaml("dtaas-forward-auth", {
-        "SECRET": env["OAUTH_SECRET"],
-        "PROVIDERS_OIDC_CLIENT_ID": env["KEYCLOAK_CLIENT_ID"],
-        "PROVIDERS_OIDC_CLIENT_SECRET": env["KEYCLOAK_CLIENT_SECRET"],
-        "PROVIDERS_OIDC_ISSUER_URL": env["KEYCLOAK_ISSUER_URL"],
-    })
-    apply_yaml(yaml_bytes, dry_run, "secret dtaas-forward-auth")
-
-
-@click.command()
+@cli.command("apply")
 @click.option(
     "--env-file",
     default=str(DEFAULT_ENV),
@@ -179,14 +66,61 @@ def apply_forward_auth_secret(env: dict[str, str], dry_run: bool) -> None:
     default=False,
     help="Print kubectl commands without executing them.",
 )
-def main(env_file: str, dry_run: bool) -> None:
+def apply_cmd(env_file: str, dry_run: bool) -> None:
     """Apply DTaaS Kubernetes configuration from a .env file."""
     env = load_env(Path(env_file))
     patch_configmap(env, dry_run)
+    patch_ingressroutes(env, dry_run)
+    patch_client_configmap(env, dry_run)
+    patch_forward_auth_aliases(env, dry_run)
     apply_keycloak_secret(env, dry_run)
     apply_forward_auth_secret(env, dry_run)
     click.echo("Configuration applied successfully.")
 
 
+@cli.group("network")
+def network_group() -> None:
+    """Network diagnostics commands."""
+
+
+@network_group.command("show")
+@click.option(
+    "--env-file",
+    default=str(DEFAULT_ENV),
+    show_default=True,
+    help="Path to the .env file.",
+    type=click.Path(exists=False),
+)
+def network_show(env_file: str) -> None:
+    """Show LoadBalancer IP and DNS resolution for SERVER_DNS."""
+    env = load_env(Path(env_file))
+    dns = env.get("SERVER_DNS", "")
+    if not dns:
+        click.echo("SERVER_DNS not set in .env file.", err=True)
+        sys.exit(1)
+    lb_ip = get_lb_ip()
+    resolved_ip = resolve_dns(dns)
+    click.echo(f"Domain         : {dns}")
+    click.echo(f"LoadBalancer IP: {lb_ip or '(not found)'}")
+    click.echo(f"DNS resolved   : {resolved_ip or '(unresolved)'}")
+    if not lb_ip:
+        click.echo("\n⚠ Could not determine LoadBalancer IP.", err=True)
+        click.echo("  Run: kubectl get svc traefik -n dtaas-workspace", err=True)
+        return
+    if not resolved_ip:
+        click.echo(f"\n✗ DNS not configured: {dns} does not resolve.", err=True)
+        show_dns_fix_instructions(dns, lb_ip)
+        sys.exit(1)
+    if resolved_ip != lb_ip:
+        click.echo(
+            f"\n✗ DNS mismatch: {dns} resolves to {resolved_ip} "
+            f"but LoadBalancer IP is {lb_ip}.",
+            err=True,
+        )
+        show_dns_fix_instructions(dns, lb_ip)
+        sys.exit(1)
+    click.echo(f"\n✓ DNS correctly configured: {dns} → {lb_ip}")
+
+
 if __name__ == "__main__":
-    main()
+    cli()

@@ -7,6 +7,7 @@ Configuration is divided into pre-install and post-install tasks.
 
 - [Namespace and ConfigMap](#-namespace-and-configmap)
 - [Domain](#-domain)
+- [DNS Verification](#-dns-verification)
 - [TLS Certificates](#-tls-certificates)
 - [Usernames](#-usernames)
 - [Forward Auth](#-traefik-forward-auth-configuration)
@@ -25,10 +26,10 @@ The `manifests/dtaas-configmap.yaml` holds non-sensitive configuration:
 
 ```yaml
 data:
-  SERVER_DNS: intocps.org   # Replace with your domain
-  USERNAME1: user1          # Replace with your first username
-  USERNAME2: user2          # Replace with your second username
-  ACME_EMAIL: admin@intocps.org  # Email for Let's Encrypt notifications
+  SERVER_DNS: YOUR_SERVER_DNS   # Replace with your domain
+  USERNAME1: user1              # Replace with your first username
+  USERNAME2: user2              # Replace with your second username
+  ACME_EMAIL: admin@YOUR_SERVER_DNS  # Email for Let's Encrypt notifications
 ```
 
 ### Using scripts/config.py
@@ -38,19 +39,65 @@ cluster. Copy the example file, fill in your values, then run:
 
 ```bash
 cp .env.example .env
-# Edit .env
-python scripts/config.py
+# Edit .env with your domain, credentials, and email
+python scripts/config.py apply
 ```
 
-Run `python scripts/config.py --dry-run` to preview commands without applying.
+Run `python scripts/config.py apply --dry-run` to preview commands without
+applying them.
+
+The `apply` command performs these actions automatically:
+
+- Patches `dtaas-config` ConfigMap with `SERVER_DNS`, usernames and ACME email
+- Patches all IngressRoute `Host()` rules to use your domain
+- Updates the `client-config` ConfigMap URLs
+- Creates or updates Keycloak and forward-auth Kubernetes secrets
 
 ## 🌐 Domain
 
-Replace `intocps.org` in the following files with your actual domain:
+Set `SERVER_DNS` in `.env` to your fully qualified domain name. Then run
+`python scripts/config.py apply` to propagate the domain across all resources.
 
-- `manifests/dtaas-configmap.yaml` — `SERVER_DNS` value
-- `manifests/client/configmap.yaml` — all `intocps.org` references
-- `manifests/ingress/ingressroute-*.yaml` — `Host(...)` rules
+The manifests use `YOUR_SERVER_DNS` as a placeholder. Do not edit them
+directly — let `config.py apply` handle the substitution.
+
+## 🔍 DNS Verification
+
+Before deploying, verify that your domain's DNS A record points to the Traefik
+LoadBalancer IP:
+
+```bash
+python scripts/config.py network show
+```
+
+Example output when DNS is correct:
+
+```
+Domain         : shared.dtaas-digitaltwin.com
+LoadBalancer IP: 91.98.222.171
+DNS resolved   : 91.98.222.171
+
+✓ DNS correctly configured: shared.dtaas-digitaltwin.com → 91.98.222.171
+```
+
+If the DNS is not yet configured or points to the wrong IP, the command prints
+the mismatch and provides fix instructions:
+
+```
+✗ DNS mismatch: shared.dtaas-digitaltwin.com resolves to 1.2.3.4
+  but LoadBalancer IP is 91.98.222.171.
+
+── How to fix DNS ──────────────────────────────────────
+  Add an A record at your DNS provider / registrar:
+    Type : A
+    Name : shared.dtaas-digitaltwin.com
+    Value: 91.98.222.171
+    TTL  : 300  (5 minutes recommended)
+...
+```
+
+DNS changes typically propagate within a few minutes. Run
+`python scripts/config.py network show` again to confirm before proceeding.
 
 ## 🔒 TLS Certificates
 
@@ -59,7 +106,9 @@ built-in ACME support (HTTP-01 challenge). No manual certificate management is
 required.
 
 **Prerequisites:**
-- Your domain's DNS A record must point to the Traefik LoadBalancer IP.
+
+- DNS A record must point to the Traefik LoadBalancer IP (verify with
+  `python scripts/config.py network show`).
 - Port 80 must be reachable from the internet (for the HTTP-01 challenge).
 - Set `ACME_EMAIL` in your `.env` file before deploying.
 
@@ -74,7 +123,8 @@ kubectl apply -f manifests/namespace.yaml
 
 ## 👥 Usernames
 
-Update `USERNAME1` and `USERNAME2` in `manifests/dtaas-configmap.yaml`.
+Update `USERNAME1` and `USERNAME2` in `.env`, then run
+`python scripts/config.py apply`.
 
 Update the `PathPrefix` rules in:
 
@@ -136,8 +186,7 @@ For detailed Keycloak setup, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md).
 
 ## 🖥️ DTaaS Web Client Config
 
-Edit `manifests/client/configmap.yaml` and replace all `intocps.org`
-references with your domain name.
+The client ConfigMap URLs are patched automatically by `python scripts/config.py apply`.
 
 ### 🔑🖥️ Client OAuth2 Setup
 

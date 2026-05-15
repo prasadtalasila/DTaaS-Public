@@ -4,7 +4,7 @@ metadata:
   name: dtaas-config
   namespace: dtaas-workspace
 data:
-  SERVER_DNS: intocps.org
+  SERVER_DNS: YOUR_SERVER_DNS
   USERNAME1: user1
   USERNAME2: user2
-  ACME_EMAIL: admin@intocps.org
+  ACME_EMAIL: admin@YOUR_SERVER_DNS
