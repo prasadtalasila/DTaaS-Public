@@ -95,7 +95,7 @@ Create the Keycloak credentials secret:
 
 ```bash
 kubectl create secret generic dtaas-keycloak \
-  --from-literal=KEYCLOAK_ADMIN=admin \
+  --from-literal=KEYCLOAK_ADMIN=<ADMIN_USERNAME> \
   --from-literal=KEYCLOAK_ADMIN_PASSWORD=<STRONG_PASSWORD> \
   --namespace=dtaas-workspace
 ```

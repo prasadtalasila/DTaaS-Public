@@ -38,7 +38,7 @@ Keycloak-specific environment variables are:
 
 | Variable | Purpose | Example |
 | -------- | ------- | ------- |
-| `KEYCLOAK_ADMIN` | Admin username | `admin` |
+| `KEYCLOAK_ADMIN` | Admin username | `<ADMIN_USERNAME>` |
 | `KEYCLOAK_ADMIN_PASSWORD` | Admin password | `<ADMIN_PASSWORD>` |
 | `KEYCLOAK_REALM` | Realm name | `dtaas` |
 | `KEYCLOAK_CLIENT_ID` | OIDC client ID | `dtaas-workspace` |
@@ -49,7 +49,7 @@ Edit Keycloak-configuration in `.env`:
 
 ```bash
 # Keycloak Admin Credentials (for initial setup)
-KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN=<ADMIN_USERNAME>
 KEYCLOAK_ADMIN_PASSWORD=<ADMIN_PASSWORD>
 
 # Keycloak Realm
@@ -207,7 +207,7 @@ keycloak:
    - KC_DB=postgres
    - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
    - KC_DB_USERNAME=keycloak
-   - KC_DB_PASSWORD=secure_password
+   - KC_DB_PASSWORD=<KC_DB_PASSWORD>
 ```
 
 ## Troubleshooting
