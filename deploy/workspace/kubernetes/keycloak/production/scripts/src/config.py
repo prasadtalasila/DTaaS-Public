@@ -1,8 +1,8 @@
 """Configure Kubernetes resources for DTaaS from a .env file.
 
 Usage:
-    python config.py apply [--env-file PATH] [--dry-run]
-    python config.py network show [--env-file PATH]
+    python -m src.config apply [--env-file PATH] [--dry-run]
+    python -m src.config network show [--env-file PATH]
 """
 
 import sys
@@ -10,8 +10,8 @@ from pathlib import Path
 
 import click
 
-from ingress_ops import patch_ingressroutes
-from k8s_ops import (
+from .ingress_ops import patch_ingressroutes
+from .k8s_ops import (
     apply_custom_dns_configmap,
     apply_forward_auth_secret,
     apply_keycloak_secret,
@@ -19,16 +19,15 @@ from k8s_ops import (
     get_custom_dns_clusterip,
     get_lb_ip,
     get_traefik_clusterip,
-    kubectl,
     patch_client_configmap,
     patch_configmap,
     patch_forward_auth_dns,
 )
-from net_ops import resolve_dns, show_dns_fix_instructions
+from .net_ops import resolve_dns, show_dns_fix_instructions
 
 SCRIPT_DIR = Path(__file__).parent
-DEFAULT_ENV = SCRIPT_DIR.parent / ".env"
-MANIFESTS_DIR = SCRIPT_DIR.parent / "manifests"
+DEFAULT_ENV = SCRIPT_DIR.parent.parent / ".env"
+MANIFESTS_DIR = SCRIPT_DIR.parent.parent / "manifests"
 
 
 def load_env(env_file: Path) -> dict[str, str]:

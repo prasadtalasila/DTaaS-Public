@@ -73,6 +73,9 @@ def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
 def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
     """Create or update dtaas-config ConfigMap with values from env.
 
+    After updating the ConfigMap, restarts Deployments that read values from
+    it as environment variables so they pick up the new configuration.
+
     Args:
         env: Dictionary of environment variables.
         dry_run: If True, print commands without executing them.
@@ -89,6 +92,34 @@ def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
         click.echo(f"Error generating dtaas-config:\n{result.stderr.decode()}", err=True)
         sys.exit(result.returncode)
     apply_yaml(result.stdout, dry_run, "ConfigMap dtaas-config")
+    _restart_configmap_consumers(dry_run)
+
+
+def _restart_configmap_consumers(dry_run: bool) -> None:
+    """Rolling-restart Deployments that read dtaas-config via env vars.
+
+    Kubernetes does not automatically restart pods when a ConfigMap they
+    reference via ``envFrom`` or ``valueFrom.configMapKeyRef`` changes.
+    This function triggers a rollout restart so pods pick up the new values.
+
+    Args:
+        dry_run: If True, print commands without executing them.
+    """
+    deployments = ["keycloak", "user1", "user2"]
+    for name in deployments:
+        if dry_run:
+            click.echo(f"[dry-run] Would rollout restart deployment/{name}")
+            continue
+        res = kubectl(
+            "rollout", "restart", f"deployment/{name}", "-n", NAMESPACE,
+        )
+        if res.returncode != 0:
+            click.echo(
+                f"Warning: could not restart {name}: {res.stderr.decode()}",
+                err=True,
+            )
+        else:
+            click.echo(f"Restarted deployment/{name}.")
 
 
 def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
@@ -170,12 +201,23 @@ def apply_forward_auth_secret(env: dict[str, str], dry_run: bool) -> None:
 
 
 def get_lb_ip() -> str:
-    """Return the external IP of the Traefik LoadBalancer service."""
-    result = kubectl(
-        "get", "svc", "traefik", "-n", NAMESPACE,
-        "-o", "jsonpath={.status.loadBalancer.ingress[0].ip}",
-    )
-    return result.stdout.decode().strip() if result.returncode == 0 else ""
+    """Return the external IP or hostname of the Traefik LoadBalancer service.
+
+    Checks ``status.loadBalancer.ingress[0].ip`` first; if empty, falls back to
+    ``status.loadBalancer.ingress[0].hostname`` (used by AWS ELB, GKE, etc.).
+
+    Returns:
+        External IP or hostname string, or empty string if not found.
+    """
+    for field in ("ip", "hostname"):
+        result = kubectl(
+            "get", "svc", "traefik", "-n", NAMESPACE,
+            "-o", f"jsonpath={{.status.loadBalancer.ingress[0].{field}}}",
+        )
+        value = result.stdout.decode().strip() if result.returncode == 0 else ""
+        if value:
+            return value
+    return ""
 
 
 def get_traefik_clusterip() -> str:
@@ -265,4 +307,3 @@ def patch_forward_auth_dns(dns_ip: str, dry_run: bool) -> None:
         click.echo(f"Error patching forward-auth dnsConfig:\n{res.stderr.decode()}", err=True)
         sys.exit(res.returncode)
     click.echo(f"Patched forward-auth dnsConfig: nameserver → {dns_ip}.")
-

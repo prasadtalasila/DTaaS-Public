@@ -29,7 +29,7 @@ def show_dns_fix_instructions(dns: str, lb_ip: str) -> None:
     """
     click.echo("\n── How to fix DNS ──────────────────────────────────────")
     click.echo("  Add an A record at your DNS provider / registrar:")
-    click.echo(f"    Type : A")
+    click.echo("    Type : A")
     click.echo(f"    Name : {dns}")
     click.echo(f"    Value: {lb_ip}")
     click.echo("    TTL  : 300  (5 minutes recommended)")
@@ -37,6 +37,6 @@ def show_dns_fix_instructions(dns: str, lb_ip: str) -> None:
     click.echo(f"    nslookup {dns}")
     click.echo(f"    dig +short {dns}")
     click.echo("\n  Then re-run:")
-    click.echo("    python scripts/config.py network show")
-    click.echo("    python scripts/config.py apply")
+    click.echo("    python scripts/src/config.py network show")
+    click.echo("    python scripts/src/config.py apply")
     click.echo("────────────────────────────────────────────────────────")

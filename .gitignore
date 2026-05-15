@@ -244,4 +244,6 @@ deploy/dtaas/docker/secure-server_with_integrated-gitlab/certs/privkey.pem
 deploy/dtaas/docker/secure-server_with_integrated-gitlab/data
 !deploy/dtaas/docker/secure-server_with_integrated-gitlab/data/.gitkeep
 
-deploy/workspace/kubernetes/keycloak/production/manifests/dtaas-configmap.yaml
+# kubernetes keycloak production: generated secrets and config that must not be committed
+deploy/workspace/kubernetes/keycloak/production/config/client.js
+deploy/workspace/kubernetes/keycloak/production/.env

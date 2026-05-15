@@ -6,7 +6,7 @@ import sys
 
 import click
 
-from k8s_ops import NAMESPACE, kubectl
+from .k8s_ops import NAMESPACE, kubectl
 
 
 def _patch_one_ingressroute(item: dict, dns: str, dry_run: bool) -> None:
