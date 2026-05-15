@@ -118,11 +118,21 @@ kubectl create secret generic dtaas-forward-auth \
   --namespace=dtaas-workspace
 ```
 
-Apply all manifests using Kustomize:
+Apply all manifests using Kustomize in two passes. The first pass installs
+the Traefik CRDs; the second pass applies the CRD instances once the API
+server has registered the new resource types:
 
 ```bash
 kubectl apply -k manifests/
+kubectl apply -k manifests/
 ```
+
+> **Note:** Two passes are required because `kubectl apply` cannot
+> create CRD instances (IngressRoute, Middleware, TLSStore) in the same
+> API call that registers the CRDs. The second pass succeeds once the
+> API server has processed the new resource types. Running
+> `kubectl apply -R -f manifests/` will produce the same CRD-not-found
+> errors and must not be used.
 
 ### 🌵 Temporary Issues
 

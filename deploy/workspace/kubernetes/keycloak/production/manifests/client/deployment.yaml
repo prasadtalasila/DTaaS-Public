@@ -16,6 +16,10 @@ spec:
       containers:
         - name: client
           image: intocps/dtaas-web:1.0.2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
           ports:
             - containerPort: 4000
           volumeMounts:
