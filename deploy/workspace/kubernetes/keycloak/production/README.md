@@ -25,20 +25,77 @@ your cloud/NFS storage class)
 
 ## 🗒️ Design
 
+The deployment runs entirely inside a single Kubernetes namespace
+(`dtaas-workspace`). Traefik terminates TLS at the cluster edge and routes
+each request to the correct backend after consulting `traefik-forward-auth`
+for authentication. Keycloak is the identity provider for OIDC.
+
+### Request Flow
+
 ```text
-User Request → Traefik (Ingress) → Forward Auth → Keycloak (OIDC)
-                       ↓
-                 User Workspace
+                              ┌─────────────────────────────┐
+                              │   Browser (HTTPS, port 443) │
+                              └──────────────┬──────────────┘
+                                             │
+                                  ┌──────────▼─────────┐
+                                  │  Traefik Ingress   │
+                                  │  (TLS + ACME)      │
+                                  └──────────┬─────────┘
+                                             │
+                          ┌──────────────────┼─────────────────────┐
+                          │                  │                     │
+                          │      ┌───────────▼─────────────┐       │
+                          │      │ traefik-forward-auth    │       │
+                          │      │ (OIDC middleware)       │       │
+                          │      └───────────┬─────────────┘       │
+                          │                  │                     │
+                          │      ┌───────────▼─────────────┐       │
+                          │      │ custom-dns (CoreDNS)    │       │
+                          │      │ hairpin-NAT override    │       │
+                          │      └───────────┬─────────────┘       │
+                          │                  │                     │
+                ┌─────────▼────────┐ ┌───────▼─────────┐ ┌─────────▼────────┐
+                │ Keycloak (/auth) │ │ DTaaS Client (/)│ │ Workspaces       │
+                │ Identity Provider│ │ React SPA       │ │ user1, user2 …   │
+                └──────────────────┘ └─────────────────┘ └──────────────────┘
 ```
+
+### Components
 
 The Kubernetes manifests in `manifests/` provide a production-ready setup:
 
-- **Traefik** reverse proxy with TLS termination (ports 80, 443)
-- **Automatic HTTPS certificates** via Let's Encrypt ACME (HTTP-01 challenge)
-- **OAuth2 authentication** via `traefik-forward-auth`
-- **Keycloak** identity provider for OIDC authentication
-- **Multiple workspace instances** (user1, user2) behind authentication
-- **DTaaS web client** served over HTTPS
+- **Traefik** ingress controller terminating TLS on ports 80/443. HTTP is
+  redirected to HTTPS via an entrypoint redirection rule.
+- **Automatic HTTPS certificates** issued by Let's Encrypt using the ACME
+  HTTP-01 challenge, stored on a PVC so they survive pod restarts.
+- **traefik-forward-auth** middleware enforces OIDC authentication on every
+  protected route (the workspaces and the client; `/auth` and `/_oauth` are
+  excluded).
+- **Keycloak** identity provider mounted under `/auth`, backed by a PVC for
+  realm and user persistence.
+- **custom-dns (CoreDNS)** an in-namespace DNS server that resolves the
+  public `SERVER_DNS` to the Traefik ClusterIP. This avoids the
+  hairpin-NAT problem where `forward-auth` would otherwise try to talk to
+  Keycloak via the external LoadBalancer IP and fail on single-node or
+  NAT-restricted clusters.
+- **Workspace pods** (`user1`, `user2`, …) each mount a per-user PVC and a
+  shared read-only `workspace-common` PVC.
+- **DTaaS web client** React SPA served on `/` and protected by the same
+  forward-auth middleware.
+
+### Authentication Sequence
+
+1. Browser requests `https://<SERVER_DNS>/<user>`.
+2. Traefik matches the IngressRoute and consults `traefik-forward-auth`.
+3. If no session cookie exists, forward-auth redirects the browser to
+   Keycloak at `/auth/realms/dtaas/protocol/openid-connect/auth`.
+4. The user signs in; Keycloak redirects back to `/_oauth` with an
+   authorization code.
+5. forward-auth exchanges the code for tokens (resolving the issuer URL
+   through `custom-dns` so the lookup stays inside the cluster) and sets
+   a session cookie scoped to `SERVER_DNS`.
+6. Subsequent requests pass the middleware and reach the workspace,
+   client, or Keycloak service directly.
 
 ### Manifests Structure
 
@@ -62,7 +119,11 @@ manifests/
 │   ├── pvc.yaml
 │   ├── deployment.yaml
 │   └── service.yaml
-├── client/                     # DTaaS web client
+├── client/                     # DTaaS web client (React SPA)
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+├── custom-dns/                 # In-namespace CoreDNS (hairpin-NAT fix)
 │   ├── configmap.yaml
 │   ├── deployment.yaml
 │   └── service.yaml

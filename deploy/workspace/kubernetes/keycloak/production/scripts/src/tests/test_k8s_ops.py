@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from src.k8s_ops import (
+    _rewrite_client_env_js,
     apply_yaml,
     get_custom_dns_clusterip,
     get_lb_ip,
@@ -173,8 +174,8 @@ class TestPatchClientConfigmap:
         mock_kubectl.assert_not_called()
 
     def test_updates_url_in_env_js(self) -> None:
-        """Replaces the domain in the env.js ConfigMap data."""
-        env_js = "window.env = { url: 'https://old.example.com/' };"
+        """Replaces the domain in DTaaS-managed env.js URL entries."""
+        env_js = "REACT_APP_URL: 'https://old.example.com/',"
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
         with patch("src.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
@@ -184,8 +185,54 @@ class TestPatchClientConfigmap:
 
     def test_no_op_when_already_up_to_date(self, capsys: pytest.CaptureFixture) -> None:
         """Skips patch when the domain in env.js already matches."""
-        env_js = "window.env = { url: 'https://new.example.com/' };"
+        env_js = "REACT_APP_URL: 'https://new.example.com/',"
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
         with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=cm_json)):
             patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         assert "already up to date" in capsys.readouterr().out
+
+    def test_replaces_placeholder_on_first_run(self) -> None:
+        """The YOUR_SERVER_DNS placeholder is substituted on initial apply."""
+        env_js = (
+            "REACT_APP_URL: 'https://YOUR_SERVER_DNS/',\n"
+            "REACT_APP_AUTH_AUTHORITY: 'https://YOUR_SERVER_DNS/auth/realms/dtaas',\n"
+        )
+        cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
+        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+            mock_kubectl.return_value = make_proc(stdout=cm_json)
+            patch_client_configmap({"SERVER_DNS": "dtaas.example.com"}, dry_run=False)
+        patch_call = mock_kubectl.call_args_list[-1]
+        rendered = str(patch_call)
+        assert "dtaas.example.com" in rendered
+        assert "YOUR_SERVER_DNS" not in rendered
+
+
+class TestRewriteClientEnvJs:
+    """Tests for _rewrite_client_env_js()."""
+
+    def test_replaces_placeholder(self) -> None:
+        """Literal YOUR_SERVER_DNS occurrences are replaced."""
+        result = _rewrite_client_env_js(
+            "REACT_APP_URL: 'https://YOUR_SERVER_DNS/'", "dtaas.example.com"
+        )
+        assert "YOUR_SERVER_DNS" not in result
+        assert "dtaas.example.com" in result
+
+    def test_replaces_existing_fqdn(self) -> None:
+        """A real FQDN already in place is replaced on re-run."""
+        result = _rewrite_client_env_js(
+            "REACT_APP_AUTH_AUTHORITY: 'https://old.example.com/auth/realms/dtaas'",
+            "new.example.com",
+        )
+        assert "old.example.com" not in result
+        assert "new.example.com" in result
+
+    def test_preserves_unmanaged_urls(self) -> None:
+        """URLs assigned to keys we do not manage are untouched."""
+        env_js = (
+            "REACT_APP_URL: 'https://YOUR_SERVER_DNS/',\n"
+            "REACT_APP_ANALYTICS_URL: 'https://analytics.example.org/'"
+        )
+        result = _rewrite_client_env_js(env_js, "dtaas.example.com")
+        assert "analytics.example.org" in result
+        assert "dtaas.example.com" in result

@@ -35,7 +35,7 @@ def _patch_one_ingressroute(item: dict, dns: str, dry_run: bool) -> None:
                   "--type=merge", f"--patch={patch}")
     if res.returncode != 0:
         click.echo(f"Error patching {name}:\n{res.stderr.decode()}", err=True)
-        sys.exit(res.returncode)
+        sys.exit(1)
     click.echo(f"Patched ingressroute/{name} → Host(`{dns}`).")
 
 
@@ -53,6 +53,6 @@ def patch_ingressroutes(env: dict[str, str], dry_run: bool) -> None:
     result = kubectl("get", "ingressroute", "-n", NAMESPACE, "-o", "json")
     if result.returncode != 0:
         click.echo(f"Error listing IngressRoutes: {result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     for item in json.loads(result.stdout).get("items", []):
         _patch_one_ingressroute(item, dns, dry_run)

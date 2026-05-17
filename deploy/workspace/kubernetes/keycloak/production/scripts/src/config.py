@@ -15,7 +15,6 @@ from .k8s_ops import (
     apply_custom_dns_configmap,
     apply_forward_auth_secret,
     apply_keycloak_secret,
-    apply_yaml,
     get_custom_dns_clusterip,
     get_lb_ip,
     get_traefik_clusterip,
@@ -27,11 +26,20 @@ from .net_ops import resolve_dns, show_dns_fix_instructions
 
 SCRIPT_DIR = Path(__file__).parent
 DEFAULT_ENV = SCRIPT_DIR.parent.parent / ".env"
-MANIFESTS_DIR = SCRIPT_DIR.parent.parent / "manifests"
+
+
+def _strip_quotes(value: str) -> str:
+    """Strip a single pair of surrounding quotes from a value."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
 
 
 def load_env(env_file: Path) -> dict[str, str]:
     """Load key=value pairs from a .env file, skipping comments.
+
+    Quoted values (single or double) are unwrapped. Lines starting with
+    ``#`` and blank lines are ignored.
 
     Args:
         env_file: Path to the .env file.
@@ -43,12 +51,12 @@ def load_env(env_file: Path) -> dict[str, str]:
         click.echo(f"Error: .env file not found: {env_file}", err=True)
         sys.exit(1)
     env: dict[str, str] = {}
-    for line in env_file.read_text().splitlines():
-        line = line.strip()
+    for raw_line in env_file.read_text().splitlines():
+        line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        env[key.strip()] = value.strip()
+        env[key.strip()] = _strip_quotes(value.strip())
     return env
 
 
@@ -58,10 +66,13 @@ def cli() -> None:
 
 
 def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
-    """Apply the custom-dns deployment and configure forward-auth to use it.
+    """Update the custom-dns ConfigMap and patch forward-auth to use it.
 
-    Deploys an in-namespace CoreDNS instance that resolves SERVER_DNS to the
-    Traefik ClusterIP, fixing the hairpin NAT issue for forward-auth.
+    The custom-dns Deployment and Service are applied by the regular
+    ``kubectl apply -k manifests/`` pass; this function only fills in the
+    Corefile entries that depend on the actual Traefik ClusterIP and
+    SERVER_DNS, then patches forward-auth's ``dnsConfig`` so its OIDC
+    lookups go through custom-dns (the hairpin-NAT fix).
 
     Args:
         env: Dictionary of environment variables.
@@ -76,9 +87,6 @@ def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
         click.echo("Skipping custom-dns: could not get Traefik ClusterIP.", err=True)
         return
     apply_custom_dns_configmap(traefik_ip, dns, dry_run)
-    for name in ("deployment.yaml", "service.yaml"):
-        manifest = MANIFESTS_DIR / "custom-dns" / name
-        apply_yaml(manifest.read_bytes(), dry_run, f"custom-dns/{name}")
     dns_ip = get_custom_dns_clusterip()
     if not dns_ip and not dry_run:
         click.echo("custom-dns Service not yet ready; retry apply after pod starts.", err=True)

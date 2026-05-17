@@ -8,6 +8,8 @@ import sys
 import click
 
 NAMESPACE = "dtaas-workspace"
+KUBECTL_TIMEOUT = 60
+PLACEHOLDER_SERVER_DNS = "YOUR_SERVER_DNS"
 
 
 def kubectl(*args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess:
@@ -25,6 +27,7 @@ def kubectl(*args: str, stdin: bytes | None = None) -> subprocess.CompletedProce
         input=stdin,
         capture_output=True,
         check=False,
+        timeout=KUBECTL_TIMEOUT,
     )
 
 
@@ -42,7 +45,7 @@ def apply_yaml(yaml_bytes: bytes, dry_run: bool, label: str) -> None:
     result = kubectl("apply", "-f", "-", stdin=yaml_bytes)
     if result.returncode != 0:
         click.echo(f"Error applying {label}:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     click.echo(f"Applied {label}.")
 
 
@@ -66,7 +69,7 @@ def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
     result = kubectl(*args)
     if result.returncode != 0:
         click.echo(f"Error generating secret {name}:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     return result.stdout
 
 
@@ -90,7 +93,7 @@ def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
     )
     if result.returncode != 0:
         click.echo(f"Error generating dtaas-config:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     apply_yaml(result.stdout, dry_run, "ConfigMap dtaas-config")
     _restart_configmap_consumers(dry_run)
 
@@ -122,6 +125,39 @@ def _restart_configmap_consumers(dry_run: bool) -> None:
             click.echo(f"Restarted deployment/{name}.")
 
 
+_CLIENT_URL_KEYS = (
+    "REACT_APP_URL",
+    "REACT_APP_AUTH_AUTHORITY",
+    "REACT_APP_REDIRECT_URI",
+    "REACT_APP_LOGOUT_REDIRECT_URI",
+)
+
+
+def _rewrite_client_env_js(env_js: str, dns: str) -> str:
+    """Rewrite the host portion of DTaaS-managed URLs in env.js.
+
+    Handles both the initial ``YOUR_SERVER_DNS`` placeholder and re-runs
+    where a real FQDN is already in place. Only URLs assigned to the
+    React-app environment keys we manage are rewritten, so unrelated URLs
+    (CDNs, analytics, etc.) are left untouched.
+
+    Args:
+        env_js: Current ``env.js`` content from the ConfigMap.
+        dns: New SERVER_DNS to substitute as the host.
+
+    Returns:
+        The updated ``env.js`` content.
+    """
+    updated = env_js.replace(PLACEHOLDER_SERVER_DNS, dns)
+    for key in _CLIENT_URL_KEYS:
+        updated = re.sub(
+            rf"({key}:\s*'https://)[^/']+(/)",
+            rf"\g<1>{dns}\g<2>",
+            updated,
+        )
+    return updated
+
+
 def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
     """Update client-config ConfigMap URL references with SERVER_DNS.
 
@@ -135,15 +171,10 @@ def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
     result = kubectl("get", "configmap", "client-config", "-n", NAMESPACE, "-o", "json")
     if result.returncode != 0:
         click.echo(f"Error getting client-config: {result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     item = json.loads(result.stdout)
     env_js = item["data"].get("env.js", "")
-    new_env_js = re.sub(
-        r"https://[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?"
-        r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+/",
-        f"https://{dns}/",
-        env_js,
-    )
+    new_env_js = _rewrite_client_env_js(env_js, dns)
     if new_env_js == env_js:
         click.echo("client-config already up to date.")
         return
@@ -155,7 +186,7 @@ def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
                   "--type=merge", f"--patch={patch}")
     if res.returncode != 0:
         click.echo(f"Error patching client-config:\n{res.stderr.decode()}", err=True)
-        sys.exit(res.returncode)
+        sys.exit(1)
     click.echo("Patched ConfigMap client-config.")
 
 
@@ -261,7 +292,7 @@ def apply_custom_dns_configmap(traefik_clusterip: str, server_dns: str, dry_run:
     )
     if result.returncode != 0:
         click.echo(f"Error generating custom-dns configmap:\n{result.stderr.decode()}", err=True)
-        sys.exit(result.returncode)
+        sys.exit(1)
     apply_yaml(result.stdout, dry_run, "ConfigMap custom-dns-config")
 
 
@@ -305,5 +336,5 @@ def patch_forward_auth_dns(dns_ip: str, dry_run: bool) -> None:
     )
     if res.returncode != 0:
         click.echo(f"Error patching forward-auth dnsConfig:\n{res.stderr.decode()}", err=True)
-        sys.exit(res.returncode)
+        sys.exit(1)
     click.echo(f"Patched forward-auth dnsConfig: nameserver → {dns_ip}.")

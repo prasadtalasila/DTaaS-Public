@@ -40,6 +40,19 @@ class TestLoadEnv:
         result = load_env(env_file)
         assert result["SECRET"] == "abc=def"
 
+    def test_strips_surrounding_quotes(self, tmp_path: Path) -> None:
+        """Single and double quotes around values are stripped."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "DOUBLE=\"hello\"\nSINGLE='world'\nMIXED=\"don't\"\nUNCLOSED=\"oops\n"
+        )
+        result = load_env(env_file)
+        assert result["DOUBLE"] == "hello"
+        assert result["SINGLE"] == "world"
+        assert result["MIXED"] == "don't"
+        # Unbalanced quotes are left intact rather than silently mangled.
+        assert result["UNCLOSED"] == '"oops'
+
 
 class TestApplyCmd:
     """Tests for the `apply` CLI command."""
@@ -83,8 +96,8 @@ class TestApplyCmd:
             patch("src.config.apply_forward_auth_secret"),
         ):
             runner.invoke(cli, ["apply", "--dry-run", "--env-file", str(env_file)])
-        _, kwargs = acd.call_args
-        assert kwargs.get("dry_run") or acd.call_args[0][1] is True
+        args, kwargs = acd.call_args
+        assert args[1] is True or kwargs.get("dry_run") is True
 
 
 class TestNetworkShow:

@@ -247,3 +247,4 @@ deploy/dtaas/docker/secure-server_with_integrated-gitlab/data
 # kubernetes keycloak production: generated secrets and config that must not be committed
 deploy/workspace/kubernetes/keycloak/production/config/client.js
 deploy/workspace/kubernetes/keycloak/production/.env
+deploy/workspace/kubernetes/keycloak/production/config/forward-auth-conf
