@@ -34,8 +34,8 @@ jobs:
           lfs: false
 
       - name: Setup Python
-        # v5.4.0
-        uses: actions/setup-python@42375524a63e49a86c26c70571ace0e7b6d38f5e
+        # v6.1.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: "3.12"
 
@@ -55,8 +55,8 @@ jobs:
           pytest --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
-        # v5.4.3
-        uses: codecov/codecov-action@ad3126e916f78f00edff4bf0f6db21b54f994b37
+        # v5.5.2
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           files: deploy/workspace/kubernetes/keycloak/production/scripts/coverage.xml
           flags: k8s-scripts

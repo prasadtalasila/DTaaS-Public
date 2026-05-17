@@ -32,7 +32,9 @@ class TestShowDnsFixInstructions:
         assert "example.com" in out
         assert "1.2.3.4" in out
 
-    def test_output_contains_a_record_guidance(self, capsys: pytest.CaptureFixture) -> None:
+    def test_output_contains_a_record_guidance(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
         """Output includes A record type and TTL guidance."""
         show_dns_fix_instructions("my.domain", "5.6.7.8")
         out = capsys.readouterr().out

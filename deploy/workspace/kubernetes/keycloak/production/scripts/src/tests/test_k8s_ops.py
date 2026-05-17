@@ -59,7 +59,9 @@ class TestApplyYaml:
 
     def test_failure_exits(self) -> None:
         """A failed apply calls sys.exit with a non-zero code."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)):
+        with patch(
+            "src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
+        ):
             with pytest.raises(SystemExit):
                 apply_yaml(b"bad yaml", dry_run=False, label="test-cm")
 
@@ -76,7 +78,9 @@ class TestSecretYaml:
 
     def test_exits_on_error(self) -> None:
         """secret_yaml() exits when kubectl returns a non-zero code."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)):
+        with patch(
+            "src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
+        ):
             with pytest.raises(SystemExit):
                 secret_yaml("bad-secret", {})
 
@@ -90,7 +94,9 @@ class TestPatchConfigmap:
             patch_configmap({}, dry_run=False)
         mock_kubectl.assert_not_called()
 
-    def test_applies_configmap_and_restarts(self, capsys: pytest.CaptureFixture) -> None:
+    def test_applies_configmap_and_restarts(
+        self, capsys: pytest.CaptureFixture
+    ) -> None:
         """Applying the ConfigMap also restarts dependent deployments."""
         cm_yaml = b"kind: ConfigMap\n"
         with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=cm_yaml)):
@@ -120,6 +126,7 @@ class TestGetLbIp:
 
     def test_falls_back_to_hostname(self) -> None:
         """Falls back to the hostname field when IP is empty (e.g. AWS ELB)."""
+
         def side_effect(*args: str, **_kwargs: object) -> object:
             """Return empty for IP lookup, hostname for hostname lookup."""
             jsonpath = next((a for a in args if "jsonpath" in a), "")
@@ -180,8 +187,21 @@ class TestPatchClientConfigmap:
         with patch("src.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
             patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
-        patch_call = mock_kubectl.call_args_list[-1]
-        assert "new.example.com" in str(patch_call)
+        patch_call_args = " ".join(str(c) for c in mock_kubectl.call_args_list)
+        assert "new.example.com" in patch_call_args
+
+    def test_restarts_client_after_patch(self, capsys: pytest.CaptureFixture) -> None:
+        """After patching client-config a rollout restart is issued."""
+        env_js = "REACT_APP_URL: 'https://YOUR_SERVER_DNS/'"
+        cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
+        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+            mock_kubectl.return_value = make_proc(stdout=cm_json)
+            patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
+        out = capsys.readouterr().out
+        assert "Restarted deployment/client" in out
+        # The rollout restart should appear in the kubectl call history.
+        all_calls = " ".join(str(c) for c in mock_kubectl.call_args_list)
+        assert "rollout" in all_calls and "deployment/client" in all_calls
 
     def test_no_op_when_already_up_to_date(self, capsys: pytest.CaptureFixture) -> None:
         """Skips patch when the domain in env.js already matches."""
@@ -201,10 +221,9 @@ class TestPatchClientConfigmap:
         with patch("src.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
             patch_client_configmap({"SERVER_DNS": "dtaas.example.com"}, dry_run=False)
-        patch_call = mock_kubectl.call_args_list[-1]
-        rendered = str(patch_call)
-        assert "dtaas.example.com" in rendered
-        assert "YOUR_SERVER_DNS" not in rendered
+        patch_calls = " ".join(str(c) for c in mock_kubectl.call_args_list)
+        assert "dtaas.example.com" in patch_calls
+        assert "YOUR_SERVER_DNS" not in patch_calls
 
 
 class TestRewriteClientEnvJs:

@@ -89,7 +89,9 @@ def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
     apply_custom_dns_configmap(traefik_ip, dns, dry_run)
     dns_ip = get_custom_dns_clusterip()
     if not dns_ip and not dry_run:
-        click.echo("custom-dns Service not yet ready; retry apply after pod starts.", err=True)
+        click.echo(
+            "custom-dns Service not yet ready; retry apply after pod starts.", err=True
+        )
         return
     patch_forward_auth_dns(dns_ip or "PENDING", dry_run)
 
@@ -140,28 +142,49 @@ def network_show(env_file: str) -> None:
     if not dns:
         click.echo("SERVER_DNS not set in .env file.", err=True)
         sys.exit(1)
-    lb_ip = get_lb_ip()
+    lb_address = get_lb_ip()
     resolved_ip = resolve_dns(dns)
+    # `get_lb_ip()` may return either an IPv4 address or a hostname
+    # (AWS/GCP ELB-style). Resolve the hostname form so we compare apples
+    # to apples against the user's DNS A record.
+    lb_ip = lb_address if _looks_like_ip(lb_address) else resolve_dns(lb_address)
     click.echo(f"Domain         : {dns}")
-    click.echo(f"LoadBalancer IP: {lb_ip or '(not found)'}")
+    click.echo(f"LoadBalancer   : {lb_address or '(not found)'}")
+    if lb_address and not _looks_like_ip(lb_address):
+        click.echo(f"LB resolved IP : {lb_ip or '(unresolved)'}")
     click.echo(f"DNS resolved   : {resolved_ip or '(unresolved)'}")
-    if not lb_ip:
-        click.echo("\n⚠ Could not determine LoadBalancer IP.", err=True)
+    if not lb_address:
+        click.echo("\n⚠ Could not determine LoadBalancer address.", err=True)
         click.echo("  Run: kubectl get svc traefik -n dtaas-workspace", err=True)
         return
     if not resolved_ip:
         click.echo(f"\n✗ DNS not configured: {dns} does not resolve.", err=True)
-        show_dns_fix_instructions(dns, lb_ip)
+        show_dns_fix_instructions(dns, lb_address)
         sys.exit(1)
+    if not lb_ip:
+        click.echo(
+            f"\n⚠ LoadBalancer hostname {lb_address} did not resolve; "
+            "cannot verify alignment.",
+            err=True,
+        )
+        return
     if resolved_ip != lb_ip:
         click.echo(
             f"\n✗ DNS mismatch: {dns} resolves to {resolved_ip} "
-            f"but LoadBalancer IP is {lb_ip}.",
+            f"but LoadBalancer resolves to {lb_ip}.",
             err=True,
         )
-        show_dns_fix_instructions(dns, lb_ip)
+        show_dns_fix_instructions(dns, lb_address)
         sys.exit(1)
-    click.echo(f"\n✓ DNS correctly configured: {dns} → {lb_ip}")
+    click.echo(f"\n✓ DNS correctly configured: {dns} → {lb_address}")
+
+
+def _looks_like_ip(value: str) -> bool:
+    """Return True when value looks like an IPv4 dotted-quad address."""
+    if not value:
+        return False
+    parts = value.split(".")
+    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
 
 
 if __name__ == "__main__":

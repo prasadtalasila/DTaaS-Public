@@ -44,7 +44,7 @@ class TestLoadEnv:
         """Single and double quotes around values are stripped."""
         env_file = tmp_path / ".env"
         env_file.write_text(
-            "DOUBLE=\"hello\"\nSINGLE='world'\nMIXED=\"don't\"\nUNCLOSED=\"oops\n"
+            'DOUBLE="hello"\nSINGLE=\'world\'\nMIXED="don\'t"\nUNCLOSED="oops\n'
         )
         result = load_env(env_file)
         assert result["DOUBLE"] == "hello"
@@ -112,7 +112,9 @@ class TestNetworkShow:
             patch("src.config.get_lb_ip", return_value="1.2.3.4"),
             patch("src.config.resolve_dns", return_value="1.2.3.4"),
         ):
-            result = runner.invoke(cli, ["network", "show", "--env-file", str(env_file)])
+            result = runner.invoke(
+                cli, ["network", "show", "--env-file", str(env_file)]
+            )
         assert result.exit_code == 0
         assert "✓" in result.output
 
@@ -126,7 +128,9 @@ class TestNetworkShow:
             patch("src.config.resolve_dns", return_value="9.9.9.9"),
             patch("src.config.show_dns_fix_instructions"),
         ):
-            result = runner.invoke(cli, ["network", "show", "--env-file", str(env_file)])
+            result = runner.invoke(
+                cli, ["network", "show", "--env-file", str(env_file)]
+            )
         assert result.exit_code != 0
 
     def test_exits_when_server_dns_missing(self, tmp_path: Path) -> None:
@@ -136,3 +140,26 @@ class TestNetworkShow:
         runner = CliRunner()
         result = runner.invoke(cli, ["network", "show", "--env-file", str(env_file)])
         assert result.exit_code != 0
+
+    def test_resolves_lb_hostname_for_comparison(self, tmp_path: Path) -> None:
+        """An LB hostname is resolved to an IP before comparing with DNS."""
+        env_file = tmp_path / ".env"
+        env_file.write_text("SERVER_DNS=example.com\n")
+        runner = CliRunner()
+        resolve_calls = {"calls": 0}
+
+        def _resolve(_hostname: str) -> str:
+            resolve_calls["calls"] += 1
+            return "1.2.3.4"
+
+        with (
+            patch("src.config.get_lb_ip", return_value="my-elb.aws.example.com"),
+            patch("src.config.resolve_dns", side_effect=_resolve),
+        ):
+            result = runner.invoke(
+                cli, ["network", "show", "--env-file", str(env_file)]
+            )
+        assert result.exit_code == 0
+        # Both the SERVER_DNS *and* the LB hostname must have been resolved.
+        assert resolve_calls["calls"] == 2
+        assert "✓" in result.output

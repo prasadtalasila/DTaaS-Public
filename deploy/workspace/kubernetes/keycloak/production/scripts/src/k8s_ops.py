@@ -60,15 +60,23 @@ def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
         YAML bytes for the secret resource.
     """
     args = [
-        "create", "secret", "generic", name,
-        "-n", NAMESPACE,
-        "--dry-run=client", "-o", "yaml",
+        "create",
+        "secret",
+        "generic",
+        name,
+        "-n",
+        NAMESPACE,
+        "--dry-run=client",
+        "-o",
+        "yaml",
     ]
     for k, v in literals.items():
         args += [f"--from-literal={k}={v}"]
     result = kubectl(*args)
     if result.returncode != 0:
-        click.echo(f"Error generating secret {name}:\n{result.stderr.decode()}", err=True)
+        click.echo(
+            f"Error generating secret {name}:\n{result.stderr.decode()}", err=True
+        )
         sys.exit(1)
     return result.stdout
 
@@ -88,11 +96,20 @@ def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
     if not literals:
         return
     result = kubectl(
-        "create", "configmap", "dtaas-config", "-n", NAMESPACE,
-        "--dry-run=client", "-o", "yaml", *literals,
+        "create",
+        "configmap",
+        "dtaas-config",
+        "-n",
+        NAMESPACE,
+        "--dry-run=client",
+        "-o",
+        "yaml",
+        *literals,
     )
     if result.returncode != 0:
-        click.echo(f"Error generating dtaas-config:\n{result.stderr.decode()}", err=True)
+        click.echo(
+            f"Error generating dtaas-config:\n{result.stderr.decode()}", err=True
+        )
         sys.exit(1)
     apply_yaml(result.stdout, dry_run, "ConfigMap dtaas-config")
     _restart_configmap_consumers(dry_run)
@@ -114,7 +131,11 @@ def _restart_configmap_consumers(dry_run: bool) -> None:
             click.echo(f"[dry-run] Would rollout restart deployment/{name}")
             continue
         res = kubectl(
-            "rollout", "restart", f"deployment/{name}", "-n", NAMESPACE,
+            "rollout",
+            "restart",
+            f"deployment/{name}",
+            "-n",
+            NAMESPACE,
         )
         if res.returncode != 0:
             click.echo(
@@ -181,13 +202,31 @@ def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
     patch = json.dumps({"data": {"env.js": new_env_js}})
     if dry_run:
         click.echo(f"[dry-run] Would patch configmap/client-config → {dns}")
+        click.echo("[dry-run] Would rollout restart deployment/client")
         return
-    res = kubectl("patch", "configmap", "client-config", "-n", NAMESPACE,
-                  "--type=merge", f"--patch={patch}")
+    res = kubectl(
+        "patch",
+        "configmap",
+        "client-config",
+        "-n",
+        NAMESPACE,
+        "--type=merge",
+        f"--patch={patch}",
+    )
     if res.returncode != 0:
         click.echo(f"Error patching client-config:\n{res.stderr.decode()}", err=True)
         sys.exit(1)
     click.echo("Patched ConfigMap client-config.")
+    # The client Deployment mounts env.js with subPath, so a ConfigMap update
+    # is not projected into the running pod; a rollout restart is required.
+    restart = kubectl("rollout", "restart", "deployment/client", "-n", NAMESPACE)
+    if restart.returncode != 0:
+        click.echo(
+            f"Warning: could not restart client: {restart.stderr.decode()}",
+            err=True,
+        )
+    else:
+        click.echo("Restarted deployment/client.")
 
 
 def apply_keycloak_secret(env: dict[str, str], dry_run: bool) -> None:
@@ -201,10 +240,13 @@ def apply_keycloak_secret(env: dict[str, str], dry_run: bool) -> None:
     if any(k not in env for k in required):
         click.echo(f"Skipping keycloak secret: {required} not all set.")
         return
-    yaml_bytes = secret_yaml("dtaas-keycloak", {
-        "KEYCLOAK_ADMIN": env["KEYCLOAK_ADMIN"],
-        "KEYCLOAK_ADMIN_PASSWORD": env["KEYCLOAK_ADMIN_PASSWORD"],
-    })
+    yaml_bytes = secret_yaml(
+        "dtaas-keycloak",
+        {
+            "KEYCLOAK_ADMIN": env["KEYCLOAK_ADMIN"],
+            "KEYCLOAK_ADMIN_PASSWORD": env["KEYCLOAK_ADMIN_PASSWORD"],
+        },
+    )
     apply_yaml(yaml_bytes, dry_run, "secret dtaas-keycloak")
 
 
@@ -216,18 +258,23 @@ def apply_forward_auth_secret(env: dict[str, str], dry_run: bool) -> None:
         dry_run: If True, print commands without executing them.
     """
     required = [
-        "OAUTH_SECRET", "KEYCLOAK_CLIENT_ID",
-        "KEYCLOAK_CLIENT_SECRET", "KEYCLOAK_ISSUER_URL",
+        "OAUTH_SECRET",
+        "KEYCLOAK_CLIENT_ID",
+        "KEYCLOAK_CLIENT_SECRET",
+        "KEYCLOAK_ISSUER_URL",
     ]
     if any(k not in env for k in required):
         click.echo(f"Skipping forward-auth secret: {required} not all set.")
         return
-    yaml_bytes = secret_yaml("dtaas-forward-auth", {
-        "SECRET": env["OAUTH_SECRET"],
-        "PROVIDERS_OIDC_CLIENT_ID": env["KEYCLOAK_CLIENT_ID"],
-        "PROVIDERS_OIDC_CLIENT_SECRET": env["KEYCLOAK_CLIENT_SECRET"],
-        "PROVIDERS_OIDC_ISSUER_URL": env["KEYCLOAK_ISSUER_URL"],
-    })
+    yaml_bytes = secret_yaml(
+        "dtaas-forward-auth",
+        {
+            "SECRET": env["OAUTH_SECRET"],
+            "PROVIDERS_OIDC_CLIENT_ID": env["KEYCLOAK_CLIENT_ID"],
+            "PROVIDERS_OIDC_CLIENT_SECRET": env["KEYCLOAK_CLIENT_SECRET"],
+            "PROVIDERS_OIDC_ISSUER_URL": env["KEYCLOAK_ISSUER_URL"],
+        },
+    )
     apply_yaml(yaml_bytes, dry_run, "secret dtaas-forward-auth")
 
 
@@ -242,8 +289,13 @@ def get_lb_ip() -> str:
     """
     for field in ("ip", "hostname"):
         result = kubectl(
-            "get", "svc", "traefik", "-n", NAMESPACE,
-            "-o", f"jsonpath={{.status.loadBalancer.ingress[0].{field}}}",
+            "get",
+            "svc",
+            "traefik",
+            "-n",
+            NAMESPACE,
+            "-o",
+            f"jsonpath={{.status.loadBalancer.ingress[0].{field}}}",
         )
         value = result.stdout.decode().strip() if result.returncode == 0 else ""
         if value:
@@ -254,13 +306,20 @@ def get_lb_ip() -> str:
 def get_traefik_clusterip() -> str:
     """Return the ClusterIP of the Traefik service."""
     result = kubectl(
-        "get", "svc", "traefik", "-n", NAMESPACE,
-        "-o", "jsonpath={.spec.clusterIP}",
+        "get",
+        "svc",
+        "traefik",
+        "-n",
+        NAMESPACE,
+        "-o",
+        "jsonpath={.spec.clusterIP}",
     )
     return result.stdout.decode().strip() if result.returncode == 0 else ""
 
 
-def apply_custom_dns_configmap(traefik_clusterip: str, server_dns: str, dry_run: bool) -> None:
+def apply_custom_dns_configmap(
+    traefik_clusterip: str, server_dns: str, dry_run: bool
+) -> None:
     """Create or update the custom-dns CoreDNS ConfigMap.
 
     The ConfigMap configures a CoreDNS instance that overrides the cluster's
@@ -286,12 +345,21 @@ def apply_custom_dns_configmap(traefik_clusterip: str, server_dns: str, dry_run:
         "}\n"
     )
     result = kubectl(
-        "create", "configmap", "custom-dns-config",
-        "-n", NAMESPACE, "--dry-run=client", "-o", "yaml",
+        "create",
+        "configmap",
+        "custom-dns-config",
+        "-n",
+        NAMESPACE,
+        "--dry-run=client",
+        "-o",
+        "yaml",
         f"--from-literal=Corefile={corefile}",
     )
     if result.returncode != 0:
-        click.echo(f"Error generating custom-dns configmap:\n{result.stderr.decode()}", err=True)
+        click.echo(
+            f"Error generating custom-dns configmap:\n{result.stderr.decode()}",
+            err=True,
+        )
         sys.exit(1)
     apply_yaml(result.stdout, dry_run, "ConfigMap custom-dns-config")
 
@@ -299,8 +367,13 @@ def apply_custom_dns_configmap(traefik_clusterip: str, server_dns: str, dry_run:
 def get_custom_dns_clusterip() -> str:
     """Return the ClusterIP of the custom-dns Service."""
     result = kubectl(
-        "get", "svc", "custom-dns", "-n", NAMESPACE,
-        "-o", "jsonpath={.spec.clusterIP}",
+        "get",
+        "svc",
+        "custom-dns",
+        "-n",
+        NAMESPACE,
+        "-o",
+        "jsonpath={.spec.clusterIP}",
     )
     return result.stdout.decode().strip() if result.returncode == 0 else ""
 
@@ -315,26 +388,43 @@ def patch_forward_auth_dns(dns_ip: str, dry_run: bool) -> None:
         dns_ip: ClusterIP of the custom-dns Service.
         dry_run: If True, print commands without executing them.
     """
-    patch = json.dumps({"spec": {"template": {"spec": {
-        "dnsPolicy": "None",
-        "dnsConfig": {
-            "nameservers": [dns_ip],
-            "searches": [
-                f"{NAMESPACE}.svc.cluster.local",
-                "svc.cluster.local",
-                "cluster.local",
-            ],
-            "options": [{"name": "ndots", "value": "5"}],
-        },
-    }}}})
+    patch = json.dumps(
+        {
+            "spec": {
+                "template": {
+                    "spec": {
+                        "dnsPolicy": "None",
+                        "dnsConfig": {
+                            "nameservers": [dns_ip],
+                            "searches": [
+                                f"{NAMESPACE}.svc.cluster.local",
+                                "svc.cluster.local",
+                                "cluster.local",
+                            ],
+                            "options": [{"name": "ndots", "value": "5"}],
+                        },
+                    }
+                }
+            }
+        }
+    )
     if dry_run:
-        click.echo(f"[dry-run] Would patch forward-auth dnsConfig → nameserver {dns_ip}")
+        click.echo(
+            f"[dry-run] Would patch forward-auth dnsConfig → nameserver {dns_ip}"
+        )
         return
     res = kubectl(
-        "patch", "deployment", "traefik-forward-auth", "-n", NAMESPACE,
-        "--type=merge", f"--patch={patch}",
+        "patch",
+        "deployment",
+        "traefik-forward-auth",
+        "-n",
+        NAMESPACE,
+        "--type=merge",
+        f"--patch={patch}",
     )
     if res.returncode != 0:
-        click.echo(f"Error patching forward-auth dnsConfig:\n{res.stderr.decode()}", err=True)
+        click.echo(
+            f"Error patching forward-auth dnsConfig:\n{res.stderr.decode()}", err=True
+        )
         sys.exit(1)
     click.echo(f"Patched forward-auth dnsConfig: nameserver → {dns_ip}.")

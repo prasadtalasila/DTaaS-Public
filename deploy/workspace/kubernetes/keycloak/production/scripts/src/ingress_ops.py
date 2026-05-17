@@ -22,7 +22,7 @@ def _patch_one_ingressroute(item: dict, dns: str, dry_run: bool) -> None:
     modified = False
     for route in item.get("spec", {}).get("routes", []):
         old_match = route.get("match", "")
-        new_match = re.sub(r'Host\(`[^`]+`\)', f'Host(`{dns}`)', old_match)
+        new_match = re.sub(r"Host\(`[^`]+`\)", f"Host(`{dns}`)", old_match)
         modified = modified or new_match != old_match
         new_routes.append({**route, "match": new_match})
     if not modified:
@@ -31,8 +31,15 @@ def _patch_one_ingressroute(item: dict, dns: str, dry_run: bool) -> None:
     if dry_run:
         click.echo(f"[dry-run] Would patch ingressroute/{name} → Host(`{dns}`)")
         return
-    res = kubectl("patch", "ingressroute", name, "-n", NAMESPACE,
-                  "--type=merge", f"--patch={patch}")
+    res = kubectl(
+        "patch",
+        "ingressroute",
+        name,
+        "-n",
+        NAMESPACE,
+        "--type=merge",
+        f"--patch={patch}",
+    )
     if res.returncode != 0:
         click.echo(f"Error patching {name}:\n{res.stderr.decode()}", err=True)
         sys.exit(1)

@@ -16,7 +16,8 @@ secure multi-user deployments with Keycloak authentication.
 
 ✅ Sufficient system resources (at least 2GB RAM per workspace instance)
 
-✅ Domain name pointing to the cluster load balancer (required for automatic TLS via Let's Encrypt)
+✅ Domain name pointing to the cluster load balancer
+   (required for automatic TLS via Let's Encrypt)
 
 ✅ A Kubernetes StorageClass named `local-path` (install
 [rancher/local-path-provisioner](https://github.com/rancher/local-path-provisioner)
