@@ -35,6 +35,22 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
+def _is_env_assignment(line: str) -> bool:
+    """Return True for non-comment lines that look like KEY=VALUE."""
+    return bool(line) and not line.startswith("#") and "=" in line
+
+
+def _parse_env_lines(lines: list[str]) -> dict[str, str]:
+    """Parse stripped lines into a key=value dict."""
+    env: dict[str, str] = {}
+    for line in lines:
+        if not _is_env_assignment(line):
+            continue
+        key, _, value = line.partition("=")
+        env[key.strip()] = _strip_quotes(value.strip())
+    return env
+
+
 def load_env(env_file: Path) -> dict[str, str]:
     """Load key=value pairs from a .env file, skipping comments.
 
@@ -50,14 +66,8 @@ def load_env(env_file: Path) -> dict[str, str]:
     if not env_file.exists():
         click.echo(f"Error: .env file not found: {env_file}", err=True)
         sys.exit(1)
-    env: dict[str, str] = {}
-    for raw_line in env_file.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        env[key.strip()] = _strip_quotes(value.strip())
-    return env
+    lines = [line.strip() for line in env_file.read_text().splitlines()]
+    return _parse_env_lines(lines)
 
 
 @click.group()

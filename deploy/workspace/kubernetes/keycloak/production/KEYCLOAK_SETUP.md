@@ -247,14 +247,16 @@ env:
 
 ### Authentication Loop/Redirect Issues
 
-- Verify `PROVIDERS_OIDC_ISSUER_URL` in the `dtaas-forward-auth` secret matches the realm name
+- Verify `PROVIDERS_OIDC_ISSUER_URL` in the `dtaas-forward-auth` secret
+  matches the realm name
 - Ensure redirect URIs in the Keycloak client include `/_oauth/*`
 - Confirm `COOKIE_DOMAIN` matches the domain
 - Clear browser cookies and retry
 
 ### "Invalid Client" Error
 
-- Verify `PROVIDERS_OIDC_CLIENT_ID` in the `dtaas-forward-auth` secret matches the client ID in Keycloak
+- Verify `PROVIDERS_OIDC_CLIENT_ID` in the `dtaas-forward-auth` secret
+  matches the client ID in Keycloak
 - Ensure `PROVIDERS_OIDC_CLIENT_SECRET` in the `dtaas-forward-auth` secret is correct
 - Confirm client authentication is enabled for the client
 

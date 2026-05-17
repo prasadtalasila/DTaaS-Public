@@ -52,7 +52,8 @@ applying them.
 
 The `apply` command performs these actions automatically:
 
-- Creates or updates the `dtaas-config` ConfigMap with `SERVER_DNS`, usernames and ACME email
+- Creates or updates the `dtaas-config` ConfigMap with `SERVER_DNS`,
+  usernames and ACME email
 - Patches all IngressRoute `Host()` rules to use your domain
 - Updates the `client-config` ConfigMap URLs
 - Deploys the custom in-namespace DNS resolver (hairpin NAT fix)
@@ -77,7 +78,7 @@ cd scripts && python -m src.config network show
 
 Example output when DNS is correct:
 
-```
+```text
 Domain         : shared.dtaas-digitaltwin.com
 LoadBalancer IP: 91.98.222.171
 DNS resolved   : 91.98.222.171
@@ -88,7 +89,7 @@ DNS resolved   : 91.98.222.171
 If the DNS is not yet configured or points to the wrong IP, the command prints
 the mismatch and provides fix instructions:
 
-```
+```text
 ✗ DNS mismatch: shared.dtaas-digitaltwin.com resolves to 1.2.3.4
   but LoadBalancer IP is 91.98.222.171.
 
@@ -191,7 +192,8 @@ For detailed Keycloak setup, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md).
 
 ## 🖥️ DTaaS Web Client Config
 
-The client ConfigMap URLs are patched automatically by `cd scripts && python -m src.config apply`.
+The client ConfigMap URLs are patched automatically by
+`cd scripts && python -m src.config apply`.
 
 ### 🔑🖥️ Client OAuth2 Setup
 
