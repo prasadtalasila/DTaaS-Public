@@ -172,26 +172,47 @@ def network_show(env_file: str) -> None:
     # (AWS/GCP ELB-style). Resolve the hostname form so we compare apples
     # to apples against the user's DNS A record.
     lb_ip = lb_address if _looks_like_ip(lb_address) else resolve_dns(lb_address)
+    _print_network_summary(dns, lb_address, lb_ip, resolved_ip)
+    exit_code = _evaluate_dns_alignment(dns, lb_address, lb_ip, resolved_ip)
+    if exit_code != 0:
+        sys.exit(exit_code)
+
+
+def _print_network_summary(
+    dns: str, lb_address: str, lb_ip: str, resolved_ip: str
+) -> None:
+    """Print the diagnostic header lines for ``network show``."""
     click.echo(f"Domain         : {dns}")
     click.echo(f"LoadBalancer   : {lb_address or '(not found)'}")
     if lb_address and not _looks_like_ip(lb_address):
         click.echo(f"LB resolved IP : {lb_ip or '(unresolved)'}")
     click.echo(f"DNS resolved   : {resolved_ip or '(unresolved)'}")
+
+
+def _evaluate_dns_alignment(
+    dns: str, lb_address: str, lb_ip: str, resolved_ip: str
+) -> int:
+    """Report on alignment between SERVER_DNS and the LoadBalancer.
+
+    Returns:
+        ``0`` on success, ``1`` on hard failure (caller should exit non-zero),
+        ``0`` with a warning when we cannot verify alignment.
+    """
     if not lb_address:
         click.echo("\n⚠ Could not determine LoadBalancer address.", err=True)
         click.echo("  Run: kubectl get svc traefik -n dtaas-workspace", err=True)
-        return
+        return 0
     if not resolved_ip:
         click.echo(f"\n✗ DNS not configured: {dns} does not resolve.", err=True)
         show_dns_fix_instructions(dns, lb_address)
-        sys.exit(1)
+        return 1
     if not lb_ip:
         click.echo(
             f"\n⚠ LoadBalancer hostname {lb_address} did not resolve; "
             "cannot verify alignment.",
             err=True,
         )
-        return
+        return 0
     if resolved_ip != lb_ip:
         click.echo(
             f"\n✗ DNS mismatch: {dns} resolves to {resolved_ip} "
@@ -199,8 +220,9 @@ def network_show(env_file: str) -> None:
             err=True,
         )
         show_dns_fix_instructions(dns, lb_address)
-        sys.exit(1)
+        return 1
     click.echo(f"\n✓ DNS correctly configured: {dns} → {lb_address}")
+    return 0
 
 
 def _looks_like_ip(value: str) -> bool:
