@@ -75,6 +75,23 @@ def cli() -> None:
     """DTaaS Kubernetes configuration CLI."""
 
 
+def _skip_custom_dns_reason(env: dict[str, str], traefik_ip: str) -> str:
+    """Return a human-readable reason for skipping custom-dns, or "".
+
+    Args:
+        env: Dictionary of environment variables.
+        traefik_ip: Resolved Traefik ClusterIP (empty if unavailable).
+
+    Returns:
+        A short message when the step should be skipped, empty otherwise.
+    """
+    if not env.get("SERVER_DNS", ""):
+        return "Skipping custom-dns: SERVER_DNS not set."
+    if not traefik_ip:
+        return "Skipping custom-dns: could not get Traefik ClusterIP."
+    return ""
+
+
 def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
     """Update the custom-dns ConfigMap and patch forward-auth to use it.
 
@@ -88,15 +105,12 @@ def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
         env: Dictionary of environment variables.
         dry_run: If True, print commands without executing them.
     """
-    dns = env.get("SERVER_DNS", "")
-    if not dns:
-        click.echo("Skipping custom-dns: SERVER_DNS not set.", err=True)
-        return
     traefik_ip = get_traefik_clusterip()
-    if not traefik_ip:
-        click.echo("Skipping custom-dns: could not get Traefik ClusterIP.", err=True)
+    skip = _skip_custom_dns_reason(env, traefik_ip)
+    if skip:
+        click.echo(skip, err=True)
         return
-    apply_custom_dns_configmap(traefik_ip, dns, dry_run)
+    apply_custom_dns_configmap(traefik_ip, env["SERVER_DNS"], dry_run)
     dns_ip = get_custom_dns_clusterip()
     if not dns_ip and not dry_run:
         click.echo(
