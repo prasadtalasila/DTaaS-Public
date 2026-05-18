@@ -14,13 +14,7 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
       - "--providers.file.directory=/etc/traefik"
       - "--providers.file.watch=true"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=https://${SERVER_DNS:-localhost}"
-      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
-      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
-      - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
-      - "traefik.http.services.myservice.loadbalancer.server.port=80"
+    labels: []
     ports:
       - "80:80"
       - "443:443"
@@ -92,6 +86,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.libms.loadbalancer.server.port=4001"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=https://${SERVER_DNS:-localhost}"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
       - >-
         traefik.http.routers.libms.rule=Host(`${SERVER_DNS:-localhost}`)
         && PathPrefix(`/lib`)
