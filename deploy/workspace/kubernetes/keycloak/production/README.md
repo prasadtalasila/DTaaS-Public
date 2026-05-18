@@ -34,32 +34,39 @@ for authentication. Keycloak is the identity provider for OIDC.
 ### Request Flow
 
 ```text
-                              ┌─────────────────────────────┐
-                              │   Browser (HTTPS, port 443) │
-                              └──────────────┬──────────────┘
-                                             │
-                                  ┌──────────▼─────────┐
-                                  │  Traefik Ingress   │
-                                  │  (TLS + ACME)      │
-                                  └──────────┬─────────┘
-                                             │
-                          ┌──────────────────┼─────────────────────┐
-                          │                  │                     │
-                          │      ┌───────────▼─────────────┐       │
-                          │      │ traefik-forward-auth    │       │
-                          │      │ (OIDC middleware)       │       │
-                          │      └───────────┬─────────────┘       │
-                          │                  │                     │
-                          │      ┌───────────▼─────────────┐       │
-                          │      │ custom-dns (CoreDNS)    │       │
-                          │      │ hairpin-NAT override    │       │
-                          │      └───────────┬─────────────┘       │
-                          │                  │                     │
-                ┌─────────▼────────┐ ┌───────▼─────────┐ ┌─────────▼────────┐
-                │ Keycloak (/auth) │ │ DTaaS Client (/)│ │ Workspaces       │
-                │ Identity Provider│ │ React SPA       │ │ user1, user2 …   │
-                └──────────────────┘ └─────────────────┘ └──────────────────┘
+                         ┌─────────────────────────────┐
+                         │   Browser (HTTPS, port 443) │
+                         └──────────────┬──────────────┘
+                                        │
+                            ┌───────────▼────────────┐
+                            │     Traefik Ingress    │
+                            │      (TLS + ACME)      │
+                            └─┬────────┬───────────┬─┘
+              forward-auth on │        │ no auth   │ forward-auth on
+                    /<user>,/ │        │ /auth,    │   /<user>, /
+                              │        │ /_oauth   │
+            ┌─────────────────┼────────┼───────────┼──────────────┐
+            │                 │        │           │              │
+   ┌────────▼─────────┐ ┌─────▼─────┐ ┌▼──────────┐ ┌─────────────▼────┐
+   │ DTaaS Client (/) │ │ Workspaces│ │ Keycloak  │ │ traefik-forward- │
+   │ React SPA        │ │ user1,    │ │ (/auth)   │ │ auth (/_oauth)   │
+   │                  │ │ user2 …   │ │ OIDC IdP  │ │ OIDC middleware  │
+   └──────────────────┘ └───────────┘ └─────▲─────┘ └─────────┬────────┘
+                                            │                 │
+                                            │ OIDC discovery, │
+                                            │ token exchange  │
+                                            │  (in-cluster)   │
+                                            │                 │
+                                       ┌────┴────────┐        │
+                                       │  custom-dns │◄───────┘
+                                       │  (CoreDNS)  │  resolve SERVER_DNS
+                                       │ hairpin fix │  to Traefik ClusterIP
+                                       └─────────────┘
 ```
+
+`custom-dns` is only on the **forward-auth → Keycloak** path. The browser
+talks to Keycloak directly via Traefik; the React SPA and workspaces never
+go through `custom-dns`.
 
 ### Components
 
@@ -158,29 +165,40 @@ workspace data.
 
 ## ⚙️ Configuration
 
-Follow the pre-install steps in [`CONFIGURATION.md`](CONFIGURATION.md).
+For the full pre-install / post-install procedure, see
+[`CONFIGURATION.md`](CONFIGURATION.md). The short version follows.
 
-### Apply Manifests
-
-Create the namespace and apply all manifests using Kustomize in two passes.
-The first pass installs the Traefik CRDs; the second pass applies the
-CRD instances once the API server has registered the new resource types:
+### Install
 
 ```bash
-kubectl apply -f manifests/namespace.yaml
-kubectl apply -k manifests/crds/
-kubectl apply -k manifests/
-```
-
-Then copy the example environment file, populate it with your values,
-and run the configuration script to apply settings to the cluster:
-
-```bash
+# 1. Fill in your domain, usernames, ACME email, Keycloak admin password, etc.
 cp .env.example .env
-cp manifests/dtaas-configmap.yaml.example manifests/dtaas-configmap.yaml
-# Edit .env with your domain, credentials, and ACME email
-cd scripts && python -m src.config apply
+$EDITOR .env
+
+# 2. Install dependencies once (Python 3.10+).
+cd cli
+pip install -r requirements.txt
+cd ..
+
+# 3. One-shot install — namespace, CRDs, manifests, ConfigMap, secrets, patches.
+cd cli && python -m cli.config install
 ```
+
+The `install` command applies `manifests/namespace.yaml`, then the
+Traefik CRDs, then the rest of the Kustomize bundle, then runs all the
+per-environment patches that the older `apply` command did (domain
+substitution, custom-DNS hairpin fix, secrets). On a fresh checkout it
+also copies `manifests/dtaas-configmap.yaml.example` to its non-example
+counterpart so Kustomize finds the file.
+
+If you only want the patch step (for example, after editing `.env`):
+
+```bash
+cd cli && python -m cli.config apply
+```
+
+Pass `--dry-run` to either command to see the kubectl invocations
+without touching the cluster.
 
 ### 🌵 Temporary Issues
 
@@ -196,6 +214,18 @@ kubectl rollout restart deployment/traefik-forward-auth -n dtaas-workspace
 ```
 
 The application is accessible at `https://<DOMAIN_NAME>` from a web browser.
+
+### Seed Workspace PVCs
+
+`workspace-user1`, `workspace-user2`, and `workspace-common` are empty
+when first created. Populate them with the content under `files/` via:
+
+```bash
+cd cli && python -m cli.config files seed-all
+```
+
+See [`files/README.md`](files/README.md) for per-PVC commands and the
+file-permission details.
 
 ## 🛑 Stopping Services
 

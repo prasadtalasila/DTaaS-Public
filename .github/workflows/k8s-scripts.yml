@@ -1,13 +1,13 @@
-name: K8s Keycloak Scripts
+name: K8s Keycloak CLI
 
 'on':
   push:
     paths:
-      - 'deploy/workspace/kubernetes/keycloak/production/scripts/**'
+      - 'deploy/workspace/kubernetes/keycloak/production/cli/**'
       - '.github/workflows/k8s-scripts.yml'
   pull_request:
     paths:
-      - 'deploy/workspace/kubernetes/keycloak/production/scripts/**'
+      - 'deploy/workspace/kubernetes/keycloak/production/cli/**'
       - '.github/workflows/k8s-scripts.yml'
   workflow_dispatch:
 
@@ -17,14 +17,14 @@ concurrency:
 
 jobs:
   quality:
-    name: Test and Lint K8s Scripts
+    name: Test and Lint K8s CLI
     permissions:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: deploy/workspace/kubernetes/keycloak/production/scripts
+        working-directory: deploy/workspace/kubernetes/keycloak/production/cli
 
     steps:
       - name: Checkout Repository
@@ -46,23 +46,23 @@ jobs:
 
       - name: Run pylint (min score 9.0)
         run: |
-          pylint src/ src/tests/ \
+          pylint . tests/ \
             --rcfile=${GITHUB_WORKSPACE}/.pylintrc \
             --fail-under=9.0
 
       - name: Run pytest (with coverage)
         run: |
-          pytest --cov=src --cov-report=xml --cov-report=term-missing
+          pytest --cov=. --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
         # v5.5.2
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
-          files: deploy/workspace/kubernetes/keycloak/production/scripts/coverage.xml
-          flags: k8s-scripts
+          files: deploy/workspace/kubernetes/keycloak/production/cli/coverage.xml
+          flags: k8s-cli
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run pyright (type checking)
         run: |
-          pyright src/
+          pyright .

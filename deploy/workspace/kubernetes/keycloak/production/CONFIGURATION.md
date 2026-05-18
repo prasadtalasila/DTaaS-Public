@@ -32,40 +32,47 @@ data:
   ACME_EMAIL: admin@YOUR_SERVER_DNS  # Email for Let's Encrypt notifications
 ```
 
-### Using scripts/src/config.py
+### Using the `cli/` package
 
-The `scripts/src/config.py` script reads a `.env` file and applies values to the
-cluster. Copy the example file, fill in your values. Apply the base manifests
-first (so the ConfigMap and IngressRoutes exist), then run:
+The `cli/` package reads a `.env` file and applies values to the
+cluster. Copy the example file, fill in your values, then run a single
+install command:
 
 ```bash
-kubectl apply -f manifests/namespace.yaml
-kubectl apply -k manifests/crds/
-kubectl apply -k manifests/
 cp .env.example .env
 # Edit .env with your domain, credentials, and email
-cd scripts && python -m src.config apply
+cd cli && python -m cli.config install
 ```
 
-Run `cd scripts && python -m src.config apply --dry-run` to preview commands without
-applying them.
+`install` applies `manifests/namespace.yaml`, then the Traefik CRDs,
+then the rest of the Kustomize bundle, then runs all the per-environment
+patches. Pass `--dry-run` to preview the kubectl commands without
+touching the cluster.
 
-The `apply` command performs these actions automatically:
+If you only want the patch step (for example after editing `.env`):
+
+```bash
+cd cli && python -m cli.config apply
+```
+
+The patch step performs these actions automatically:
 
 - Creates or updates the `dtaas-config` ConfigMap with `SERVER_DNS`,
   usernames and ACME email
 - Patches all IngressRoute `Host()` rules to use your domain
-- Updates the `client-config` ConfigMap URLs
-- Deploys the custom in-namespace DNS resolver (hairpin NAT fix)
-- Creates or updates Keycloak and forward-auth Kubernetes secrets
+- Updates the `client-config` ConfigMap URLs and restarts the client
+- Deploys the custom in-namespace DNS resolver (hairpin NAT fix) and
+  points `forward-auth` at it
+- Creates or updates the Keycloak and forward-auth Kubernetes secrets
 
 ## 🌐 Domain
 
 Set `SERVER_DNS` in `.env` to your fully qualified domain name. Then run
-`cd scripts && python -m src.config apply` to propagate the domain across all resources.
+`cd cli && python -m cli.config apply` to propagate the domain across
+all resources.
 
 The manifests use `YOUR_SERVER_DNS` as a placeholder. Do not edit them
-directly — let `src.config apply` handle the substitution.
+directly — let `cli.config apply` handle the substitution.
 
 ## 🔍 DNS Verification
 
@@ -73,7 +80,7 @@ Before deploying, verify that your domain's DNS A record points to the Traefik
 LoadBalancer IP:
 
 ```bash
-cd scripts && python -m src.config network show
+cd cli && python -m cli.config network show
 ```
 
 Example output when DNS is correct:
@@ -103,7 +110,7 @@ the mismatch and provides fix instructions:
 ```
 
 DNS changes typically propagate within a few minutes. Run
-`cd scripts && python -m src.config network show` again to confirm before proceeding.
+`cd cli && python -m cli.config network show` again to confirm before proceeding.
 
 ## 🔒 TLS Certificates
 
@@ -114,23 +121,20 @@ required.
 **Prerequisites:**
 
 - DNS A record must point to the Traefik LoadBalancer IP (verify with
-  `cd scripts && python -m src.config network show`).
+  `cd cli && python -m cli.config network show`).
 - Port 80 must be reachable from the internet (for the HTTP-01 challenge).
 - Set `ACME_EMAIL` in your `.env` file before deploying.
 
 Traefik stores the issued certificates in the `traefik-acme-storage` PVC
 at `/data/acme.json`. Certificates renew automatically before expiry.
 
-Create the namespace before applying manifests:
-
-```bash
-kubectl apply -f manifests/namespace.yaml
-```
+The `install` command creates the namespace before applying the rest of
+the bundle, so you do not need to run `kubectl apply` by hand.
 
 ## 👥 Usernames
 
 Update `USERNAME1` and `USERNAME2` in `.env`, then run
-`cd scripts && python -m src.config apply`.
+`cd cli && python -m cli.config apply`.
 
 Update the `PathPrefix` rules in:
 
@@ -193,7 +197,7 @@ For detailed Keycloak setup, see [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md).
 ## 🖥️ DTaaS Web Client Config
 
 The client ConfigMap URLs are patched automatically by
-`cd scripts && python -m src.config apply`.
+`cd cli && python -m cli.config apply` (or by `install`).
 
 ### 🔑🖥️ Client OAuth2 Setup
 

@@ -1,7 +1,7 @@
 # Developer Guide
 
 This guide covers development setup, testing, and contribution workflows
-for the Kubernetes Keycloak production deployment scripts.
+for the Kubernetes Keycloak production deployment CLI.
 
 ## Development Setup
 
@@ -15,79 +15,103 @@ for the Kubernetes Keycloak production deployment scripts.
 ### Setup
 
 ```bash
-cd DTaaS/deploy/workspace/kubernetes/keycloak/production/scripts
+cd DTaaS/deploy/workspace/kubernetes/keycloak/production/cli
 pip install -r requirements-dev.txt
 ```
 
 ## Project Structure
 
 ```text
-scripts/
+cli/
 ├── requirements.txt           # Runtime dependencies (click)
-├── requirements-dev.txt       # Dev dependencies (pytest, pylint, pyright)
-├── conftest.py                # Pytest configuration (adds src/ to sys.path)
-├── pytest.ini                 # Pytest settings (testpaths = src/tests)
-└── src/
+├── requirements-dev.txt       # Dev dependencies (pytest, pylint, pyright, ruff)
+├── conftest.py                # Pytest configuration (adds parent to sys.path)
+├── pytest.ini                 # Pytest settings (testpaths = tests)
+├── pyrightconfig.json         # Pyright extra paths for editor/CI
+├── __init__.py
+├── config.py                  # CLI entry point: install / apply / network / files
+├── files_ops.py               # PVC seed / dump / fix-permissions helpers
+├── ingress_ops.py             # IngressRoute Host() patching
+├── k8s_ops.py                 # kubectl wrappers (apply, secrets, ConfigMaps, LB IP)
+├── net_ops.py                 # DNS diagnostics and fix instructions
+└── tests/
     ├── __init__.py
-    ├── config.py              # CLI entry point: apply / network show
-    ├── ingress_ops.py         # IngressRoute Host() patching
-    ├── k8s_ops.py             # kubectl wrappers (apply, secrets, ConfigMaps, LB IP)
-    ├── net_ops.py             # DNS diagnostics and fix instructions
-    └── tests/
-        ├── __init__.py
-        ├── conftest.py        # Shared make_proc() fixture
-        ├── test_config.py
-        ├── test_ingress_ops.py
-        ├── test_k8s_ops.py
-        └── test_net_ops.py
+    ├── conftest.py            # Shared make_proc() fixture + constants() loader
+    ├── constants.json         # Sample IPs / hostnames used by tests
+    ├── test_config.py
+    ├── test_files_ops.py
+    ├── test_ingress_ops.py
+    ├── test_k8s_ops.py
+    └── test_net_ops.py
 ```
 
 ## Development Workflow
 
 ### Running the CLI
 
-All commands are run from the `scripts/` directory:
+All commands are run from the `cli/` directory:
 
 ```bash
-# Apply configuration to the cluster (dry-run first)
-python -m src.config apply --dry-run --env-file ../.env
-python -m src.config apply --env-file ../.env
+# One-shot install (namespace + CRDs + manifests + patches)
+python -m cli.config install --dry-run --env-file ../.env
+python -m cli.config install --env-file ../.env
+
+# Re-apply per-environment patches only
+python -m cli.config apply --env-file ../.env
 
 # Check DNS and LoadBalancer IP alignment
-python -m src.config network show --env-file ../.env
+python -m cli.config network show --env-file ../.env
+
+# Seed all PVCs from ../files
+python -m cli.config files seed-all --files-dir ../files
+
+# Dump all PVCs back to ../files
+python -m cli.config files dump-all --dest-dir ../files
 ```
 
 ### Running Tests
 
 ```bash
-cd scripts/
+cd cli/
 pytest
 ```
 
-To run with coverage:
+With coverage:
 
 ```bash
-pytest --cov=src --cov-report=term-missing
+pytest --cov=. --cov-report=term-missing
 ```
 
 ### Linting
 
 ```bash
-cd scripts/
-pylint src/ src/tests/ --rcfile=../../../../.pylintrc --fail-under=9.0
+cd cli/
+ruff format .
+ruff check .
+pylint . tests/ --rcfile=../../../../../.pylintrc --fail-under=9.0
 ```
 
 ### Type Checking
 
 ```bash
-cd scripts/
-pyright src/
+cd cli/
+pyright .
 ```
 
 ## Contributing
 
-1. Make changes under `scripts/src/`.
-2. Add or update tests in `scripts/src/tests/`.
+1. Make changes under `cli/`.
+2. Add or update tests in `cli/tests/`.
 3. Ensure all tests pass: `pytest`
-4. Ensure pylint score ≥ 9.0: `pylint src/ src/tests/`
-5. Commit and open a pull request.
+4. Ensure ruff is clean: `ruff format . && ruff check .`
+5. Ensure pylint score ≥ 9.0: `pylint . tests/`
+6. Ensure pyright reports zero errors: `pyright .`
+7. Commit and open a pull request.
+
+## Sample test data
+
+`cli/tests/constants.json` centralises the IP addresses, hostnames, and
+other placeholder values that the tests reference. Add a key there
+rather than introducing a new inline literal — this keeps SonarQube
+quiet about hardcoded IPs and makes it easy to spot a value used in
+multiple tests.

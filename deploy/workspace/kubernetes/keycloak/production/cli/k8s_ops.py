@@ -10,6 +10,7 @@ import click
 NAMESPACE = "dtaas-workspace"
 KUBECTL_TIMEOUT = 60
 PLACEHOLDER_SERVER_DNS = "YOUR_SERVER_DNS"
+DRY_RUN_CLIENT = "--dry-run=client"
 
 
 def kubectl(*args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess:
@@ -49,6 +50,53 @@ def apply_yaml(yaml_bytes: bytes, dry_run: bool, label: str) -> None:
     click.echo(f"Applied {label}.")
 
 
+def apply_namespace(manifests_dir: str, dry_run: bool) -> None:
+    """Apply the ``namespace.yaml`` manifest.
+
+    Args:
+        manifests_dir: Path to the ``manifests/`` directory.
+        dry_run: If True, print kubectl command instead of running it.
+    """
+    label = "namespace.yaml"
+    target = f"{manifests_dir}/namespace.yaml"
+    if dry_run:
+        click.echo(f"[dry-run] Would apply {label} ({target})")
+        return
+    result = kubectl("apply", "-f", target)
+    if result.returncode != 0:
+        click.echo(f"Error applying {label}:\n{result.stderr.decode()}", err=True)
+        sys.exit(1)
+    click.echo(f"Applied {label}.")
+
+
+def apply_manifests(manifests_dir: str, dry_run: bool) -> None:
+    """Apply Traefik CRDs then the full Kustomize bundle.
+
+    The CRDs must be registered with the API server before any of the
+    ``traefik.io/*`` objects (``IngressRoute``, ``Middleware`` …) can be
+    created, so they are applied in their own pass.
+
+    Args:
+        manifests_dir: Path to the ``manifests/`` directory.
+        dry_run: If True, print kubectl command instead of running it.
+    """
+    crds_path = f"{manifests_dir}/crds/"
+    bundle_path = f"{manifests_dir}/"
+    if dry_run:
+        click.echo(f"[dry-run] Would apply CRDs at {crds_path}")
+        click.echo(f"[dry-run] Would apply Kustomize bundle at {bundle_path}")
+        return
+    for label, path in (("CRDs", crds_path), ("manifests", bundle_path)):
+        result = kubectl("apply", "-k", path)
+        if result.returncode != 0:
+            click.echo(
+                f"Error applying {label} ({path}):\n{result.stderr.decode()}",
+                err=True,
+            )
+            sys.exit(1)
+        click.echo(f"Applied {label} ({path}).")
+
+
 def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
     """Generate YAML for a Kubernetes secret using kubectl dry-run.
 
@@ -66,7 +114,7 @@ def secret_yaml(name: str, literals: dict[str, str]) -> bytes:
         name,
         "-n",
         NAMESPACE,
-        "--dry-run=client",
+        DRY_RUN_CLIENT,
         "-o",
         "yaml",
     ]
@@ -101,7 +149,7 @@ def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
         "dtaas-config",
         "-n",
         NAMESPACE,
-        "--dry-run=client",
+        DRY_RUN_CLIENT,
         "-o",
         "yaml",
         *literals,
@@ -354,7 +402,7 @@ def apply_custom_dns_configmap(
         "custom-dns-config",
         "-n",
         NAMESPACE,
-        "--dry-run=client",
+        DRY_RUN_CLIENT,
         "-o",
         "yaml",
         f"--from-literal=Corefile={corefile}",

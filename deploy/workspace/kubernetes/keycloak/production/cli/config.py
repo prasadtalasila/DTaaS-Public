@@ -1,8 +1,11 @@
 """Configure Kubernetes resources for DTaaS from a .env file.
 
 Usage:
-    python -m src.config apply [--env-file PATH] [--dry-run]
-    python -m src.config network show [--env-file PATH]
+    python -m cli.config install [--env-file PATH] [--dry-run]
+    python -m cli.config apply [--env-file PATH] [--dry-run]
+    python -m cli.config network show [--env-file PATH]
+    python -m cli.config files seed-all [--files-dir DIR] [--dry-run]
+    python -m cli.config files dump-all [--dest-dir DIR] [--dry-run]
 """
 
 import sys
@@ -11,11 +14,14 @@ from pathlib import Path
 
 import click
 
+from .files_ops import files_group
 from .ingress_ops import patch_ingressroutes
 from .k8s_ops import (
     apply_custom_dns_configmap,
     apply_forward_auth_secret,
     apply_keycloak_secret,
+    apply_manifests,
+    apply_namespace,
     get_custom_dns_clusterip,
     get_lb_ip,
     get_traefik_clusterip,
@@ -25,8 +31,10 @@ from .k8s_ops import (
 )
 from .net_ops import resolve_dns, show_dns_fix_instructions
 
-SCRIPT_DIR = Path(__file__).parent
-DEFAULT_ENV = SCRIPT_DIR.parent.parent / ".env"
+CLI_DIR = Path(__file__).parent
+PROJECT_DIR = CLI_DIR.parent
+DEFAULT_ENV = PROJECT_DIR / ".env"
+MANIFESTS_DIR = PROJECT_DIR / "manifests"
 
 
 def _strip_quotes(value: str) -> str:
@@ -76,6 +84,30 @@ def cli() -> None:
     """DTaaS Kubernetes configuration CLI."""
 
 
+cli.add_command(files_group)
+
+
+def _ensure_configmap_file(dry_run: bool) -> None:
+    """Copy ``manifests/dtaas-configmap.yaml.example`` if the live file is missing.
+
+    The Kustomize bundle references ``dtaas-configmap.yaml`` directly, so
+    the file must exist before the bundle can be applied. The example
+    file ships with safe placeholder values; on a fresh checkout we
+    materialise it here so the user does not have to copy it by hand.
+    """
+    target = MANIFESTS_DIR / "dtaas-configmap.yaml"
+    if target.exists():
+        return
+    example = MANIFESTS_DIR / "dtaas-configmap.yaml.example"
+    if not example.exists():
+        return
+    if dry_run:
+        click.echo(f"[dry-run] Would copy {example.name} → {target.name}")
+        return
+    target.write_text(example.read_text())
+    click.echo(f"Created {target.name} from {example.name}.")
+
+
 def _skip_custom_dns_reason(env: dict[str, str], traefik_ip: str) -> str:
     """Return a human-readable reason for skipping custom-dns, or "".
 
@@ -119,6 +151,51 @@ def _apply_custom_dns(env: dict[str, str], dry_run: bool) -> None:
         )
         return
     patch_forward_auth_dns(dns_ip or "PENDING", dry_run)
+
+
+@cli.command("install")
+@click.option(
+    "--env-file",
+    default=str(DEFAULT_ENV),
+    show_default=True,
+    help="Path to the .env file.",
+    type=click.Path(exists=False),
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print kubectl commands without executing them.",
+)
+def install_cmd(env_file: str, dry_run: bool) -> None:
+    """End-to-end install: namespace, CRDs, manifests, and configuration patches.
+
+    Equivalent to running, in order:
+
+    1. ``kubectl apply -f manifests/namespace.yaml``
+    2. ``kubectl apply -k manifests/crds/``
+    3. ``kubectl apply -k manifests/``
+    4. ``cli config apply`` (the per-environment patch step)
+
+    On a fresh checkout, ``manifests/dtaas-configmap.yaml`` is also
+    materialised from the example file so the Kustomize bundle can find it.
+    """
+    _ensure_configmap_file(dry_run)
+    apply_namespace(str(MANIFESTS_DIR), dry_run)
+    apply_manifests(str(MANIFESTS_DIR), dry_run)
+    env = load_env(Path(env_file))
+    _apply_env(env, dry_run)
+    click.echo("Install complete.")
+
+
+def _apply_env(env: dict[str, str], dry_run: bool) -> None:
+    """Run every per-environment patch in order."""
+    patch_configmap(env, dry_run)
+    patch_ingressroutes(env, dry_run)
+    patch_client_configmap(env, dry_run)
+    _apply_custom_dns(env, dry_run)
+    apply_keycloak_secret(env, dry_run)
+    apply_forward_auth_secret(env, dry_run)
 
 
 @cli.command("apply")

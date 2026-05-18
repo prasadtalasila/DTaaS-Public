@@ -91,11 +91,11 @@ jobs:
           path: |
             deploy/workspace/kubernetes/keycloak/production
             !deploy/workspace/kubernetes/keycloak/production/DEVELOPER.md
-            !deploy/workspace/kubernetes/keycloak/production/scripts/conftest.py
-            !deploy/workspace/kubernetes/keycloak/production/scripts/pytest.ini
-            !deploy/workspace/kubernetes/keycloak/production/scripts/requirements-dev.txt
-            !deploy/workspace/kubernetes/keycloak/production/scripts/src/tests
-            !deploy/workspace/kubernetes/keycloak/production/scripts/src/tests/**
+            !deploy/workspace/kubernetes/keycloak/production/cli/conftest.py
+            !deploy/workspace/kubernetes/keycloak/production/cli/pytest.ini
+            !deploy/workspace/kubernetes/keycloak/production/cli/requirements-dev.txt
+            !deploy/workspace/kubernetes/keycloak/production/cli/tests
+            !deploy/workspace/kubernetes/keycloak/production/cli/tests/**
             !deploy/workspace/kubernetes/keycloak/production/**/__pycache__
             !deploy/workspace/kubernetes/keycloak/production/**/__pycache__/**
             !deploy/workspace/kubernetes/keycloak/production/**/.pytest_cache

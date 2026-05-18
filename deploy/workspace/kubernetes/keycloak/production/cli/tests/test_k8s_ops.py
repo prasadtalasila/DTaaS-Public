@@ -5,8 +5,10 @@ from unittest.mock import patch
 
 import pytest
 
-from src.k8s_ops import (
+from cli.k8s_ops import (
     _rewrite_client_env_js,
+    apply_manifests,
+    apply_namespace,
     apply_yaml,
     get_custom_dns_clusterip,
     get_lb_ip,
@@ -16,7 +18,7 @@ from src.k8s_ops import (
     patch_configmap,
     secret_yaml,
 )
-from src.tests.conftest import make_proc
+from cli.tests.conftest import constants, make_proc
 
 
 class TestKubectl:
@@ -53,17 +55,53 @@ class TestApplyYaml:
 
     def test_success_prints_applied(self, capsys: pytest.CaptureFixture) -> None:
         """A successful apply prints a confirmation message."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc()):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc()):
             apply_yaml(b"kind: ConfigMap", dry_run=False, label="test-cm")
         assert "Applied test-cm" in capsys.readouterr().out
 
     def test_failure_exits(self) -> None:
         """A failed apply calls sys.exit with a non-zero code."""
         with patch(
-            "src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
+            "cli.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
         ):
             with pytest.raises(SystemExit):
                 apply_yaml(b"bad yaml", dry_run=False, label="test-cm")
+
+
+class TestApplyNamespace:
+    """Tests for apply_namespace()."""
+
+    def test_dry_run_does_not_call_kubectl(self) -> None:
+        """Dry-run prints intent without invoking kubectl."""
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
+            apply_namespace("/path/to/manifests", dry_run=True)
+        mock_kubectl.assert_not_called()
+
+    def test_applies_namespace_yaml(self) -> None:
+        """Calls kubectl apply -f manifests/namespace.yaml."""
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc()) as mock_kubectl:
+            apply_namespace("/path/to/manifests", dry_run=False)
+        args = mock_kubectl.call_args[0]
+        assert args[0] == "apply"
+        assert "/path/to/manifests/namespace.yaml" in args
+
+
+class TestApplyManifests:
+    """Tests for apply_manifests()."""
+
+    def test_dry_run_does_not_call_kubectl(self) -> None:
+        """Dry-run prints intent without invoking kubectl."""
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
+            apply_manifests("/path/to/manifests", dry_run=True)
+        mock_kubectl.assert_not_called()
+
+    def test_applies_crds_then_bundle(self) -> None:
+        """Applies CRDs first, then the full Kustomize bundle."""
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc()) as mock_kubectl:
+            apply_manifests("/path/to/manifests", dry_run=False)
+        calls = [c.args for c in mock_kubectl.call_args_list]
+        assert calls[0] == ("apply", "-k", "/path/to/manifests/crds/")
+        assert calls[1] == ("apply", "-k", "/path/to/manifests/")
 
 
 class TestSecretYaml:
@@ -72,14 +110,14 @@ class TestSecretYaml:
     def test_generates_secret_yaml(self) -> None:
         """secret_yaml() returns YAML bytes from kubectl dry-run."""
         yaml_output = b"apiVersion: v1\nkind: Secret\n"
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=yaml_output)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=yaml_output)):
             result = secret_yaml("my-secret", {"KEY": "value"})
         assert result == yaml_output
 
     def test_exits_on_error(self) -> None:
         """secret_yaml() exits when kubectl returns a non-zero code."""
         with patch(
-            "src.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
+            "cli.k8s_ops.kubectl", return_value=make_proc(stderr=b"err", returncode=1)
         ):
             with pytest.raises(SystemExit):
                 secret_yaml("bad-secret", {})
@@ -90,7 +128,7 @@ class TestPatchConfigmap:
 
     def test_skips_when_no_matching_keys(self) -> None:
         """No kubectl call is made when env has no recognised keys."""
-        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
             patch_configmap({}, dry_run=False)
         mock_kubectl.assert_not_called()
 
@@ -99,7 +137,7 @@ class TestPatchConfigmap:
     ) -> None:
         """Applying the ConfigMap also restarts dependent deployments."""
         cm_yaml = b"kind: ConfigMap\n"
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=cm_yaml)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=cm_yaml)):
             patch_configmap({"SERVER_DNS": "example.com"}, dry_run=False)
         out = capsys.readouterr().out
         assert "Applied ConfigMap dtaas-config" in out
@@ -110,7 +148,7 @@ class TestPatchConfigmap:
     def test_dry_run_does_not_call_kubectl(self, capsys: pytest.CaptureFixture) -> None:
         """Dry-run prints intent without calling kubectl for the patch."""
         cm_yaml = b"kind: ConfigMap\n"
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=cm_yaml)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=cm_yaml)):
             patch_configmap({"SERVER_DNS": "example.com"}, dry_run=True)
         out = capsys.readouterr().out
         assert "[dry-run]" in out
@@ -121,25 +159,27 @@ class TestGetLbIp:
 
     def test_returns_ip_when_available(self) -> None:
         """Returns the IP address from the LoadBalancer status."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=b"1.2.3.4")):
-            assert get_lb_ip() == "1.2.3.4"
+        ip = constants()["fake_lb_ip"]
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=ip.encode())):
+            assert get_lb_ip() == ip
 
     def test_falls_back_to_hostname(self) -> None:
         """Falls back to the hostname field when IP is empty (e.g. AWS ELB)."""
+        hostname = constants()["fake_lb_hostname"]
 
         def side_effect(*args: str, **_kwargs: object) -> object:
             """Return empty for IP lookup, hostname for hostname lookup."""
             jsonpath = next((a for a in args if "jsonpath" in a), "")
             if ".ip}" in jsonpath:
                 return make_proc(stdout=b"")
-            return make_proc(stdout=b"my-lb.aws.example.com")
+            return make_proc(stdout=hostname.encode())
 
-        with patch("src.k8s_ops.kubectl", side_effect=side_effect):
-            assert get_lb_ip() == "my-lb.aws.example.com"
+        with patch("cli.k8s_ops.kubectl", side_effect=side_effect):
+            assert get_lb_ip() == hostname
 
     def test_returns_empty_when_not_found(self) -> None:
         """Returns an empty string when both IP and hostname are absent."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=b"")):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=b"")):
             assert get_lb_ip() == ""
 
 
@@ -148,12 +188,13 @@ class TestGetTraefikClusterip:
 
     def test_returns_clusterip(self) -> None:
         """Returns the Traefik service ClusterIP."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=b"10.0.0.1")):
-            assert get_traefik_clusterip() == "10.0.0.1"
+        ip = constants()["fake_traefik_clusterip"]
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=ip.encode())):
+            assert get_traefik_clusterip() == ip
 
     def test_returns_empty_on_error(self) -> None:
         """Returns empty string when kubectl fails."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(returncode=1)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(returncode=1)):
             assert get_traefik_clusterip() == ""
 
 
@@ -162,12 +203,13 @@ class TestGetCustomDnsClusterip:
 
     def test_returns_clusterip(self) -> None:
         """Returns the custom-dns service ClusterIP."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=b"10.0.0.2")):
-            assert get_custom_dns_clusterip() == "10.0.0.2"
+        ip = constants()["fake_custom_dns_clusterip"]
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=ip.encode())):
+            assert get_custom_dns_clusterip() == ip
 
     def test_returns_empty_on_error(self) -> None:
         """Returns empty string when kubectl fails."""
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(returncode=1)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(returncode=1)):
             assert get_custom_dns_clusterip() == ""
 
 
@@ -176,7 +218,7 @@ class TestPatchClientConfigmap:
 
     def test_skips_when_no_server_dns(self) -> None:
         """No kubectl call when SERVER_DNS is absent from env."""
-        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
             patch_client_configmap({}, dry_run=False)
         mock_kubectl.assert_not_called()
 
@@ -184,7 +226,7 @@ class TestPatchClientConfigmap:
         """Replaces the domain in DTaaS-managed env.js URL entries."""
         env_js = "REACT_APP_URL: 'https://old.example.com/',"
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
-        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
             patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         patch_call_args = " ".join(str(c) for c in mock_kubectl.call_args_list)
@@ -194,7 +236,7 @@ class TestPatchClientConfigmap:
         """After patching client-config a rollout restart is issued."""
         env_js = "REACT_APP_URL: 'https://YOUR_SERVER_DNS/'"
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
-        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
             patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         out = capsys.readouterr().out
@@ -207,7 +249,7 @@ class TestPatchClientConfigmap:
         """Skips patch when the domain in env.js already matches."""
         env_js = "REACT_APP_URL: 'https://new.example.com/',"
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
-        with patch("src.k8s_ops.kubectl", return_value=make_proc(stdout=cm_json)):
+        with patch("cli.k8s_ops.kubectl", return_value=make_proc(stdout=cm_json)):
             patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         assert "already up to date" in capsys.readouterr().out
 
@@ -218,7 +260,7 @@ class TestPatchClientConfigmap:
             "REACT_APP_AUTH_AUTHORITY: 'https://YOUR_SERVER_DNS/auth/realms/dtaas',\n"
         )
         cm_json = json.dumps({"data": {"env.js": env_js}}).encode()
-        with patch("src.k8s_ops.kubectl") as mock_kubectl:
+        with patch("cli.k8s_ops.kubectl") as mock_kubectl:
             mock_kubectl.return_value = make_proc(stdout=cm_json)
             patch_client_configmap({"SERVER_DNS": "dtaas.example.com"}, dry_run=False)
         patch_calls = " ".join(str(c) for c in mock_kubectl.call_args_list)

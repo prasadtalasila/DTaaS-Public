@@ -3,8 +3,8 @@
 This directory holds the seed content that pre-populates each user's
 Kubernetes PersistentVolumeClaim (PVC) and the shared `workspace-common`
 PVC. The files here are **not mounted directly** by the workspace
-containers — they are copied into the PVCs once, after the cluster is
-provisioned.
+containers — the CLI copies them into the PVCs once, after the cluster
+is provisioned.
 
 ## Directory Structure
 
@@ -38,73 +38,72 @@ Each user Deployment mounts two PVCs (see
 | `workspace-user1`  | `/workspace`         | read/write |
 | `workspace-common` | `/workspace/common`  | read-only |
 
-The `workspace-common` PVC is mounted into every user pod read-only,
-so it should hold only assets you want to share across users.
-Per-user PVCs (`workspace-user1`, `workspace-user2`, …) provide each
-user's private read/write workspace and should be seeded from
-`files/template/`.
+`workspace-common` is mounted read-only into every user pod, so it
+should hold only assets you want to share across users. Per-user PVCs
+(`workspace-user1`, `workspace-user2`, …) provide each user's private
+read/write workspace.
 
-## Seeding the PVCs (Local → Cluster)
+## Seeding the PVCs
 
-After the manifests are applied and the PVCs are bound, copy the local
-content into the cluster. A short-lived helper pod is the simplest path:
-
-```bash
-# 1. Pick the PVC you want to populate (workspace-user1 in this example).
-PVC=workspace-user1
-
-# 2. Start a temporary helper pod that mounts the PVC at /workspace.
-kubectl run -n dtaas-workspace seed-${PVC} \
-  --image=busybox --restart=Never \
-  --overrides="{\"spec\":{\"securityContext\":{\"fsGroup\":100},\"volumes\":[{\"name\":\"pvc\",\"persistentVolumeClaim\":{\"claimName\":\"${PVC}\"}}],\"containers\":[{\"name\":\"seed\",\"image\":\"busybox\",\"command\":[\"sh\",\"-c\",\"sleep 3600\"],\"volumeMounts\":[{\"name\":\"pvc\",\"mountPath\":\"/workspace\"}]}]}}" \
-  -- sleep 3600
-
-# 3. Wait until the helper pod is Ready.
-kubectl wait -n dtaas-workspace --for=condition=Ready pod/seed-${PVC} --timeout=120s
-
-# 4. Copy the template content into the PVC.
-kubectl cp files/template/. dtaas-workspace/seed-${PVC}:/workspace/
-
-# 5. Tear the helper pod down.
-kubectl delete pod -n dtaas-workspace seed-${PVC}
-```
-
-Repeat the steps for each user PVC (`workspace-user2`, …) and for the
-shared `workspace-common` PVC (in step 4 use `files/common/.` instead of
-`files/template/.`).
-
-## Copying Files Back (Cluster → Local)
-
-You can pull files out of any PVC the same way — start a helper pod, then
-use `kubectl cp` with the source/destination reversed:
+The `cli/` package wraps the entire seed flow (helper pod, `kubectl cp`,
+ownership fix, cleanup). Run it from the `cli/` directory after the
+manifests have been applied:
 
 ```bash
-PVC=workspace-user1
-
-# 1. Start the helper pod (same overrides as above).
-kubectl run -n dtaas-workspace dump-${PVC} \
-  --image=busybox --restart=Never \
-  --overrides="{\"spec\":{\"securityContext\":{\"fsGroup\":100},\"volumes\":[{\"name\":\"pvc\",\"persistentVolumeClaim\":{\"claimName\":\"${PVC}\"}}],\"containers\":[{\"name\":\"dump\",\"image\":\"busybox\",\"command\":[\"sh\",\"-c\",\"sleep 3600\"],\"volumeMounts\":[{\"name\":\"pvc\",\"mountPath\":\"/workspace\"}]}]}}" \
-  -- sleep 3600
-
-kubectl wait -n dtaas-workspace --for=condition=Ready pod/dump-${PVC} --timeout=120s
-
-# 2. Copy the PVC contents back into files/<user>/ on your machine.
-mkdir -p files/${PVC}
-kubectl cp dtaas-workspace/dump-${PVC}:/workspace ./files/${PVC}/
-
-# 3. Tear down.
-kubectl delete pod -n dtaas-workspace dump-${PVC}
+cd cli
+python -m cli.config files seed-all
 ```
 
-For the shared volume, set `PVC=workspace-common` and copy back into
-`files/common/`. To take a full snapshot of every PVC at once, wrap the
-loop above in a small shell script.
+That single command:
 
-> **Note:** `kubectl cp` requires `tar` to be available in the helper pod
-> image. The `busybox` image above provides it. For very large volumes
-> consider running `tar` inside the helper pod and streaming the archive
-> with `kubectl exec ... -- tar c .` instead.
+1. Starts a short-lived `busybox` helper pod that mounts the target PVC.
+2. Waits for the pod to be Ready.
+3. Runs `kubectl cp files/common/.  …` and
+   `kubectl cp files/template/. …` for each PVC.
+4. Sets ownership to `UID 1000 : GID 100` so the workspace user can
+   read and write (see [File Permissions](#file-permissions-for-volume-mapping)
+   below).
+5. Deletes the helper pod.
+
+Useful flags:
+
+- `--files-dir DIR` — point at an alternate directory containing
+  `common/` and `template/`. Defaults to `files/`.
+- `--user user3 --user user4` — repeat to seed extra user PVCs (the
+  PVCs themselves must exist; see the customisation section of the
+  parent README).
+- `--dry-run` — print the kubectl commands without touching the cluster.
+
+For a single PVC:
+
+```bash
+cd cli
+python -m cli.config files seed \
+    --pvc workspace-user1 \
+    --source ../files/template
+```
+
+## Copying Files Back
+
+To pull a PVC back to disk:
+
+```bash
+cd cli
+python -m cli.config files dump-all                    # → ../files/{common,user1,user2}/
+python -m cli.config files dump \
+    --pvc workspace-user1 --dest ../files/user1        # one PVC only
+```
+
+Both commands start a helper pod, run `kubectl cp` in the opposite
+direction, then delete the pod.
+
+For very large volumes you may prefer to run `tar` inside the helper
+pod and stream the archive yourself:
+
+```bash
+kubectl exec -n dtaas-workspace <helper-pod> -- tar c -C /workspace . \
+    > workspace-user1.tar
+```
 
 ## File Permissions for Volume Mapping
 
@@ -118,59 +117,35 @@ Two consequences follow:
 1. **`fsGroup: 100` retags files at mount time.** When a pod first
    mounts a PVC, Kubernetes recursively `chown` the volume to GID 100
    and adds group-read permissions. Files copied in afterwards do **not**
-   inherit this — you must either own them as UID 1000 or make them
-   group-readable to GID 100 before the workspace user can use them.
+   inherit this — the workspace user can only access them if they are
+   owned by UID 1000 *or* group-readable to GID 100.
 
 2. **Read-only common volume.** `workspace-common` is mounted read-only
    into each user pod, so it is enough that the workspace user can
-   *read* the files; write permissions are irrelevant in the pod.
+   *read* the files; write permissions are irrelevant there.
 
-### Recommended Permissions Before Seeding
+The CLI handles both concerns automatically: after every `seed` /
+`seed-all`, it runs `chown -R 1000:100 /workspace && chmod -R g+rX
+/workspace` inside the helper pod, so the workspace user can read
+everything and write the per-user PVC.
 
-Run these commands on the host that holds your local `files/` directory
-before copying anything into the cluster:
-
-```bash
-# Group-read everything so GID 100 inside the pod can read it.
-chmod -R g+rX files/
-
-# Optional but safer: set the group ownership explicitly.
-sudo chown -R :100 files/
-
-# Make per-user directories writable by the workspace user (UID 1000).
-sudo chown -R 1000:100 files/template/
-```
-
-If you cannot use `sudo` locally, do the same fix inside the helper pod
-after copying:
+If you somehow end up with the wrong ownership (for example, you copied
+files in by hand), re-apply the fix without re-seeding:
 
 ```bash
-kubectl exec -n dtaas-workspace seed-${PVC} -- \
-  sh -c 'chown -R 1000:100 /workspace && chmod -R g+rX /workspace'
+cd cli
+python -m cli.config files fix-permissions --pvc workspace-user1
 ```
-
-### Verifying Permissions
-
-After seeding, exec into the running workspace pod and confirm the
-workspace user can list and read the files:
-
-```bash
-kubectl exec -n dtaas-workspace deploy/user1 -- \
-  ls -la /workspace /workspace/common
-```
-
-You should see `user1` (UID 1000) or group `100` ownership, and the
-contents should be readable.
 
 ### Common Pitfalls
 
-- **`Permission denied` on the read-only common mount.** The files were
-  copied as UID 0 with mode `0600`. Re-seed with `chmod -R g+rX` applied
-  first, or fix in place with the `kubectl exec` recipe above.
+- **`Permission denied` on the read-only common mount.** Files were
+  copied as UID 0 without group-read. Run
+  `python -m cli.config files fix-permissions --pvc workspace-common`.
 - **PVC starts with the wrong contents after a re-install.** Deleting
   the Deployment does **not** delete the PVC. Either reuse the existing
   data, or run `kubectl delete pvc -n dtaas-workspace --all` to drop the
   volumes and start fresh.
-- **`fsGroup` retagging is slow on large volumes.** This is a known
-  Kubernetes behaviour. For PVCs with millions of files, pre-fix the
-  ownership in the helper pod and remove `fsGroup` from the Deployment.
+- **`fsGroup` retagging is slow on large volumes.** Pre-fix the
+  ownership with `fix-permissions` and remove `fsGroup` from the
+  Deployment if startup latency is a concern.

@@ -37,6 +37,6 @@ def show_dns_fix_instructions(dns: str, lb_ip: str) -> None:
     click.echo(f"    nslookup {dns}")
     click.echo(f"    dig +short {dns}")
     click.echo("\n  Then re-run (from the scripts/ directory):")
-    click.echo("    python -m src.config network show")
-    click.echo("    python -m src.config apply")
+    click.echo("    python -m cli.config network show")
+    click.echo("    python -m cli.config apply")
     click.echo("────────────────────────────────────────────────────────")

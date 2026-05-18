@@ -6,7 +6,8 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from src.config import cli, load_env
+from cli.config import cli, load_env
+from cli.tests.conftest import constants
 
 
 class TestLoadEnv:
@@ -66,12 +67,12 @@ class TestApplyCmd:
         )
         runner = CliRunner()
         with (
-            patch("src.config.patch_configmap") as pc,
-            patch("src.config.patch_ingressroutes") as pi,
-            patch("src.config.patch_client_configmap") as pcc,
-            patch("src.config._apply_custom_dns") as acd,
-            patch("src.config.apply_keycloak_secret") as aks,
-            patch("src.config.apply_forward_auth_secret") as afas,
+            patch("cli.config.patch_configmap") as pc,
+            patch("cli.config.patch_ingressroutes") as pi,
+            patch("cli.config.patch_client_configmap") as pcc,
+            patch("cli.config._apply_custom_dns") as acd,
+            patch("cli.config.apply_keycloak_secret") as aks,
+            patch("cli.config.apply_forward_auth_secret") as afas,
         ):
             result = runner.invoke(cli, ["apply", "--env-file", str(env_file)])
         assert result.exit_code == 0, result.output
@@ -88,16 +89,42 @@ class TestApplyCmd:
         env_file.write_text("SERVER_DNS=example.com\n")
         runner = CliRunner()
         with (
-            patch("src.config.patch_configmap"),
-            patch("src.config.patch_ingressroutes"),
-            patch("src.config.patch_client_configmap"),
-            patch("src.config._apply_custom_dns") as acd,
-            patch("src.config.apply_keycloak_secret"),
-            patch("src.config.apply_forward_auth_secret"),
+            patch("cli.config.patch_configmap"),
+            patch("cli.config.patch_ingressroutes"),
+            patch("cli.config.patch_client_configmap"),
+            patch("cli.config._apply_custom_dns") as acd,
+            patch("cli.config.apply_keycloak_secret"),
+            patch("cli.config.apply_forward_auth_secret"),
         ):
             runner.invoke(cli, ["apply", "--dry-run", "--env-file", str(env_file)])
         args, kwargs = acd.call_args
         assert args[1] is True or kwargs.get("dry_run") is True
+
+
+class TestInstallCmd:
+    """Tests for the `install` CLI command."""
+
+    def test_install_runs_namespace_manifests_and_apply(self, tmp_path: Path) -> None:
+        """install applies namespace, manifests, and runs the apply patches."""
+        env_file = tmp_path / ".env"
+        env_file.write_text("SERVER_DNS=example.com\n")
+        runner = CliRunner()
+        with (
+            patch("cli.config.apply_namespace") as an,
+            patch("cli.config.apply_manifests") as am,
+            patch("cli.config.patch_configmap"),
+            patch("cli.config.patch_ingressroutes"),
+            patch("cli.config.patch_client_configmap"),
+            patch("cli.config._apply_custom_dns"),
+            patch("cli.config.apply_keycloak_secret"),
+            patch("cli.config.apply_forward_auth_secret"),
+        ):
+            result = runner.invoke(
+                cli, ["install", "--env-file", str(env_file), "--dry-run"]
+            )
+        assert result.exit_code == 0, result.output
+        an.assert_called_once()
+        am.assert_called_once()
 
 
 class TestNetworkShow:
@@ -108,9 +135,10 @@ class TestNetworkShow:
         env_file = tmp_path / ".env"
         env_file.write_text("SERVER_DNS=example.com\n")
         runner = CliRunner()
+        ip = constants()["fake_lb_ip"]
         with (
-            patch("src.config.get_lb_ip", return_value="1.2.3.4"),
-            patch("src.config.resolve_dns", return_value="1.2.3.4"),
+            patch("cli.config.get_lb_ip", return_value=ip),
+            patch("cli.config.resolve_dns", return_value=ip),
         ):
             result = runner.invoke(
                 cli, ["network", "show", "--env-file", str(env_file)]
@@ -124,9 +152,12 @@ class TestNetworkShow:
         env_file.write_text("SERVER_DNS=example.com\n")
         runner = CliRunner()
         with (
-            patch("src.config.get_lb_ip", return_value="1.2.3.4"),
-            patch("src.config.resolve_dns", return_value="9.9.9.9"),
-            patch("src.config.show_dns_fix_instructions"),
+            patch("cli.config.get_lb_ip", return_value=constants()["fake_lb_ip"]),
+            patch(
+                "cli.config.resolve_dns",
+                return_value=constants()["fake_lb_ip_mismatch"],
+            ),
+            patch("cli.config.show_dns_fix_instructions"),
         ):
             result = runner.invoke(
                 cli, ["network", "show", "--env-file", str(env_file)]
@@ -147,14 +178,16 @@ class TestNetworkShow:
         env_file.write_text("SERVER_DNS=example.com\n")
         runner = CliRunner()
         resolve_calls = {"calls": 0}
+        ip = constants()["fake_a_record_ip"]
+        hostname = constants()["fake_lb_hostname"]
 
         def _resolve(_hostname: str) -> str:
             resolve_calls["calls"] += 1
-            return "1.2.3.4"
+            return ip
 
         with (
-            patch("src.config.get_lb_ip", return_value="my-elb.aws.example.com"),
-            patch("src.config.resolve_dns", side_effect=_resolve),
+            patch("cli.config.get_lb_ip", return_value=hostname),
+            patch("cli.config.resolve_dns", side_effect=_resolve),
         ):
             result = runner.invoke(
                 cli, ["network", "show", "--env-file", str(env_file)]

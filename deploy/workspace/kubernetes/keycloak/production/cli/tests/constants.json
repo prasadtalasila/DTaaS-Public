@@ -1,0 +1,8 @@
+{
+  "fake_lb_ip": "203.0.113.10",
+  "fake_lb_ip_mismatch": "203.0.113.99",
+  "fake_traefik_clusterip": "10.0.0.1",
+  "fake_custom_dns_clusterip": "10.0.0.2",
+  "fake_a_record_ip": "192.0.2.50",
+  "fake_lb_hostname": "my-elb.aws.example.com"
+}
