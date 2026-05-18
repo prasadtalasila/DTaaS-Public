@@ -90,9 +90,7 @@ class TestPatchIngressroutes:
         api.list_namespaced_custom_object.side_effect = _api_exc(500)
         with patch("cli.ingress_ops.custom_api", return_value=api):
             with pytest.raises(SystemExit):
-                patch_ingressroutes(
-                    {"SERVER_DNS": "new.example.com"}, dry_run=False
-                )
+                patch_ingressroutes({"SERVER_DNS": "new.example.com"}, dry_run=False)
 
     def test_exits_on_patch_error(self) -> None:
         """SystemExit is raised when patch_namespaced_custom_object fails."""
@@ -101,12 +99,12 @@ class TestPatchIngressroutes:
         api.patch_namespaced_custom_object.side_effect = _api_exc(500)
         with patch("cli.ingress_ops.custom_api", return_value=api):
             with pytest.raises(SystemExit):
-                patch_ingressroutes(
-                    {"SERVER_DNS": "new.example.com"}, dry_run=False
-                )
+                patch_ingressroutes({"SERVER_DNS": "new.example.com"}, dry_run=False)
 
 
-def _write_ingress_file(directory: Path, name: str, host: str, path_prefix: str) -> Path:
+def _write_ingress_file(
+    directory: Path, name: str, host: str, path_prefix: str
+) -> Path:
     """Write a stub IngressRoute file with the given Host() and path."""
     target = directory / name
     target.write_text(

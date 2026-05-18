@@ -103,9 +103,7 @@ def patch_ingressroutes(env: dict[str, str], dry_run: bool) -> None:
             plural=INGRESSROUTE_PLURAL,
         )
     except ApiException as exc:
-        click.echo(
-            f"Error listing IngressRoutes: {_api_error_message(exc)}", err=True
-        )
+        click.echo(f"Error listing IngressRoutes: {_api_error_message(exc)}", err=True)
         sys.exit(1)
     for item in listing.get("items", []):
         _patch_one_ingressroute(item, dns, dry_run)
@@ -134,9 +132,7 @@ def patch_ingressroute_files(
     """
     dns = env.get("SERVER_DNS", "")
     if not dns:
-        click.echo(
-            "Skipping IngressRoute file rewrite: SERVER_DNS not set.", err=True
-        )
+        click.echo("Skipping IngressRoute file rewrite: SERVER_DNS not set.", err=True)
         return
     for name in INGRESSROUTE_FILES:
         path = ingress_dir / name

@@ -197,9 +197,7 @@ class TestPatchConfigmap:
             patch("cli.k8s_ops.core_api", return_value=api),
             patch("cli.k8s_ops.apps_api", return_value=apps),
         ):
-            patch_configmap(
-                {"ACME_EMAIL": "admin@example.com"}, dry_run=False
-            )
+            patch_configmap({"ACME_EMAIL": "admin@example.com"}, dry_run=False)
         out = capsys.readouterr().out
         for name in _TRAEFIK_CONSUMERS:
             assert f"Restarted deployment/{name}" in out
@@ -293,7 +291,9 @@ class TestGetCustomDnsClusterip:
 
 
 def _cm_with_env_js(env_js: str) -> V1ConfigMap:
-    return V1ConfigMap(metadata=V1ObjectMeta(name="client-config"), data={"env.js": env_js})
+    return V1ConfigMap(
+        metadata=V1ObjectMeta(name="client-config"), data={"env.js": env_js}
+    )
 
 
 class TestPatchClientConfigmap:
@@ -315,9 +315,7 @@ class TestPatchClientConfigmap:
             patch("cli.k8s_ops.core_api", return_value=api),
             patch("cli.k8s_ops.apps_api", return_value=MagicMock()),
         ):
-            patch_client_configmap(
-                {"SERVER_DNS": "new.example.com"}, dry_run=False
-            )
+            patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         patch_body = api.patch_namespaced_config_map.call_args.args[2]
         assert "new.example.com" in patch_body["data"]["env.js"]
 
@@ -332,9 +330,7 @@ class TestPatchClientConfigmap:
             patch("cli.k8s_ops.core_api", return_value=api),
             patch("cli.k8s_ops.apps_api", return_value=apps),
         ):
-            patch_client_configmap(
-                {"SERVER_DNS": "new.example.com"}, dry_run=False
-            )
+            patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         out = capsys.readouterr().out
         assert "Restarted deployment/client" in out
         apps.patch_namespaced_deployment.assert_called_once()
@@ -347,9 +343,7 @@ class TestPatchClientConfigmap:
             "REACT_APP_URL: 'https://new.example.com/'"
         )
         with patch("cli.k8s_ops.core_api", return_value=api):
-            patch_client_configmap(
-                {"SERVER_DNS": "new.example.com"}, dry_run=False
-            )
+            patch_client_configmap({"SERVER_DNS": "new.example.com"}, dry_run=False)
         assert "already up to date" in capsys.readouterr().out
         api.patch_namespaced_config_map.assert_not_called()
 
@@ -364,9 +358,7 @@ class TestPatchClientConfigmap:
             patch("cli.k8s_ops.core_api", return_value=api),
             patch("cli.k8s_ops.apps_api", return_value=MagicMock()),
         ):
-            patch_client_configmap(
-                {"SERVER_DNS": "dtaas.example.com"}, dry_run=False
-            )
+            patch_client_configmap({"SERVER_DNS": "dtaas.example.com"}, dry_run=False)
         env_js = api.patch_namespaced_config_map.call_args.args[2]["data"]["env.js"]
         assert "dtaas.example.com" in env_js
         assert "YOUR_SERVER_DNS" not in env_js

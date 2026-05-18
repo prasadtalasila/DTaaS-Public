@@ -349,9 +349,7 @@ def patch_client_configmap(env: dict[str, str], dry_run: bool) -> None:
             "client-config", NAMESPACE, {"data": {"env.js": new_env_js}}
         )
     except ApiException as exc:
-        click.echo(
-            f"Error patching client-config: {_api_error_message(exc)}", err=True
-        )
+        click.echo(f"Error patching client-config: {_api_error_message(exc)}", err=True)
         sys.exit(1)
     click.echo("Patched ConfigMap client-config.")
     # The client Deployment mounts env.js with subPath, so a ConfigMap update
@@ -518,9 +516,7 @@ def patch_forward_auth_dns(dns_ip: str, dry_run: bool) -> None:
         )
         return
     try:
-        apps_api().patch_namespaced_deployment(
-            "traefik-forward-auth", NAMESPACE, patch
-        )
+        apps_api().patch_namespaced_deployment("traefik-forward-auth", NAMESPACE, patch)
     except ApiException as exc:
         click.echo(
             f"Error patching forward-auth dnsConfig: {_api_error_message(exc)}",
