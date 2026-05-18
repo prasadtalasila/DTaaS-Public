@@ -52,7 +52,7 @@ touching the cluster.
 If you only want the patch step (for example after editing `.env`):
 
 ```bash
-cd cli && python -m cli.config apply
+python -m cli.config apply
 ```
 
 The patch step performs these actions automatically:
@@ -80,7 +80,7 @@ Before deploying, verify that your domain's DNS A record points to the Traefik
 LoadBalancer IP:
 
 ```bash
-cd cli && python -m cli.config network show
+python -m cli.config network show
 ```
 
 Example output when DNS is correct:
@@ -134,7 +134,7 @@ the bundle, so you do not need to run `kubectl apply` by hand.
 ## 👥 Usernames
 
 Update `USERNAME1` and `USERNAME2` in `.env`, then run
-`cd cli && python -m cli.config apply`.
+`python -m cli.config apply`.
 
 Update the `PathPrefix` rules in:
 

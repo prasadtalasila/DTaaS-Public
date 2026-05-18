@@ -176,12 +176,10 @@ cp .env.example .env
 $EDITOR .env
 
 # 2. Install dependencies once (Python 3.10+).
-cd cli
-pip install -r requirements.txt
-cd ..
+pip install -r cli/requirements.txt
 
 # 3. One-shot install — namespace, CRDs, manifests, ConfigMap, secrets, patches.
-cd cli && python -m cli.config install
+python -m cli.config install
 ```
 
 The `install` command applies `manifests/namespace.yaml`, then the
