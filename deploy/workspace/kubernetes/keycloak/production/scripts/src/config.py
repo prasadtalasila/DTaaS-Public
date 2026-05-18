@@ -207,26 +207,34 @@ def _alignment_message(state: _NetworkState) -> tuple[str, int]:
 
     Exit code is ``1`` for hard failures, ``0`` for success or warning.
     """
-    if not state.lb_address:
-        return (
+    cases: list[tuple[bool, str, int]] = [
+        (
+            not state.lb_address,
             "\n⚠ Could not determine LoadBalancer address."
             "\n  Run: kubectl get svc traefik -n dtaas-workspace",
             0,
-        )
-    if not state.resolved_ip:
-        return f"\n✗ DNS not configured: {state.dns} does not resolve.", 1
-    if not state.lb_ip:
-        return (
+        ),
+        (
+            not state.resolved_ip,
+            f"\n✗ DNS not configured: {state.dns} does not resolve.",
+            1,
+        ),
+        (
+            not state.lb_ip,
             f"\n⚠ LoadBalancer hostname {state.lb_address} did not resolve; "
             "cannot verify alignment.",
             0,
-        )
-    if state.resolved_ip != state.lb_ip:
-        return (
+        ),
+        (
+            state.resolved_ip != state.lb_ip,
             f"\n✗ DNS mismatch: {state.dns} resolves to {state.resolved_ip} "
             f"but LoadBalancer resolves to {state.lb_ip}.",
             1,
-        )
+        ),
+    ]
+    for triggered, message, exit_code in cases:
+        if triggered:
+            return message, exit_code
     return f"\n✓ DNS correctly configured: {state.dns} → {state.lb_address}", 0
 
 
