@@ -6,6 +6,7 @@ Usage:
 """
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -151,6 +152,16 @@ def network_group() -> None:
     """Network diagnostics commands."""
 
 
+@dataclass(frozen=True)
+class _NetworkState:
+    """Snapshot of the DNS / LoadBalancer state for a single check."""
+
+    dns: str
+    lb_address: str
+    lb_ip: str
+    resolved_ip: str
+
+
 @network_group.command("show")
 @click.option(
     "--env-file",
@@ -167,62 +178,65 @@ def network_show(env_file: str) -> None:
         click.echo("SERVER_DNS not set in .env file.", err=True)
         sys.exit(1)
     lb_address = get_lb_ip()
-    resolved_ip = resolve_dns(dns)
     # `get_lb_ip()` may return either an IPv4 address or a hostname
     # (AWS/GCP ELB-style). Resolve the hostname form so we compare apples
     # to apples against the user's DNS A record.
-    lb_ip = lb_address if _looks_like_ip(lb_address) else resolve_dns(lb_address)
-    _print_network_summary(dns, lb_address, lb_ip, resolved_ip)
-    exit_code = _evaluate_dns_alignment(dns, lb_address, lb_ip, resolved_ip)
+    state = _NetworkState(
+        dns=dns,
+        lb_address=lb_address,
+        lb_ip=lb_address if _looks_like_ip(lb_address) else resolve_dns(lb_address),
+        resolved_ip=resolve_dns(dns),
+    )
+    _print_network_summary(state)
+    exit_code = _evaluate_dns_alignment(state)
     if exit_code != 0:
         sys.exit(exit_code)
 
 
-def _print_network_summary(
-    dns: str, lb_address: str, lb_ip: str, resolved_ip: str
-) -> None:
+def _print_network_summary(state: _NetworkState) -> None:
     """Print the diagnostic header lines for ``network show``."""
-    click.echo(f"Domain         : {dns}")
-    click.echo(f"LoadBalancer   : {lb_address or '(not found)'}")
-    if lb_address and not _looks_like_ip(lb_address):
-        click.echo(f"LB resolved IP : {lb_ip or '(unresolved)'}")
-    click.echo(f"DNS resolved   : {resolved_ip or '(unresolved)'}")
+    click.echo(f"Domain         : {state.dns}")
+    click.echo(f"LoadBalancer   : {state.lb_address or '(not found)'}")
+    if state.lb_address and not _looks_like_ip(state.lb_address):
+        click.echo(f"LB resolved IP : {state.lb_ip or '(unresolved)'}")
+    click.echo(f"DNS resolved   : {state.resolved_ip or '(unresolved)'}")
 
 
-def _evaluate_dns_alignment(
-    dns: str, lb_address: str, lb_ip: str, resolved_ip: str
-) -> int:
-    """Report on alignment between SERVER_DNS and the LoadBalancer.
+def _alignment_message(state: _NetworkState) -> tuple[str, int]:
+    """Return (message-to-emit, exit-code) for the current state.
 
-    Returns:
-        ``0`` on success, ``1`` on hard failure (caller should exit non-zero),
-        ``0`` with a warning when we cannot verify alignment.
+    Exit code is ``1`` for hard failures, ``0`` for success or warning.
     """
-    if not lb_address:
-        click.echo("\n⚠ Could not determine LoadBalancer address.", err=True)
-        click.echo("  Run: kubectl get svc traefik -n dtaas-workspace", err=True)
-        return 0
-    if not resolved_ip:
-        click.echo(f"\n✗ DNS not configured: {dns} does not resolve.", err=True)
-        show_dns_fix_instructions(dns, lb_address)
-        return 1
-    if not lb_ip:
-        click.echo(
-            f"\n⚠ LoadBalancer hostname {lb_address} did not resolve; "
+    if not state.lb_address:
+        return (
+            "\n⚠ Could not determine LoadBalancer address."
+            "\n  Run: kubectl get svc traefik -n dtaas-workspace",
+            0,
+        )
+    if not state.resolved_ip:
+        return f"\n✗ DNS not configured: {state.dns} does not resolve.", 1
+    if not state.lb_ip:
+        return (
+            f"\n⚠ LoadBalancer hostname {state.lb_address} did not resolve; "
             "cannot verify alignment.",
-            err=True,
+            0,
         )
-        return 0
-    if resolved_ip != lb_ip:
-        click.echo(
-            f"\n✗ DNS mismatch: {dns} resolves to {resolved_ip} "
-            f"but LoadBalancer resolves to {lb_ip}.",
-            err=True,
+    if state.resolved_ip != state.lb_ip:
+        return (
+            f"\n✗ DNS mismatch: {state.dns} resolves to {state.resolved_ip} "
+            f"but LoadBalancer resolves to {state.lb_ip}.",
+            1,
         )
-        show_dns_fix_instructions(dns, lb_address)
-        return 1
-    click.echo(f"\n✓ DNS correctly configured: {dns} → {lb_address}")
-    return 0
+    return f"\n✓ DNS correctly configured: {state.dns} → {state.lb_address}", 0
+
+
+def _evaluate_dns_alignment(state: _NetworkState) -> int:
+    """Report on alignment between SERVER_DNS and the LoadBalancer."""
+    message, exit_code = _alignment_message(state)
+    click.echo(message, err=exit_code != 0 or "⚠" in message)
+    if exit_code != 0:
+        show_dns_fix_instructions(state.dns, state.lb_address)
+    return exit_code
 
 
 def _looks_like_ip(value: str) -> bool:
