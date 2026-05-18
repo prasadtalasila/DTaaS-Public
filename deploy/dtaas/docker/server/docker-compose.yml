@@ -11,6 +11,7 @@ services:
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.web.proxyProtocol.insecure=true"
     labels:
+      - "traefik.enable=true"
       - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://${SERVER_DNS:-localhost}"
       - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
       - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
