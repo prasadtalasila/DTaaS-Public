@@ -11,7 +11,7 @@ services:
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.web.proxyProtocol.insecure=true"
     labels:
-      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=https://${SERVER_DNS:-localhost}"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=http://${SERVER_DNS:-localhost}"
       - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
       - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
       - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
@@ -86,7 +86,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.libms.entryPoints=web"
       - "traefik.http.services.libms.loadbalancer.server.port=4001"
-      - "traefik.http.routers.libms.middlewares=traefik-forward-auth"
+      - "traefik.http.routers.libms.middlewares=traefik-forward-auth,cors"
       - >-
         traefik.http.routers.libms.rule=Host(`${SERVER_DNS:-localhost}`)
         && PathPrefix(`/lib`)
