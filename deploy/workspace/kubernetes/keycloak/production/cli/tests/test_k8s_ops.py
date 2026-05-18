@@ -311,7 +311,10 @@ class TestPatchClientConfigmap:
         api.read_namespaced_config_map.return_value = _cm_with_env_js(
             "REACT_APP_URL: 'https://old.example.com/'"
         )
-        with patch("cli.k8s_ops.core_api", return_value=api):
+        with (
+            patch("cli.k8s_ops.core_api", return_value=api),
+            patch("cli.k8s_ops.apps_api", return_value=MagicMock()),
+        ):
             patch_client_configmap(
                 {"SERVER_DNS": "new.example.com"}, dry_run=False
             )
@@ -357,7 +360,10 @@ class TestPatchClientConfigmap:
             "REACT_APP_URL: 'https://YOUR_SERVER_DNS/',\n"
             "REACT_APP_AUTH_AUTHORITY: 'https://YOUR_SERVER_DNS/auth/realms/dtaas',\n"
         )
-        with patch("cli.k8s_ops.core_api", return_value=api):
+        with (
+            patch("cli.k8s_ops.core_api", return_value=api),
+            patch("cli.k8s_ops.apps_api", return_value=MagicMock()),
+        ):
             patch_client_configmap(
                 {"SERVER_DNS": "dtaas.example.com"}, dry_run=False
             )
