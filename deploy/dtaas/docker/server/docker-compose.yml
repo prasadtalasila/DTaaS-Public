@@ -10,6 +10,12 @@ services:
       - "--entryPoints.web.address=:80"
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.web.proxyProtocol.insecure=true"
+    labels:
+      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=https://${SERVER_DNS:-localhost}"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
+      - "traefik.http.routers.myservice.rule=Host(`myservice.localhost`)"
+      - "traefik.http.services.myservice.loadbalancer.server.port=80"
     ports:
       - "80:80"
       - "443:443"
