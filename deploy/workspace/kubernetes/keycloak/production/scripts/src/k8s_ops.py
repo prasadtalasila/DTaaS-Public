@@ -115,6 +115,27 @@ def patch_configmap(env: dict[str, str], dry_run: bool) -> None:
     _restart_configmap_consumers(dry_run)
 
 
+def _rollout_restart(name: str, dry_run: bool) -> None:
+    """Rolling-restart a single Deployment with a warning on failure."""
+    if dry_run:
+        click.echo(f"[dry-run] Would rollout restart deployment/{name}")
+        return
+    res = kubectl(
+        "rollout",
+        "restart",
+        f"deployment/{name}",
+        "-n",
+        NAMESPACE,
+    )
+    if res.returncode != 0:
+        click.echo(
+            f"Warning: could not restart {name}: {res.stderr.decode()}",
+            err=True,
+        )
+        return
+    click.echo(f"Restarted deployment/{name}.")
+
+
 def _restart_configmap_consumers(dry_run: bool) -> None:
     """Rolling-restart Deployments that read dtaas-config via env vars.
 
@@ -125,25 +146,8 @@ def _restart_configmap_consumers(dry_run: bool) -> None:
     Args:
         dry_run: If True, print commands without executing them.
     """
-    deployments = ["keycloak", "user1", "user2"]
-    for name in deployments:
-        if dry_run:
-            click.echo(f"[dry-run] Would rollout restart deployment/{name}")
-            continue
-        res = kubectl(
-            "rollout",
-            "restart",
-            f"deployment/{name}",
-            "-n",
-            NAMESPACE,
-        )
-        if res.returncode != 0:
-            click.echo(
-                f"Warning: could not restart {name}: {res.stderr.decode()}",
-                err=True,
-            )
-        else:
-            click.echo(f"Restarted deployment/{name}.")
+    for name in ("keycloak", "user1", "user2"):
+        _rollout_restart(name, dry_run)
 
 
 _CLIENT_URL_KEYS = (
