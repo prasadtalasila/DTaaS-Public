@@ -15,7 +15,7 @@ from pathlib import Path
 import click
 
 from .files_ops import files_group
-from .ingress_ops import patch_ingressroutes
+from .ingress_ops import patch_ingressroute_files, patch_ingressroutes
 from .k8s_ops import (
     apply_custom_dns_configmap,
     apply_forward_auth_secret,
@@ -35,6 +35,7 @@ CLI_DIR = Path(__file__).parent
 PROJECT_DIR = CLI_DIR.parent
 DEFAULT_ENV = PROJECT_DIR / ".env"
 MANIFESTS_DIR = PROJECT_DIR / "manifests"
+INGRESS_DIR = MANIFESTS_DIR / "ingress"
 
 
 def _strip_quotes(value: str) -> str:
@@ -191,6 +192,7 @@ def install_cmd(env_file: str, dry_run: bool) -> None:
 def _apply_env(env: dict[str, str], dry_run: bool) -> None:
     """Run every per-environment patch in order."""
     patch_configmap(env, dry_run)
+    patch_ingressroute_files(env, INGRESS_DIR, dry_run)
     patch_ingressroutes(env, dry_run)
     patch_client_configmap(env, dry_run)
     _apply_custom_dns(env, dry_run)
@@ -215,12 +217,7 @@ def _apply_env(env: dict[str, str], dry_run: bool) -> None:
 def apply_cmd(env_file: str, dry_run: bool) -> None:
     """Apply DTaaS Kubernetes configuration from a .env file."""
     env = load_env(Path(env_file))
-    patch_configmap(env, dry_run)
-    patch_ingressroutes(env, dry_run)
-    patch_client_configmap(env, dry_run)
-    _apply_custom_dns(env, dry_run)
-    apply_keycloak_secret(env, dry_run)
-    apply_forward_auth_secret(env, dry_run)
+    _apply_env(env, dry_run)
     click.echo("Configuration applied successfully.")
 
 

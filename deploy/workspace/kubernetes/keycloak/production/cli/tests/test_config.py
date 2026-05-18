@@ -68,6 +68,7 @@ class TestApplyCmd:
         runner = CliRunner()
         with (
             patch("cli.config.patch_configmap") as pc,
+            patch("cli.config.patch_ingressroute_files") as pif,
             patch("cli.config.patch_ingressroutes") as pi,
             patch("cli.config.patch_client_configmap") as pcc,
             patch("cli.config._apply_custom_dns") as acd,
@@ -77,6 +78,7 @@ class TestApplyCmd:
             result = runner.invoke(cli, ["apply", "--env-file", str(env_file)])
         assert result.exit_code == 0, result.output
         pc.assert_called_once()
+        pif.assert_called_once()
         pi.assert_called_once()
         pcc.assert_called_once()
         acd.assert_called_once()
@@ -90,6 +92,7 @@ class TestApplyCmd:
         runner = CliRunner()
         with (
             patch("cli.config.patch_configmap"),
+            patch("cli.config.patch_ingressroute_files") as pif,
             patch("cli.config.patch_ingressroutes"),
             patch("cli.config.patch_client_configmap"),
             patch("cli.config._apply_custom_dns") as acd,
@@ -99,6 +102,8 @@ class TestApplyCmd:
             runner.invoke(cli, ["apply", "--dry-run", "--env-file", str(env_file)])
         args, kwargs = acd.call_args
         assert args[1] is True or kwargs.get("dry_run") is True
+        # patch_ingressroute_files takes (env, ingress_dir, dry_run)
+        assert pif.call_args.args[2] is True
 
 
 class TestInstallCmd:
@@ -113,6 +118,7 @@ class TestInstallCmd:
             patch("cli.config.apply_namespace") as an,
             patch("cli.config.apply_manifests") as am,
             patch("cli.config.patch_configmap"),
+            patch("cli.config.patch_ingressroute_files"),
             patch("cli.config.patch_ingressroutes"),
             patch("cli.config.patch_client_configmap"),
             patch("cli.config._apply_custom_dns"),
