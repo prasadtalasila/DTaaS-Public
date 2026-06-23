@@ -38,11 +38,11 @@ describe('PipelineUtils - execution history', () => {
     expect(result).toBe(mockExecutionId);
     expect(setLogButtonDisabled).toHaveBeenCalledWith(false);
 
-    const snackbarState = Store.getState().snackbar;
-    expect(snackbarState.open).toBe(true);
-    expect(snackbarState.message).toContain('Execution started successfully');
-    expect(snackbarState.message).toContain('MockedDTName');
-    expect(snackbarState.severity).toBe('success');
+    const snackbarItems = Store.getState().snackbar.items;
+    expect(snackbarItems).toHaveLength(1);
+    expect(snackbarItems[0].message).toContain('Execution started successfully');
+    expect(snackbarItems[0].message).toContain('MockedDTName');
+    expect(snackbarItems[0].severity).toBe('success');
 
     const executionHistoryState = Store.getState().executionHistory;
     expect(executionHistoryState.selectedExecutionId).toBe(mockExecutionId);
