@@ -84,7 +84,7 @@ window.env = {
   REACT_APP_CLIENT_ID:
     '934b98f03f1b6f743832b2840bf7cccaed93c3bfe579093dd0942a433691ccc0',
   REACT_APP_AUTH_AUTHORITY: 'https://gitlab.intocps.org/',
-  REACT_APP_REDIRECT_URI: 'http://localhost:4000/library',
+  REACT_APP_REDIRECT_URI: 'http://localhost:4000/workbench',
   REACT_APP_LOGOUT_REDIRECT_URI: 'http://localhost:4000/',
   REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
 };
@@ -106,7 +106,7 @@ window.env = {
   REACT_APP_CLIENT_ID:
     '934b98f03f1b6f743832b2840bf7cccaed93c3bfe579093dd0942a433691ccc0',
   REACT_APP_AUTH_AUTHORITY: 'https://gitlab.intocps.org/',
-  REACT_APP_REDIRECT_URI: 'https://intocps.org/library',
+  REACT_APP_REDIRECT_URI: 'https://intocps.org/workbench',
   REACT_APP_LOGOUT_REDIRECT_URI: 'https://intocps.org/',
   REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
 };
@@ -137,7 +137,7 @@ They will be the ones used in the e2e tests for executing twins and taking
 measurements.
 
 Here's an example `test/.env` for test setup on the developer machine and
-and the DTaaS client application running on a remote integration server:
+the DTaaS client application running on a remote integration server:
 
 ```env
 REACT_APP_TEST_USERNAME=TestUsername
@@ -164,7 +164,7 @@ yarn test:e2e
 ```
 
 The `yarn test:e2e` command launches the test runner, the DTaaS client application
-and execute all end-to-end tests.
+and executes all end-to-end tests.
 The client application is terminated at the end of end-to-end tests.
 
 ## Testing on the integration server

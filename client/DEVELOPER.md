@@ -106,7 +106,7 @@ yarn config:<config-name>
 > The `env.js` file present in the `public` directory at the time of
 > `yarn build` is used in the build.
 
-It is therefore reccommend to keep the configurations in the
+It is therefore recommended to keep the configurations in the
 `client/config/` directory and use one of the `yarn config`
 sub-commands to switch between them.
 
@@ -124,7 +124,7 @@ The purpose of different configuration files are given in the table below.
 Collect the GitLab OAuth provider URL and client application ID to create
 a configuration file.
 
-A suitable configuration file for developers is in `config/test.js`.:
+A suitable configuration file for developers is in `config/test.js`:
 
 ```js
 if (typeof window !== 'undefined') {
@@ -140,7 +140,7 @@ if (typeof window !== 'undefined') {
     REACT_APP_CLIENT_ID:
       '1be55736756190b3ace4c2c4fb19bde386d1dcc748d20b47ea8cfb5935b8446c',
     REACT_APP_AUTH_AUTHORITY: 'https://gitlab.com/',
-    REACT_APP_REDIRECT_URI: 'http://localhost:4000/library',
+    REACT_APP_REDIRECT_URI: 'http://localhost:4000/workbench',
     REACT_APP_LOGOUT_REDIRECT_URI: 'http://localhost:4000/',
     REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
   };
@@ -168,7 +168,7 @@ if (typeof window !== 'undefined') {
     REACT_APP_CLIENT_ID:
       '1be55736756190b3ace4c2c4fb19bde386d1dcc748d20b47ea8cfb5935b8446c',
     REACT_APP_AUTH_AUTHORITY: 'https://gitlab.com/',
-    REACT_APP_REDIRECT_URI: 'http://localhost:4000/au/library',
+    REACT_APP_REDIRECT_URI: 'http://localhost:4000/au/workbench',
     REACT_APP_LOGOUT_REDIRECT_URI: 'http://localhost:4000/au',
     REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
   };

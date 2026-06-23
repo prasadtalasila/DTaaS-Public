@@ -6,7 +6,7 @@ if (typeof window !== 'undefined') {
 
     REACT_APP_CLIENT_ID: '85e9f08631d90700c598106979009f1ecc1c3b1ae64eb2f8decb4e0d23a4e6fe',
     REACT_APP_AUTH_AUTHORITY: 'https://dtaas-digitaltwin.com/gitlab',
-    REACT_APP_REDIRECT_URI: 'http://localhost:4000/library',
+    REACT_APP_REDIRECT_URI: 'http://localhost:4000/workbench',
     REACT_APP_LOGOUT_REDIRECT_URI: 'http://localhost:4000',
     REACT_APP_GITLAB_SCOPES: 'openid profile read_user read_repository api',
     LOGGER_URL: 'http://localhost:4003/logger',

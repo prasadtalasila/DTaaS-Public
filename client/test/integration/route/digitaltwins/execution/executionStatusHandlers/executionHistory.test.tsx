@@ -40,7 +40,9 @@ describe('PipelineUtils - execution history', () => {
 
     const snackbarItems = Store.getState().snackbar.items;
     expect(snackbarItems).toHaveLength(1);
-    expect(snackbarItems[0].message).toContain('Execution started successfully');
+    expect(snackbarItems[0].message).toContain(
+      'Execution started successfully',
+    );
     expect(snackbarItems[0].message).toContain('MockedDTName');
     expect(snackbarItems[0].severity).toBe('success');
 

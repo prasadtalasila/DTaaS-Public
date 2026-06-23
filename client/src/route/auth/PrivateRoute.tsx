@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import ExecutionHistoryLoader from 'components/execution/ExecutionHistoryLoader';
 import WaitNavigateAndReload from 'route/auth/WaitAndNavigate';
+import { useGetAndSetUsername } from 'util/auth/Authentication';
 
 interface PrivateRouteProps {
   children: ReactNode;
@@ -10,17 +11,19 @@ interface PrivateRouteProps {
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const auth = useAuth();
+  const getAndSetUsername = useGetAndSetUsername();
   let returnJSX;
 
   useEffect(() => {
     if (auth.isAuthenticated) {
       if (auth.user !== null && auth.user !== undefined) {
         sessionStorage.setItem('access_token', auth.user.access_token);
+        getAndSetUsername(auth);
       } else {
         throw new Error('Access token was not available...');
       }
     }
-  }, [auth.isAuthenticated, auth.user]);
+  }, [auth.isAuthenticated, auth.user, getAndSetUsername]);
 
   if (auth.isLoading) {
     returnJSX = <div>Loading...</div>;

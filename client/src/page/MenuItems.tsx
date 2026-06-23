@@ -29,15 +29,15 @@ const menuItems: MenuItemEntry[] = [
   },
   {
     index: 2,
-    name: 'Digital Twins',
-    icon: <PeopleIcon />,
-    link: '/digitaltwins',
-  },
-  {
-    index: 3,
     name: 'Library',
     icon: <ExtensionIcon />,
     link: '/library',
+  },
+  {
+    index: 3,
+    name: 'Digital Twins',
+    icon: <PeopleIcon />,
+    link: '/digitaltwins',
   },
 ];
 
