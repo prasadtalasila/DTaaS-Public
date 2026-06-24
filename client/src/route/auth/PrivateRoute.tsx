@@ -23,7 +23,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
         throw new Error('Access token was not available...');
       }
     }
-  }, [auth.isAuthenticated, auth.user, getAndSetUsername]);
+  }, [auth, auth.isAuthenticated, auth.user, getAndSetUsername]);
 
   if (auth.isLoading) {
     returnJSX = <div>Loading...</div>;
