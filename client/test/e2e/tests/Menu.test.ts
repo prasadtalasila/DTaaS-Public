@@ -12,7 +12,7 @@ test.describe('Menu Links from first page (Layout)', () => {
     await expect(
       page.getByRole('button', { name: 'Open settings' }),
     ).toBeVisible();
-    await expect(page).toHaveURL(/.*library/);
+    await expect(page).toHaveURL(/.*workbench/);
   });
 
   test('Menu Links are visible', async ({ page }) => {

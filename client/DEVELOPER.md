@@ -52,14 +52,12 @@ test commands:
 #Tests require installation of devDependencies
 yarn test:unit  #run unit tests
 yarn test:int   #run integration tests
-yarn test:preview:unit #run unit tests on preview code (src/preview)
-yarn test:preview:int #run integration tests on preview code (src/preview)
 yarn test:coverage:int-unit #combine coverage from unit and integration tests
 
 yarn test:e2e   #run end-to-end tests by launching application on localhost
 yarn test:e2e:ext  #run end-to-end tests against application
                    #  running on external server
-yarn test:all   #run all tests including preview tests
+yarn test:all   #run all tests
 ```
 
 ## 🔐 Authorisation

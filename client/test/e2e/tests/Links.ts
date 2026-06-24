@@ -12,9 +12,9 @@ type LinkType = {
 };
 
 const links: LinkType[] = [
+  { text: 'Workbench', url: './workbench' },
   { text: 'Library', url: './library' },
   { text: 'Digital Twins', url: './digitaltwins' },
-  { text: 'Workbench', url: './workbench' },
 ];
 
 export const workbenchLinks: LinkType[] = [
