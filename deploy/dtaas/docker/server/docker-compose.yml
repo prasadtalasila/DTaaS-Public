@@ -10,7 +10,6 @@ services:
       - "--entryPoints.web.address=:80"
       - "--entrypoints.web.forwardedHeaders.insecure=true"
       - "--entrypoints.web.proxyProtocol.insecure=true"
-    labels: []
     ports:
       - "80:80"
       - "443:443"
