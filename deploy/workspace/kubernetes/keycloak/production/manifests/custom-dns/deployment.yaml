@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-dns
+  namespace: dtaas-workspace
+  labels:
+    app: custom-dns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-dns
+  template:
+    metadata:
+      labels:
+        app: custom-dns
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+      containers:
+        - name: coredns
+          image: coredns/coredns:1.11.3
+          args: ["-conf", "/etc/coredns/Corefile"]
+          ports:
+            - containerPort: 53
+              name: dns
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/coredns
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: custom-dns-config

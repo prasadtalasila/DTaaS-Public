@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: forward-auth
+  namespace: dtaas-workspace
+spec:
+  entryPoints:
+    - web-secure
+  routes:
+    - match: Host(`YOUR_SERVER_DNS`) && PathPrefix(`/_oauth`)
+      kind: Rule
+      services:
+        - name: traefik-forward-auth
+          port: 4181
+  tls:
+    certResolver: letsencrypt

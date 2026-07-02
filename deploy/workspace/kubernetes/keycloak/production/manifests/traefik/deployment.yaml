@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: dtaas-workspace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traefik
+  template:
+    metadata:
+      labels:
+        app: traefik
+    spec:
+      serviceAccountName: traefik
+      containers:
+        - name: traefik
+          image: traefik:v3.6.13
+          env:
+            - name: ACME_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: dtaas-config
+                  key: ACME_EMAIL
+          args:
+            - "--log.level=INFO"
+            - "--providers.kubernetescrd=true"
+            - "--providers.kubernetescrd.namespaces=dtaas-workspace"
+            - "--entryPoints.web.address=:80"
+            - "--entrypoints.web-secure.address=:443"
+            - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
+            - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+            - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+            - "--certificatesresolvers.letsencrypt.acme.email=$(ACME_EMAIL)"
+            - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+            - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+          ports:
+            - name: web
+              containerPort: 80
+            - name: websecure
+              containerPort: 443
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: acme-storage
+              mountPath: /data
+      volumes:
+        - name: acme-storage
+          persistentVolumeClaim:
+            claimName: traefik-acme-storage

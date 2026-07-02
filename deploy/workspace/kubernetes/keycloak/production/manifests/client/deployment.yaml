@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: dtaas-workspace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      containers:
+        - name: client
+          image: intocps/dtaas-web:1.0.2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          ports:
+            - containerPort: 4000
+          volumeMounts:
+            - name: client-config
+              mountPath: /dtaas/client/build/env.js
+              subPath: env.js
+      volumes:
+        - name: client-config
+          configMap:
+            name: client-config

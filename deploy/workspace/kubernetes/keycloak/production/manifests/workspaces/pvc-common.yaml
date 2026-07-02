@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workspace-common
+  namespace: dtaas-workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi

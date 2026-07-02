@@ -1,0 +1,42 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: traefik-dtaas-workspace
+  namespace: dtaas-workspace
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - secrets
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - traefik.io
+    resources:
+      - middlewares
+      - middlewaretcps
+      - ingressroutes
+      - traefikservices
+      - ingressroutetcps
+      - ingressrouteudps
+      - tlsoptions
+      - tlsstores
+      - serverstransports
+      - serverstransporttcps
+    verbs:
+      - get
+      - list
+      - watch

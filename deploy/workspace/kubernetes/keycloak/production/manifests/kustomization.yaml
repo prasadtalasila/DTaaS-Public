@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - dtaas-configmap.yaml
+  - traefik/serviceaccount.yaml
+  - traefik/clusterrole.yaml
+  - traefik/clusterrolebinding.yaml
+  - traefik/role.yaml
+  - traefik/rolebinding.yaml
+  - traefik/pvc-certs.yaml
+  - traefik/deployment.yaml
+  - traefik/service.yaml
+  - keycloak/pvc.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  - client/configmap.yaml
+  - client/deployment.yaml
+  - client/service.yaml
+  - custom-dns/configmap.yaml
+  - custom-dns/deployment.yaml
+  - custom-dns/service.yaml
+  - forward-auth/configmap.yaml
+  - forward-auth/deployment.yaml
+  - forward-auth/service.yaml
+  - workspaces/pvc-common.yaml
+  - workspaces/pvc-user1.yaml
+  - workspaces/pvc-user2.yaml
+  - workspaces/deployment-user1.yaml
+  - workspaces/service-user1.yaml
+  - workspaces/deployment-user2.yaml
+  - workspaces/service-user2.yaml
+  - ingress/tlsstore.yaml
+  - ingress/middleware.yaml
+  - ingress/ingressroute-keycloak.yaml
+  - ingress/ingressroute-client.yaml
+  - ingress/ingressroute-forward-auth.yaml
+  - ingress/ingressroute-user1.yaml
+  - ingress/ingressroute-user2.yaml

@@ -3,6 +3,9 @@ yaml-files:
   - '*.yml'
   - '.yamllint'
 
+ignore: |
+  deploy/workspace/kubernetes/keycloak/production/manifests/crds/
+
 extends: default
 
 rules:

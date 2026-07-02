@@ -9,9 +9,10 @@ export interface ValidationType {
 
 const EnvironmentEnum = z.enum(['dev', 'local', 'prod', 'test']);
 const PathString: z.ZodString = z.string();
-const ScopesString: z.ZodLiteral<string> = z.literal(
-  'openid profile read_user read_repository api',
-);
+const ScopesString = z.union([
+  z.literal('openid profile read_user read_repository api'),
+  z.literal('openid profile'),
+]);
 
 const pathKeys = [
   'REACT_APP_URL_BASENAME',

@@ -84,3 +84,23 @@ jobs:
           path: deploy/workspace/keycloak/production
           if-no-files-found: error
           retention-days: 2
+
+      - name: Upload workspace-keycloak-production-kubernetes
+        # v6.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: workspace-keycloak-production-kubernetes
+          path: |
+            deploy/workspace/kubernetes/keycloak/production
+            !deploy/workspace/kubernetes/keycloak/production/DEVELOPER.md
+            !deploy/workspace/kubernetes/keycloak/production/cli/conftest.py
+            !deploy/workspace/kubernetes/keycloak/production/cli/pytest.ini
+            !deploy/workspace/kubernetes/keycloak/production/cli/requirements-dev.txt
+            !deploy/workspace/kubernetes/keycloak/production/cli/tests
+            !deploy/workspace/kubernetes/keycloak/production/cli/tests/**
+            !deploy/workspace/kubernetes/keycloak/production/**/__pycache__
+            !deploy/workspace/kubernetes/keycloak/production/**/__pycache__/**
+            !deploy/workspace/kubernetes/keycloak/production/**/.pytest_cache
+            !deploy/workspace/kubernetes/keycloak/production/**/.pytest_cache/**
+          if-no-files-found: error
+          retention-days: 2
