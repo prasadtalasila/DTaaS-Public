@@ -23,7 +23,7 @@ Object.defineProperty(AbortSignal, 'timeout', {
 });
 
 const authStateWithError = { ...mockAuthState, error: Error('Test Error') };
-const setup = () => setupIntegrationTest('/library', authStateWithError);
+const setup = () => setupIntegrationTest('/workbench', authStateWithError);
 
 describe('WaitAndNavigate', () => {
   beforeEach(() => {

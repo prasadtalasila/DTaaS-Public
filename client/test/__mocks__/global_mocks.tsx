@@ -7,8 +7,6 @@ import DTAssets from 'model/backend/DTAssets';
 import { mockBackendInstance } from 'test/__mocks__/mockBackendData';
 import {
   mockAppURL,
-  mockURLforDT,
-  mockURLforLIB,
   mockURLforWorkbench,
   mockClientID,
   mockAuthority,
@@ -28,8 +26,6 @@ export {
 } from 'test/__mocks__/mockBackendData';
 export {
   mockAppURL,
-  mockURLforDT,
-  mockURLforLIB,
   mockURLforWorkbench,
   mockClientID,
   mockAuthority,
@@ -49,8 +45,6 @@ export type {
 jest.mock('util/envUtil', () => ({
   ...jest.requireActual('util/envUtil'),
   useAppURL: () => mockAppURL,
-  useURLforDT: () => mockURLforDT,
-  useURLforLIB: () => mockURLforLIB,
   getClientID: () => mockClientID,
   getAuthority: () => mockAuthority,
   getRedirectURI: () => mockRedirectURI,
@@ -81,10 +75,6 @@ globalThis.env = {
   REACT_APP_ENVIRONMENT: 'test',
   REACT_APP_URL: mockAppURL,
   REACT_APP_URL_BASENAME: 'mock_url_basename',
-  REACT_APP_URL_DTLINK: '/lab',
-  REACT_APP_URL_LIBLINK: '',
-  REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/preview/library',
-  REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/preview/digitaltwins',
 
   REACT_APP_CLIENT_ID: mockClientID,
   REACT_APP_AUTH_AUTHORITY: mockAuthority,

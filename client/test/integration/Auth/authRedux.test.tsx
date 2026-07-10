@@ -1,5 +1,5 @@
 import { createStore } from 'redux';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, cleanup } from '@testing-library/react';
 import { useAuth } from 'react-oidc-context';
 import PrivateRoute from 'route/auth/PrivateRoute';
 import Library from 'route/library/Library';
@@ -35,6 +35,12 @@ jest.mock('components/execution/ExecutionHistoryLoader', () => ({
   checkRunningExecutions: () => ({ type: 'execution/checkRunningExecutions' }),
   default: () => null,
 }));
+
+jest.mock('route/library/Library', () => ({
+  __esModule: true,
+  default: () => <div>Functions</div>,
+}));
+
 const store = createStore(authReducer);
 
 type AuthState = {
@@ -42,6 +48,7 @@ type AuthState = {
 };
 
 const setupTest = (authState: AuthState) => {
+  cleanup();
   (useAuth as jest.Mock).mockReturnValue({ ...authState, user: mockUser });
 
   if (authState.isAuthenticated) {

@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { useAuth } from 'react-oidc-context';
 import { ITabs } from 'route/IData';
-import store from 'store/store';
+import appStore from 'store/store';
 import AppProvider from 'AppProvider';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import routes from 'routes';
@@ -50,9 +50,9 @@ export const dispatchAddExecHistoryEntry = async (
   });
 };
 
-export const storeResetAll = () => store.dispatch({ type: 'RESET_ALL' });
+export const storeResetAll = () => appStore.dispatch({ type: 'RESET_ALL' });
 
-export const previewStore = configureStore({
+export const Store = configureStore({
   reducer: {
     digitalTwin: digitalTwinReducer,
     snackbar: snackbarSlice,
@@ -98,12 +98,12 @@ export async function setupIntegrationTest(
   });
 
   if (returnedAuthState.isAuthenticated) {
-    store.dispatch({
+    appStore.dispatch({
       type: 'auth/setUserName',
       payload: resolveOAuthUsername(returnedAuthState.user?.profile),
     });
   } else {
-    store.dispatch({ type: 'auth/setUserName', payload: undefined });
+    appStore.dispatch({ type: 'auth/setUserName', payload: undefined });
   }
   const container = await act(async () => renderWithAppProvider(route));
   return container;

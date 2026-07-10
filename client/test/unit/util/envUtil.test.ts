@@ -1,17 +1,9 @@
-import {
-  useURLforDT,
-  useURLforLIB,
-  useWorkbenchLinkValues,
-  cleanURL,
-  useURLbasename,
-} from 'util/envUtil';
+import { useWorkbenchLinkValues, cleanURL, useURLbasename } from 'util/envUtil';
 import { useSelector } from 'react-redux';
 
 jest.unmock('util/envUtil');
 
 describe('envUtil', () => {
-  const testDT = 'testDT';
-  const testLIB = '';
   const testAppURL = 'https://example.com';
   const testBasename = 'testBasename';
   const testUsername = 'username';
@@ -44,10 +36,6 @@ describe('envUtil', () => {
     REACT_APP_ENVIRONMENT: 'test',
     REACT_APP_URL: testAppURL,
     REACT_APP_URL_BASENAME: testBasename,
-    REACT_APP_URL_DTLINK: testDT,
-    REACT_APP_URL_LIBLINK: testLIB,
-    REACT_APP_WORKBENCHLINK_LIBRARY_PREVIEW: '/preview/library',
-    REACT_APP_WORKBENCHLINK_DT_PREVIEW: '/preview/digitaltwins',
 
     REACT_APP_CLIENT_ID: testAppID,
     REACT_APP_AUTH_AUTHORITY: testAuthority,
@@ -68,12 +56,6 @@ describe('envUtil', () => {
   });
 
   test('GetURL should return the correct environment variables', () => {
-    expect(useURLforDT()).toBe(
-      `${testAppURL}/${testBasename}/${testUsername}/${testDT}`,
-    );
-    expect(useURLforLIB()).toBe(
-      `${testAppURL}/${testBasename}/${testUsername}/${testLIB}`,
-    );
     expect(useURLbasename()).toBe(testBasename);
   });
 
@@ -82,7 +64,6 @@ describe('envUtil', () => {
     expect(Array.isArray(result)).toBe(true);
   });
 
-  // Test that array elements have the expected shape
   test('GetWorkbenchLinkValues should return an array of objects with "key" and "link" properties', () => {
     const result = useWorkbenchLinkValues();
     expect(
@@ -92,7 +73,6 @@ describe('envUtil', () => {
     ).toBe(true);
   });
 
-  // Test that the workspace service links are correctly constructed
   it('should construct workspace service links correctly', () => {
     const result = useWorkbenchLinkValues();
     const appURL = `${testAppURL}/${testBasename}`;
@@ -113,19 +93,25 @@ describe('envUtil', () => {
     );
   });
 
-  // Test that preview links come from env vars unchanged
-  it('should include LIBRARY_PREVIEW and DT_PREVIEW from env vars', () => {
+  it('should include LIBRARY and DIGITALTWINS routes', () => {
     const result = useWorkbenchLinkValues();
 
-    const libraryPreview = result.find((el) => el.key === 'LIBRARY_PREVIEW');
-    expect(libraryPreview?.link).toBe('/preview/library');
+    const library = result.find((el) => el.key === 'LIBRARY');
+    expect(library?.link).toBe('./library');
 
-    const dtPreview = result.find((el) => el.key === 'DT_PREVIEW');
-    expect(dtPreview?.link).toBe('/preview/digitaltwins');
+    const digitalTwins = result.find((el) => el.key === 'DIGITALTWINS');
+    expect(digitalTwins?.link).toBe('./digitaltwins');
   });
 
-  // Test that no workspace links appear when services are empty
-  it('should return only preview links when services are empty', () => {
+  it('should always return basename-safe relative app routes', () => {
+    const result = useWorkbenchLinkValues();
+    expect(result.find((el) => el.key === 'LIBRARY')?.link).toBe('./library');
+    expect(result.find((el) => el.key === 'DIGITALTWINS')?.link).toBe(
+      './digitaltwins',
+    );
+  });
+
+  it('should return only static route links when services are empty', () => {
     const emptyState = {
       auth: { userName: testUsername },
       workbench: { services: {}, status: 'idle' },
@@ -144,8 +130,8 @@ describe('envUtil', () => {
     workspaceKeys.forEach((key) => {
       expect(result.find((el) => el.key === key)).toBeUndefined();
     });
-    expect(result.find((el) => el.key === 'LIBRARY_PREVIEW')).toBeDefined();
-    expect(result.find((el) => el.key === 'DT_PREVIEW')).toBeDefined();
+    expect(result.find((el) => el.key === 'LIBRARY')).toBeDefined();
+    expect(result.find((el) => el.key === 'DIGITALTWINS')).toBeDefined();
   });
 
   it('cleanURL should remove leading and trailing slashes', () => {
@@ -157,8 +143,6 @@ describe('envUtil', () => {
 
   it('still handles if basename is set to empty string', () => {
     globalThis.env.REACT_APP_URL_BASENAME = '';
-    expect(useURLforDT()).toBe(`${testAppURL}/${testUsername}/${testDT}`);
-    expect(useURLforLIB()).toBe(`${testAppURL}/${testUsername}/${testLIB}`);
     expect(useURLbasename()).toBe('');
   });
 });

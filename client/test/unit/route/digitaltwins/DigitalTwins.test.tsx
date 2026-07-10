@@ -1,9 +1,8 @@
-import LibraryPreview from 'route/library/cart/LibraryPreview';
+import DigitalTwins from 'route/digitaltwins/DigitalTwins';
 import store from 'store/store';
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
 
 jest.mock('react-redux', () => ({
   ...jest.requireActual('react-redux'),
@@ -14,26 +13,32 @@ jest.mock('react-oidc-context', () => ({
   useAuth: jest.fn(),
 }));
 
-describe('Library Preview', () => {
-  it('displays content of tabs', async () => {
-    (useAuth as jest.Mock).mockReturnValue({
-      user: {
-        profile: {
-          profile: 'testProfileUrl',
-        },
-      },
-    });
+describe('Digital Twins', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('displays content of tabs', async () => {
     await act(async () => {
       render(
         <Provider store={store}>
           <MemoryRouter>
-            <LibraryPreview />
+            <DigitalTwins />
           </MemoryRouter>
         </Provider>,
       );
     });
 
-    expect(screen.getByText('Selection')).toBeInTheDocument();
+    // Fast-forward timers and wait for state updates
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    const tabComponent = screen.getByTestId('tab-component');
+    expect(tabComponent).toBeInTheDocument();
   });
 });

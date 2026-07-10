@@ -1,33 +1,81 @@
+import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { Typography } from '@mui/material';
 import Layout from 'page/Layout';
 import TabComponent from 'components/tab/TabComponent';
-import Iframe from 'components/Iframe';
 import { TabData } from 'components/tab/subcomponents/TabRender';
-import { useURLforDT } from 'util/envUtil';
-import { Typography } from '@mui/material';
+import AssetBoard from 'components/asset/AssetBoard';
+import { defaultFiles } from 'model/backend/gitlab/digitalTwinConfig/constants';
+import { addOrUpdateFile } from 'model/store/file.slice';
 import tabs from 'route/digitaltwins/DigitalTwinTabData';
+import CreatePage from 'route/digitaltwins/create/CreatePage';
 
-function DTContent() {
-  const DTurl = useURLforDT();
+interface DTTabProps {
+  readonly newDigitalTwinName: string;
+  readonly setNewDigitalTwinName: React.Dispatch<React.SetStateAction<string>>;
+}
 
-  const DTTab: TabData[] = tabs.map((tab) => ({
-    label: tab.label,
-    body: (
-      <>
-        <Typography variant="body1">{tab.body}</Typography>
-        <>
-          {' '}
-          <Iframe title={`JupyterLight-Demo-${tab.label}`} url={DTurl} />{' '}
-        </>
-      </>
-    ),
-  }));
+export const createDTTab = ({
+  newDigitalTwinName,
+  setNewDigitalTwinName,
+}: DTTabProps): TabData[] =>
+  tabs
+    .filter(
+      (tab) =>
+        tab.label === 'Manage' ||
+        tab.label === 'Execute' ||
+        tab.label === 'Create',
+    )
+    .map((tab) => ({
+      label: tab.label,
+      body:
+        tab.label === 'Create' ? (
+          <>
+            <Typography variant="body1">{tab.body}</Typography>
+            <CreatePage
+              newDigitalTwinName={newDigitalTwinName}
+              setNewDigitalTwinName={setNewDigitalTwinName}
+            />
+          </>
+        ) : (
+          <>
+            <Typography variant="body1">{tab.body}</Typography>
+            <AssetBoard tab={tab.label} />
+          </>
+        ),
+    }));
+
+export const DTContent = () => {
+  const [newDigitalTwinName, setNewDigitalTwinName] = useState('');
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    defaultFiles.forEach((file) => {
+      dispatch(
+        addOrUpdateFile({
+          name: file.name,
+          content: '',
+          isNew: true,
+          isModified: false,
+        }),
+      );
+    });
+  }, [dispatch]);
 
   return (
-    <Layout sx={{ display: 'flex' }}>
-      <TabComponent assetType={DTTab} scope={[]} />
+    <Layout>
+      <Typography variant="body1" sx={{ marginBottom: 0 }}>
+        This page demonstrates integration of DTaaS with GitLab CI/CD workflows.
+        The feature is experimental and requires certain GitLab setup in order
+        for it to work.
+      </Typography>
+      <TabComponent
+        assetType={createDTTab({ newDigitalTwinName, setNewDigitalTwinName })}
+        scope={[]}
+      />
     </Layout>
   );
-}
+};
 
 export default function DigitalTwins() {
   return <DTContent />;

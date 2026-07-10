@@ -21,18 +21,23 @@ interface MenuItemEntry {
 }
 
 const menuItems: MenuItemEntry[] = [
-  { index: 1, name: 'Library', icon: <ExtensionIcon />, link: '/library' },
   {
-    index: 2,
-    name: 'Digital Twins',
-    icon: <PeopleIcon />,
-    link: '/digitaltwins',
-  },
-  {
-    index: 5,
+    index: 1,
     name: 'Workbench',
     icon: <EngineeringIcon />,
     link: '/workbench',
+  },
+  {
+    index: 2,
+    name: 'Library',
+    icon: <ExtensionIcon />,
+    link: '/library',
+  },
+  {
+    index: 3,
+    name: 'Digital Twins',
+    icon: <PeopleIcon />,
+    link: '/digitaltwins',
   },
 ];
 

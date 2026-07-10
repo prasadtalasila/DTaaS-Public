@@ -16,6 +16,10 @@ jest.mock('react-oidc-context', () => ({
   useAuth: jest.fn(),
 }));
 
+jest.mock('util/auth/Authentication', () => ({
+  useGetAndSetUsername: () => jest.fn(),
+}));
+
 jest.mock('components/execution/ExecutionHistoryLoader', () => {
   const MockExecutionHistoryLoader = () => (
     <div>Mock ExecutionHistoryLoader</div>

@@ -1,6 +1,6 @@
 import * as PipelineUtils from 'route/digitaltwins/execution/executionStatusHandlers';
 import cleanLog from 'model/backend/gitlab/cleanLog';
-import { previewStore as store } from 'test/integration/integration.testUtil';
+import { Store } from 'test/integration/integration.testUtil';
 import { JobSchema } from '@gitbeaker/rest';
 import DigitalTwin from 'model/backend/digitalTwin';
 import { mockBackendInstance } from 'test/__mocks__/global_mocks';
@@ -10,7 +10,7 @@ describe('PipelineUtils - basic operations', () => {
   let digitalTwin: DigitalTwin;
 
   beforeEach(() => {
-    digitalTwin = setupDigitalTwinBeforeEach(store);
+    digitalTwin = setupDigitalTwinBeforeEach(Store);
   });
 
   afterEach(() => {
@@ -18,8 +18,8 @@ describe('PipelineUtils - basic operations', () => {
   });
 
   it('starts pipeline and handle success', async () => {
-    await PipelineUtils.startPipeline(digitalTwin, store.dispatch, jest.fn());
-    const snackbarState = store.getState().snackbar;
+    await PipelineUtils.startPipeline(digitalTwin, Store.dispatch, jest.fn());
+    const snackbarState = Store.getState().snackbar;
     const expectedSnackbarState = {
       items: [
         {
@@ -39,9 +39,9 @@ describe('PipelineUtils - basic operations', () => {
       [{ jobName: 'job1', log: 'log1' }],
       jest.fn(),
       jest.fn(),
-      store.dispatch,
+      Store.dispatch,
     );
-    const state = store.getState().digitalTwin.digitalTwin;
+    const state = Store.getState().digitalTwin.digitalTwin;
     expect(state.mockedDTName.jobLogs).toEqual([
       { jobName: 'job1', log: 'log1' },
     ]);

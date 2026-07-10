@@ -1,4 +1,4 @@
-import DigitalTwinsPreview from 'route/digitaltwins/DigitalTwinsPreview';
+import DigitalTwins from 'route/digitaltwins/DigitalTwins';
 import store from 'store/store';
 import { act, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
@@ -19,7 +19,7 @@ describe('Digital Twins', () => {
       render(
         <Provider store={store}>
           <MemoryRouter>
-            <DigitalTwinsPreview />
+            <DigitalTwins />
           </MemoryRouter>
         </Provider>,
       );

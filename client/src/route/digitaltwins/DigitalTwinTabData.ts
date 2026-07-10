@@ -3,11 +3,15 @@ import { ITabs } from 'route/IData';
 const tabs: ITabs[] = [
   {
     label: 'Create',
-    body: `Create digital twins from tools provided within user workspaces. Each digital twin will have one directory. It is suggested that user provide one bash shell script to run their digital twin. Users can create the required scripts and other files from tools provided in Workbench page.`,
+    body: `Create and save new digital twins. The new digital twins are saved in the linked gitlab repository. Remember to add valid '.gitlab-ci.yml' configuration as it is used for execution of digital twin.`,
+  },
+  {
+    label: 'Manage',
+    body: `Explore, edit and delete existing digital twins. The changes get saved in the linked gitlab repository.`,
   },
   {
     label: 'Execute',
-    body: 'Digital twins are executed from within user workspaces. The given bash script gets executed from digital twin directory. Terminal-based digital twins can be executed from VSCode and graphical digital twins can be executed from VNC GUI. The results of execution can be placed in the data directory.',
+    body: 'Execute existing digital twins using CI/CD pipelines of the linked gitlab repository. Availability of gitlab runners is required for execution of digital twins.',
   },
   {
     label: 'Analyze',

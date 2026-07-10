@@ -4,9 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import MenuItems from 'page/MenuItems';
 
 const menuEntries = [
+  { name: 'Workbench', link: '/workbench' },
   { name: 'Library', link: '/library' },
   { name: 'Digital Twins', link: '/digitaltwins' },
-  { name: 'Workbench', link: '/workbench' },
 ];
 
 const renderMenu = (open: boolean, pathname = '/') => {

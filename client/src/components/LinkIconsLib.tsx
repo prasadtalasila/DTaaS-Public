@@ -29,13 +29,13 @@ const LinkIcons: LinkIconsType = {
     icon: <NoteAltOutlinedIcon />,
     name: 'Jupyter Notebook',
   },
-  LIBRARY_PREVIEW: {
+  LIBRARY: {
     icon: <LibraryBooksOutlined />,
-    name: 'Library page preview',
+    name: 'Library page',
   },
-  DT_PREVIEW: {
+  DIGITALTWINS: {
     icon: <TabIcon />,
-    name: 'Digital Twins page preview',
+    name: 'Digital Twins page',
   },
   GITHUB: {
     icon: <GitHubIcon />,
