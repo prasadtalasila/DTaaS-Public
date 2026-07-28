@@ -85,11 +85,15 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.services.libms.loadbalancer.server.port=4001"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowOriginList=https://${SERVER_DNS:-localhost}"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowMethods=GET,OPTIONS,POST"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowHeaders=Authorization,Content-Type"
+      - "traefik.http.middlewares.cors.headers.accessControlAllowCredentials=true"
       - >-
         traefik.http.routers.libms.rule=Host(`${SERVER_DNS:-localhost}`)
         && PathPrefix(`/lib`)
       - "traefik.http.routers.libms.tls=true"
-      - "traefik.http.routers.libms.middlewares=traefik-forward-auth"
+      - "traefik.http.routers.libms.middlewares=cors,traefik-forward-auth"
     networks:
       - frontend
 
