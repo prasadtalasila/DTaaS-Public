@@ -9,7 +9,7 @@ WORKDIR /dtaas/libms
 ARG VERSION="latest"
 RUN npm i -g @into-cps-association/libms@${VERSION}
 
-COPY ./developer/config/libms.dev.yaml.example libms.yaml
+COPY ./developer/check/config/libms.dev.yaml.example libms.yaml
 COPY ./servers/lib/config/http.json .
 
 # Define the command to run your app
