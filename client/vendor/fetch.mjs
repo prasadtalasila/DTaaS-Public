@@ -4,11 +4,15 @@
 // Run before `yarn install`; it does nothing when the tarballs already exist.
 // A failed build keeps its work folder, so running it again resumes.
 //
-// Each tarball is named after the pinned commit. `yarn pack` output differs
-// byte for byte between builds of the same commit, and yarn caches a `file:`
-// tarball under the hash recorded in yarn.lock, so a name reused across two
-// commits would let a stale cache serve the old code without a warning.
+// `yarn pack` output differs byte for byte between builds of the same commit,
+// and yarn.lock records each `file:` tarball with the SHA-1 of its bytes. So:
+// - each tarball is named after the pinned commit, because yarn caches a
+//   tarball under that hash and a name reused across two commits would let a
+//   stale cache serve the old code without a warning;
+// - the two hashes in yarn.lock are set to the tarballs actually present,
+//   because otherwise every fresh build fails yarn's integrity check.
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   copyFileSync,
   existsSync,
@@ -16,6 +20,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
@@ -86,6 +91,27 @@ const removeStale = () => {
   rmSync(join(here, '.build'), { recursive: true, force: true });
 };
 
+/**
+ * Point yarn.lock's `resolved "file:vendor/<tarball>#<sha1>"` at these bytes.
+ * An entry that is not there yet (just after a pin bump) is left for
+ * `yarn install` to add.
+ */
+const syncLockfile = () => {
+  const lockfile = join(here, '..', 'yarn.lock');
+  let lock = readFileSync(lockfile, 'utf8');
+  PACKAGES.forEach(({ tarball }) => {
+    const marker = `resolved "file:vendor/${tarball}#`;
+    const at = lock.indexOf(marker);
+    if (at === -1) return;
+    const start = at + marker.length;
+    const sha1 = createHash('sha1')
+      .update(readFileSync(join(here, tarball)))
+      .digest('hex');
+    lock = lock.slice(0, start) + sha1 + lock.slice(start + sha1.length);
+  });
+  writeFileSync(lockfile, lock);
+};
+
 checkManifest();
 if (PACKAGES.every(({ tarball }) => existsSync(join(here, tarball)))) {
   // eslint-disable-next-line no-console
@@ -95,3 +121,4 @@ if (PACKAGES.every(({ tarball }) => existsSync(join(here, tarball)))) {
   PACKAGES.forEach(pack);
   removeStale();
 }
+syncLockfile();

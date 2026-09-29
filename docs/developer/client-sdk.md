@@ -242,6 +242,16 @@ gives every pin its own lock entry and cache key. A rebuild at the same pin
 differs only in packing metadata, so a cache hit there is harmless, and a fresh
 CI runner has no cache.
 
+**Why the script edits `yarn.lock`.** The same byte differences made every CI
+install fail with `Integrity check failed for "@into-cps-association/dtaas-sdk"`:
+`yarn.lock` held the SHA-1 of the tarball built on a developer's machine, and
+each runner builds its own. So `fetch.mjs` finishes by setting the two
+`resolved "file:vendor/<tarball>#<sha1>"` hashes to the tarballs present. After
+a local rebuild those two lines show as changed; commit them only together with
+a pin bump. Making `yarn pack` reproducible across Windows and Linux (line
+endings, path separators in generated declarations, gzip headers) would remove
+this, and is not worth it while the step to npm is planned.
+
 **Windows.** `examples/bim`'s `yarn sdk` unpacks with `tar`. Under Git for
 Windows that name finds GNU tar, which reads `C:\…` as a remote host and fails.
 The script puts `%SystemRoot%\System32` (Windows' own `tar.exe`) first on the
