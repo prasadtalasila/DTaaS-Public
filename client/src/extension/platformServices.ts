@@ -14,7 +14,7 @@ import type {
 } from '@into-cps-association/dtaas-sdk';
 import store, { type RootState } from 'store/store';
 import { showSnackbar } from 'store/snackbar.slice';
-import { libraryURLfor } from 'util/envUtil';
+import { cleanURL, libraryURLfor } from 'util/envUtil';
 import { DT_DIRECTORY } from 'model/backend/gitlab/digitalTwinConfig/constants';
 import ExtensionPage from 'extension/ExtensionPage';
 
@@ -52,7 +52,7 @@ export const auth: AuthService = {
 /** `lib://<path>` is a file in the user's library; http(s) passes through. */
 export function resolveLibraryUrl(url: string, base: string): string {
   if (url.startsWith('lib://')) {
-    return `${base.replace(/\/+$/, '')}/files/${url.slice('lib://'.length)}`;
+    return `${cleanURL(base)}/files/${url.slice('lib://'.length)}`;
   }
   if (/^https?:\/\//.test(url)) return url;
   throw new Error(`Cannot resolve "${url}"`);

@@ -136,7 +136,7 @@ jobs:
       - name: Remove every extension from the build
         run: |
           node vendor/fetch.mjs
-          node --eval "const fs = require('node:fs'); const p = JSON.parse(fs.readFileSync('package.json', 'utf8')); delete p.dependencies['@into-cps-association/bim-example']; fs.writeFileSync('package.json', JSON.stringify(p, null, 2));"
+          npm pkg delete "dependencies.@into-cps-association/bim-example"
           cat > src/extensions.ts <<'EOF'
           import type { DtaasExtension } from '@into-cps-association/dtaas-sdk';
 
@@ -147,7 +147,7 @@ jobs:
 
       - name: Install dependencies and build
         run: |
-          yarn install --network-timeout 1000000
+          yarn install --ignore-scripts --network-timeout 1000000
           yarn build
 
   build-docker-image:

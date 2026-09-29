@@ -14,6 +14,7 @@ import type {
   PutOptions,
 } from '@into-cps-association/dtaas-sdk';
 import { UploadError, writeFile } from 'extension/contentsWrite';
+import { cleanURL } from 'util/envUtil';
 
 /** Relative, no `\`, and no empty, `.` or `..` segment. `''` is the root. */
 export function isWorkspacePath(path: string): boolean {
@@ -32,7 +33,7 @@ function checked(path: string): string {
 }
 
 const address = (base: string, api: string, path: string) =>
-  `${base.replace(/\/+$/, '')}/${api}/${checked(path)}`;
+  `${cleanURL(base)}/${api}/${checked(path)}`;
 
 interface JupyterEntry {
   name: string;
