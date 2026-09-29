@@ -11,6 +11,8 @@ The following steps are required to configure the environment and build the appl
 
 ```bash
 cd client
+yarn vendor     #build vendor/*.tgz (dtaas-sdk and the bim extension) from
+                #  the pinned commit; needed once before the first install
 yarn install    #install the nodejs dependencies
 yarn format     #format .ts[x] and .js[x] files with prettier.
 yarn syntax     #perform linting and static analysis

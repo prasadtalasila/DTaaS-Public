@@ -35,7 +35,7 @@ export async function testDrawer() {
   testDrawerItem(/^Library$/, /ExtensionRoundedIcon/);
   testDrawerItem(/^Digital Twins$/, /PeopleRoundedIcon/);
   testDrawerItem(/^Automation$/, /PrecisionManufacturingRoundedIcon/);
-  testDrawerItem(/^Buildings$/, /ViewInArRoundedIcon/);
+  testDrawerItem(/^Buildings$/, /ApartmentIcon/);
   testDrawerItem(/Workbench/, /HandymanRoundedIcon/);
 
   await itOpensAndClosesTheDrawer();

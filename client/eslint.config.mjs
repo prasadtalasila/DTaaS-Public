@@ -31,6 +31,7 @@ export default [
       '**/test-results/',
       '**/playwright-report/',
       '**/public/',
+      'vendor/.build/',
     ],
   },
   ...compat.extends(

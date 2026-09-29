@@ -2,7 +2,9 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import MenuItems from 'page/MenuItems';
+import { lazy } from 'react';
+import type { DtaasExtension } from '@into-cps-association/dtaas-sdk';
+import MenuItems, { menuItemsFor } from 'page/MenuItems';
 
 const menuEntries = [
   { name: 'Library', link: '/library' },
@@ -58,11 +60,56 @@ describe('MenuItems', () => {
     });
   });
 
+  it('marks an extension entry active on the pages nested under it', () => {
+    renderMenu(true, '/bim/models/Substation');
+
+    expect(screen.getByRole('link', { name: 'Buildings' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('offers a tooltip when the drawer is collapsed', async () => {
     renderMenu(false);
 
     await userEvent.hover(screen.getByRole('link', { name: 'Library' }));
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Library');
+  });
+});
+
+describe('menuItemsFor', () => {
+  const page = lazy(() => Promise.resolve({ default: () => null }));
+  const kit = (id: string, order?: number): DtaasExtension => ({
+    id,
+    name: id,
+    version: '1.0.0',
+    sdk: 1,
+    routes: [{ path: '', element: page }],
+    navigation: [{ label: id, path: `/${id}`, order }],
+  });
+
+  it('places extension entries among the core ones by their order', () => {
+    const names = menuItemsFor([
+      kit('late', 95),
+      kit('early', 5),
+      kit('mid'),
+    ]).map(({ name }) => name);
+
+    expect(names).toEqual([
+      'early',
+      'Library',
+      'Digital Twins',
+      'Automation',
+      'mid',
+      'Workbench',
+      'late',
+    ]);
+  });
+
+  it('gives an entry without an icon the default extension icon', () => {
+    const [entry] = menuItemsFor([kit('early', 1)]);
+    render(entry.icon);
+    expect(screen.getByTestId('WidgetsRoundedIcon')).toBeInTheDocument();
   });
 });

@@ -10,10 +10,11 @@ import ExtensionRoundedIcon from '@mui/icons-material/ExtensionRounded';
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded';
 import PrecisionManufacturingRoundedIcon from '@mui/icons-material/PrecisionManufacturingRounded';
 import HandymanRoundedIcon from '@mui/icons-material/HandymanRounded';
-import ViewInArRoundedIcon from '@mui/icons-material/ViewInArRounded';
+import WidgetsRoundedIcon from '@mui/icons-material/WidgetsRounded';
 
 export const LibraryIcon = ExtensionRoundedIcon;
 export const DigitalTwinsIcon = PeopleRoundedIcon;
 export const AutomationIcon = PrecisionManufacturingRoundedIcon;
 export const WorkbenchIcon = HandymanRoundedIcon;
-export const BuildingModelsIcon = ViewInArRoundedIcon;
+/** For an extension whose menu entry names no icon of its own. */
+export const DefaultExtensionIcon = WidgetsRoundedIcon;

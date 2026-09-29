@@ -27,20 +27,19 @@ test.describe('Building Models', () => {
   test('is reachable from the menu and renders its own heading', async ({
     page,
   }) => {
-    // The menu names the route Buildings, and the page heads itself
-    // Building Models.
+    // The bim extension names both its menu entry and its page Buildings.
     await page.getByRole('link', { name: 'Buildings' }).click();
 
     await expect(page).toHaveURL('./bim');
     await expect(
-      page.getByRole('heading', { name: 'Building Models' }),
+      page.getByRole('heading', { name: 'Buildings' }),
     ).toBeVisible();
   });
 
   test('names the library directory it reads models from', async ({ page }) => {
-    // The address comes from the deployment's own configuration. A page that
-    // did not say where it was looking would leave an empty list ambiguous
-    // between "no models" and "wrong directory".
+    // The folder picker shows "Folder: common/models", the host's convention.
+    // A page that did not say where it was looking would leave an empty list
+    // ambiguous between "no models" and "wrong directory".
     await page.goto('./bim');
 
     await expect(page.getByText('common/models')).toBeVisible();

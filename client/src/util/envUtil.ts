@@ -19,14 +19,27 @@ export function cleanUsername(username: string | undefined): string {
  * @param endpoint (optional). Example `bar` Any leading or trailing slashes will be removed.
  * @returns a complete URL: `baseUrl` / `username` / `endpoint`
  */
-const useUserLink = (baseURL: string, endpoint?: string): string => {
-  const username = cleanUsername(
+const userLink = (
+  baseURL: string,
+  username: string | undefined,
+  endpoint?: string,
+): string =>
+  `${cleanURL(baseURL)}/${cleanUsername(username)}/${cleanURL(endpoint ?? '')}`;
+
+const useUserLink = (baseURL: string, endpoint?: string): string =>
+  userLink(
+    baseURL,
     useSelector((state: RootState) => state.auth).userName,
+    endpoint,
   );
-  const cleanBaseURL = cleanURL(baseURL);
-  const cleanEndpoint = cleanURL(endpoint ?? '');
-  return `${cleanBaseURL}/${username}/${cleanEndpoint}`;
-};
+
+/** The signed-in user's library address, for code that is not a component. */
+export const libraryURLfor = (username: string | undefined): string =>
+  userLink(
+    `${cleanURL(globalThis.env.REACT_APP_URL)}/${cleanURL(globalThis.env.REACT_APP_URL_BASENAME)}`,
+    username,
+    globalThis.env.REACT_APP_URL_LIBLINK,
+  );
 
 export function useURLforDT(): string {
   return useUserLink(useAppURL(), globalThis.env.REACT_APP_URL_DTLINK);
