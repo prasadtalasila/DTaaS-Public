@@ -12,10 +12,20 @@
           "esModuleInterop": true
         }
       }
+    ],
+    "node_modules[/\\\\]@into-cps-association[/\\\\].+\\.js$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "allowJs": true,
+          "noUnusedLocals": false,
+          "esModuleInterop": true
+        }
+      }
     ]
   },
   "transformIgnorePatterns": [
-    "/node_modules/(?!(d3-shape|recharts|uuid)/).+\\.js$"
+    "/node_modules/(?!(d3-shape|recharts|uuid|@into-cps-association/(dtaas-sdk|bim-example))/).+\\.js$"
   ],
   "collectCoverage": true,
   "coverageReporters": ["text", "cobertura", "clover", "lcov", "json"],
@@ -29,7 +39,7 @@
     "src/store/store.ts",
     "src/preview/util/gitlabDriver.ts"
   ],
-  "modulePathIgnorePatterns": ["test/e2e", "mocks", "/config/"],
+  "modulePathIgnorePatterns": ["test/e2e", "mocks", "/config/", "/vendor/"],
   "coverageDirectory": "<rootDir>/coverage/",
   "globals": {
     "window.ENV.SERVER_HOSTNAME": "localhost",
@@ -41,8 +51,7 @@
   "moduleNameMapper": {
     "^test/(.*)$": "<rootDir>/test/$1",
     "\\.(css|less|scss)$": "<rootDir>/test/__mocks__/styleMock.ts",
-    "^uuid$": "<rootDir>/test/__mocks__/uuidMock.ts",
-    "^@into-cps-association/bim-kit/react$": "<rootDir>/test/__mocks__/bimViewerMock.tsx"
+    "^uuid$": "<rootDir>/test/__mocks__/uuidMock.ts"
   },
   "maxWorkers": 3,
   "setupFiles": ["<rootDir>/test/setupTests.ts"]

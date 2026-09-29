@@ -21,6 +21,7 @@
   "scripts": {
     "analyze": "yarn typecheck && npx --no-install vite-bundle-visualizer --sourcemap",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "vendor": "node vendor/fetch.mjs",
     "build": "yarn typecheck && vite build --sourcemap",
     "build:fast": "yarn typecheck && vite build",
     "clean": "npx rimraf build/ dist/ coverage/ playwright-report/ test-results/ test.svg src.svg",
@@ -56,7 +57,8 @@
     "@fontsource/inter": "5.3.0",
     "@fontsource/roboto": "^5.2.8",
     "@gitbeaker/rest": "^43.8.0",
-    "@into-cps-association/bim-kit": "0.1.1",
+    "@into-cps-association/bim-example": "file:vendor/bim-example-4df867b.tgz",
+    "@into-cps-association/dtaas-sdk": "file:vendor/dtaas-sdk-4df867b.tgz",
     "@monaco-editor/react": "4.7.0",
     "@mui/icons-material": "9.2.0",
     "@mui/material": "9.2.0",
@@ -85,7 +87,6 @@
     "remarkable-katex": "^1.2.1",
     "reselect": "^5.1.1",
     "styled-components": "^6.4.3",
-    "three": "0.185.0",
     "uuid": "14.0.1",
     "zod": "4.4.3"
   },
@@ -102,7 +103,6 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "0.185.4",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "@vitejs/plugin-react": "^6.0.4",

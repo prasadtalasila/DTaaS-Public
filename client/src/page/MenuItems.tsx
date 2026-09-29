@@ -7,44 +7,70 @@ import {
   DigitalTwinsIcon,
   AutomationIcon,
   WorkbenchIcon,
-  BuildingModelsIcon,
+  DefaultExtensionIcon,
 } from 'components/appIcons';
 import { Link, useLocation } from 'react-router-dom';
+import type { DtaasExtension } from '@into-cps-association/dtaas-sdk';
+import extensionHost from 'extension/registry';
 
 interface MenuItemEntry {
-  index: number;
+  order: number;
   name: string;
   icon: React.ReactElement;
   link: string;
 }
 
-const menuItems: MenuItemEntry[] = [
-  { index: 1, name: 'Library', icon: <LibraryIcon />, link: '/library' },
+/**
+ * Core entries carry fixed orders with gaps, so an extension's `order` places
+ * it between them: 20 falls between Automation and Workbench.
+ */
+const coreItems: MenuItemEntry[] = [
+  { order: 10, name: 'Library', icon: <LibraryIcon />, link: '/library' },
   {
-    index: 2,
+    order: 11,
     name: 'Digital Twins',
     icon: <DigitalTwinsIcon />,
     link: '/digitaltwins',
   },
   {
-    index: 3,
+    order: 12,
     name: 'Automation',
     icon: <AutomationIcon />,
     link: '/automation',
   },
   {
-    index: 4,
-    name: 'Buildings',
-    icon: <BuildingModelsIcon />,
-    link: '/bim',
-  },
-  {
-    index: 5,
+    order: 90,
     name: 'Workbench',
     icon: <WorkbenchIcon />,
     link: '/workbench',
   },
 ];
+
+/** Entries without an `order` go after the core ones and before Workbench. */
+const DEFAULT_EXTENSION_ORDER = 50;
+
+export function menuItemsFor(
+  extensions: readonly DtaasExtension[],
+): MenuItemEntry[] {
+  const contributed = extensions.flatMap((ext) =>
+    (ext.navigation ?? []).map(
+      ({ label, path, icon: Icon = DefaultExtensionIcon, order }) => ({
+        order: order ?? DEFAULT_EXTENSION_ORDER,
+        name: label,
+        icon: <Icon />,
+        link: path,
+      }),
+    ),
+  );
+  // `sort` is stable, so equal orders keep core entries first.
+  return [...coreItems, ...contributed].sort((a, b) => a.order - b.order);
+}
+
+const menuItems = menuItemsFor(extensionHost.enabled);
+
+/** An extension's pages nest under its entry, so those count as active too. */
+const isActive = (pathname: string, link: string) =>
+  pathname === link || pathname.startsWith(`${link}/`);
 
 /**
  * The navigation items of the drawer.
@@ -62,10 +88,10 @@ function MenuItems({ open }: Readonly<{ open: boolean }>) {
   return (
     <>
       {menuItems.map((item) => {
-        const selected = pathname === item.link;
+        const selected = isActive(pathname, item.link);
         return (
           <Tooltip
-            key={item.index}
+            key={item.link}
             title={item.name}
             placement="right"
             disableHoverListener={open}

@@ -12,8 +12,11 @@ import ReactDOM from 'react-dom/client';
 import AppProvider from 'AppProvider';
 import { useURLbasename } from 'util/envUtil';
 import routes from 'routes';
+import { startExtensions } from 'extension/hostServices';
 
 const App = () => {
+  startExtensions();
+
   const router = createBrowserRouter(routes, {
     basename: `/${useURLbasename()}`,
   });

@@ -5,9 +5,9 @@ colours it with the readings its sensors report. It answers a question a
 time-series dashboard cannot: which of the forty rooms is the warm one.
 
 This page describes the asset layout, the binding manifest, and the conversion
-workflow. It is the user-facing half of DTaaS issue 1762. The developer-facing
-half, meaning what the route holds and what it deliberately does not, is in
-`client/src/route/bim/README.md`.
+workflow. It is the user-facing half of DTaaS issue 1762. The page is the `bim`
+extension; how the client includes it is described in
+[Client Extensions](../../developer/client-sdk.md).
 
 ## What the Page Needs
 

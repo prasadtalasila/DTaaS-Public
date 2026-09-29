@@ -28,5 +28,5 @@
     "strictNullChecks": true, //enable strict null checks
     "resolveJsonModule": true //allow to import JSON files directly
   },
-  "exclude": ["**/node_modules/*", "babel.config.cjs", "dist"]
+  "exclude": ["**/node_modules/*", "babel.config.cjs", "dist", "vendor"]
 }

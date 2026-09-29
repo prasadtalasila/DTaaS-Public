@@ -82,6 +82,7 @@ jobs:
         if: ${{ inputs.image-name == 'dtaas-web' }}
         run: |
           cd client/
+          node vendor/fetch.mjs
           yarn install --network-timeout 1000000
           yarn build
 

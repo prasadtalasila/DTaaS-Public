@@ -1,5 +1,3 @@
-import { Suspense, lazy } from 'react';
-import CircularProgress from '@mui/material/CircularProgress';
 import WorkBench from 'route/workbench/Workbench';
 import LayoutPublic from 'page/LayoutPublic';
 import PrivateRoute from 'route/auth/PrivateRoute';
@@ -14,16 +12,18 @@ import Measurement from 'route/measurement/Measurement';
 import LogViewer from 'page/LogViewer';
 import NotFound from 'page/NotFound';
 import Automation from 'route/automation/Automation';
+import ExtensionRoutes from 'extension/ExtensionRoutes';
+import extensionHost from 'extension/registry';
 
-/**
- * The only route loaded on demand.
- *
- * Building Models pulls in a renderer and a WebAssembly geometry kernel, which
- * together are larger than the rest of the application. Loading it lazily is
- * stated here, at the route, instead of being left to whatever the package does
- * internally, where it would regress silently on a version bump.
- */
-const Bim = lazy(() => import('route/bim/Bim'));
+/** Each extension owns everything under `/<id>/`; its pages are lazy. */
+const extensionRoutes = extensionHost.enabled.map((ext) => ({
+  path: `${ext.id}/*`,
+  element: (
+    <PrivateRoute>
+      <ExtensionRoutes ext={ext} />
+    </PrivateRoute>
+  ),
+}));
 
 export const routes = [
   {
@@ -75,17 +75,6 @@ export const routes = [
     ),
   },
   {
-    path: 'bim',
-    element: (
-      <PrivateRoute>
-        {/* The fallback is what a person sees while the renderer downloads. */}
-        <Suspense fallback={<CircularProgress sx={{ m: 4 }} />}>
-          <Bim />
-        </Suspense>
-      </PrivateRoute>
-    ),
-  },
-  {
     path: 'account',
     element: (
       <PrivateRoute>
@@ -133,6 +122,7 @@ export const routes = [
       </PrivateRoute>
     ),
   },
+  ...extensionRoutes,
   // Anything the list above does not match. Without it the router falls back
   // to its own developer-facing error screen.
   {

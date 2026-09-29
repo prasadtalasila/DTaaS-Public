@@ -36,13 +36,20 @@ jobs:
             servers/lib
 
       - name: Setup node
-        if: ${{ inputs.dockerfile == 'client.built.dockerfile' }}
+        if: ${{ startsWith(inputs.dockerfile, 'client') }}
         # v7.0.0
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
           cache: "yarn"
           cache-dependency-path: "**/yarn.lock"
+
+      # Both client images install from client/vendor/*.tgz, which are
+      # gitignored and built here from the pinned dtaas-sdk commit.
+      - name: Build vendored extension packages
+        if: ${{ startsWith(inputs.dockerfile, 'client') }}
+        working-directory: client/
+        run: node vendor/fetch.mjs
 
       - name: Install dependencies
         if: ${{ inputs.dockerfile == 'client.built.dockerfile' }}

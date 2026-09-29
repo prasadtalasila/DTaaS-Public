@@ -7,6 +7,8 @@ WORKDIR /dtaas/client
 # Copy package.json and package-lock.json to the working directory
 COPY ./client/package.json ./
 COPY ./client/yarn.lock ./
+# Built beforehand by `node vendor/fetch.mjs`; package.json installs from them.
+COPY ./client/vendor/*.tgz ./vendor/
 
 # Install dependencies
 RUN yarn install --immutable --immutable-cache --check-cache --network-timeout 1000000

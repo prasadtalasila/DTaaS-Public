@@ -114,6 +114,10 @@ typings/
 # front end environment variables
 client/public/env.js
 
+# Built by client/vendor/fetch.mjs from the pinned dtaas-sdk commit
+client/vendor/*.tgz
+client/vendor/.build/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 

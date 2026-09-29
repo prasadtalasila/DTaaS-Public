@@ -143,6 +143,7 @@ nav:
       - Codebase:
           - Overview: developer/codebase/index.md
           - Client: developer/codebase/client.md
+          - Client Extensions (SDK): developer/client-sdk.md
           - DevOps Framework: developer/codebase/devops.md
           - Client DevOps Integration: developer/codebase/client-devops.md
           - Library Microservice: developer/codebase/lib-ms.md
