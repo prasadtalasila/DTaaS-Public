@@ -28,13 +28,10 @@ const here = import.meta.dirname;
 const pin = JSON.parse(readFileSync(join(here, 'dtaas-sdk.json'), 'utf8'));
 const short = pin.commit.slice(0, 7);
 const work = join(here, '.build', pin.commit);
-const PACKAGES = [
-  { name: 'dtaas-sdk', dir: '.' },
-  { name: 'bim-example', dir: 'examples/bim', prepare: 'yarn sdk' },
-].map((entry) => ({ ...entry, tarball: `${entry.name}-${short}.tgz` }));
+const tarballOf = (name) => `${name}-${short}.tgz`;
 
-// The bim build unpacks with `tar`. Under Git for Windows that name finds GNU
-// tar, which reads `C:\...` as a remote host; Windows' own tar does not.
+// Under Git for Windows `tar` finds GNU tar, which reads `C:\...` as a remote
+// host; Windows' own tar does not.
 const env =
   process.platform === 'win32'
     ? {
@@ -44,6 +41,32 @@ const env =
     : process.env;
 
 const run = (cwd, command) => execSync(command, { cwd, env, stdio: 'inherit' });
+
+/**
+ * What `yarn sdk` in examples/bim does, done here: unpack the SDK tarball just
+ * built where bim resolves its peer. That script runs `yarn` without a shell,
+ * which cannot start `yarn.cmd` on Windows.
+ */
+const installSdk = (cwd) => {
+  const target = join(
+    cwd,
+    'node_modules',
+    '@into-cps-association',
+    'dtaas-sdk',
+  );
+  const tarball = JSON.stringify(join(work, tarballOf('dtaas-sdk')));
+  rmSync(target, { recursive: true, force: true });
+  mkdirSync(target, { recursive: true });
+  run(
+    cwd,
+    `tar -xzf ${tarball} -C ${JSON.stringify(target)} --strip-components=1`,
+  );
+};
+
+const PACKAGES = [
+  { name: 'dtaas-sdk', dir: '.' },
+  { name: 'bim-example', dir: 'examples/bim', prepare: installSdk },
+].map((entry) => ({ ...entry, tarball: tarballOf(entry.name) }));
 
 /** package.json must install exactly the tarballs of the pinned commit. */
 const checkManifest = () => {
@@ -76,7 +99,7 @@ const pack = ({ tarball, dir, prepare }) => {
     cwd,
     'yarn install --frozen-lockfile --ignore-engines --network-timeout 1000000',
   );
-  if (prepare) run(cwd, prepare);
+  prepare?.(cwd);
   run(cwd, 'yarn build');
   run(cwd, `yarn pack --filename ${JSON.stringify(packed)}`);
   copyFileSync(packed, join(here, tarball));

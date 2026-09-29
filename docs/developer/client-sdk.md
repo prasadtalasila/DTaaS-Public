@@ -223,8 +223,11 @@ client/vendor/
 `node vendor/fetch.mjs` checks that `package.json` names the tarballs of the
 pinned commit, and does nothing when they exist. Otherwise it fetches the pinned
 commit, runs `yarn install --frozen-lockfile`, `yarn build` and `yarn pack` for
-the SDK, then `yarn install`, `yarn sdk`, `yarn build` and `yarn pack` for
-`examples/bim`, and removes tarballs of earlier pins. A build that fails keeps
+the SDK, then `yarn install`, unpacks the SDK tarball into bim's
+`node_modules` (what bim's own `yarn sdk` does), `yarn build` and `yarn pack`
+for `examples/bim`, and removes tarballs of earlier pins. It does not call
+`yarn sdk` because that script starts `yarn` without a shell, which cannot run
+`yarn.cmd` on Windows. A build that fails keeps
 its work folder, so running the script again resumes instead of downloading
 everything again. A full build took about eight minutes on a slow connection.
 
@@ -252,10 +255,10 @@ a pin bump. Making `yarn pack` reproducible across Windows and Linux (line
 endings, path separators in generated declarations, gzip headers) would remove
 this, and is not worth it while the step to npm is planned.
 
-**Windows.** `examples/bim`'s `yarn sdk` unpacks with `tar`. Under Git for
-Windows that name finds GNU tar, which reads `C:\…` as a remote host and fails.
-The script puts `%SystemRoot%\System32` (Windows' own `tar.exe`) first on the
-child processes' `PATH`.
+**Windows.** The script unpacks with `tar`. Under Git for Windows that name
+finds GNU tar, which reads `C:\…` as a remote host and fails. The script puts
+`%SystemRoot%\System32` (Windows' own `tar.exe`) first on the child processes'
+`PATH`.
 
 **CI and Docker.**
 
