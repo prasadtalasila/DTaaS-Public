@@ -31,7 +31,6 @@ export default class StateMachine {
     return this.definition.events.has(event);
   }
 
-  // The state that the event leads to from the current state
   next(event: string): string | undefined {
     if (this.current === undefined) {
       return undefined;

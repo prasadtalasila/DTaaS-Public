@@ -1,77 +1,17 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
-import Config from 'src/config/configuration.service';
-import ExecaManager from 'src/execa-manager.service';
-import { DEFINITION_FILE } from 'src/fsm/definition';
-import FsmService from 'src/fsm/fsm.service';
-
-const DEFINITION = `
-events: [stop, reset]
-states:
-  create: {on: {$success: execute, $failure: terminate}}
-  execute: {on: {stop: terminate}}
-  terminate: {on: {reset: create}}`;
-
-const settle = () => new Promise(setImmediate);
-
-// Runs each script until the test finishes it
-function fakeManager() {
-  const finishers = new Map<string, (success: boolean) => void>();
-  const manager = {
-    isRunning: jest.fn((name: string) => finishers.has(name)),
-    newCommand: jest.fn(
-      (name: string) =>
-        new Promise<[boolean, Map<string, string>]>((resolve) => {
-          finishers.set(name, (success) => {
-            finishers.delete(name);
-            resolve([success, new Map()]);
-          });
-        }),
-    ),
-  };
-  const finish = async (name: string, success: boolean) => {
-    finishers.get(name)?.(success);
-    await settle();
-  };
-  return { manager, finish };
-}
+import { createService, scriptFolder, settle } from './fsm.fixture';
 
 describe('State machine service', () => {
   let dir: string;
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'fsm-'));
-    writeFileSync(join(dir, DEFINITION_FILE), DEFINITION);
+    dir = scriptFolder();
   });
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  function setup(location = dir) {
-    const { manager, finish } = fakeManager();
-    const config = {
-      getLocation: () => location,
-      permitCommands: () => ['create', 'execute', 'terminate'],
-    } as unknown as Config;
-    const service = new FsmService(manager as unknown as ExecaManager, config);
-    service.load();
-    return { service, manager, finish };
-  }
-
-  it('Should answer that there is no state machine without the file', () => {
-    const { service } = setup(join(dir, 'missing'));
-
-    expect(service.transition('create')).toEqual({
-      status: 'no state machine',
-      state: null,
-    });
-    expect(service.event('stop')).toEqual({
-      status: 'no state machine',
-      state: null,
-    });
-    expect(service.check()).toBeUndefined();
-  });
+  const setup = (location = dir) => createService(location);
 
   it('Should report a machine that has not started', () => {
     const { service } = setup();
@@ -222,47 +162,5 @@ describe('State machine service', () => {
     await settle();
 
     expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
-  });
-
-  it('Should stop accepting requests on shutdown', async () => {
-    const { service, manager, finish } = setup();
-    service.transition('create');
-
-    await service.beforeApplicationShutdown();
-    await finish('create', true);
-
-    expect(manager.newCommand).toHaveBeenCalledTimes(1);
-    expect(service.event('stop').status).toBe('stopping');
-    expect(service.transition('create').status).toBe('stopping');
-  });
-
-  describe('repeated requests', () => {
-    it('Should give a repeated request the first reply', () => {
-      const { service, manager } = setup();
-
-      const first = service.transition('execute', 'key-1');
-      const repeat = service.transition('execute', 'key-1');
-
-      expect(repeat).toEqual(first);
-      expect(repeat.status).toBe('accepted');
-      expect(manager.newCommand).toHaveBeenCalledTimes(1);
-    });
-
-    it('Should refuse a request key of another request', () => {
-      const { service } = setup();
-      service.transition('execute', 'key-1');
-
-      expect(service.event('stop', 'key-1')).toEqual({
-        status: 'invalid request key',
-        state: 'execute',
-      });
-    });
-
-    it('Should treat an empty request key as no key', () => {
-      const { service } = setup();
-      service.transition('execute', '');
-
-      expect(service.transition('execute', '').status).toBe('busy');
-    });
   });
 });

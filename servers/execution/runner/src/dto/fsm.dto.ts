@@ -36,7 +36,6 @@ export const fsmReply = (
   state: string | undefined,
 ): FsmReplyDto => ({ status, state: state ?? null });
 
-// The status of the script of the current state
 export type ScriptStatus = 'none' | 'running' | 'valid' | 'invalid';
 
 export type FsmStateDto = {

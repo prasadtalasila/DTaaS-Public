@@ -8,7 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { REQUEST_KEY, requestKeySchema } from '../dto/command.dto.js';
+import { REQUEST_KEY } from '../dto/command.dto.js';
 import {
   EventDto,
   eventSchema,
@@ -19,15 +19,8 @@ import {
   TransitionDto,
   transitionSchema,
 } from '../dto/fsm.dto.js';
-import ZodValidationPipe, { validationFailed } from '../validation.pipe.js';
+import ZodValidationPipe, { validRequestKey } from '../validation.pipe.js';
 import FsmService from './fsm.service.js';
-
-function validKey(requestKey?: string): string | undefined {
-  if (!requestKeySchema.safeParse(requestKey).success) {
-    throw validationFailed();
-  }
-  return requestKey;
-}
 
 @Controller('fsm')
 export default class FsmController {
@@ -52,7 +45,7 @@ export default class FsmController {
   ): FsmReplyDto {
     return FsmController.send(
       res,
-      this.fsm.transition(state, validKey(requestKey)),
+      this.fsm.transition(state, validRequestKey(requestKey)),
     );
   }
 
@@ -62,7 +55,10 @@ export default class FsmController {
     @Res({ passthrough: true }) res: Response,
     @Headers(REQUEST_KEY) requestKey?: string,
   ): FsmReplyDto {
-    return FsmController.send(res, this.fsm.event(event, validKey(requestKey)));
+    return FsmController.send(
+      res,
+      this.fsm.event(event, validRequestKey(requestKey)),
+    );
   }
 
   private static send(res: Response, reply: FsmReplyDto): FsmReplyDto {

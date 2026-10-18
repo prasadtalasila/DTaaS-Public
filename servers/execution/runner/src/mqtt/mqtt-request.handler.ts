@@ -40,11 +40,11 @@ export default class MqttRequestHandler {
     status: () => this.manager.checkStatus(),
     history: () => this.manager.checkHistory(),
     transition: (payload, requestKey) =>
-      this.parse(transitionSchema, payload, requestKey, ({ state }) =>
+      this.handleValid(transitionSchema, payload, requestKey, ({ state }) =>
         this.fsm.transition(state, requestKey),
       ),
     event: (payload, requestKey) =>
-      this.parse(eventSchema, payload, requestKey, ({ event }) =>
+      this.handleValid(eventSchema, payload, requestKey, ({ event }) =>
         this.fsm.event(event, requestKey),
       ),
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
@@ -71,18 +71,20 @@ export default class MqttRequestHandler {
     payload: Buffer,
     requestKey?: string,
   ): Promise<unknown> {
-    return this.parse(
+    return this.handleValid(
       executeCommandSchema,
       payload,
       requestKey,
-      async ({ name }) =>
-        executeResponse((await this.manager.newCommand(name, requestKey))[0]),
+      async ({ name }) => {
+        const [success] = await this.manager.newCommand(name, requestKey);
+        return executeResponse(success);
+      },
     );
   }
 
   // Answers a request whose payload or request key is invalid with the
   // validation error of the HTTP API
-  private parse<T>(
+  private handleValid<T>(
     schema: z.ZodType<T>,
     payload: Buffer,
     requestKey: string | undefined,

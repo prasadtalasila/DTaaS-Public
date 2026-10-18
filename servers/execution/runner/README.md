@@ -170,7 +170,9 @@ states:          # each state runs the script of the same name
 - Each state is a script, and must be one of the `commands` of
   _runner.yaml_. Entering a state runs its script.
 - `on` gives the next state for each event of a state.
-- `events` lists the events that clients may send.
+- `events` lists the events that clients may send. It may be left out
+  when only `$success` and `$failure` move the machine.
+- A state without transitions may be left empty, as in `terminate:`.
 - The runner raises `$success` or `$failure` itself when the script of
   the current state exits. Clients can not send them.
 - State and event names have up to 64 letters, digits, `_`, `.` or
@@ -184,8 +186,12 @@ off. The runner reads the file when it starts.
 
 The runner does not stop the script of a state that the machine
 leaves; the script of the next state, such as _terminate_, has to do
-that. The state machine is kept in memory, so after a restart it has
-no state until the next transition request.
+that. Nor does it enter a state whose script is still running: a
+`$success` or `$failure` transition into such a state is skipped with
+a warning in the log, and the machine stays idle in its state.
+
+The state machine is kept in memory, so after a restart it has no
+state until the next transition request.
 
 ## Use
 
@@ -384,9 +390,11 @@ after the request, or `null` before the first transition.
 | `stopping`            | 503         | the runner is shutting down                             |
 
 A request body without a `state` or `event` gets the validation error
-of `POST /`. A transition or event request may carry an
-`Idempotency-Key`; the runner gives a repeated request the reply to the
-first one for the latest 256 keys.
+of `POST /`, before any other check. A transition or event request may
+carry an `Idempotency-Key`; the runner gives a repeated request the
+reply to the first one for the latest 256 keys. These keys are kept in
+memory, apart from the keys of `POST /`. An older key is forgotten,
+and a repeat of it counts as a new request.
 
 `GET /fsm` returns the state, the status of its script (`none`,
 `running`, `valid` or `invalid`) and the events of the digital twin:

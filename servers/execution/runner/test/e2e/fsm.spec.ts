@@ -117,7 +117,7 @@ describe('Runner state machine end-to-end tests', () => {
       ]);
   });
 
-  it('Should answer each refusal with its status code', async () => {
+  it('Should refuse an undeclared state and an event without a transition', async () => {
     await post(app, '/fsm/transition', { state: 'configure' }).expect(
       HttpStatus.BAD_REQUEST,
       { status: 'invalid state', state: null },

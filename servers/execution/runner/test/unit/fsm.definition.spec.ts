@@ -49,6 +49,7 @@ describe('State machine definition', () => {
 
   it('Should refuse a file that is not YAML', () => {
     expectInvalid('states: [', 'Invalid state machine');
+    expectInvalid('create', 'Invalid state machine');
   });
 
   it('Should refuse unknown keys', () => {
@@ -68,6 +69,20 @@ describe('State machine definition', () => {
     ['a long name', 'a'.repeat(65)],
   ])('Should refuse a name with %s', (_, name) => {
     expectInvalid(`events: ['${name}']\nstates: {create: {}}`, 'events');
+  });
+
+  it.each([
+    ['a state', 'states: {__proto__: {}, create: {}}'],
+    ['an event', 'states: {create: {on: {__proto__: create}}}'],
+  ])('Should refuse __proto__ as %s', (_, text) => {
+    expectInvalid(text, '__proto__');
+  });
+
+  it('Should refuse two transitions for one event', () => {
+    expectInvalid(
+      'events: [go]\nstates: {create: {on: {go: create, go: create}}}',
+      'duplicated mapping key',
+    );
   });
 
   it('Should refuse a state that is not a permitted command', () => {

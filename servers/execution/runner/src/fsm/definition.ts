@@ -3,15 +3,14 @@ import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
-// The state machine of a digital twin, in the folder of its scripts
 export const DEFINITION_FILE = 'state-machine.yaml';
 
-// The events that the runner raises when the script of a state exits
+// Raised by the runner, not by clients, when the script of a state exits
 export const COMPLETION_EVENTS = ['$success', '$failure'] as const;
 
 export type CompletionEvent = (typeof COMPLETION_EVENTS)[number];
 
-// The next state for each event, by state
+// The next state for each event of one state
 export type Transitions = ReadonlyMap<string, string>;
 
 export type Definition = {
@@ -87,45 +86,76 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
   return problems;
 }
 
-// A path of completion transitions that returns to its first state
+const completionTargets = (transitions?: Transitions): string[] =>
+  COMPLETION_EVENTS.flatMap((event) => transitions?.get(event) ?? []);
+
+// Depth-first search from the last state of the path; a cycle is a
+// path that reaches a state already on it. The done states have been
+// searched, so they lead to no cycle that is not found already.
+function findCycle(
+  states: Definition['states'],
+  path: string[],
+  done: Set<string>,
+): string[] | undefined {
+  const state = path[path.length - 1];
+  const start = path.indexOf(state);
+  if (start < path.length - 1) {
+    return path.slice(start);
+  }
+  if (done.has(state)) {
+    return undefined;
+  }
+  done.add(state);
+  return completionTargets(states.get(state))
+    .map((target) => findCycle(states, [...path, target], done))
+    .find(Boolean);
+}
+
+// A loop of completion transitions, which would run scripts forever
 function completionCycle({ states }: Definition): string[] | undefined {
   const done = new Set<string>();
-  const visit = (path: string[]): string[] | undefined => {
-    const state = path[path.length - 1];
-    const start = path.indexOf(state);
-    if (start < path.length - 1) {
-      return path.slice(start);
-    }
-    if (done.has(state)) {
-      return undefined;
-    }
-    done.add(state);
-    const targets = COMPLETION_EVENTS.map((event) =>
-      states.get(state)?.get(event),
-    );
-    for (const target of targets) {
-      const cycle = target && visit([...path, target]);
-      if (cycle) {
-        return cycle;
-      }
-    }
-    return undefined;
-  };
-  return [...states.keys()].map((state) => visit([state])).find(Boolean);
+  return [...states.keys()]
+    .map((state) => findCycle(states, [state], done))
+    .find(Boolean);
 }
 
 const invalid = (problems: string): Error =>
   new Error(`Invalid state machine in ${DEFINITION_FILE}:\n${problems}`);
 
-// Throws an error that names every problem of an invalid definition
-export function parseDefinition(text: string, permitted: string[]): Definition {
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+// zod skips a __proto__ key of a record without an error, so look for
+// one among the states and the events of their transitions
+function hasProtoKey(content: unknown): boolean {
+  const states = isRecord(content) ? content.states : undefined;
+  if (!isRecord(states)) {
+    return false;
+  }
+  const transitions = Object.values(states).map((state) =>
+    isRecord(state) ? state.on : undefined,
+  );
+  return [states, ...transitions].some(
+    (record) => isRecord(record) && Object.hasOwn(record, '__proto__'),
+  );
+}
+
+function readYaml(text: string): unknown {
   let content: unknown;
   try {
     content = yaml.load(text);
   } catch (error) {
     throw invalid(String(error));
   }
-  const result = fileSchema.safeParse(content);
+  if (hasProtoKey(content)) {
+    throw invalid('✖ __proto__ is not a valid name');
+  }
+  return content;
+}
+
+// Throws an error that names every problem of an invalid definition
+export function parseDefinition(text: string, permitted: string[]): Definition {
+  const result = fileSchema.safeParse(readYaml(text));
   if (!result.success) {
     throw invalid(z.prettifyError(result.error));
   }
@@ -137,7 +167,6 @@ export function parseDefinition(text: string, permitted: string[]): Definition {
   return definition;
 }
 
-// The state machine of the script folder, if it has one
 export function loadDefinition(
   location: string,
   permitted: string[],
