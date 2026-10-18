@@ -63,21 +63,22 @@ function toDefinition({ events, states }: File): Definition {
   };
 }
 
+const isDeclared = (events: ReadonlySet<string>, event: string): boolean =>
+  isCompletion(event) || events.has(event);
+
 function transitionProblems(
   { events, states }: Definition,
   state: string,
   transitions: Transitions,
 ): string[] {
-  const problems: string[] = [];
-  transitions.forEach((target, event) => {
-    if (!states.has(target)) {
-      problems.push(`state ${state} leads to undeclared state ${target}`);
-    }
-    if (!isCompletion(event) && !events.has(event)) {
-      problems.push(`state ${state} uses undeclared event ${event}`);
-    }
-  });
-  return problems;
+  const entries = [...transitions];
+  const targets = entries
+    .filter(([, target]) => !states.has(target))
+    .map(([, target]) => `state ${state} leads to undeclared state ${target}`);
+  const undeclared = entries
+    .filter(([event]) => !isDeclared(events, event))
+    .map(([event]) => `state ${state} uses undeclared event ${event}`);
+  return [...targets, ...undeclared];
 }
 
 // The problems of the states and transitions of a definition
