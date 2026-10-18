@@ -91,14 +91,14 @@ export default class FsmService implements BeforeApplicationShutdown {
     requestKey: string | undefined,
     handle: (machine: StateMachine) => FsmReplyDto,
   ): FsmReplyDto {
-    const earlier = requestKey ? this.replies.get(requestKey) : undefined;
+    const earlier = this.replies.get(requestKey);
     if (earlier !== undefined) {
       return earlier.request === request
         ? earlier.reply
         : fsmReply('invalid request key', this.machine?.state);
     }
     const reply = this.reply(handle);
-    if (requestKey && reply.status === 'accepted') {
+    if (reply.status === 'accepted') {
       this.replies.add(requestKey, request, reply);
     }
     return reply;
@@ -131,17 +131,24 @@ export default class FsmService implements BeforeApplicationShutdown {
     state: string,
     entry: number,
   ): Promise<void> {
-    let success = false;
-    try {
-      [success] = await this.manager.newCommand(state);
-    } catch (error) {
-      this.logger.error(`Script of state ${state} did not run: ${error}`);
-    }
+    const success = await this.succeeds(state);
     if (this.stopping || machine.entry !== entry) {
       return;
     }
     this.status = success ? 'valid' : 'invalid';
     this.complete(machine, success ? '$success' : '$failure');
+  }
+
+  // A script that could not start, as when the database is closed,
+  // counts as failed
+  private async succeeds(state: string): Promise<boolean> {
+    try {
+      const [success] = await this.manager.newCommand(state);
+      return success;
+    } catch (error) {
+      this.logger.error(`Script of state ${state} did not run: ${error}`);
+      return false;
+    }
   }
 
   private complete(machine: StateMachine, event: CompletionEvent): void {
