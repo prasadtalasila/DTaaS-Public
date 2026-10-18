@@ -69,7 +69,14 @@ describe('MQTT service', () => {
       reconnectOnConnackError: true,
     });
     expect(client.subscribe).toHaveBeenCalledWith(
-      ['dtaas/runner/execute', 'dtaas/runner/status', 'dtaas/runner/history'],
+      [
+        'dtaas/runner/execute',
+        'dtaas/runner/status',
+        'dtaas/runner/history',
+        'dtaas/runner/transition',
+        'dtaas/runner/event',
+        'dtaas/runner/fsm',
+      ],
       { qos: 1 },
       expect.any(Function),
     );

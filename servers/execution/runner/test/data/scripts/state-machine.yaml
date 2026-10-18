@@ -1,0 +1,11 @@
+# The state machine of the test scripts, for trying out the state
+# machine requests of api/dev.api.http and api/dev.mqtt.http
+events:
+  - restart
+states:
+  create:
+    transitions:
+      $success: execute
+  execute:
+    transitions:
+      restart: create

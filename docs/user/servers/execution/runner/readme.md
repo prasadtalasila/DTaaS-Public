@@ -131,6 +131,62 @@ commands work on Linux and Windows.
 The runner can also run in a docker container. See the
 [docker instructions](https://github.com/INTO-CPS-Association/DTaaS/blob/feature/distributed-demo/servers/execution/runner/DOCKER.md).
 
+## State Machine
+
+A state machine moves a digital twin from one script to the next.
+The user starts it with a transition to a script, and from then on
+events and the exit of each script decide which script runs next.
+The state machine of a digital twin is in a file named
+_state-machine.yaml_ in the `location` directory, next to its scripts:
+
+```yaml
+events:          # the events that clients may send
+  - stop
+  - reset
+states:          # each state runs the script of the same name
+  create:
+    transitions:
+      $success: execute    # when the create script succeeds
+      $failure: terminate  # when the create script fails
+  execute:
+    transitions:
+      stop: terminate      # when a client sends the stop event
+  terminate:
+    transitions:
+      reset: create
+```
+
+- Each state is a script, and must be one of the `commands` of
+  _runner.yaml_. Entering a state runs its script.
+- `transitions` gives the next state for each event of a state.
+- `events` lists the events that clients may send. It may be left out
+  when only `$success` and `$failure` move the machine.
+- A state without transitions may be left empty, as in `terminate:`.
+- The runner raises `$success` or `$failure` itself when the script of
+  the current state exits. Clients can not send them.
+- State and event names have up to 64 letters, digits, `_`, `.` or
+  `-`, and start with a letter or digit.
+
+The runner does not start if the file is invalid, for example when a
+state is not a permitted command, a transition leads to an undeclared
+state or uses an undeclared event, or `$success` and `$failure`
+transitions alone form a loop. Without the file, the state machine is
+off. The runner reads the file when it starts.
+
+The runner does not stop the script of a state that the machine
+leaves; the script of the next state, such as _terminate_, has to do
+that. Nor does it enter a state whose script is still running: a
+`$success` or `$failure` transition into such a state is skipped with
+a warning in the log, and the machine stays idle in its state.
+
+A transition request waits until the machine is idle, so give each
+state whose script may run long an event that leads out of it, as
+_execute_ has `stop` above. Otherwise only a restart moves the machine
+while that script hangs.
+
+The state machine is kept in memory, so after a restart it has no
+state until the next transition request.
+
 ## Use
 
 Display help.
@@ -166,8 +222,9 @@ Other computers on the network can reach it at
 
 ### Application Programming Interface (API)
 
-Three REST API methods are available. Their routes and responses
-are:
+Three REST API methods run commands, and three more drive the
+[state machine](#state-machine-requests). The routes for commands
+and their responses are:
 
 | REST API Route                 | HTTP Method | Return Value                                                            | Comment                                                                                        |
 | :----------------------------- | :---------- | :---------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
@@ -330,17 +387,87 @@ curl -X POST http://localhost:5000 \
   -d '{"name": "create"}'
 ```
 
+#### State Machine Requests
+
+Three more routes drive the [state machine](#state-machine).
+
+| REST API Route                | HTTP Method | Request Body          | Comment                          |
+| :---------------------------- | :---------- | :-------------------- | :------------------------------- |
+| localhost:port/fsm/transition | POST        | `{"state": "create"}` | Moves an idle machine to a state |
+| localhost:port/fsm/event      | POST        | `{"event": "stop"}`   | Sends an event to the machine    |
+| localhost:port/fsm            | GET         |                       | Returns the state of the machine |
+
+The machine is idle before its first transition and whenever the
+script of its current state has finished. An event moves the machine
+along the transition of its current state for that event, even while
+the script of that state runs. The runner answers a transition or an
+event as soon as the script of the new state has started:
+
+```http
+{
+  "status": "accepted",
+  "state": "terminate"
+}
+```
+
+The `status` tells the outcome, and `state` the state of the machine
+after the request, or `null` before the first transition.
+
+| Status                | HTTP Status | Meaning                                                 |
+| :-------------------- | :---------- | :------------------------------------------------------ |
+| `accepted`            | 202         | the machine entered the state and started its script    |
+| `invalid state`       | 400         | the state is not in _state-machine.yaml_                |
+| `invalid event`       | 400         | the event is not in `events`                            |
+| `invalid request key` | 400         | the request key belongs to another request              |
+| `busy`                | 409         | a transition request while the script of the state runs |
+| `no transition`       | 409         | the current state has no transition for the event       |
+| `script running`      | 409         | the script of the next state is still running           |
+| `no state machine`    | 404         | the `location` has no _state-machine.yaml_              |
+| `stopping`            | 503         | the runner is shutting down                             |
+
+A request body without a `state` or `event` gets the validation error
+of `POST /`, before any other check. A transition or event request may
+carry an `Idempotency-Key`. The runner gives a repeat of an accepted
+request the reply to the first one, for the latest 256 keys; a refused
+request changed nothing, so its repeat is checked again. These keys are
+kept in memory, apart from the keys of `POST /`. An older key is
+forgotten, and a repeat of it counts as a new request.
+
+`GET /fsm` returns the state, the status of its script (`none`,
+`running`, `valid` or `invalid`) and the events of the digital twin:
+
+```http
+{
+  "state": "execute",
+  "status": "running",
+  "events": ["reset", "stop"]
+}
+```
+
+The scripts that the machine runs appear in the _history_ and in
+`GET /` like any other command.
+
+```bash
+curl -X POST http://localhost:5000/fsm/transition \
+  -H 'Content-Type: application/json' -d '{"state": "create"}'
+curl -X POST http://localhost:5000/fsm/event \
+  -H 'Content-Type: application/json' -d '{"event": "stop"}'
+```
+
 ### MQTT API
 
 With MQTT enabled, the runner subscribes to one request topic
 for each REST API route. A request and its response carry the same
 JSON as the matching HTTP request and response.
 
-| Request Topic     | Matching HTTP Request | Request Payload              |
-| :---------------- | :-------------------- | :--------------------------- |
-| `<topic>/execute` | POST /                | `{"name": "<command name>"}` |
-| `<topic>/status`  | GET /                 | ignored                      |
-| `<topic>/history` | GET /history          | ignored                      |
+| Request Topic        | Matching HTTP Request | Request Payload              |
+| :------------------- | :-------------------- | :--------------------------- |
+| `<topic>/execute`    | POST /                | `{"name": "<command name>"}` |
+| `<topic>/status`     | GET /                 | ignored                      |
+| `<topic>/history`    | GET /history          | ignored                      |
+| `<topic>/transition` | POST /fsm/transition  | `{"state": "<state>"}`       |
+| `<topic>/event`      | POST /fsm/event       | `{"event": "<event>"}`       |
+| `<topic>/fsm`        | GET /fsm              | ignored                      |
 
 The runner publishes each response with QoS 1:
 

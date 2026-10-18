@@ -79,3 +79,35 @@ Idempotency-Key: 7d1e4a36-0b8a-4c51-9c0e-2b8f1e6f2a10
 {
     "name": "create"
 }
+
+### State machine of test/data/scripts/state-machine.yaml
+
+GET http://{{hostname}}:{{port}}/fsm HTTP/1.1
+content-type: {{ContentType}}
+
+###
+
+POST http://{{hostname}}:{{port}}/fsm/transition HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "state": "create"
+}
+
+###
+
+POST http://{{hostname}}:{{port}}/fsm/event HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "event": "restart"
+}
+
+###
+
+POST http://{{hostname}}:{{port}}/fsm/event HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "event": "stop"
+}
