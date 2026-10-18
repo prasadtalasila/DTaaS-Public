@@ -179,6 +179,11 @@ that. Nor does it enter a state whose script is still running: a
 `$success` or `$failure` transition into such a state is skipped with
 a warning in the log, and the machine stays idle in its state.
 
+A transition request waits until the machine is idle, so give each
+state whose script may run long an event that leads out of it, as
+_execute_ has `stop` above. Otherwise only a restart moves the machine
+while that script hangs.
+
 The state machine is kept in memory, so after a restart it has no
 state until the next transition request.
 
@@ -422,10 +427,11 @@ after the request, or `null` before the first transition.
 
 A request body without a `state` or `event` gets the validation error
 of `POST /`, before any other check. A transition or event request may
-carry an `Idempotency-Key`; the runner gives a repeated request the
-reply to the first one for the latest 256 keys. These keys are kept in
-memory, apart from the keys of `POST /`. An older key is forgotten,
-and a repeat of it counts as a new request.
+carry an `Idempotency-Key`. The runner gives a repeat of an accepted
+request the reply to the first one, for the latest 256 keys; a refused
+request changed nothing, so its repeat is checked again. These keys are
+kept in memory, apart from the keys of `POST /`. An older key is
+forgotten, and a repeat of it counts as a new request.
 
 `GET /fsm` returns the state, the status of its script (`none`,
 `running`, `valid` or `invalid`) and the events of the digital twin:

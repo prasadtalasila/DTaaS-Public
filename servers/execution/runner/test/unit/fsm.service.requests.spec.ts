@@ -62,6 +62,16 @@ describe('State machine service requests', () => {
       });
     });
 
+    it('Should check a refused request again when it is repeated', async () => {
+      const { service, finish } = setup();
+      service.transition('execute');
+
+      expect(service.event('stop', 'key-1').status).toBe('accepted');
+      expect(service.transition('create', 'key-2').status).toBe('busy');
+      await finish('terminate', true);
+      expect(service.transition('create', 'key-2').status).toBe('accepted');
+    });
+
     it('Should treat an empty request key as no key', () => {
       const { service } = setup();
       service.transition('execute', '');

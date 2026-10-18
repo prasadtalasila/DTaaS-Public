@@ -83,7 +83,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     });
   }
 
-  // A repeated request key gets the reply to its first request
+  // A repeated request key gets the reply to its first request, if that
+  // was accepted; a refused request changed nothing, so it is checked
+  // again
   private request(
     request: string,
     requestKey: string | undefined,
@@ -96,7 +98,7 @@ export default class FsmService implements BeforeApplicationShutdown {
         : fsmReply('invalid request key', this.machine?.state);
     }
     const reply = this.reply(handle);
-    if (requestKey) {
+    if (requestKey && reply.status === 'accepted') {
       this.replies.add(requestKey, request, reply);
     }
     return reply;

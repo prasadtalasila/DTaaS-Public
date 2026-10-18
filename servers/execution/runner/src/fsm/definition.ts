@@ -30,7 +30,7 @@ const stateSchema = z
   .object({
     on: z
       .record(z.union([nameSchema, z.enum(COMPLETION_EVENTS)]), nameSchema)
-      .default({}),
+      .nullish(),
   })
   .strict()
   .nullish();

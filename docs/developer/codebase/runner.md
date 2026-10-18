@@ -224,8 +224,8 @@ not start.
 5. At shutdown, the service stops in `beforeApplicationShutdown`, so
    that no completion starts a script after the database closes.
 
-The `RecentReplies` store keeps the replies to the latest 256 requests
-with a request key, so a repeated MQTT delivery does not apply an event
+The `RecentReplies` store keeps the replies to the latest 256 accepted
+requests with a request key, so a repeated MQTT delivery does not apply an event
 twice. `servers/execution/runner/docs/state-machine-design.md` records
 the design decisions and assumptions.
 

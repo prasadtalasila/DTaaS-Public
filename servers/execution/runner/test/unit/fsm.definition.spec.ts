@@ -41,6 +41,12 @@ describe('State machine definition', () => {
     expect(definition.states.get('terminate')).toEqual(new Map());
   });
 
+  it('Should accept a state with an empty transition map', () => {
+    const definition = parseDefinition('states: {create: {on: }}', permitted);
+
+    expect(definition.states.get('create')).toEqual(new Map());
+  });
+
   it('Should accept a file without events', () => {
     const definition = parseDefinition('states: {create: {}}', permitted);
 
