@@ -32,7 +32,7 @@ describe('State machine service requests', () => {
     const { service, manager, finish } = setup();
     service.transition('create');
 
-    await service.beforeApplicationShutdown();
+    service.beforeApplicationShutdown();
     await finish('create', true);
 
     expect(manager.newCommand).toHaveBeenCalledTimes(1);

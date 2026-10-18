@@ -42,7 +42,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   // No transition or completion starts a script once shutdown begins,
   // as the database closes after the scripts that run
-  async beforeApplicationShutdown(): Promise<void> {
+  beforeApplicationShutdown(): void {
     this.stopping = true;
   }
 

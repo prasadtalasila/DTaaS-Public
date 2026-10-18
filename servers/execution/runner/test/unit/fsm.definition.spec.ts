@@ -14,11 +14,11 @@ const valid = `
 events: [start, stop]
 states:
   create:
-    on:
+    transitions:
       $success: execute
       $failure: terminate
   execute:
-    on:
+    transitions:
       stop: terminate
   terminate:
 `;
@@ -42,7 +42,10 @@ describe('State machine definition', () => {
   });
 
   it('Should accept a state with an empty transition map', () => {
-    const definition = parseDefinition('states: {create: {on: }}', permitted);
+    const definition = parseDefinition(
+      'states: {create: {transitions: }}',
+      permitted,
+    );
 
     expect(definition.states.get('create')).toEqual(new Map());
   });
@@ -79,14 +82,14 @@ describe('State machine definition', () => {
 
   it.each([
     ['a state', 'states: {__proto__: {}, create: {}}'],
-    ['an event', 'states: {create: {on: {__proto__: create}}}'],
+    ['an event', 'states: {create: {transitions: {__proto__: create}}}'],
   ])('Should refuse __proto__ as %s', (_, text) => {
     expectInvalid(text, '__proto__');
   });
 
   it('Should refuse two transitions for one event', () => {
     expectInvalid(
-      'events: [go]\nstates: {create: {on: {go: create, go: create}}}',
+      'events: [go]\nstates: {create: {transitions: {go: create, go: create}}}',
       'duplicated mapping key',
     );
   });
@@ -97,26 +100,26 @@ describe('State machine definition', () => {
 
   it('Should refuse a transition to an undeclared state', () => {
     expectInvalid(
-      'events: [start]\nstates: {create: {on: {start: execute}}}',
+      'events: [start]\nstates: {create: {transitions: {start: execute}}}',
       'execute',
     );
   });
 
   it('Should refuse a transition on an undeclared event', () => {
-    expectInvalid('states: {create: {on: {start: create}}}', 'start');
+    expectInvalid('states: {create: {transitions: {start: create}}}', 'start');
   });
 
   it('Should refuse a cycle of completion transitions', () => {
     const cycle = `
 states:
-  create: {on: {$success: execute}}
-  execute: {on: {$failure: create}}`;
+  create: {transitions: {$success: execute}}
+  execute: {transitions: {$failure: create}}`;
     expectInvalid(cycle, 'create -> execute -> create');
   });
 
   it('Should refuse a completion transition to the same state', () => {
     expectInvalid(
-      'states: {create: {on: {$success: create}}}',
+      'states: {create: {transitions: {$success: create}}}',
       'create -> create',
     );
   });
@@ -125,8 +128,8 @@ states:
     const loop = `
 events: [reset]
 states:
-  create: {on: {$success: execute}}
-  execute: {on: {reset: create}}`;
+  create: {transitions: {$success: execute}}
+  execute: {transitions: {reset: create}}`;
     expect(() => parseDefinition(loop, permitted)).not.toThrow();
   });
 });

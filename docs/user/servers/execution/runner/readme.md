@@ -145,20 +145,20 @@ events:          # the events that clients may send
   - reset
 states:          # each state runs the script of the same name
   create:
-    on:
+    transitions:
       $success: execute    # when the create script succeeds
       $failure: terminate  # when the create script fails
   execute:
-    on:
+    transitions:
       stop: terminate      # when a client sends the stop event
   terminate:
-    on:
+    transitions:
       reset: create
 ```
 
 - Each state is a script, and must be one of the `commands` of
   _runner.yaml_. Entering a state runs its script.
-- `on` gives the next state for each event of a state.
+- `transitions` gives the next state for each event of a state.
 - `events` lists the events that clients may send. It may be left out
   when only `$success` and `$failure` move the machine.
 - A state without transitions may be left empty, as in `terminate:`.

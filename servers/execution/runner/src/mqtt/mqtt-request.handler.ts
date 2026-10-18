@@ -36,17 +36,18 @@ export default class MqttRequestHandler {
     MqttRoute,
     (payload: Buffer, requestKey?: string) => unknown
   > = {
-    execute: (payload, requestKey) => this.execute(payload, requestKey),
+    execute: this.whenValid(executeCommandSchema, async ({ name }, key) => {
+      const [success] = await this.manager.newCommand(name, key);
+      return executeResponse(success);
+    }),
     status: () => this.manager.checkStatus(),
     history: () => this.manager.checkHistory(),
-    transition: (payload, requestKey) =>
-      this.handleValid(transitionSchema, payload, requestKey, ({ state }) =>
-        this.fsm.transition(state, requestKey),
-      ),
-    event: (payload, requestKey) =>
-      this.handleValid(eventSchema, payload, requestKey, ({ event }) =>
-        this.fsm.event(event, requestKey),
-      ),
+    transition: this.whenValid(transitionSchema, ({ state }, key) =>
+      this.fsm.transition(state, key),
+    ),
+    event: this.whenValid(eventSchema, ({ event }, key) =>
+      this.fsm.event(event, key),
+    ),
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
   };
 
@@ -67,33 +68,18 @@ export default class MqttRequestHandler {
     }
   }
 
-  private async execute(
-    payload: Buffer,
-    requestKey?: string,
-  ): Promise<unknown> {
-    return this.handleValid(
-      executeCommandSchema,
-      payload,
-      requestKey,
-      async ({ name }) => {
-        const [success] = await this.manager.newCommand(name, requestKey);
-        return executeResponse(success);
-      },
-    );
-  }
-
-  // Answers a request whose payload or request key is invalid with the
-  // validation error of the HTTP API
-  private handleValid<T>(
+  // A route that answers a request whose payload or request key is
+  // invalid with the validation error of the HTTP API
+  private whenValid<T>(
     schema: z.ZodType<T>,
-    payload: Buffer,
-    requestKey: string | undefined,
-    handle: (request: T) => unknown,
-  ): unknown {
-    const request = schema.safeParse(parseJson(payload));
-    if (!request.success || !requestKeySchema.safeParse(requestKey).success) {
-      return validationFailed().getResponse();
-    }
-    return handle(request.data);
+    handle: (request: T, requestKey?: string) => unknown,
+  ): (payload: Buffer, requestKey?: string) => unknown {
+    return (payload, requestKey) => {
+      const request = schema.safeParse(parseJson(payload));
+      if (!request.success || !requestKeySchema.safeParse(requestKey).success) {
+        return validationFailed().getResponse();
+      }
+      return handle(request.data, requestKey);
+    };
   }
 }

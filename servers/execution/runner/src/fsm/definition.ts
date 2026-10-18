@@ -28,7 +28,7 @@ export const nameSchema = z
 
 const stateSchema = z
   .object({
-    on: z
+    transitions: z
       .record(z.union([nameSchema, z.enum(COMPLETION_EVENTS)]), nameSchema)
       .nullish(),
   })
@@ -57,10 +57,27 @@ function toDefinition({ events, states }: File): Definition {
     states: new Map(
       Object.entries(states).map(([state, value]) => [
         state,
-        new Map(Object.entries(value?.on ?? {})),
+        new Map(Object.entries(value?.transitions ?? {})),
       ]),
     ),
   };
+}
+
+function transitionProblems(
+  { events, states }: Definition,
+  state: string,
+  transitions: Transitions,
+): string[] {
+  const problems: string[] = [];
+  transitions.forEach((target, event) => {
+    if (!states.has(target)) {
+      problems.push(`state ${state} leads to undeclared state ${target}`);
+    }
+    if (!isCompletion(event) && !events.has(event)) {
+      problems.push(`state ${state} uses undeclared event ${event}`);
+    }
+  });
+  return problems;
 }
 
 // The problems of the states and transitions of a definition
@@ -70,14 +87,7 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
     if (!permitted.includes(state)) {
       problems.push(`state ${state} is not a permitted command`);
     }
-    transitions.forEach((target, event) => {
-      if (!definition.states.has(target)) {
-        problems.push(`state ${state} leads to undeclared state ${target}`);
-      }
-      if (!isCompletion(event) && !definition.events.has(event)) {
-        problems.push(`state ${state} uses undeclared event ${event}`);
-      }
-    });
+    problems.push(...transitionProblems(definition, state, transitions));
   });
   const cycle = completionCycle(definition);
   if (cycle !== undefined) {
@@ -97,7 +107,7 @@ function findCycle(
   path: string[],
   done: Set<string>,
 ): string[] | undefined {
-  const state = path[path.length - 1];
+  const state = path.at(-1) as string;
   const start = path.indexOf(state);
   if (start < path.length - 1) {
     return path.slice(start);
@@ -133,7 +143,7 @@ function hasProtoKey(content: unknown): boolean {
     return false;
   }
   const transitions = Object.values(states).map((state) =>
-    isRecord(state) ? state.on : undefined,
+    isRecord(state) ? state.transitions : undefined,
   );
   return [states, ...transitions].some(
     (record) => isRecord(record) && Object.hasOwn(record, '__proto__'),

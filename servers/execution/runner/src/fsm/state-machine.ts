@@ -20,7 +20,7 @@ export default class StateMachine {
   }
 
   get events(): string[] {
-    return [...this.definition.events].sort();
+    return [...this.definition.events].sort((a, b) => a.localeCompare(b));
   }
 
   hasState(state: string): boolean {

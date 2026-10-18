@@ -24,8 +24,8 @@ const SCRIPTS = ['create', 'execute', 'terminate'];
 const DEFINITION = `
 events: [stop]
 states:
-  create: {on: {$success: execute}}
-  execute: {on: {stop: terminate}}
+  create: {transitions: {$success: execute}}
+  execute: {transitions: {stop: terminate}}
   terminate:`;
 
 // A folder with a runner configuration, the scripts in both their
@@ -118,14 +118,17 @@ describe('Runner state machine end-to-end tests', () => {
   });
 
   it('Should refuse an undeclared state and an event without a transition', async () => {
-    await post(app, '/fsm/transition', { state: 'configure' }).expect(
+    const state = await post(app, '/fsm/transition', { state: 'configure' });
+    const event = await post(app, '/fsm/event', { event: 'stop' });
+
+    expect([state.status, state.body]).toEqual([
       HttpStatus.BAD_REQUEST,
       { status: 'invalid state', state: null },
-    );
-    await post(app, '/fsm/event', { event: 'stop' }).expect(
+    ]);
+    expect([event.status, event.body]).toEqual([
       HttpStatus.CONFLICT,
       { status: 'no transition', state: null },
-    );
+    ]);
   });
 
   it('Should replay the reply to a repeated request key', async () => {

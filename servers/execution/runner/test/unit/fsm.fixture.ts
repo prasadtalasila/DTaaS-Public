@@ -10,9 +10,9 @@ import FsmService from 'src/fsm/fsm.service';
 const DEFINITION = `
 events: [stop, reset]
 states:
-  create: {on: {$success: execute, $failure: terminate}}
-  execute: {on: {stop: terminate}}
-  terminate: {on: {reset: create}}`;
+  create: {transitions: {$success: execute, $failure: terminate}}
+  execute: {transitions: {stop: terminate}}
+  terminate: {transitions: {reset: create}}`;
 
 export const settle = () => new Promise(setImmediate);
 

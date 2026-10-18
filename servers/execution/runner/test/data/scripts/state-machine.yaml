@@ -4,8 +4,8 @@ events:
   - restart
 states:
   create:
-    on:
+    transitions:
       $success: execute
   execute:
-    on:
+    transitions:
       restart: create

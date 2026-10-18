@@ -6,8 +6,8 @@ const definition = parseDefinition(
   `
 events: [stop, start]
 states:
-  create: {on: {$success: execute}}
-  execute: {on: {stop: create}}`,
+  create: {transitions: {$success: execute}}
+  execute: {transitions: {stop: create}}`,
   ['create', 'execute'],
 );
 

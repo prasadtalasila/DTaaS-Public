@@ -34,19 +34,19 @@ startup.
 events: [start, stop, reset] # the events clients may send
 states: # each state runs the script of the same name
   create:
-    on:
+    transitions:
       $success: execute # raised when the create script succeeds
       $failure: terminate # raised when the create script fails
   execute:
-    on:
+    transitions:
       stop: terminate
   terminate:
-    on:
+    transitions:
       reset: create
 ```
 
 - A state is a script. Entering a state runs the script of that name.
-- `on` maps an event to the state it leads to. YAML refuses duplicate
+- `transitions` maps an event to the state it leads to. YAML refuses duplicate
   keys, so each state has at most one transition per event: the
   machine is deterministic.
 - `events` lists the events of the DT. Clients may send only these.
@@ -59,7 +59,7 @@ states: # each state runs the script of the same name
 The runner refuses to start when the file is invalid, as it does for an
 invalid `mqtt` section. The file is valid when:
 
-- it holds only `events` and `states`, and each state holds only `on`;
+- it holds only `events` and `states`, and each state holds only `transitions`;
 - every state and event name matches `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
   property such as `__proto__` (zod skips a `__proto__` record key, so
@@ -172,8 +172,8 @@ proposal to derive the events from the transitions was declined (D4).
 | :-- | :------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | YAML file named `state-machine.yaml` in `location`                        | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. A fixed name needs no new configuration key.                                                                                                                                                                |
 | D2  | A state is a script of the same name                                      | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                                                                                                 |
-| D3  | Nested `on` maps instead of a list of transitions                         | Duplicate YAML keys are an error, so a state can not have two transitions for one event. The format is that of XState and SCXML-like tools.                                                                                                                                                                                    |
-| D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `on` at startup. Fable proposed deriving it; this was declined.                                                                            |
+| D3  | Nested `transitions` maps instead of a list of transitions                | Duplicate YAML keys are an error, so a state can not have two transitions for one event, as in XState. The key is not XState's `on`, which YAML 1.1 parsers and yamllint read as `true`.                                                                                                                                                                                    |
+| D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `transitions` at startup. Fable proposed deriving it; this was declined.                                                                            |
 | D5  | `$success` and `$failure` completion events                               | They give automatic transitions from one script to the next without a client. Clients can not send them: `events` only holds names that match the name pattern, which has no `$`, so a request for them is `invalid event`.                                                                                                    |
 | D6  | No initial state                                                          | The user's transition request starts the machine.                                                                                                                                                                                                                                                                              |
 | D7  | A transition request is accepted only when the machine is idle            | The owner said the state machine takes control once the script starts. An override at any time would compete with the machine. A hung script is left by an event, so the README asks for one out of each long state.                                                                                                           |
