@@ -61,8 +61,8 @@ _runner.yaml_, and update the values for your setup:
 
 ```yaml
 port: 5000
-location: 'scripts'  # directory of scripts, relative to this config file
-commands:  # list of permitted scripts
+location: 'scripts' # directory of scripts, relative to this config file
+commands: # list of permitted scripts
   - create
   - execute
   - terminate
@@ -108,11 +108,11 @@ has an `mqtt` section. HTTP remains available on `port`.
 
 ```yaml
 mqtt:
-  url: 'mqtt://localhost:1883'  # mqtt://, mqtts://, ws:// or wss://
-  topic: 'dtaas/user1/runner'   # base topic of this runner
-  username: 'runner'            # optional
-  password: 'secret'            # optional
-  protocolVersion: 5            # optional; 5 (default) or 4 for MQTT 3.1.1
+  url: 'mqtt://localhost:1883' # mqtt://, mqtts://, ws:// or wss://
+  topic: 'dtaas/user1/runner' # base topic of this runner
+  username: 'runner' # optional
+  password: 'secret' # optional
+  protocolVersion: 5 # optional; 5 (default) or 4 for MQTT 3.1.1
 ```
 
 The `topic` must be unique to each runner that shares a broker,
@@ -151,17 +151,17 @@ The state machine of a digital twin is in a file named
 _state-machine.yaml_ in the `location` directory, next to its scripts:
 
 ```yaml
-events:          # the events that clients may send
+events: # the events that clients may send
   - stop
   - reset
-states:          # each state runs the script of the same name
+states: # each state runs the script of the same name
   create:
     transitions:
-      $success: execute    # when the create script succeeds
-      $failure: terminate  # when the create script fails
+      $success: execute # when the create script succeeds
+      $failure: terminate # when the create script fails
   execute:
     transitions:
-      stop: terminate      # when a client sends the stop event
+      stop: terminate # when a client sends the stop event
   terminate:
     transitions:
       reset: create
