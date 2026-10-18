@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import ExecaManager from 'src/execa-manager.service';
+import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 
 const status = {
@@ -17,8 +18,17 @@ function createHandler(success: boolean) {
     checkStatus: jest.fn(() => status),
     checkHistory: jest.fn(() => [{ name: 'create' }]),
   };
-  const handler = new MqttRequestHandler(manager as unknown as ExecaManager);
-  return { handler, manager };
+  const accepted = { status: 'accepted', state: 'create' };
+  const fsm = {
+    transition: jest.fn((_state: string, _requestKey?: string) => accepted),
+    event: jest.fn((_event: string, _requestKey?: string) => accepted),
+    check: jest.fn((): unknown => undefined),
+  };
+  const handler = new MqttRequestHandler(
+    manager as unknown as ExecaManager,
+    fsm as unknown as FsmService,
+  );
+  return { handler, manager, fsm };
 }
 
 const json = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -105,6 +115,69 @@ describe('MQTT request handler', () => {
     expect(body).toEqual({
       statusCode: 500,
       message: 'Internal server error',
+    });
+  });
+
+  describe('state machine', () => {
+    const validationError = {
+      message: 'Validation Failed',
+      error: 'Bad Request',
+      statusCode: 400,
+    };
+
+    it('Should pass a transition request on', async () => {
+      const { handler, fsm } = createHandler(true);
+
+      const body = await handler.handle(
+        'transition',
+        json({ state: 'create' }),
+        'key-1',
+      );
+
+      expect(fsm.transition).toHaveBeenCalledWith('create', 'key-1');
+      expect(body).toEqual({ status: 'accepted', state: 'create' });
+    });
+
+    it('Should pass an event on', async () => {
+      const { handler, fsm } = createHandler(true);
+
+      await handler.handle('event', json({ event: 'stop' }));
+
+      expect(fsm.event).toHaveBeenCalledWith('stop', undefined);
+    });
+
+    it.each([
+      ['transition', json({ name: 'create' }), undefined],
+      ['event', Buffer.from('stop'), undefined],
+      ['event', json({ event: 'stop' }), 'k'.repeat(256)],
+    ] as const)(
+      'Should return the validation error for a bad %s request',
+      async (route, payload, requestKey) => {
+        const { handler, fsm } = createHandler(true);
+
+        const body = await handler.handle(route, payload, requestKey);
+
+        expect(body).toEqual(validationError);
+        expect(fsm.transition).not.toHaveBeenCalled();
+        expect(fsm.event).not.toHaveBeenCalled();
+      },
+    );
+
+    it('Should return the state of the machine', async () => {
+      const { handler, fsm } = createHandler(true);
+      const state = { state: null, status: 'none', events: [] };
+      fsm.check.mockReturnValueOnce(state);
+
+      expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual(state);
+    });
+
+    it('Should answer that there is no state machine', async () => {
+      const { handler } = createHandler(true);
+
+      expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual({
+        status: 'no state machine',
+        state: null,
+      });
     });
   });
 });

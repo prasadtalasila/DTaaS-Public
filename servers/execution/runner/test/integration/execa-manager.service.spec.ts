@@ -191,6 +191,16 @@ describe('Check execution manager based on execa library', () => {
     });
   });
 
+  it('Should tell whether a command is running', async () => {
+    const manager = dt as ExecaManager;
+    const run = manager.newCommand('create');
+
+    expect(manager.isRunning('create')).toBe(true);
+    expect(manager.isRunning('execute')).toBe(false);
+    await run;
+    expect(manager.isRunning('create')).toBe(false);
+  });
+
   it('Should let a running command finish before the database closes', async () => {
     const run = dt.newCommand('create');
     await (dt as ExecaManager).onApplicationShutdown();

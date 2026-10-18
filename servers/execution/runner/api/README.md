@@ -55,6 +55,11 @@ Then uncomment the `mqtt` section at the end of
 topic match the `@broker` and `@topic` variables of `dev.mqtt.http`.
 Stop the broker with `docker stop mosquitto`.
 
+The state machine requests at the end of both files use
+`test/data/scripts/state-machine.yaml`. A transition to _create_ runs
+_create_ and then _execute_; the `restart` event goes back to _create_,
+and the `stop` event is refused as an undeclared event.
+
 ## Send the Requests
 
 In VS Code, open a request file and select **Send Request** (REST

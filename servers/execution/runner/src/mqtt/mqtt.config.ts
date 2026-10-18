@@ -21,7 +21,14 @@ export const mqttConfigSchema = z
 
 export type MqttConfig = z.infer<typeof mqttConfigSchema>;
 
-export const mqttRoutes = ['execute', 'status', 'history'] as const;
+export const mqttRoutes = [
+  'execute',
+  'status',
+  'history',
+  'transition',
+  'event',
+  'fsm',
+] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];
 

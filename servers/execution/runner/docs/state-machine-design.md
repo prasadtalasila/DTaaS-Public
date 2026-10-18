@@ -34,15 +34,15 @@ The runner reads `state-machine.yaml` from its `location` folder at
 startup.
 
 ```yaml
-events:          # the events this DT accepts on the event endpoint
+events: # the events this DT accepts on the event endpoint
   - start
   - stop
   - reset
-states:          # each state runs the script of the same name
+states: # each state runs the script of the same name
   create:
     on:
-      $success: execute    # raised when the create script succeeds
-      $failure: terminate  # raised when the create script fails
+      $success: execute # raised when the create script succeeds
+      $failure: terminate # raised when the create script fails
   execute:
     on:
       stop: terminate
@@ -66,23 +66,24 @@ The runner refuses to start when the file is invalid, as it does for an
 invalid `mqtt` section. The file is valid when:
 
 - it holds only `events` and `states`, and each state holds only `on`;
-- every state and event name matches `^[A-Za-z0-9_.-]{1,64}$`;
+- every state and event name matches `^[A-Za-z0-9][\w.-]{0,63}$`, so
+  that a name can not be a path, a command-line flag or an object
+  property such as `__proto__`;
 - every state is a permitted command of `runner.yaml`;
 - every transition leads to a declared state;
 - every event of a transition is declared in `events`, or is `$success`
   or `$failure`;
 - no cycle is made of completion transitions alone.
 
-Without the file, the state machine is off and its endpoints answer
-404.
+Without the file, the state machine is off and its endpoints answer 404.
 
 ### API
 
-| HTTP                 | MQTT topic           | Request body          |
-| :------------------- | :------------------- | :-------------------- |
+| HTTP                   | MQTT topic           | Request body          |
+| :--------------------- | :------------------- | :-------------------- |
 | `POST /fsm/transition` | `<topic>/transition` | `{"state": "create"}` |
-| `POST /fsm/event`    | `<topic>/event`      | `{"event": "stop"}`   |
-| `GET /fsm`           | `<topic>/fsm`        | ignored               |
+| `POST /fsm/event`      | `<topic>/event`      | `{"event": "stop"}`   |
+| `GET /fsm`             | `<topic>/fsm`        | ignored               |
 
 A transition or event request is answered once the script of the new
 state has started, without waiting for it to finish. The body names
@@ -92,22 +93,27 @@ the outcome, since MQTT has no status codes, and the current state:
 { "status": "accepted", "state": "execute" }
 ```
 
-| Status             | HTTP | Meaning                                              |
-| :----------------- | :--- | :--------------------------------------------------- |
-| `accepted`         | 202  | the machine entered the state and started its script |
-| `invalid state`    | 400  | the state is not in the file                         |
-| `invalid event`    | 400  | the event is not in `events`                         |
-| `busy`             | 409  | a transition request while the state's script runs   |
-| `no transition`    | 409  | the current state has no transition for the event    |
-| `script running`   | 409  | the script of the target state is still running      |
-| `no state machine` | 404  | the script folder has no `state-machine.yaml`        |
-| `stopping`         | 503  | the runner is shutting down                          |
+| Status                | HTTP | Meaning                                              |
+| :-------------------- | :--- | :--------------------------------------------------- |
+| `accepted`            | 202  | the machine entered the state and started its script |
+| `invalid state`       | 400  | the state is not in the file                         |
+| `invalid event`       | 400  | the event is not in `events`                         |
+| `invalid request key` | 400  | the request key belongs to another request           |
+| `busy`                | 409  | a transition request while the state's script runs   |
+| `no transition`       | 409  | the current state has no transition for the event    |
+| `script running`      | 409  | the script of the target state is still running      |
+| `no state machine`    | 404  | the script folder has no `state-machine.yaml`        |
+| `stopping`            | 503  | the runner is shutting down                          |
 
 A malformed body gets the `Validation Failed` response of the existing
 API. `GET /fsm` answers:
 
 ```json
-{ "state": "execute", "status": "running", "events": ["reset", "start", "stop"] }
+{
+  "state": "execute",
+  "status": "running",
+  "events": ["reset", "start", "stop"]
+}
 ```
 
 `status` is `running`, `valid` or `invalid` for the script of the
@@ -133,16 +139,16 @@ current state, and `none` before the first transition, when `state` is
 
 ### Components
 
-| Unit                      | Responsibility                                       |
-| :------------------------ | :--------------------------------------------------- |
-| `fsm/definition.ts`       | read, parse and validate `state-machine.yaml`        |
-| `fsm/state-machine.ts`    | pure machine: current state, entry count, next state |
-| `fsm/recent-replies.ts`   | bounded store of replies to repeated requests        |
-| `fsm/fsm.service.ts`      | runs scripts, raises completion events, replies      |
-| `fsm/fsm.controller.ts`   | HTTP routes                                          |
-| `dto/fsm.dto.ts`          | request schemas and reply bodies                     |
-| `mqtt/*`                  | three more request topics                            |
-| `ExecaManager.isRunning`  | tells whether a script is running                    |
+| Unit                     | Responsibility                                       |
+| :----------------------- | :--------------------------------------------------- |
+| `fsm/definition.ts`      | read, parse and check `state-machine.yaml`           |
+| `fsm/state-machine.ts`   | pure machine: current state, entry count, next state |
+| `fsm/recent-replies.ts`  | bounded store of replies to repeated requests        |
+| `fsm/fsm.service.ts`     | runs scripts, raises completion events, replies      |
+| `fsm/fsm.controller.ts`  | HTTP routes                                          |
+| `dto/fsm.dto.ts`         | request schemas and reply bodies                     |
+| `mqtt/*`                 | three more request topics                            |
+| `ExecaManager.isRunning` | tells whether a script is running                    |
 
 ```mermaid
 sequenceDiagram
@@ -163,26 +169,34 @@ sequenceDiagram
     S-->>C: 202 accepted, state terminate
 ```
 
+### Fable Review
+
+Fable reviewed a draft of this design. These changes came from its
+review: D7, D8, D11, D13 and D14 below, the name pattern, the order of
+the shutdown hooks, and loading the file and checking it in one unit.
+Its proposal to derive the events from the transitions was declined
+(D4).
+
 ## Decisions
 
-| #   | Decision                                                                         | Reason                                                                                                                                                                                                                                                |
-| :-- | :------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | YAML file named `state-machine.yaml` in `location`                              | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. A fixed name needs no new configuration key.                                                                                         |
-| D2  | A state is a script of the same name                                             | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                       |
-| D3  | Nested `on` maps instead of a list of transitions                                | Duplicate YAML keys are an error, so a state can not have two transitions for one event. The format is that of XState and SCXML-like tools.                                                                                                           |
-| D4  | Explicit `events` list                                                           | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `on` at startup. Fable proposed deriving it; this was declined. |
-| D5  | `$success` and `$failure` completion events                                      | They give automatic transitions from one script to the next without a client. The `$` prefix can not be sent, as it fails the name pattern.                                                                                                       |
-| D6  | No initial state                                                                 | The user's transition request starts the machine.                                                                                                                                                                                                     |
-| D7  | A transition request is accepted only when the machine is idle                   | The owner said the state machine takes control once the script starts. An override at any time would compete with the machine.                                                                                                                       |
-| D8  | A state whose script is running can not be entered (409 `script running`)        | `ExecaManager` joins a run in progress, so entering such a state would not run its script and would attach the completion of an earlier entry.                                                                                                     |
-| D9  | Replies do not wait for the script                                               | A long _execute_ would hold the request open. The state is reported by `GET /fsm`.                                                                                                                                                                   |
-| D10 | Leaving a state does not stop its script                                         | The runner can not cancel a script. Waiting for it would block a `stop` event forever.                                                                                                                                                               |
-| D11 | Reject cycles of completion transitions at startup                               | With fast scripts such a cycle would run forever and add a history row each time.                                                                                                                                                                     |
-| D12 | The machine lives in memory                                                      | Nothing asks for recovery after a restart, and the scripts do not survive a restart either. The machine starts unstarted.                                                                                                                            |
-| D13 | `Idempotency-Key` replays the reply in memory, for the last 256 keys             | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The key header and user property are those of `POST /`.                                                                                                                     |
-| D14 | Stop accepting requests in `beforeApplicationShutdown`                           | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                       |
-| D15 | 202 Accepted for accepted requests                                              | The script has started, not finished.                                                                                                                                                                                                                |
-| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones            | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them.                                                                                                                                                  |
+| #   | Decision                                                                  | Reason                                                                                                                                                                                                                                              |
+| :-- | :------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | YAML file named `state-machine.yaml` in `location`                        | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. A fixed name needs no new configuration key.                                                                                     |
+| D2  | A state is a script of the same name                                      | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                      |
+| D3  | Nested `on` maps instead of a list of transitions                         | Duplicate YAML keys are an error, so a state can not have two transitions for one event. The format is that of XState and SCXML-like tools.                                                                                                         |
+| D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `on` at startup. Fable proposed deriving it; this was declined. |
+| D5  | `$success` and `$failure` completion events                               | They give automatic transitions from one script to the next without a client. The `$` prefix can not be sent, as it fails the name pattern.                                                                                                         |
+| D6  | No initial state                                                          | The user's transition request starts the machine.                                                                                                                                                                                                   |
+| D7  | A transition request is accepted only when the machine is idle            | The owner said the state machine takes control once the script starts. An override at any time would compete with the machine.                                                                                                                      |
+| D8  | A state whose script is running can not be entered (409 `script running`) | `ExecaManager` joins a run in progress, so entering such a state would not run its script and would attach the completion of an earlier entry.                                                                                                      |
+| D9  | Replies do not wait for the script                                        | A long _execute_ would hold the request open. The state is reported by `GET /fsm`.                                                                                                                                                                  |
+| D10 | Leaving a state does not stop its script                                  | The runner can not cancel a script. Waiting for it would block a `stop` event forever.                                                                                                                                                              |
+| D11 | Reject cycles of completion transitions at startup                        | With fast scripts such a cycle would run forever and add a history row each time.                                                                                                                                                                   |
+| D12 | The machine lives in memory                                               | Nothing asks for recovery after a restart, and the scripts do not survive a restart either. The machine starts unstarted.                                                                                                                           |
+| D13 | `Idempotency-Key` replays the reply in memory, for the last 256 keys      | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The key header and user property are those of `POST /`.                                                                                                                   |
+| D14 | Stop accepting requests in `beforeApplicationShutdown`                    | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                     |
+| D15 | 202 Accepted for accepted requests                                        | The script has started, not finished.                                                                                                                                                                                                               |
+| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones     | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them.                                                                                                                                                 |
 
 ## Assumptions
 
@@ -230,7 +244,8 @@ sequenceDiagram
 1. Add `dto/fsm.dto.ts` and `fsm/fsm.service.ts` with tests against a
    fake `ExecaManager`.
 1. Add `fsm/fsm.controller.ts`, register the units in `AppModule`, load
-   the file in `main.ts`, and add integration and end-to-end tests.
+   the file in `main.ts` before the database opens, and add integration
+   and end-to-end tests.
 1. Add the MQTT topics, with handler and service tests.
 1. Document the file and the API in `README.md`, the developer page
    `docs/developer/codebase/runner.md`, and the request files in `api/`.

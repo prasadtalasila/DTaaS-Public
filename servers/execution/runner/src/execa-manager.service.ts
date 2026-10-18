@@ -114,6 +114,10 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     this.commandQueue.close();
   }
 
+  isRunning(name: string): boolean {
+    return this.running.has(name);
+  }
+
   private static createStatus(name: string, status: string) {
     return {
       name,

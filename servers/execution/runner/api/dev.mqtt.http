@@ -70,3 +70,39 @@ QoS: 1
 {"command": "create"}
 === wait-for-server
 {{ "" }}
+
+###
+
+# @name fsm
+MQTT {{broker}}
+Subscribe: {{topic}}/fsm/response
+Publish: {{topic}}/fsm
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name transition
+MQTT {{broker}}
+Subscribe: {{topic}}/transition/response
+Publish: {{topic}}/transition
+QoS: 1
+
+{"state": "create"}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name event
+MQTT {{broker}}
+Subscribe: {{topic}}/event/response
+Publish: {{topic}}/event
+QoS: 1
+
+{"event": "restart"}
+=== wait-for-server
+{{ "" }}
