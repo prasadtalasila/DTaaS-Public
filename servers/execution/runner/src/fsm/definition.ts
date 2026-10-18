@@ -136,19 +136,21 @@ const invalid = (problems: string): Error =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+// The value of a key of a parsed YAML mapping
+const field = (value: unknown, key: string): unknown =>
+  isRecord(value) ? value[key] : undefined;
+
+const hasOwnProto = (value: unknown): boolean =>
+  isRecord(value) && Object.hasOwn(value, '__proto__');
+
 // zod skips a __proto__ key of a record without an error, so look for
 // one among the states and the events of their transitions
 function hasProtoKey(content: unknown): boolean {
-  const states = isRecord(content) ? content.states : undefined;
-  if (!isRecord(states)) {
-    return false;
-  }
-  const transitions = Object.values(states).map((state) =>
-    isRecord(state) ? state.transitions : undefined,
-  );
-  return [states, ...transitions].some(
-    (record) => isRecord(record) && Object.hasOwn(record, '__proto__'),
-  );
+  const states = field(content, 'states');
+  const transitions = isRecord(states)
+    ? Object.values(states).map((state) => field(state, 'transitions'))
+    : [];
+  return [states, ...transitions].some(hasOwnProto);
 }
 
 function readYaml(text: string): unknown {
