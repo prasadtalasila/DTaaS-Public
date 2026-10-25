@@ -1,8 +1,10 @@
+id: 'test-dt'
 port: 5000
 location: '../test/data/scripts'  # test scripts, relative to this config file
 commands:  # list of permitted scripts
   - create
   - execute
+stateMachine: '../test/data/scripts/state-machine.yaml'
 # mqtt:  # uncomment to try api/dev.mqtt.http with a broker on this computer
 #   url: 'mqtt://localhost:1883'
 #   topic: 'dtaas/user1/runner'

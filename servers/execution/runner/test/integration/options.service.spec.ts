@@ -1,7 +1,23 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import Config from 'src/config/configuration.service';
 import Keyv from 'keyv';
 import resolveFile from 'src/config/util';
+
+const options = async (configFile: string): Promise<Keyv> => {
+  const keyv = new Keyv();
+  await keyv.set('configFile', configFile);
+  return keyv;
+};
 
 describe('Check Configuration Service', () => {
   let config: Config;
@@ -15,37 +31,42 @@ describe('Check Configuration Service', () => {
   });
 
   it('Should have correct default config after creation', async () => {
+    expect(config.getId()).toEqual('runner');
+    expect(config.getAttributes()).toEqual({});
     expect(config.getPort()).toEqual(5000);
     expect(config.permitCommands()).toHaveLength(0);
     expect(config.getLocation()).toEqual('script');
+    expect(config.getStateMachine()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
   });
 
   it('Should load correct configuration', async () => {
-    const CLIOptions = new Keyv();
-    await CLIOptions.set('configFile', 'runner.test.yaml');
+    const CLIOptions = await options('runner.test.yaml');
     const spyOnCLIOptions = jest.spyOn(CLIOptions, 'get');
 
     await config.loadConfig(CLIOptions);
 
+    expect(config.getId()).toEqual('test-runner');
+    expect(config.getAttributes()).toEqual({});
     expect(config.getPort()).toEqual(5002);
     expect(config.permitCommands()).toHaveLength(1);
     expect(config.permitCommands()).toContain('create');
     expect(config.getLocation()).toEqual(resolveFile('script'));
+    expect(config.getStateMachine()).toEqual(
+      resolveFile('script/state-machine.yaml'),
+    );
     expect(spyOnCLIOptions).toHaveBeenCalled();
     expect(config.getDatabase()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
   });
 
   it('Should load the MQTT configuration', async () => {
-    const CLIOptions = new Keyv();
-    await CLIOptions.set('configFile', 'test/data/config/runner.mqtt.yaml');
-
-    await config.loadConfig(CLIOptions);
+    await config.loadConfig(await options('test/data/config/runner.mqtt.yaml'));
 
     expect(config.getDatabase()).toEqual(
       resolveFile('test/data/config/runner.db'),
     );
+    expect(config.getStateMachine()).toBeUndefined();
     expect(config.getMqtt()).toEqual({
       url: 'mqtt://localhost:1883',
       topic: 'dtaas/runner',
@@ -54,14 +75,59 @@ describe('Check Configuration Service', () => {
   });
 
   it('Should reject an invalid MQTT configuration', async () => {
-    const CLIOptions = new Keyv();
-    await CLIOptions.set(
-      'configFile',
-      'test/data/config/runner.mqtt.invalid.yaml',
-    );
+    const file = 'test/data/config/runner.mqtt.invalid.yaml';
 
-    await expect(config.loadConfig(CLIOptions)).rejects.toThrow(
-      /Invalid mqtt configuration:[\s\S]*wildcards[\s\S]*at topic/,
+    await expect(config.loadConfig(await options(file))).rejects.toThrow(
+      /Invalid configuration in .*runner.mqtt.invalid.yaml:[\s\S]*wildcards[\s\S]*at mqtt.topic/,
     );
+  });
+
+  describe('with a configuration of its own', () => {
+    let dir: string;
+
+    const load = async (text: string) => {
+      writeFileSync(join(dir, 'runner.yaml'), text);
+      await config.loadConfig(await options(join(dir, 'runner.yaml')));
+    };
+
+    const base = 'port: 5000\nlocation: .\ncommands: [create]\n';
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'runner-config-'));
+    });
+
+    afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+    it('Should read the attributes', async () => {
+      await load(`${base}id: dt-1\nattributes: {city: Aarhus, beds: 120}`);
+
+      expect(config.getId()).toEqual('dt-1');
+      expect(config.getAttributes()).toEqual({ city: 'Aarhus', beds: 120 });
+    });
+
+    it('Should reject a __proto__ attribute', async () => {
+      await expect(
+        load(`${base}id: dt-1\nattributes: {__proto__: 1}`),
+      ).rejects.toThrow(/Invalid configuration[\s\S]*__proto__/);
+    });
+
+    it('Should reject a configuration without an id', async () => {
+      await expect(load(base)).rejects.toThrow(/at id/);
+    });
+
+    it('Should resolve a relative state machine path', async () => {
+      await load(`${base}id: dt-1\nstateMachine: machines/dt.yaml`);
+
+      expect(config.getStateMachine()).toEqual(
+        join(dir, 'machines', 'dt.yaml'),
+      );
+    });
+
+    it('Should keep an absolute state machine path', async () => {
+      const file = join(tmpdir(), 'dt.yaml');
+      await load(`${base}id: dt-1\nstateMachine: '${file}'`);
+
+      expect(config.getStateMachine()).toEqual(file);
+    });
   });
 });

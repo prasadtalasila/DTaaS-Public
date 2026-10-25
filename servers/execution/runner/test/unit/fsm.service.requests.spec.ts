@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
-import { createService, scriptFolder } from './fsm.fixture';
+import { createService, MACHINE_FILE, scriptFolder } from './fsm.fixture';
 
 describe('State machine service requests', () => {
   let dir: string;
@@ -12,10 +12,10 @@ describe('State machine service requests', () => {
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  const setup = (location = dir) => createService(location);
+  const setup = () => createService(join(dir, MACHINE_FILE));
 
-  it('Should answer that there is no state machine without the file', () => {
-    const { service } = setup(join(dir, 'missing'));
+  it('Should answer that there is no state machine without a file', () => {
+    const { service } = createService(undefined);
 
     expect(service.transition('create')).toEqual({
       status: 'no state machine',

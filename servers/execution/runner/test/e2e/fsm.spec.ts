@@ -11,15 +11,12 @@ import {
   it,
 } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import Keyv from 'keyv';
 import supertest from 'supertest';
-import AppModule from 'src/app.module';
-import Config from 'src/config/configuration.service';
-import { DEFINITION_FILE } from 'src/fsm/definition';
-import FsmService from 'src/fsm/fsm.service';
+import { startRunner } from './util';
 
 const SCRIPTS = ['create', 'execute', 'terminate'];
+
+const MACHINE_FILE = 'dt.yaml';
 
 const DEFINITION = `
 events: [stop]
@@ -29,12 +26,14 @@ states:
   terminate:`;
 
 // A folder with a runner configuration, the scripts in both their
-// Linux and Windows versions, and a state machine
-function digitalTwin(): string {
+// Linux and Windows versions, and a state machine, which the
+// configuration names unless asked not to
+function digitalTwin(named = true): string {
   const dir = mkdtempSync(join(tmpdir(), 'runner-fsm-'));
-  const config = `port: 5000\nlocation: '.'\ncommands: [${SCRIPTS}]\n`;
-  writeFileSync(join(dir, 'runner.yaml'), config);
-  writeFileSync(join(dir, DEFINITION_FILE), DEFINITION);
+  const machine = named ? `stateMachine: ${MACHINE_FILE}\n` : '';
+  const config = `id: dt-1\nport: 5000\nlocation: '.'\ncommands: [${SCRIPTS}]\n`;
+  writeFileSync(join(dir, 'runner.yaml'), config + machine);
+  writeFileSync(join(dir, MACHINE_FILE), DEFINITION);
   SCRIPTS.forEach((script) => {
     writeFileSync(join(dir, script), `#!/bin/sh\nprintf ${script}\n`, {
       mode: 0o755,
@@ -42,19 +41,6 @@ function digitalTwin(): string {
     writeFileSync(join(dir, `${script}.ps1`), `Write-Output ${script}\n`);
   });
   return dir;
-}
-
-async function startRunner(configFile: string): Promise<INestApplication> {
-  const moduleFixture = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
-  const app = moduleFixture.createNestApplication({ logger: false });
-  const options = new Keyv();
-  await options.set('configFile', configFile);
-  await app.get<Config>(Config).loadConfig(options);
-  app.get<FsmService>(FsmService).load();
-  await app.init();
-  return app;
 }
 
 const post = (app: INestApplication, route: string, body: object) =>
@@ -173,8 +159,7 @@ describe('Runner state machine end-to-end tests', () => {
 
 describe('Runner without a state machine', () => {
   it('Should answer 404 on the state machine routes', async () => {
-    const dir = digitalTwin();
-    rmSync(join(dir, DEFINITION_FILE));
+    const dir = digitalTwin(false);
     const app = await startRunner(join(dir, 'runner.yaml'));
     const reply = { status: 'no state machine', state: null };
 

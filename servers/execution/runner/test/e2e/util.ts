@@ -1,5 +1,26 @@
 import supertest from 'supertest';
 import { INestApplication, HttpStatus } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import Keyv from 'keyv';
+import AppModule from 'src/app.module';
+import Config from 'src/config/configuration.service';
+import FsmService from 'src/fsm/fsm.service';
+
+// Starts the runner as main.ts does, with the configuration file given
+export async function startRunner(
+  configFile: string,
+): Promise<INestApplication> {
+  const moduleFixture = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+  const app = moduleFixture.createNestApplication({ logger: false });
+  const options = new Keyv();
+  await options.set('configFile', configFile);
+  await app.get<Config>(Config).loadConfig(options);
+  app.get<FsmService>(FsmService).load();
+  await app.init();
+  return app;
+}
 
 export interface RequestBody {
   name?: string;

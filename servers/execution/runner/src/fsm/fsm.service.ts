@@ -34,7 +34,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   load(): void {
     const definition = loadDefinition(
-      this.config.getLocation(),
+      this.config.getStateMachine(),
       this.config.permitCommands(),
     );
     this.machine = definition && new StateMachine(definition);

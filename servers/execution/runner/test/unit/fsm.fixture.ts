@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
-import { DEFINITION_FILE } from 'src/fsm/definition';
 import FsmService from 'src/fsm/fsm.service';
 
 const DEFINITION = `
@@ -14,12 +13,15 @@ states:
   execute: {transitions: {stop: terminate}}
   terminate: {transitions: {reset: create}}`;
 
+// Any name will do, as runner.yaml names the file
+export const MACHINE_FILE = 'machine.yaml';
+
 export const settle = () => new Promise(setImmediate);
 
 // A script folder with the state machine of the service tests
 export function scriptFolder(): string {
   const dir = mkdtempSync(join(tmpdir(), 'fsm-'));
-  writeFileSync(join(dir, DEFINITION_FILE), DEFINITION);
+  writeFileSync(join(dir, MACHINE_FILE), DEFINITION);
   return dir;
 }
 
@@ -45,10 +47,11 @@ function fakeManager() {
   return { manager, finish };
 }
 
-export function createService(location: string) {
+// The service with the state machine of the file, if one is given
+export function createService(file: string | undefined) {
   const { manager, finish } = fakeManager();
   const config = {
-    getLocation: () => location,
+    getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
   } as unknown as Config;
   const service = new FsmService(manager as unknown as ExecaManager, config);

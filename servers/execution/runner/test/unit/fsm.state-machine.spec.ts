@@ -9,6 +9,7 @@ states:
   create: {transitions: {$success: execute}}
   execute: {transitions: {stop: create}}`,
   ['create', 'execute'],
+  'state-machine.yaml',
 );
 
 describe('State machine', () => {

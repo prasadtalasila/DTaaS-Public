@@ -1,9 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
-
-export const DEFINITION_FILE = 'state-machine.yaml';
 
 // Raised by the runner, not by clients, when the script of a state exits
 export const COMPLETION_EVENTS = ['$success', '$failure'] as const;
@@ -130,8 +127,8 @@ function completionCycle({ states }: Definition): string[] | undefined {
     .find(Boolean);
 }
 
-const invalid = (problems: string): Error =>
-  new Error(`Invalid state machine in ${DEFINITION_FILE}:\n${problems}`);
+const invalid = (file: string, problems: string): Error =>
+  new Error(`Invalid state machine in ${file}:\n${problems}`);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -140,7 +137,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const field = (value: unknown, key: string): unknown =>
   isRecord(value) ? value[key] : undefined;
 
-const hasOwnProto = (value: unknown): boolean =>
+export const hasOwnProto = (value: unknown): boolean =>
   isRecord(value) && Object.hasOwn(value, '__proto__');
 
 // zod skips a __proto__ key of a record without an error, so look for
@@ -153,40 +150,49 @@ function hasProtoKey(content: unknown): boolean {
   return [states, ...transitions].some(hasOwnProto);
 }
 
-function readYaml(text: string): unknown {
+function readYaml(text: string, file: string): unknown {
   let content: unknown;
   try {
     content = yaml.load(text);
   } catch (error) {
-    throw invalid(String(error));
+    throw invalid(file, String(error));
   }
   if (hasProtoKey(content)) {
-    throw invalid('✖ __proto__ is not a valid name');
+    throw invalid(file, '✖ __proto__ is not a valid name');
   }
   return content;
 }
 
-// Throws an error that names every problem of an invalid definition
-export function parseDefinition(text: string, permitted: string[]): Definition {
-  const result = fileSchema.safeParse(readYaml(text));
+// Throws an error that names the file and every problem of an invalid
+// definition
+export function parseDefinition(
+  text: string,
+  permitted: string[],
+  file: string,
+): Definition {
+  const result = fileSchema.safeParse(readYaml(text, file));
   if (!result.success) {
-    throw invalid(z.prettifyError(result.error));
+    throw invalid(file, z.prettifyError(result.error));
   }
   const definition = toDefinition(result.data);
   const problems = crossCheck(definition, permitted);
   if (problems.length > 0) {
-    throw invalid(problems.map((problem) => `✖ ${problem}`).join('\n'));
+    throw invalid(file, problems.map((problem) => `✖ ${problem}`).join('\n'));
   }
   return definition;
 }
 
+// No file means no state machine; a file that runner.yaml names must
+// exist
 export function loadDefinition(
-  location: string,
+  file: string | undefined,
   permitted: string[],
 ): Definition | undefined {
-  const file = join(location, DEFINITION_FILE);
-  if (!existsSync(file)) {
+  if (file === undefined) {
     return undefined;
   }
-  return parseDefinition(readFileSync(file, 'utf8'), permitted);
+  if (!existsSync(file)) {
+    throw new Error(`State machine file ${file} does not exist`);
+  }
+  return parseDefinition(readFileSync(file, 'utf8'), permitted, file);
 }
