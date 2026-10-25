@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 01, 03
-- PR: none
+- PR: [#82](https://github.com/prasadtalasila/DTaaS-Public/pull/82)
 - Research note:
   [item 7](../dtn-research-notes.md#7-presence-join-and-leave)
 
