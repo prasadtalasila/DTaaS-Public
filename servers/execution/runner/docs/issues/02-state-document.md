@@ -1,6 +1,6 @@
 # 02 One State Document
 
-- Status: in progress
+- Status: in review
 - Depends on: 01, 10 (for the `stopped` status)
 - PR: none
 - Research note:
@@ -100,26 +100,27 @@ machine or not:
 
 ## Tasks
 
-- [ ] `Queue.activeCommand` returns ISO `receivedAt` and `finishedAt`,
+- [x] `Queue.activeCommand` returns ISO `receivedAt` and `finishedAt`,
       with `finishedAt` null while running, for rows written in SQLite's
       own format. Check: `test/integration/queue.service.spec.ts`, with
       `expect.any(String)` and an ISO pattern instead of fixed times.
-- [ ] `FsmService.check` returns `entry`, 0 before the first
+- [x] `FsmService.check` returns `entry`, 0 before the first
       transition. Check: `test/unit/fsm.service.spec.ts`.
-- [ ] The document has `machine: null` without a machine,
+- [x] The document has `machine: null` without a machine,
       `command: null` before the first command, `running` for an
       unfinished command, the stored status otherwise, and `time` from
       the clock. Check: a new `test/unit/descriptor.service.spec.ts`
       against fakes, with `jest.useFakeTimers({ now })` for `time`; it
       also covers `describe()`, which only e2e tests reach today.
-- [ ] `GET /state` answers 200 with and without a machine, and shows a
+- [x] `GET /state` answers 200 with and without a machine, and shows a
       running command while the `loop` test script runs. Check:
       `test/e2e/state.spec.ts`.
-- [ ] The `state` MQTT route returns the same body. Check:
+- [x] The `state` MQTT route returns the same body. Check:
       `test/unit/mqtt-request.handler.spec.ts`, `test/e2e/mqtt.spec.ts`.
-- [ ] README, request files and the design document's Components table
+- [x] README, request files and the design document's Components table
       show the route. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass, `npx tsc --noEmit
-  --noUnusedLocals` is clean (eslint lints no `.ts` file here), and
-      no function crosses the Qlty thresholds. Check: their output.
+- [x] `yarn build` and `yarn test` pass,
+      `npx tsc --noEmit --noUnusedLocals` is clean (eslint lints no
+      `.ts` file here), and no function crosses the Qlty thresholds.
+      Check: their output.

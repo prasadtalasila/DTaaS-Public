@@ -1,6 +1,6 @@
 # 10 Stop a Running Script
 
-- Status: in review
+- Status: done
 - Depends on: 01 (for the `stopGrace` key; see Configuration)
 - PR: [#76](https://github.com/prasadtalasila/DTaaS-Public/pull/76)
 - Research note:

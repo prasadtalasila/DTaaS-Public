@@ -85,6 +85,18 @@ QoS: 1
 
 ###
 
+# @name state
+MQTT {{broker}}
+Subscribe: {{topic}}/state/response
+Publish: {{topic}}/state
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name fsm
 MQTT {{broker}}
 Subscribe: {{topic}}/fsm/response

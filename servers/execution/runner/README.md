@@ -337,9 +337,10 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 ### Application Programming Interface (API)
 
 Four REST API methods run and stop commands, three more drive the
-[state machine](#state-machine-requests), and one
-[describes the digital twin](#get-request-to-dt). The routes for
-commands and their responses are:
+[state machine](#state-machine-requests), one
+[describes the digital twin](#get-request-to-dt) and one returns
+[its state](#get-request-to-state). The routes for commands and their
+responses are:
 
 | REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
 | :--------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
@@ -467,6 +468,49 @@ Describes the digital twin that the runner serves, from its
 permitted commands, and `stateMachine` tells whether a state machine
 is loaded.
 
+#### GET Request to /state
+
+Returns the state of the digital twin in one document, with HTTP
+status 200 whether or not a state machine is loaded:
+
+```http
+{
+  "id": "hospital-1",
+  "time": "2026-10-25T10:00:00.000Z",
+  "machine": {
+    "state": "execute",
+    "status": "running",
+    "entry": 3,
+    "events": ["restart"]
+  },
+  "parameters": {},
+  "command": {
+    "name": "execute",
+    "status": "running",
+    "receivedAt": "2026-10-25T09:59:58.000Z",
+    "finishedAt": null
+  }
+}
+```
+
+- `id` is the [identity](#digital-twin) of the digital twin, and
+  `time` the time of the document.
+- `machine` is the body of [GET /fsm](#state-machine-requests), or
+  `null` without a state machine.
+- `parameters` is `{}`, as the runner has no parameters yet.
+- `command` is the latest command, or `null` before the first one. Its
+  `status` is `running` until it finishes, and then `valid`, `invalid`
+  or `stopped` as in [GET /](#get-request-to-), with `finishedAt` set.
+  The logs stay on `GET /`. The latest command may be one of `POST /`
+  while the script of the state machine runs; `machine.status` tells
+  the status of that script.
+
+The times are in ISO 8601 UTC.
+
+```bash
+curl http://localhost:5000/state
+```
+
 #### POST Request to /stop
 
 Stops the running command of the given name:
@@ -574,16 +618,20 @@ kept in memory, apart from the keys of `POST /`. An older key is
 forgotten, and a repeat of it counts as a new request.
 
 `GET /fsm` returns the state, the status of its script (`none`,
-`running`, `valid`, `invalid` or `stopped`) and the events of the
-digital twin:
+`running`, `valid`, `invalid` or `stopped`), the number of entries
+into states so far, and the events of the digital twin:
 
 ```http
 {
   "state": "execute",
   "status": "running",
+  "entry": 3,
   "events": ["reset", "stop"]
 }
 ```
+
+`entry` is `0` before the first transition. It tells two entries into
+the same state apart, such as a restart of its script.
 
 The scripts that the machine runs appear in the _history_ and in
 `GET /` like any other command.
@@ -640,6 +688,7 @@ JSON as the matching HTTP request and response.
 | `<topic>/event`      | POST /fsm/event       | `{"event": "<event>"}`       |
 | `<topic>/fsm`        | GET /fsm              | ignored                      |
 | `<topic>/dt`         | GET /dt               | ignored                      |
+| `<topic>/state`      | GET /state            | ignored                      |
 | `<topic>/health`     | GET /health           | ignored                      |
 | `<topic>/stop`       | POST /stop            | `{"name": "<command name>"}` |
 
