@@ -1,8 +1,8 @@
 # 04 Declared Parameters With a Controllable Subset
 
-- Status: planned
-- Depends on: 02
-- PR: none
+- Status: in review
+- Depends on: 02 (for the `parameters` field of the state document)
+- PR: [#78](https://github.com/prasadtalasila/DTaaS-Public/pull/78)
 - Research note:
   [item 4](../dtn-research-notes.md#4-declared-parameters-with-a-controllable-subset-r2)
 
@@ -38,28 +38,49 @@ states:
   execute:
     transitions:
       restart: create
-      scope-changed: create
+      scope-changed: { state: execute, stop: true }
 ```
 
-- Names follow the name pattern. `type` is `string`, `number`,
-  `boolean` or `enum`; `enum` requires `values`, a non-empty list of
-  strings. `default` must match the type and is required.
+- Names follow the name pattern; `__proto__` is refused, as for states.
+  `type` is `string`, `number`, `boolean` or `enum`; `enum` requires
+  `values`, a non-empty list of strings, and its `default` must be one
+  of them. `default` is required and must match the type: YAML reads
+  `20` as a number, so a `string` parameter needs `'20'`; a `number` is
+  finite (`.inf` and `.nan` are refused), and `"20"` is not coerced to
+  a number.
 - `controllable` defaults to `false`. Only controllable parameters can
   be set over the API; the others are read-only configuration the DT
   shares with the Manager.
-- `event`, if present, must be in `events`. A change of the value
-  raises it through the machine's event path; an event the current
-  state has no transition for is ignored (logged at debug), as is one
-  before the first transition.
+- `event`, if present, must be in `events`.
 - Two parameters whose environment variable names (08) collide, such as
   `a-b` and `a_b`, are a startup error.
 - Parameters require a state machine file, as decided in the design
   summary (S4); a DT without one has none.
 
+### Changing values
+
+`PUT /parameters` applies a body in this order:
+
+1. Validate the whole body; on any problem change nothing.
+1. Store and apply every changed value, so a script that a following
+   transition starts sees the new values (08).
+1. Raise the declared events of the changed parameters, in declaration
+   order, each against the state the previous one produced; an event
+   that two changed parameters declare is raised once, so a
+   self-transition with `stop: true` restarts its script once.
+
+The reply does not depend on what the events do. An event the machine
+refuses is logged: `no transition` (also before the first transition)
+at debug level, `script running` and `stopping` as a warning, as
+`complete()` does. The Manager reads the outcome from `GET /state`. A
+value equal to the current one changes nothing and raises no event.
+
 ### API
 
 - `GET /parameters` and `<base>/parameters`: `200` with the
-  declarations and current values; `404 no state machine` without one.
+  declarations and current values; without a state machine `404` with
+  the body of `GET /fsm` in that case:
+  `{ "status": "no state machine", "state": null }`.
 
   ```json
   {
@@ -79,66 +100,118 @@ states:
   }
   ```
 
-- `PUT /parameters` and `<base>/set-parameters`: body is a flat object
-  of names to values, `{ "scope": "multi" }`. All values are checked
-  before any is applied: an unknown name, an uncontrollable parameter
-  or a value of the wrong type is `400` with a message naming every
-  problem. On success, `200` with the document of `GET /parameters`.
-  The route is idempotent; it takes no request key. A value equal to
-  the current one changes nothing and raises no event.
+- `PUT /parameters` and `<base>/set-parameters`: the body is a flat
+  object of names to strings, numbers or booleans,
+  `{ "scope": "multi" }`; the validation pipe checks that shape, and a
+  body of another shape is `400 Validation Failed`. An unknown name, an
+  uncontrollable parameter or a value of the wrong type is `400` with
+  `message` listing every problem. `{}` is `200` and changes nothing.
+  On success, `200` with the document of `GET /parameters`. The route is
+  idempotent and takes no request key. Over MQTT the reply bodies are
+  the same, including the `400` bodies.
 
-Each change is recorded, so 09 can restore values and 11 can report
-them.
+Each change is recorded with an ISO timestamp, so 09 can restore values
+and 11 can report them.
 
 ### State document
 
-`parameters` in the document of 02 becomes `{ "scope": "multi",
-"capacity": 20 }`: names to current values only.
+After the rebase onto 02, `parameters` in the state document becomes
+`{ "scope": "multi", "capacity": 20 }`: names to current values only.
 
 ## Plan
 
-1. Add `src/fsm/parameters.ts`: zod schema of the `parameters` section,
-   a `Parameter` type, value validation per type, and the environment
-   variable name function (`DT_PARAM_` plus the upper-cased name with
-   `.` and `-` turned into `_`). Extend `fileSchema` and `Definition`
-   in `src/fsm/definition.ts` with the section and the cross-checks
-   (`event` declared, no name collisions).
+1. Move `NAME` and `nameSchema` from `src/fsm/definition.ts` to a new
+   `src/fsm/name.ts`, re-exported from `definition.ts`, so that
+   `parameters.ts` and `definition.ts` can both import it without a
+   module cycle.
+1. Add `src/fsm/parameters.ts`:
+   - the zod schema of the section, with one value schema per type,
+     reused for `default` and for `PUT` values;
+   - `parameterProblems(definition): string[]` for the cross-checks
+     (`event` declared, `default` in `values`, no variable-name
+     collision), called from `crossCheck` in `definition.ts`;
+   - the variable name function (`DT_PARAM_` plus the upper-cased name
+     with `.` and `-` turned into `_`);
+   - a plain class `Parameters` holding the declarations and the
+     current values, with `values()`, `document()`,
+     `check(body): { problems: string[] } | { changes, events }`, which
+     only validates, and `commit(changes)`.
+1. In `definition.ts`, add the section to `fileSchema`, `Definition` and
+   `toDefinition`, and `field(content, 'parameters')` to `hasProtoKey`.
+   It gains about six lines; it is near 250, so nothing else goes there.
 1. Add a `parameters` table to `src/queue.service.ts`
-   (`name`, `value` as JSON text, `changed_at`), with
-   `setParameter(name, value)` and `parameterValues()` returning the
-   latest value per name.
-1. Add `src/parameters.service.ts`: holds the declarations and current
-   values, validates a `PUT` body as a whole, writes changes to
-   `Queue`, raises the declared events through `FsmService.event`
-   (bypassing request keys), and emits `state` on `Changes` (03).
-1. Add `src/dto/parameters.dto.ts`, `src/parameters.controller.ts`
-   with `GET` and `PUT /parameters`, and the `parameters` and
-   `set-parameters` MQTT routes.
-1. Fill the parameters hook of `StateDocumentService` (02).
+   (`id INTEGER PRIMARY KEY AUTOINCREMENT`, `name`, `value` as JSON text,
+   `changed_at` as an ISO string), with `setParameter(name, value)` and
+   `parameterValues()`, which takes the row with the highest `id` per
+   name, since `CURRENT_TIMESTAMP` ties within a second.
+1. In `src/fsm/fsm.service.ts`, build `Parameters` in `load()` and
+   expose `parameters(): Parameters | undefined`; add
+   `setParameters(body)`, which checks the body, stores the changes
+   through `Queue` (a third constructor dependency), only then commits
+   them in memory, so a failing database leaves both unchanged, and
+   raises the events through `event()` without a request key.
+   `test/unit/fsm.fixture.ts` passes a fake `Queue` with `setParameter`
+   and `parameterValues`. The service is near 250 lines: move the
+   `COMPLETION` and `STATUS` maps to `src/dto/fsm.dto.ts`, next to
+   `ScriptStatus`. That was not enough, so `outcome()`, which turns a
+   script that could not start into `failed`, moved to
+   `src/fsm/script-outcome.ts` as well.
+1. Add `src/dto/parameters.dto.ts` and `src/parameters.controller.ts`
+   (`GET` and `PUT /parameters`, taking only `FsmService`; problems
+   become `new BadRequestException(problems)`), and the `parameters`
+   and `set-parameters` MQTT routes in `src/mqtt/mqtt.config.ts` and
+   `src/mqtt/mqtt-request.handler.ts`, through `this.fsm`; the MQTT
+   route returns the exception's `getResponse()` rather than a `500`.
+   No constructor gains a parameter.
+1. After rebasing onto 02: `DescriptorService.state()` sets
+   `parameters: this.fsm.parameters()?.values() ?? {}`; one line, no
+   constructor change. `Queue.setParameters(changes)` stores the
+   changes of one request in a transaction, so a database failure part
+   way leaves both the store and memory unchanged.
 1. Update `test/data/scripts/state-machine.yaml`, `api/*.http`,
-   `README.md` (State Machine and API sections), the design document
-   (new decisions for declaration placement and change effect, S6).
+   `test/unit/mqtt.config.spec.ts` (route list), `README.md` (State
+   Machine and API sections, with the YAML typing notes above),
+   `DEVELOPER.md` (the README says that an event linked to a
+   self-transition with `stop: true`, as in the example, is the DT
+   author opting into a restart; the runner never restarts on its own),
+   and the design document (the Validation section that
+   says the file holds only `events` and `states`; new decisions for
+   declaration placement and change effect, S6). In 08 and 09, replace
+   `ParametersService` with `FsmService.parameters()`.
 
 ## Tasks
 
-- [ ] Schema accepts the example, rejects a missing `default`, a
-      `default` of the wrong type, `enum` without `values`, an `event`
-      not in `events`, and two names with one variable name, each with
-      a message. Check: `test/unit/fsm.parameters.spec.ts`,
-      `test/unit/fsm.definition.spec.ts`.
-- [ ] `Queue` stores changes and returns the latest value per name.
-      Check: `test/integration/queue.service.spec.ts`.
-- [ ] Service rejects a body with any bad entry without applying the
-      good ones, applies a valid body, raises the declared event once
-      per changed parameter, and raises none for an unchanged value.
-      Check: `test/unit/parameters.service.spec.ts`.
-- [ ] `GET` and `PUT /parameters` behave as specified, including `404`
-      without a machine. Check: `test/e2e/parameters.spec.ts`.
-- [ ] MQTT routes return the same bodies. Check:
-      `test/unit/mqtt-request.handler.spec.ts`, `test/e2e/mqtt.spec.ts`.
-- [ ] `GET /state` shows the current values. Check:
-      `test/e2e/state.spec.ts`.
-- [ ] README, design document and request files updated. Check:
-      `npx markdownlint-cli README.md docs/*.md`.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
-      output.
+- [x] `nameSchema` lives in `src/fsm/name.ts` and the runner still
+      starts. Check: `test/e2e/dist.spec.ts` after `yarn build`.
+- [x] Schema accepts the example, and rejects a missing `default`, a
+      `default` of the wrong type or outside `values`, `enum` without
+      `values`, a non-finite number, an `event` not in `events`, a
+      `__proto__` name, and two names with one variable name, each with
+      a message. Check: `test/unit/fsm.parameters.spec.ts` (new; the
+      definition spec is near 250 lines).
+- [x] `Queue` stores changes and returns the latest value per name,
+      also for two changes within a second. Check:
+      `test/integration/queue.service.spec.ts`.
+- [x] `Parameters.check` rejects a body with any bad entry without
+      applying the good ones, lists every problem, and returns the
+      changes and the events once each in declaration order. Check:
+      `test/unit/fsm.parameters.spec.ts`.
+- [x] `FsmService.setParameters` stores the values before raising the
+      events, raises each declared event once, and logs a refused event
+      without failing. Check: `test/unit/fsm.service.parameters.spec.ts`.
+- [x] `GET` and `PUT /parameters` behave as specified, including `404`
+      without a machine, `400` with every problem, and `{}`. Check:
+      `test/e2e/parameters.spec.ts`.
+- [x] MQTT routes return the same bodies, including `400`. Check:
+      `test/unit/mqtt-request.parameters.spec.ts` (new; the handler
+      spec is near 250 lines), `test/e2e/mqtt.spec.ts`.
+- [x] After the rebase onto 02, `GET /state` shows the current values.
+      Check: `test/e2e/parameters.spec.ts`,
+      `test/unit/descriptor.service.spec.ts`.
+- [x] README, `DEVELOPER.md`, design document, request files and the
+      08 and 09 plans updated. Check: from the repository root,
+      `npx markdownlint-cli -c .markdownlint.yaml` on them.
+- [x] `yarn build` and `yarn test` pass,
+      `npx tsc --noEmit --noUnusedLocals` is clean, and no function
+      crosses the Qlty thresholds. Check: their output; the Qlty
+      thresholds were counted by hand, as the CLI runs in CI.

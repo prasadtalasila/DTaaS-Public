@@ -127,6 +127,20 @@ content-type: {{ContentType}}
     "event": "stop"
 }
 
+### Parameters of test/data/scripts/state-machine.yaml
+
+GET http://{{hostname}}:{{port}}/parameters HTTP/1.1
+content-type: {{ContentType}}
+
+###
+
+PUT http://{{hostname}}:{{port}}/parameters HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "scope": "multi"
+}
+
 ### Stop every running command
 
 POST http://{{hostname}}:{{port}}/stop HTTP/1.1

@@ -24,13 +24,12 @@ export default class DescriptorService {
     };
   }
 
-  // No parameters are declared yet, so parameters is empty
   state(): StateDocumentDto {
     return {
       id: this.config.getId(),
       time: new Date().toISOString(),
       machine: this.fsm.check() ?? null,
-      parameters: {},
+      parameters: this.fsm.parameters()?.values() ?? {},
       command: commandState(this.queue.activeCommand()),
     };
   }

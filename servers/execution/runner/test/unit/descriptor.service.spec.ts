@@ -31,13 +31,18 @@ const command = (finished: boolean, status = 'invalid'): CommandRecord => ({
 function createService(
   state: FsmStateDto | undefined,
   latest: CommandRecord | undefined,
+  values?: Record<string, string | number | boolean>,
 ) {
   const config = {
     getId: () => 'hospital-1',
     getAttributes: () => ({ city: 'Aarhus' }),
     permitCommands: () => ['create', 'execute'],
   };
-  const fsm = { check: () => state, hasMachine: () => state !== undefined };
+  const fsm = {
+    check: () => state,
+    hasMachine: () => state !== undefined,
+    parameters: () => values && { values: () => values },
+  };
   const queue = { activeCommand: () => latest };
   return new DescriptorService(
     config as unknown as Config,
@@ -69,6 +74,14 @@ describe('Descriptor service', () => {
       machine: null,
       parameters: {},
       command: null,
+    });
+  });
+
+  it('Should show the values of the declared parameters', () => {
+    const values = { scope: 'multi', capacity: 20 };
+
+    expect(createService(undefined, undefined, values).state()).toMatchObject({
+      parameters: values,
     });
   });
 

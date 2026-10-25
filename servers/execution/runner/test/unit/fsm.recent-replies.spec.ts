@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import RecentReplies from 'src/fsm/recent-replies';
 
 describe('Recent replies', () => {
@@ -31,5 +31,45 @@ describe('Recent replies', () => {
     expect(replies.get('key-1')).toBeUndefined();
     expect(replies.get('key-2')?.reply).toBe('two');
     expect(replies.get('key-3')?.reply).toBe('three');
+  });
+
+  describe('resolve', () => {
+    const handlers = (reply: string) => ({
+      compute: jest.fn(() => reply),
+      mismatch: jest.fn(() => 'mismatch'),
+      keep: (value: string) => value !== 'refused',
+    });
+
+    it('Should compute and keep a new reply', () => {
+      const replies = new RecentReplies<string>();
+
+      expect(replies.resolve('key-1', 'a', handlers('one'))).toBe('one');
+      expect(replies.get('key-1')?.reply).toBe('one');
+    });
+
+    it('Should replay the reply to a repeated request', () => {
+      const replies = new RecentReplies<string>();
+      replies.resolve('key-1', 'a', handlers('one'));
+      const again = handlers('two');
+
+      expect(replies.resolve('key-1', 'a', again)).toBe('one');
+      expect(again.compute).not.toHaveBeenCalled();
+    });
+
+    it('Should answer a key of another request with the mismatch reply', () => {
+      const replies = new RecentReplies<string>();
+      replies.resolve('key-1', 'a', handlers('one'));
+
+      expect(replies.resolve('key-1', 'b', handlers('two'))).toBe('mismatch');
+    });
+
+    it('Should not keep a reply that keep refuses', () => {
+      const replies = new RecentReplies<string>();
+
+      expect(replies.resolve('key-1', 'a', handlers('refused'))).toBe(
+        'refused',
+      );
+      expect(replies.get('key-1')).toBeUndefined();
+    });
   });
 });

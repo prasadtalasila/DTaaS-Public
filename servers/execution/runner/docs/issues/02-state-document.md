@@ -1,6 +1,6 @@
 # 02 One State Document
 
-- Status: in review
+- Status: done
 - Depends on: 01, 10 (for the `stopped` status)
 - PR: [#77](https://github.com/prasadtalasila/DTaaS-Public/pull/77)
 - Research note:

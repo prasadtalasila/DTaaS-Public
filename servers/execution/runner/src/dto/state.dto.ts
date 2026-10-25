@@ -1,5 +1,6 @@
 import { CommandRecord } from '../interfaces/command.interface.js';
 import { FsmStateDto } from './fsm.dto.js';
+import { ParameterValue } from './parameters.dto.js';
 
 // running until the command finishes, then its stored status
 export type CommandStateStatus = 'running' | 'valid' | 'invalid' | 'stopped';
@@ -11,8 +12,6 @@ export type CommandState = {
   receivedAt: string;
   finishedAt: string | null;
 };
-
-export type ParameterValue = string | number | boolean;
 
 // The state of the digital twin in one document: machine is the body
 // of GET /fsm, or null without a state machine, and command is null

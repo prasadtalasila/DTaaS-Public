@@ -163,4 +163,24 @@ describe('Runner MQTT end-to-end tests', () => {
       .get('/history')
       .expect(200, [{ name: 'create' }]);
   });
+
+  it('replies to the parameters routes as HTTP does', async () => {
+    const { body } = await supertest(app.getHttpServer()).get('/parameters');
+    const refused = await supertest(app.getHttpServer())
+      .put('/parameters')
+      .send({ scope: ['multi'] });
+
+    await expectReply(client, 'parameters', {}, body);
+    await expectReply(client, 'set-parameters', { scope: 'multi' }, body);
+    await expectReply(
+      client,
+      'set-parameters',
+      { scope: ['multi'] },
+      refused.body,
+    );
+    expect([body, refused.status]).toEqual([
+      { status: 'no state machine', state: null },
+      400,
+    ]);
+  });
 });

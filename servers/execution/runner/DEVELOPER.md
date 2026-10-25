@@ -37,7 +37,8 @@ The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names
 with its `stateMachine` key. A `config/runner.test.yaml` copied from
 an older sample stops the runner at startup, as it lacks the required
-`id` or permits only _create_; copy the sample again. The
+`id` or permits only _create_; copy the sample again. The file also
+declares two parameters, for trying out the parameters requests. The
 [state machine design](docs/state-machine-design.md) explains the file
 and the decisions behind it.
 

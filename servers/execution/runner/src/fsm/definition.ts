@@ -1,6 +1,14 @@
 import { readFileSync, statSync } from 'node:fs';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
+import { nameSchema } from './name.js';
+import {
+  Declarations,
+  parameterProblems,
+  parametersSchema,
+} from './parameters.js';
+
+export { nameSchema } from './name.js';
 
 // Raised by the runner, not by clients, when the script of a state exits
 export const COMPLETION_EVENTS = ['$success', '$failure', '$stopped'] as const;
@@ -17,15 +25,8 @@ export type Transitions = ReadonlyMap<string, Transition>;
 export type Definition = {
   events: ReadonlySet<string>;
   states: ReadonlyMap<string, Transitions>;
+  parameters: Declarations;
 };
-
-// A state names a script, so a name can not be a path, a flag or an
-// object property such as __proto__
-const NAME = /^[A-Za-z0-9][\w.-]{0,63}$/;
-
-export const nameSchema = z
-  .string()
-  .regex(NAME, 'must be up to 64 letters, digits, _, . or -, from a letter');
 
 // A state name, or an object that stops the script first
 const targetSchema = z.union(
@@ -50,6 +51,7 @@ const fileSchema = z
       .refine((states) => Object.keys(states).length > 0, {
         message: 'must have at least one state',
       }),
+    parameters: parametersSchema,
   })
   .strict();
 
@@ -71,7 +73,7 @@ const toTransitions = (
     ]),
   );
 
-function toDefinition({ events, states }: File): Definition {
+function toDefinition({ events, states, parameters }: File): Definition {
   return {
     events: new Set(events),
     states: new Map(
@@ -80,6 +82,7 @@ function toDefinition({ events, states }: File): Definition {
         toTransitions(value?.transitions),
       ]),
     ),
+    parameters: new Map(Object.entries(parameters)),
   };
 }
 
@@ -121,7 +124,7 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
   if (cycle !== undefined) {
     problems.push(`completion events loop forever: ${cycle.join(' -> ')}`);
   }
-  return problems;
+  return [...problems, ...parameterProblems(definition)];
 }
 
 // $stopped follows only a stop request from outside, so a loop through
@@ -175,13 +178,15 @@ export const hasOwnProto = (value: unknown): boolean =>
   isRecord(value) && Object.hasOwn(value, '__proto__');
 
 // zod skips a __proto__ key of a record without an error, so look for
-// one among the states and the events of their transitions
+// one among the states, the events of their transitions and the
+// parameters
 function hasProtoKey(content: unknown): boolean {
   const states = field(content, 'states');
   const transitions = isRecord(states)
     ? Object.values(states).map((state) => field(state, 'transitions'))
     : [];
-  return [states, ...transitions].some(hasOwnProto);
+  const parameters = field(content, 'parameters');
+  return [states, ...transitions, parameters].some(hasOwnProto);
 }
 
 function readYaml(text: string, file: string): unknown {

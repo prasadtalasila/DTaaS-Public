@@ -12,10 +12,16 @@ import FsmController from './fsm/fsm.controller.js';
 import FsmService from './fsm/fsm.service.js';
 import HealthService from './health.service.js';
 import HealthController from './health.controller.js';
+import ParametersController from './parameters.controller.js';
 
 @Module({
   imports: [],
-  controllers: [AppController, FsmController, HealthController],
+  controllers: [
+    AppController,
+    FsmController,
+    HealthController,
+    ParametersController,
+  ],
   providers: [
     ExecaManager,
     Queue,

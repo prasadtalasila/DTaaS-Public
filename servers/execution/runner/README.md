@@ -195,7 +195,8 @@ to _runner.yaml_, and an absolute path works too:
 stateMachine: 'scripts/state-machine.yaml'
 ```
 
-The file holds the events and the states:
+The file holds the events and the states, and may declare
+[parameters](#parameters):
 
 ```yaml
 events: # the events that clients may send
@@ -302,6 +303,62 @@ Scripts must let a stop end them:
 
 The state machine is kept in memory, so after a restart it has no
 state until the next transition request.
+
+### Parameters
+
+The state machine file may also declare parameters: settings of the
+digital twin that a Manager can read and, where the DT author allows
+it, change.
+
+```yaml
+events:
+  - restart
+  - scope-changed
+parameters:
+  scope:
+    type: enum
+    values: [single, multi]
+    default: single
+    controllable: true # a Manager may change it
+    event: scope-changed # raised when the value changes
+  capacity:
+    type: number
+    default: 20
+    controllable: false
+states:
+  create:
+    transitions:
+      $success: execute
+  execute:
+    transitions:
+      restart: create
+      scope-changed: { state: execute, stop: true }
+```
+
+- `type` is `string`, `number`, `boolean` or `enum`. An `enum` has
+  `values`, a non-empty list of strings.
+- `default` is required and must have the type of the parameter; the
+  default of an `enum` must be one of its `values`. YAML reads `20` as
+  a number, so a `string` parameter needs quotes, as in `'20'`. A
+  `number` parameter refuses `"20"`, a string, and `.inf` and `.nan`.
+- `controllable` is `false` unless given. Only controllable parameters
+  can be [set over the API](#parameters-requests); the others are
+  configuration that the digital twin shares with a Manager.
+- `event`, if given, must be in `events`. The runner raises it when a
+  request changes the value.
+- Parameter names follow the rules of state and event names. Two names
+  that differ only in case or in `.`, `-` and `_`, such as `a-b` and
+  `A_B`, are refused, as both become the variable name `DT_PARAM_A_B`.
+
+The runner never restarts a script on its own. A script that is
+running keeps the values it started with. A DT author who wants a
+change to take effect at once links the parameter to an event whose
+transition restarts the script, as `scope-changed` does above with a
+self-transition and `stop: true`.
+
+The runner records each change, with its time, in its
+[database](#command-history), but the values start at their defaults
+each time the runner starts.
 
 ## Use
 
@@ -643,6 +700,77 @@ curl -X POST http://localhost:5000/fsm/event \
   -H 'Content-Type: application/json' -d '{"event": "stop"}'
 ```
 
+#### Parameters Requests
+
+Two routes read and set the [parameters](#parameters).
+
+| REST API Route            | HTTP Method | Request Body         | Comment                                    |
+| :------------------------ | :---------- | :------------------- | :----------------------------------------- |
+| localhost:port/parameters | GET         |                      | Returns the parameters and their values    |
+| localhost:port/parameters | PUT         | `{"scope": "multi"}` | Sets the values of controllable parameters |
+
+`GET /parameters` returns the value and the declaration of each
+parameter, without its `event`:
+
+```http
+{
+  "scope": {
+    "value": "multi",
+    "type": "enum",
+    "values": ["single", "multi"],
+    "default": "single",
+    "controllable": true
+  },
+  "capacity": {
+    "value": 20,
+    "type": "number",
+    "default": 20,
+    "controllable": false
+  }
+}
+```
+
+Without a state machine, both routes answer `404` with the body of
+`GET /fsm`, `{"status": "no state machine", "state": null}`.
+
+The body of `PUT /parameters` maps parameter names to new values,
+which are strings, numbers or booleans. The runner applies the whole
+body or none of it:
+
+1. It checks every entry. An unknown name, a parameter that is not
+   controllable or a value of the wrong type is refused with `400`,
+   and `message` lists every problem:
+
+   ```http
+   {
+     "message": [
+       "parameter capacity is not controllable",
+       "parameter size is not declared"
+     ],
+     "error": "Bad Request",
+     "statusCode": 400
+   }
+   ```
+
+1. It stores the new values, all of them or, if the database fails,
+   none, so that a script that starts afterwards sees them.
+1. It raises the `event` of each changed parameter, in the order of the
+   declarations, each in the state that the one before left. An event
+   that two changed parameters declare is raised once.
+
+The reply is then `200` with the body of `GET /parameters`, whatever
+the events did; `GET /state` tells where the machine went, and shows
+the new values under `parameters`. An event that
+the machine refuses is logged. A value equal to the current one changes
+nothing and raises no event, so a repeated request and `{}` change
+nothing, and the route takes no `Idempotency-Key`. A body that is not
+an object of such values gets the validation error of `POST /`.
+
+```bash
+curl http://localhost:5000/parameters
+curl -X PUT http://localhost:5000/parameters   -H 'Content-Type: application/json' -d '{"scope": "multi"}'
+```
+
 #### Health
 
 `GET /health` tells whether the runner answers and whether its
@@ -679,18 +807,20 @@ With MQTT enabled, the runner subscribes to one request topic
 for each REST API route. A request and its response carry the same
 JSON as the matching HTTP request and response.
 
-| Request Topic        | Matching HTTP Request | Request Payload              |
-| :------------------- | :-------------------- | :--------------------------- |
-| `<topic>/execute`    | POST /                | `{"name": "<command name>"}` |
-| `<topic>/status`     | GET /                 | ignored                      |
-| `<topic>/history`    | GET /history          | ignored                      |
-| `<topic>/transition` | POST /fsm/transition  | `{"state": "<state>"}`       |
-| `<topic>/event`      | POST /fsm/event       | `{"event": "<event>"}`       |
-| `<topic>/fsm`        | GET /fsm              | ignored                      |
-| `<topic>/dt`         | GET /dt               | ignored                      |
-| `<topic>/state`      | GET /state            | ignored                      |
-| `<topic>/health`     | GET /health           | ignored                      |
-| `<topic>/stop`       | POST /stop            | `{"name": "<command name>"}` |
+| Request Topic            | Matching HTTP Request | Request Payload              |
+| :----------------------- | :-------------------- | :--------------------------- |
+| `<topic>/execute`        | POST /                | `{"name": "<command name>"}` |
+| `<topic>/status`         | GET /                 | ignored                      |
+| `<topic>/history`        | GET /history          | ignored                      |
+| `<topic>/transition`     | POST /fsm/transition  | `{"state": "<state>"}`       |
+| `<topic>/event`          | POST /fsm/event       | `{"event": "<event>"}`       |
+| `<topic>/fsm`            | GET /fsm              | ignored                      |
+| `<topic>/dt`             | GET /dt               | ignored                      |
+| `<topic>/state`          | GET /state            | ignored                      |
+| `<topic>/health`         | GET /health           | ignored                      |
+| `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}` |
+| `<topic>/parameters`     | GET /parameters       | ignored                      |
+| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`        |
 
 The runner answers a `health` request only while it is connected, so
 the reply always says `"mqtt": "connected"`; that a reply arrives at
