@@ -52,7 +52,9 @@ export default class MqttRequestHandler {
     (payload: Buffer, requestKey?: string) => unknown
   > = {
     execute: this.whenValid(executeCommandSchema, async ({ name }, key) => {
-      const [outcome] = await this.manager.newCommand(name, key);
+      const [outcome] = await this.manager.newCommand(name, key, {
+        env: this.fsm.environment(name),
+      });
       return executeResponse(outcome);
     }),
     stop: this.whenValid(stopSchema, async ({ name }) => ({

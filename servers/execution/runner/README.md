@@ -189,6 +189,27 @@ The runner executes it with `powershell.exe -NoProfile -ExecutionPolicy Bypass -
 A directory can hold both versions of a script, so that the same
 commands work on Linux and Windows.
 
+### Script Environment
+
+Each script inherits the environment of the runner, and the runner adds
+its own variables:
+
+| Variable          | Value                                                             |
+| :---------------- | :---------------------------------------------------------------- |
+| `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's own HTTP API              |
+| `DT_ID`           | `id` of _runner.yaml_                                             |
+| `DT_STATE`        | the state of the [state machine](#state-machine), as below        |
+| `DT_ENTRY`        | the entry number of that state, as below                          |
+| `DT_PARAM_<NAME>` | the value of each [parameter](#parameters) when the script starts |
+
+For a script that the state machine runs, `DT_STATE` and `DT_ENTRY`
+name the state it enters and the number of that entry. For a script of
+`POST /` they name the current state and entry, or are empty and `0`
+before the first transition. Without a state machine a script gets
+only `RUNNER_URL` and `DT_ID`. `RUNNER_URL` uses the port that the
+runner listens on. The state machine file may
+[declare more variables](#declared-environment).
+
 The `DOCKER.md` file in the
 [runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
 describes running the runner in a docker container.
@@ -207,7 +228,7 @@ stateMachine: 'scripts/state-machine.yaml'
 ```
 
 The file holds the events and the states, and may declare
-[parameters](#parameters):
+[parameters](#parameters) and an [environment](#declared-environment):
 
 ```yaml
 events: # the events that clients may send
@@ -370,6 +391,95 @@ self-transition and `stop: true`.
 The runner records each change, with its time, in its
 [database](#command-history), but the values start at their defaults
 each time the runner starts.
+
+### Declared Environment
+
+The state machine file may add variables to the
+[script environment](#script-environment), for every script and for
+the script of one state:
+
+```yaml
+env:
+  LOG_LEVEL: info
+  HINT: '${DT_ID}-${DT_PARAM_SCOPE}'
+states:
+  monitor:
+    env:
+      INTERVAL: 5
+    transitions:
+      stop: idle
+```
+
+- Names have upper-case letters, digits and `_`, start with a letter,
+  and may not start with `DT_` or `RUNNER_`. Values are strings,
+  numbers or booleans; the script reads them as strings.
+- A value may use `${NAME}` for `RUNNER_URL`, `DT_ID`, `DT_STATE`,
+  `DT_ENTRY` or the `DT_PARAM_` variable of a declared parameter. Any
+  other name, such as another declared variable or a variable of the
+  runner's own environment, stops the runner at startup, so the file
+  means the same on every host. There is no escape for a literal `${`.
+- Later wins: the runner's environment, the runner variables, the
+  `env` of the file, the `env` of the state. A script of `POST /` gets
+  the `env` of its command when the command is a state, even another
+  state than the current one, which `DT_STATE` still names.
+- On Windows, where names ignore case, a variable of the runner's
+  environment such as `Path` gives way to a declared `PATH`.
+
+### Raising Events From Scripts
+
+A script raises a declared event as any client does, over HTTP:
+`POST ${RUNNER_URL}/fsm/event` with `{ "event": "<name>" }` and
+`Content-Type: application/json`. The reply tells the script:
+
+| Reply                                                                | For the script                                                                                                                                                        |
+| :------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `202` `accepted`                                                     | its state is being left: the next state's script starts, and the exit of this one no longer moves the machine; with `stop: true` on the transition, `SIGTERM` follows |
+| `400` `invalid event`, `Validation Failed`, `404` `no state machine` | a bug in the script or the state machine file; a retry does not help                                                                                                  |
+| `409` `no transition`, `script running`                              | not now: the current state has no transition for the event, or the next state's script still runs                                                                     |
+| `503` `stopping`                                                     | the runner is shutting down; the script should exit                                                                                                                   |
+
+A shell script with `curl`; the code is `000` when the runner can not
+be reached:
+
+```sh
+code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' -d '{"event": "done"}' \
+  "$RUNNER_URL/fsm/event")
+case "$code" in
+  202 | 503) exit 0 ;;
+  409) echo "not now" ;;
+  *) echo "event refused: $code" >&2 && exit 1 ;;
+esac
+```
+
+The runner's container image has neither `curl` nor `wget`
+([DOCKER.md](DOCKER.md)). A script that runs in it uses `node`, which
+prints `0` when the runner can not be reached:
+
+```sh
+code=$(node -e "fetch(process.env.RUNNER_URL + '/fsm/event', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ event: 'done' }),
+}).then((reply) => console.log(reply.status), () => console.log(0))")
+```
+
+The runner starts a `.ps1` script with Windows PowerShell 5.1, whose
+`Invoke-RestMethod` throws on a `4xx` or `5xx` reply and has no
+`-SkipHttpErrorCheck`. `202` is the only success of the route, and
+`$code` is `0` when the runner can not be reached:
+
+```powershell
+try {
+  Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/fsm/event" `
+    -ContentType 'application/json' -Body '{"event": "done"}' | Out-Null
+  $code = 202
+} catch { $code = [int]$_.Exception.Response.StatusCode }
+```
+
+A script reads the current parameter values with
+`GET ${RUNNER_URL}/parameters`; its `DT_PARAM_` variables keep the
+values it started with.
 
 ## Use
 

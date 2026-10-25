@@ -15,6 +15,7 @@ import Changes, { ChangeListener } from '../notify/changes.js';
 import { CompletionEvent, loadDefinition, Transition } from './definition.js';
 import Parameters from './parameters.js';
 import RecentReplies from './recent-replies.js';
+import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
 
@@ -42,6 +43,9 @@ export default class FsmService implements BeforeApplicationShutdown {
   // Signals a new state, or a new status of its script
   private readonly changes = new Changes();
 
+  // What the scripts learn about the runner and the digital twin
+  private readonly context = new RunnerContext();
+
   // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly manager: ExecaManager,
@@ -56,6 +60,18 @@ export default class FsmService implements BeforeApplicationShutdown {
     );
     this.machine = definition && new StateMachine(definition);
     this.declared = definition && new Parameters(definition.parameters);
+    this.context.load(this.config.getId(), definition, this.declared);
+  }
+
+  // The address of the HTTP API for scripts; undefined leaves it unset
+  setRunnerUrl(url: string | undefined): void {
+    this.context.setUrl(url);
+  }
+
+  // The environment of a script of POST /: the machine as it is
+  environment(command: string): Env {
+    const machine = this.machine;
+    return this.context.environment(command, machine?.state, machine?.entry);
   }
 
   // No transition or completion starts a script once shutdown begins,
@@ -73,15 +89,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   check(): FsmStateDto | undefined {
-    if (this.machine === undefined) {
-      return undefined;
-    }
-    return {
-      state: this.machine.state ?? null,
-      status: this.status,
-      entry: this.machine.entry,
-      events: this.machine.events,
-    };
+    return this.machine?.describe(this.status);
   }
 
   parameters(): Parameters | undefined {
@@ -126,6 +134,12 @@ export default class FsmService implements BeforeApplicationShutdown {
     });
   }
 
+  private follow(machine: StateMachine, next: Transition): FsmReplyDto {
+    return next.stop
+      ? this.enterStopping(machine, next.state)
+      : this.enter(machine, next.state);
+  }
+
   // The reply does not depend on the events, so a refused one is logged
   private raise(event: string): void {
     const { status, state } = this.event(event);
@@ -133,15 +147,6 @@ export default class FsmService implements BeforeApplicationShutdown {
       const level = status === 'no transition' ? 'debug' : 'warn';
       this.logger[level](`Stayed in state ${state} on ${event}: ${status}`);
     }
-  }
-
-  private follow(
-    machine: StateMachine,
-    { state, stop }: Transition,
-  ): FsmReplyDto {
-    return stop
-      ? this.enterStopping(machine, state)
-      : this.enter(machine, state);
   }
 
   // A repeated request key gets the reply to its first request, if that
@@ -184,10 +189,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     return fsmReply('accepted', state);
   }
 
-  // Enters the state at once, so that the completion of the script it
-  // stops is stale, and runs the script of the state once the stopped
-  // script of the state it left has exited. A self-transition restarts
-  // the script.
+  // Enters the state at once, making the stopped script's completion
+  // stale, and runs the state's script once that script has exited; a
+  // self-transition restarts the script.
   private enterStopping(machine: StateMachine, state: string): FsmReplyDto {
     const left = machine.state as string;
     if (state !== left && this.manager.isRunning(state)) {
@@ -197,33 +201,28 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.status = 'running';
     // manager.stop never rejects
     this.pendingStop = this.pendingStop.then(() => this.manager.stop(left));
-    void this.pendingStop.then(() => this.runIfCurrent(machine, state, entry));
+    void this.pendingStop.then(() => this.run(machine, state, entry));
     this.changes.emit();
     return fsmReply('accepted', state);
-  }
-
-  // Shutdown, or a later entry, while the stopped script exited means
-  // the script of this entry must not run
-  private async runIfCurrent(
-    machine: StateMachine,
-    state: string,
-    entry: number,
-  ): Promise<void> {
-    if (this.isCurrent(machine, entry)) {
-      await this.run(machine, state, entry);
-    }
   }
 
   private isCurrent(machine: StateMachine, entry: number): boolean {
     return !this.stopping && machine.entry === entry;
   }
 
+  // Skipped after shutdown or a later entry (a stopped script may exit
+  // late); otherwise it starts at once, so it runs before enter returns
   private async run(
     machine: StateMachine,
     state: string,
     entry: number,
   ): Promise<void> {
-    const outcome = await scriptOutcome(this.manager, state, this.logger);
+    if (!this.isCurrent(machine, entry)) {
+      return;
+    }
+    const env = this.context.environment(state, state, entry);
+    const script = { state, env };
+    const outcome = await scriptOutcome(this.manager, script, this.logger);
     if (!this.isCurrent(machine, entry)) {
       return;
     }

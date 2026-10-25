@@ -1,3 +1,4 @@
+import type { FsmStateDto, ScriptStatus } from '../dto/fsm.dto.js';
 import { Definition, Transition } from './definition.js';
 
 // The current state of a digital twin and the transitions out of it.
@@ -29,6 +30,16 @@ export default class StateMachine {
 
   hasEvent(event: string): boolean {
     return this.definition.events.has(event);
+  }
+
+  // The machine as GET /fsm shows it, with the status of its script
+  describe(status: ScriptStatus): FsmStateDto {
+    return {
+      state: this.current ?? null,
+      status,
+      entry: this.entries,
+      events: this.events,
+    };
   }
 
   next(event: string): Transition | undefined {

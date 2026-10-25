@@ -9,6 +9,7 @@ import { Manager } from 'src/interfaces/command.interface';
 import ExecaManager from 'src/execa-manager.service';
 import Keyv from 'keyv';
 import Config from 'src/config/configuration.service';
+import FsmService from 'src/fsm/fsm.service';
 
 type ResponseBody = {
   status: string;
@@ -45,7 +46,9 @@ describe('Test AppController', () => {
 
     await controller.newCommand(executeCommandDto, res);
 
-    expect(spyManager).toHaveBeenCalledWith(executeCommandDto.name, undefined);
+    expect(spyManager).toHaveBeenCalledWith(executeCommandDto.name, undefined, {
+      env: expect.objectContaining({ DT_ID: 'test-runner' }),
+    });
     expect(resStatus).toHaveBeenCalledWith(httpStatus);
     expect(resSend).toHaveBeenCalledWith(resBody);
   }
@@ -63,7 +66,8 @@ describe('Test AppController', () => {
     controller = app.get<AppController>(AppController);
     manager = app.get<ExecaManager>(ExecaManager);
     config = app.get<Config>(Config);
-    config.loadConfig(CLIOptions);
+    await config.loadConfig(CLIOptions);
+    app.get<FsmService>(FsmService).load();
   });
 
   afterEach(() => jest.resetAllMocks());

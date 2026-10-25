@@ -19,6 +19,7 @@ function createHandler(outcome: RunOutcome) {
     transition: jest.fn((_state: string, _requestKey?: string) => accepted),
     event: jest.fn((_event: string, _requestKey?: string) => accepted),
     check: jest.fn((): unknown => undefined),
+    environment: jest.fn((_command: string) => env),
   };
   const descriptor = fakeDescriptor();
   const handler = new MqttRequestHandler(
@@ -29,6 +30,8 @@ function createHandler(outcome: RunOutcome) {
   return { handler, manager, fsm };
 }
 
+const env = { DT_ID: 'hospital-1' };
+
 const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
 describe('MQTT request handler', () => {
@@ -37,7 +40,9 @@ describe('MQTT request handler', () => {
 
     const body = await handler.handle('execute', json({ name: 'create' }));
 
-    expect(manager.newCommand).toHaveBeenCalledWith('create', undefined);
+    expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
+      env,
+    });
     expect(body).toEqual({ status: 'success' });
   });
 
@@ -46,7 +51,7 @@ describe('MQTT request handler', () => {
 
     await handler.handle('execute', json({ name: 'create' }), 'key-1');
 
-    expect(manager.newCommand).toHaveBeenCalledWith('create', 'key-1');
+    expect(manager.newCommand).toHaveBeenCalledWith('create', 'key-1', { env });
   });
 
   it('Should refuse a request key that is too long', async () => {

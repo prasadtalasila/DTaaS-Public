@@ -11,7 +11,10 @@ import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
-import Runner, { RunOutcome } from './interfaces/runner.interface.js';
+import Runner, {
+  RunOptions,
+  RunOutcome,
+} from './interfaces/runner.interface.js';
 
 // The outcome of a stored command; an unfinished one counts as failed
 const OUTCOME: Record<string, RunOutcome> = {
@@ -47,8 +50,12 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   ) {} // eslint-disable-line no-empty-function
 
   // A repeated request is not run again; it gets the result of the
-  // request it repeats
-  async newCommand(name: string, key?: string): Promise<CommandResult> {
+  // request it repeats, and neither passes its options to a script
+  async newCommand(
+    name: string,
+    key?: string,
+    options?: RunOptions,
+  ): Promise<CommandResult> {
     // an empty key marks no request
     const requestKey = key === '' ? undefined : key;
     const earlier = this.earlierRequest(requestKey);
@@ -57,7 +64,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     }
     const current = this.running.get(name);
     if (current === undefined) {
-      return this.start(name, requestKey);
+      return this.start(name, requestKey, options);
     }
     return this.join(name, current, requestKey);
   }
@@ -103,10 +110,14 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     return storedResult(earlier);
   }
 
-  private start(name: string, requestKey?: string): Promise<CommandResult> {
+  private start(
+    name: string,
+    requestKey?: string,
+    options?: RunOptions,
+  ): Promise<CommandResult> {
     const id = this.commandQueue.enqueue(name, requestKey);
     const runner = this.createRunner(name);
-    const result = this.finish(name, this.execute(id, runner));
+    const result = this.finish(name, this.execute(id, runner, options));
     this.running.set(name, { id, result, runner });
     return result;
   }
@@ -133,10 +144,14 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     }
   }
 
-  private async execute(id: number, runner?: Runner): Promise<CommandResult> {
+  private async execute(
+    id: number,
+    runner?: Runner,
+    options?: RunOptions,
+  ): Promise<CommandResult> {
     let result: CommandResult = ['failed', new Map<string, string>()];
     if (runner !== undefined) {
-      result = [await runner.run(), runner.checkLogs()];
+      result = [await runner.run(options), runner.checkLogs()];
     }
     this.commandQueue.complete(id, result);
     return result;

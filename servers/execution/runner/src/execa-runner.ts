@@ -1,5 +1,8 @@
 import { execa, ResultPromise } from 'execa';
-import Runner, { RunOutcome } from './interfaces/runner.interface.js';
+import Runner, {
+  RunOptions,
+  RunOutcome,
+} from './interfaces/runner.interface.js';
 
 export default class ExecaRunner implements Runner {
   command: string;
@@ -28,10 +31,14 @@ export default class ExecaRunner implements Runner {
     this.args = args;
   }
 
-  async run(): Promise<RunOutcome> {
+  // An env is the whole environment of the script, so execa does not
+  // merge the runner's own into it
+  async run(options?: RunOptions): Promise<RunOutcome> {
     try {
       const subprocess = execa(this.command, this.args, {
         forceKillAfterDelay: this.stopGrace,
+        env: options?.env,
+        extendEnv: options?.env === undefined,
       });
       this.subprocess = subprocess;
       const { stdout, stderr } = await subprocess;

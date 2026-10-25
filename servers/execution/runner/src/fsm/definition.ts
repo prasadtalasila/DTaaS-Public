@@ -1,12 +1,14 @@
 import { readFileSync, statSync } from 'node:fs';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
+import completionCycle from './completion-cycle.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
   parameterProblems,
   parametersSchema,
 } from './parameters.js';
+import { type Env, envProblems, envSchema } from './script-context.js';
 
 export { nameSchema } from './name.js';
 
@@ -26,6 +28,9 @@ export type Definition = {
   events: ReadonlySet<string>;
   states: ReadonlyMap<string, Transitions>;
   parameters: Declarations;
+  env: Env;
+  // the env of each state, apart from its transitions
+  stateEnv: ReadonlyMap<string, Env>;
 };
 
 // A state name, or an object that stops the script first
@@ -39,6 +44,7 @@ const stateSchema = z
     transitions: z
       .record(z.union([nameSchema, z.enum(COMPLETION_EVENTS)]), targetSchema)
       .nullish(),
+    env: envSchema,
   })
   .strict()
   .nullish();
@@ -52,6 +58,7 @@ const fileSchema = z
         message: 'must have at least one state',
       }),
     parameters: parametersSchema,
+    env: envSchema,
   })
   .strict();
 
@@ -73,7 +80,7 @@ const toTransitions = (
     ]),
   );
 
-function toDefinition({ events, states, parameters }: File): Definition {
+function toDefinition({ events, states, parameters, env }: File): Definition {
   return {
     events: new Set(events),
     states: new Map(
@@ -83,6 +90,10 @@ function toDefinition({ events, states, parameters }: File): Definition {
       ]),
     ),
     parameters: new Map(Object.entries(parameters)),
+    env,
+    stateEnv: new Map(
+      Object.entries(states).map(([state, value]) => [state, value?.env ?? {}]),
+    ),
   };
 }
 
@@ -124,44 +135,11 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
   if (cycle !== undefined) {
     problems.push(`completion events loop forever: ${cycle.join(' -> ')}`);
   }
-  return [...problems, ...parameterProblems(definition)];
-}
-
-// $stopped follows only a stop request from outside, so a loop through
-// it can not run by itself
-const LOOPING_EVENTS: CompletionEvent[] = ['$success', '$failure'];
-
-const completionTargets = (transitions?: Transitions): string[] =>
-  LOOPING_EVENTS.flatMap((event) => transitions?.get(event)?.state ?? []);
-
-// Depth-first search from the last state of the path; a cycle is a
-// path that reaches a state already on it. The done states have been
-// searched, so they lead to no cycle that is not found already.
-function findCycle(
-  states: Definition['states'],
-  path: string[],
-  done: Set<string>,
-): string[] | undefined {
-  const state = path.at(-1) as string;
-  const start = path.indexOf(state);
-  if (start < path.length - 1) {
-    return path.slice(start);
-  }
-  if (done.has(state)) {
-    return undefined;
-  }
-  done.add(state);
-  return completionTargets(states.get(state))
-    .map((target) => findCycle(states, [...path, target], done))
-    .find(Boolean);
-}
-
-// A loop of completion transitions, which would run scripts forever
-function completionCycle({ states }: Definition): string[] | undefined {
-  const done = new Set<string>();
-  return [...states.keys()]
-    .map((state) => findCycle(states, [state], done))
-    .find(Boolean);
+  return [
+    ...problems,
+    ...parameterProblems(definition),
+    ...envProblems(definition),
+  ];
 }
 
 const invalid = (file: string, problems: string): Error =>
@@ -178,15 +156,16 @@ export const hasOwnProto = (value: unknown): boolean =>
   isRecord(value) && Object.hasOwn(value, '__proto__');
 
 // zod skips a __proto__ key of a record without an error, so look for
-// one among the states, the events of their transitions and the
-// parameters
+// one among the states, the events of their transitions, the
+// parameters and the env of the file and of each state
 function hasProtoKey(content: unknown): boolean {
   const states = field(content, 'states');
-  const transitions = isRecord(states)
-    ? Object.values(states).map((state) => field(state, 'transitions'))
-    : [];
-  const parameters = field(content, 'parameters');
-  return [states, ...transitions, parameters].some(hasOwnProto);
+  const values = isRecord(states) ? Object.values(states) : [];
+  const nested = ['transitions', 'env'].flatMap((key) =>
+    values.map((state) => field(state, key)),
+  );
+  const top = ['parameters', 'env'].map((key) => field(content, key));
+  return [states, ...nested, ...top].some(hasOwnProto);
 }
 
 function readYaml(text: string, file: string): unknown {

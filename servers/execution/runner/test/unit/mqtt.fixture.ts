@@ -5,7 +5,7 @@ import Config from 'src/config/configuration.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import MqttService, { MqttConnect } from 'src/mqtt/mqtt.service';
 import { MqttConfig } from 'src/mqtt/mqtt.config';
-import { RunOutcome } from 'src/interfaces/runner.interface';
+import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 
 // An MQTT client that records its calls, for the MQTT service tests
 export class FakeClient extends EventEmitter {
@@ -69,8 +69,9 @@ export const status = {
 // An ExecaManager whose commands all end with the outcome, for the
 // MQTT request handler tests
 export const fakeManager = (outcome: RunOutcome) => ({
-  newCommand: jest.fn((_name: string, _requestKey?: string) =>
-    Promise.resolve([outcome, new Map()]),
+  newCommand: jest.fn(
+    (_name: string, _requestKey?: string, _options?: RunOptions) =>
+      Promise.resolve([outcome, new Map()]),
   ),
   checkStatus: jest.fn(() => status),
   checkHistory: jest.fn(() => [{ name: 'create' }]),

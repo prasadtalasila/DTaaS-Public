@@ -5,7 +5,9 @@ import {
   createService,
   MACHINE_FILE,
   scriptFolder,
+  names,
   settle,
+  withEnv,
 } from './fsm.fixture';
 
 const DEFINITION = `
@@ -43,7 +45,11 @@ describe('State machine service with stopped scripts', () => {
     await manager.stop('create');
     await settle();
 
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
     expect(service.check()).toMatchObject({
       state: 'terminate',
       status: 'running',
@@ -79,7 +85,11 @@ describe('State machine service with stopped scripts', () => {
     expect(manager.newCommand).toHaveBeenCalledTimes(1);
     await settle();
     expect(manager.stop).toHaveBeenCalledWith('execute');
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should restart the script on a stop transition to the same state', async () => {
@@ -90,7 +100,7 @@ describe('State machine service with stopped scripts', () => {
     await settle();
 
     // the stopped run raised no $stopped, as the machine had moved on
-    expect(manager.newCommand.mock.calls).toEqual([['create'], ['create']]);
+    expect(names(manager.newCommand.mock.calls)).toEqual(['create', 'create']);
     expect(service.check()).toMatchObject({
       state: 'create',
       status: 'running',
@@ -118,7 +128,11 @@ describe('State machine service with stopped scripts', () => {
     await settle();
 
     expect(await manager.stop.mock.results[0].value).toEqual([]);
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should not run the target after a later entry', async () => {
@@ -129,7 +143,7 @@ describe('State machine service with stopped scripts', () => {
     expect(service.event('reset').state).toBe('create');
     await settle();
 
-    expect(manager.newCommand.mock.calls).toEqual([['execute'], ['create']]);
+    expect(names(manager.newCommand.mock.calls)).toEqual(['execute', 'create']);
   });
 
   it('Should not run a script before an earlier stop has finished', async () => {
@@ -148,10 +162,10 @@ describe('State machine service with stopped scripts', () => {
     // keeps create from running while execute still exits
     expect(service.event('restart').state).toBe('create');
     await settle();
-    expect(manager.newCommand.mock.calls).toEqual([['execute']]);
+    expect(names(manager.newCommand.mock.calls)).toEqual(['execute']);
     release();
     await settle();
-    expect(manager.newCommand.mock.calls).toEqual([['execute'], ['create']]);
+    expect(names(manager.newCommand.mock.calls)).toEqual(['execute', 'create']);
   });
 
   it('Should not run the target once shutdown began', async () => {

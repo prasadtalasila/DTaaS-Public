@@ -24,6 +24,7 @@ import {
   StopResponseDto,
 } from './dto/command.dto.js';
 import ZodValidationPipe, { validRequestKey } from './validation.pipe.js';
+import FsmService from './fsm/fsm.service.js';
 
 @Controller()
 export default class AppController {
@@ -31,6 +32,7 @@ export default class AppController {
   constructor(
     private readonly manager: ExecaManager,
     private readonly descriptor: DescriptorService,
+    private readonly fsm: FsmService,
   ) {} // eslint-disable-line no-empty-function
 
   @Get('dt')
@@ -55,9 +57,11 @@ export default class AppController {
     @Res({ passthrough: true }) res: Response,
     @Headers(REQUEST_KEY) requestKey?: string,
   ): Promise<void> {
+    const { name } = executeCommandDto;
     const [outcome] = await this.manager.newCommand(
-      executeCommandDto.name,
+      name,
       validRequestKey(requestKey),
+      { env: this.fsm.environment(name) },
     );
     res
       .status(outcome === 'failed' ? HttpStatus.BAD_REQUEST : HttpStatus.OK)
