@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import DescriptorService from 'src/descriptor.service';
-import { NotificationDto } from 'src/dto/notify.dto';
+import { NotificationDto, offlineNotification } from 'src/dto/notify.dto';
 import MqttService from 'src/mqtt/mqtt.service';
 import Notifier from 'src/notify/notifier.service';
 import WebhookClient from 'src/notify/webhook.client';
@@ -15,29 +15,43 @@ const document = (time: string, state: string | null = null) => ({
   command: null,
 });
 
+const descriptor = { id: 'hospital-1', attributes: {} };
+
+const online: NotificationDto = {
+  kind: 'presence',
+  id: 'hospital-1',
+  time: NOW.toISOString(),
+  data: { online: true, descriptor },
+};
+
 // A notifier over fakes of its sources and transports; change() makes
-// the state document the given one and signals the change
+// the state document the given one and signals the change, and
+// connect() signals a connection to the broker
 function setup() {
   let current = document('2026-10-25T09:59:58.000Z');
   const listeners: Array<() => void> = [];
-  const descriptor = {
-    describe: () => ({ id: 'hospital-1' }),
+  const connects: Array<() => void> = [];
+  const source = {
+    describe: () => descriptor,
     state: () => current,
     onChange: (listener: () => void) => listeners.push(listener),
   };
   const notify = jest.fn<MqttService['notify']>(() => Promise.resolve());
+  const onConnect = (listener: () => void) => connects.push(listener);
   const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());
+  const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
   const notifier = new Notifier(
-    descriptor as unknown as DescriptorService,
-    { notify } as unknown as MqttService,
-    { post } as unknown as WebhookClient,
+    source as unknown as DescriptorService,
+    { notify, onConnect } as unknown as MqttService,
+    { post, sendOnce } as unknown as WebhookClient,
   );
   notifier.onModuleInit();
   const change = (next: ReturnType<typeof document>) => {
     current = next;
     listeners.forEach((listener) => listener());
   };
-  return { notifier, notify, post, change };
+  const connect = () => connects.forEach((listener) => listener());
+  return { notifier, notify, post, sendOnce, change, connect };
 }
 
 describe('Notifier', () => {
@@ -46,6 +60,7 @@ describe('Notifier', () => {
   });
 
   it('Should send the state document at startup, retained', () => {
+    jest.useFakeTimers({ now: NOW });
     const { notifier, notify, post } = setup();
 
     notifier.onApplicationBootstrap();
@@ -58,7 +73,34 @@ describe('Notifier', () => {
     };
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith('state', envelope, true);
-    expect(post).toHaveBeenCalledWith(envelope);
+    expect(post.mock.calls).toEqual([[online], [envelope]]);
+  });
+
+  it('Should announce the runner over MQTT on each connect', () => {
+    jest.useFakeTimers({ now: NOW });
+    const { notify, post, connect } = setup();
+
+    connect();
+    connect();
+
+    expect(notify.mock.calls).toEqual([
+      ['presence', online, true],
+      ['presence', online, true],
+    ]);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('Should post the offline notice once at shutdown', async () => {
+    jest.useFakeTimers({ now: NOW });
+    const { notifier, notify, sendOnce, connect } = setup();
+
+    await notifier.beforeApplicationShutdown();
+    connect();
+
+    expect(sendOnce).toHaveBeenCalledWith(
+      offlineNotification('hospital-1', NOW.toISOString()),
+    );
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it('Should skip a document that changed only its time', () => {
@@ -96,10 +138,10 @@ describe('Notifier', () => {
     expect(post).toHaveBeenCalledWith(envelope);
   });
 
-  it('Should send nothing once shutdown begins', () => {
+  it('Should send nothing once shutdown begins', async () => {
     const { notifier, notify, post, change } = setup();
 
-    notifier.beforeApplicationShutdown();
+    await notifier.beforeApplicationShutdown();
     notifier.onApplicationBootstrap();
     change(document('2026-10-25T10:00:00.000Z', 'create'));
     notifier.send('escalation', {});

@@ -6,6 +6,9 @@ import { NotifyConfig } from './notify.config.js';
 // milliseconds that one post may take
 const TIMEOUT = 5000;
 
+// milliseconds that the single post at shutdown may take
+const ONCE_TIMEOUT = 2000;
+
 // milliseconds before each retry
 const RETRY_DELAYS = [1000, 2000, 4000];
 
@@ -41,6 +44,15 @@ export default class WebhookClient implements BeforeApplicationShutdown {
     return this.deliver(webhook, JSON.stringify(notification), 0);
   }
 
+  // Posts the notification once, without a retry, even after shutdown
+  async sendOnce(notification: NotificationDto): Promise<void> {
+    const webhook = this.config.getNotify();
+    if (webhook !== undefined) {
+      const body = JSON.stringify(notification);
+      await this.attempt(webhook, body, AbortSignal.timeout(ONCE_TIMEOUT));
+    }
+  }
+
   // The deliveries in progress are abandoned
   beforeApplicationShutdown(): void {
     this.controller.abort();
@@ -52,31 +64,41 @@ export default class WebhookClient implements BeforeApplicationShutdown {
     body: string,
     retry: number,
   ): Promise<void> {
-    const attempt = await this.attempt(webhook, body);
+    if (this.controller.signal.aborted) {
+      return;
+    }
+    const signal = AbortSignal.any([
+      this.controller.signal,
+      AbortSignal.timeout(TIMEOUT),
+    ]);
+    const attempt = await this.attempt(webhook, body, signal);
     if (attempt === 'retry' && retry < RETRY_DELAYS.length) {
       await this.wait(RETRY_DELAYS[retry]);
       await this.deliver(webhook, body, retry + 1);
     }
   }
 
-  private async attempt(webhook: NotifyConfig, body: string): Promise<Attempt> {
-    if (this.controller.signal.aborted) {
-      return 'done';
-    }
+  // Only the abort at shutdown rejects with an AbortError, as a timeout
+  // rejects with a TimeoutError; that abort is no failure
+  private async attempt(
+    webhook: NotifyConfig,
+    body: string,
+    signal: AbortSignal,
+  ): Promise<Attempt> {
     try {
       const response = await fetch(webhook.url, {
         method: 'POST',
         headers: headers(webhook.token),
         body,
-        signal: AbortSignal.any([
-          this.controller.signal,
-          AbortSignal.timeout(TIMEOUT),
-        ]),
+        signal,
       });
       // the body is not read; discarding it frees the connection
       await response.body?.cancel();
       return this.answered(webhook.url, response.status);
     } catch (error) {
+      if ((error as Error | undefined)?.name === 'AbortError') {
+        return 'done';
+      }
       return this.failed(webhook.url, String(error));
     }
   }
@@ -91,12 +113,8 @@ export default class WebhookClient implements BeforeApplicationShutdown {
     return status < 500 ? 'done' : attempt;
   }
 
-  // An abort at shutdown is no failure. The url may hold credentials,
-  // so only its host is logged.
+  // The url may hold credentials, so only its host is logged
   private failed(url: string, reason: string): Attempt {
-    if (this.controller.signal.aborted) {
-      return 'done';
-    }
     if (!this.failing) {
       this.logger.error(
         `Webhook notification to ${new URL(url).host} failed: ${reason}`,

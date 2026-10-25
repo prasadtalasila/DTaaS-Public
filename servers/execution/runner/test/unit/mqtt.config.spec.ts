@@ -1,9 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 import {
+  clientOptions,
   defaultResponseTopic,
   isPublishableTopic,
   mqttConfigSchema,
   notifyTopic,
+  presenceWill,
   requestTopic,
 } from 'src/mqtt/mqtt.config';
 
@@ -71,5 +73,31 @@ describe('MQTT configuration', () => {
     expect(notifyTopic('dtaas/runner', 'state')).toBe(
       'dtaas/runner/notify/state',
     );
+  });
+
+  it('Should give a retained will that says the runner is offline', () => {
+    expect(presenceWill('dtaas/runner', 'hospital-1')).toEqual({
+      topic: 'dtaas/runner/notify/presence',
+      payload: JSON.stringify({
+        kind: 'presence',
+        id: 'hospital-1',
+        time: null,
+        data: { online: false },
+      }),
+      qos: 1,
+      retain: true,
+    });
+  });
+
+  it('Should connect with the will and keep retrying', () => {
+    const options = clientOptions({ ...valid, protocolVersion: 4 }, 'dt-1');
+
+    expect(options).toEqual({
+      username: undefined,
+      password: undefined,
+      protocolVersion: 4,
+      reconnectOnConnackError: true,
+      will: presenceWill('dtaas/user1/runner', 'dt-1'),
+    });
   });
 });

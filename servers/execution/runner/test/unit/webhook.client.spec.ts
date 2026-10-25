@@ -6,41 +6,14 @@ import {
   it,
   jest,
 } from '@jest/globals';
-import Config from 'src/config/configuration.service';
-import { NotificationDto } from 'src/dto/notify.dto';
-import { NotifyConfig } from 'src/notify/notify.config';
-import WebhookClient from 'src/notify/webhook.client';
-
-const notification: NotificationDto = {
-  kind: 'state',
-  id: 'hospital-1',
-  time: '2026-10-25T10:00:00.000Z',
-  data: { id: 'hospital-1' },
-};
-
-const webhook: NotifyConfig = {
-  url: 'https://user:password@manager.example.org/dt-events',
-  token: 'secret',
-};
-
-const FAILURE =
-  'Webhook notification to manager.example.org failed: TypeError: fetch failed';
-
-const answer = (status: number) =>
-  new Response(status === 204 ? null : 'body', { status });
-
-const networkError = () => new TypeError('fetch failed');
-
-// A webhook client of the configuration, with its errors recorded
-function setup(config: NotifyConfig | null = webhook) {
-  const client = new WebhookClient({
-    getNotify: () => config ?? undefined,
-  } as unknown as Config);
-  const error = jest
-    .spyOn(client['logger'], 'error')
-    .mockImplementation(() => undefined);
-  return { client, error };
-}
+import {
+  answer,
+  FAILURE,
+  networkError,
+  notification,
+  setup,
+  webhook,
+} from './webhook.fixture';
 
 describe('Webhook client', () => {
   let fetchMock: jest.SpiedFunction<typeof globalThis.fetch>;

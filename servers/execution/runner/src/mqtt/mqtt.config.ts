@@ -1,5 +1,6 @@
+import type { IClientOptions } from 'mqtt';
 import { z } from 'zod';
-import { NotifyKind } from '../dto/notify.dto.js';
+import { NotifyKind, offlineNotification } from '../dto/notify.dto.js';
 
 // A base topic is a prefix for the request topics, so it can not hold
 // wildcards, start in the reserved $ space or end with a separator.
@@ -54,3 +55,27 @@ export const isPublishableTopic = (topic: string): boolean =>
 // not be taken for requests
 export const notifyTopic = (base: string, kind: NotifyKind): string =>
   `${base}/notify/${kind}`;
+
+// The broker publishes the will when the runner disappears without
+// disconnecting; retained, it replaces the online notice
+export const presenceWill = (
+  base: string,
+  id: string,
+): IClientOptions['will'] => ({
+  topic: notifyTopic(base, 'presence'),
+  payload: JSON.stringify(offlineNotification(id, null)),
+  qos: 1,
+  retain: true,
+});
+
+export const clientOptions = (
+  options: MqttConfig,
+  id: string,
+): IClientOptions => ({
+  username: options.username,
+  password: options.password,
+  protocolVersion: options.protocolVersion,
+  // keep retrying after the broker refuses the connection too
+  reconnectOnConnackError: true,
+  will: presenceWill(options.topic, id),
+});

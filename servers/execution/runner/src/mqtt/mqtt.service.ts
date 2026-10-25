@@ -13,12 +13,17 @@ import type {
 import Config from '../config/configuration.service.js';
 import { REQUEST_KEY } from '../dto/command.dto.js';
 import { MqttHealth } from '../dto/health.dto.js';
-import { NotificationDto, NotifyKind } from '../dto/notify.dto.js';
+import {
+  NotificationDto,
+  NotifyKind,
+  offlineNotification,
+} from '../dto/notify.dto.js';
+import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
 import {
+  clientOptions,
   defaultResponseTopic,
   isPublishableTopic,
-  MqttConfig,
   MqttRoute,
   mqttRoutes,
   notifyTopic,
@@ -28,6 +33,21 @@ import {
 export type MqttConnect = (url: string, options: IClientOptions) => MqttClient;
 
 export const MQTT_CONNECT = Symbol('MQTT_CONNECT');
+
+// milliseconds that each step of leaving the broker may take
+const LEAVE_TIMEOUT = 2000;
+
+// Resolves with whether the promise settled in time; the timer is
+// cleared once it does, so that it does not hold the process open
+const settles = (promise: Promise<unknown>, ms: number): Promise<boolean> =>
+  new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), ms);
+    const settled = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    promise.then(settled, settled);
+  });
 
 // Serves the runner API over MQTT. Each HTTP route has a request topic,
 // and the reply goes to the MQTT 5 response topic of the request, or
@@ -39,6 +59,8 @@ export default class MqttService implements BeforeApplicationShutdown {
   private client: MqttClient | undefined;
 
   private routes = new Map<string, MqttRoute>();
+
+  private readonly connects = new Changes();
 
   // eslint-disable-next-line no-useless-constructor
   constructor(
@@ -57,7 +79,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     );
     const client = this.connect(
       options.url,
-      MqttService.clientOptions(options),
+      clientOptions(options, this.config.getId()),
     );
     this.client = client;
     // the url may hold credentials, so log only its host
@@ -76,6 +98,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     client.on('connect', () => {
       lastError = undefined;
       this.logger.log(`Connected to MQTT broker at ${host}`);
+      this.connects.emit();
     });
     client.on('error', ({ message }) => {
       if (message !== lastError) {
@@ -88,12 +111,48 @@ export default class MqttService implements BeforeApplicationShutdown {
     );
   }
 
-  // Disconnects before the shutdown hooks, so that no request starts a
-  // command while the runs in progress finish and the database closes
+  // Calls the listener on each connection to the broker, and at once if
+  // the client is connected already
+  onConnect(listener: ChangeListener): void {
+    this.connects.on(listener);
+    if (this.client?.connected) {
+      listener();
+    }
+  }
+
+  // Leaves the broker before the shutdown hooks, so that no request
+  // starts a command while the runs in progress finish and the database
+  // closes. Each step of the leave may take 2 s.
   async beforeApplicationShutdown(): Promise<void> {
-    // force, as a graceful end waits for unacknowledged replies forever
-    await this.client?.endAsync(true);
-    this.client = undefined;
+    const { client } = this;
+    if (client !== undefined) {
+      await this.end(client, await this.leave());
+      this.client = undefined;
+    }
+  }
+
+  // Resolves with whether the offline notice was published or failed
+  private leave(): Promise<boolean> {
+    const time = new Date().toISOString();
+    const offline = offlineNotification(this.config.getId(), time);
+    return settles(this.notify('presence', offline, true), LEAVE_TIMEOUT);
+  }
+
+  // A graceful end makes the broker drop the will. A second end is a
+  // no-op once a graceful one has begun, so only destroying the socket
+  // stops a graceful end that waits for replies.
+  private async end(client: MqttClient, published: boolean): Promise<void> {
+    if (published && (await settles(client.endAsync(), LEAVE_TIMEOUT))) {
+      return;
+    }
+    this.logger.warn(
+      'The MQTT broker did not confirm the leave, so it may publish the will',
+    );
+    if (published) {
+      client.stream.destroy();
+    } else {
+      await client.endAsync(true);
+    }
   }
 
   status(): MqttHealth {
@@ -101,16 +160,6 @@ export default class MqttService implements BeforeApplicationShutdown {
       return 'disabled';
     }
     return this.client?.connected ? 'connected' : 'disconnected';
-  }
-
-  private static clientOptions(options: MqttConfig): IClientOptions {
-    return {
-      username: options.username,
-      password: options.password,
-      protocolVersion: options.protocolVersion,
-      // keep retrying after the broker refuses the connection too
-      reconnectOnConnackError: true,
-    };
   }
 
   private async respond(
