@@ -89,7 +89,7 @@ no transition`; escalation is a side effect, not a change of the
    handling, and the `escalate` MQTT route.
 1. Update `api/*.http`, `README.md`, the design document (amend A4: the
    runner now raises escalations by itself; add a decision for the
-   opt-in triggers) and the developer page.
+   opt-in triggers).
 
 ## Tasks
 

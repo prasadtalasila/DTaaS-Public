@@ -70,7 +70,7 @@ machine or not:
 1. Add `GET /state` to `src/app.controller.ts` and the `state` route to
    `src/mqtt/mqtt.config.ts` and `src/mqtt/mqtt-request.handler.ts`.
 1. Update `api/dev.api.http`, `api/dev.mqtt.http`, `README.md` (API and
-   MQTT API) and the developer page.
+   MQTT API).
 
 ## Tasks
 

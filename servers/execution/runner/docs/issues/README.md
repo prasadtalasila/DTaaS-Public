@@ -56,8 +56,12 @@ the stop path to exist before recovery is designed around it. 07 needs
   `0.4.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
-  feature changes) and `docs/developer/codebase/runner.md` at the
-  repository root.
+  feature changes) and `DEVELOPER.md`.
+- No pull request changes files outside `servers/execution/runner`,
+  other than by merging `feature/distributed-demo`. Documentation
+  elsewhere that a feature makes stale, such as
+  `docs/developer/codebase/runner.md` or the user documentation copy
+  of the README, is listed in the pull request for a separate change.
 
 ## File Shape
 

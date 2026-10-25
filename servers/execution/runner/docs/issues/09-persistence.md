@@ -67,7 +67,7 @@ nothing runs.
 1. Document the behaviour in `README.md` (Command History, State
    Machine: replace the lines that say the machine is lost on restart),
    replace D12 in the design document and add a decision for
-   `interrupted`, and update the developer page.
+   `interrupted`.
 
 ## Tasks
 
@@ -86,7 +86,7 @@ nothing runs.
 - [ ] Two runner instances started in turn on one database file: the
       second reports the first's state, `interrupted` when the first
       was killed mid-script. Check: `test/e2e/restart.spec.ts`.
-- [ ] README, design document (D12) and developer page updated. Check:
+- [ ] README and design document (D12) updated. Check:
       `npx markdownlint-cli README.md docs/*.md`.
 - [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
       output.

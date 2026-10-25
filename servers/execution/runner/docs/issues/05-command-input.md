@@ -90,9 +90,8 @@ the README says so.
    `test/data/scripts/` (shell and `.ps1`).
 1. Update `api/*.http`, `README.md` (POST request, Create Commands,
    State Machine, and a note that `manager.commands` is not enforced),
-   the design document (new decision on stdin delivery) and the
-   developer page. Bump `package.json` minor version for the reply
-   change.
+   and the design document (new decision on stdin delivery). Bump
+   `package.json` minor version for the reply change.
 
 ## Tasks
 

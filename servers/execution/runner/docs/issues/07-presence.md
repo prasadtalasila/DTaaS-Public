@@ -31,12 +31,18 @@ the transports of 03.
 - Register an MQTT Last Will on the same topic, retained, QoS 1:
 
   ```json
-  { "kind": "presence", "id": "hospital-1", "time": null, "data": { "online": false } }
+  {
+    "kind": "presence",
+    "id": "hospital-1",
+    "time": null,
+    "data": { "online": false }
+  }
   ```
 
   The will is fixed when the client connects, so it carries no time;
   the broker publishes it when the runner disappears without a
   disconnect.
+
 - In `beforeApplicationShutdown`, publish `online: false` with the
   current time, retained, and wait at most 2 s for it before the
   forced `endAsync(true)`, so a clean shutdown does not hang on an

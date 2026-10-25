@@ -117,8 +117,7 @@ them.
 1. Fill the parameters hook of `StateDocumentService` (02).
 1. Update `test/data/scripts/state-machine.yaml`, `api/*.http`,
    `README.md` (State Machine and API sections), the design document
-   (new decisions for declaration placement and change effect, S6) and
-   the developer page.
+   (new decisions for declaration placement and change effect, S6).
 
 ## Tasks
 

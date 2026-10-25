@@ -85,8 +85,7 @@ document. The descriptor carries no runner version.
    `test/data/config/*.yaml`, `api/dev.api.http`, `api/dev.mqtt.http`.
 1. Document the keys and the route in `README.md` (Configure, API, MQTT
    API), amend D1 in `docs/state-machine-design.md` and add a decision
-   for the required `id`, and update
-   `docs/developer/codebase/runner.md` at the repository root.
+   for the required `id`.
 1. Bump `package.json` to `0.5.0` for the `stateMachine` key.
 
 ## Tasks
@@ -109,8 +108,8 @@ document. The descriptor carries no runner version.
       `test/e2e/mqtt.spec.ts`.
 - [ ] Sample, test and request files carry `id` and `stateMachine`.
       Check: `yarn test` runs green from the copied test config.
-- [ ] README, design document (D1 amended, new decision for `id`) and
-      the developer page describe the keys and the route. Check:
+- [ ] README and design document (D1 amended, new decision for `id`)
+      describe the keys and the route. Check:
       `npx markdownlint-cli README.md docs/*.md` from the runner
       directory.
 - [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
