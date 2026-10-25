@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 01, 10 (for the `stopped` status)
-- PR: none
+- PR: [#77](https://github.com/prasadtalasila/DTaaS-Public/pull/77)
 - Research note:
   [item 2](../dtn-research-notes.md#2-one-state-document-r1)
 
