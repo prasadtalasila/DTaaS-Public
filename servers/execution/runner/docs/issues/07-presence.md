@@ -57,9 +57,11 @@ separate type would turn the parameter of `MqttService.notify` and
      no-op once a graceful one has started: mqtt.js calls it back at
      once while `disconnecting` is set (`client.js` ~929), and the
      graceful end may still wait for `outgoingEmpty` (~826).
-  1. Either fallback logs a warning that the broker did not confirm
-     the leave. The broker may then publish the will, which overwrites
-     the retained notice with `time: null`; it still says offline.
+  1. Either fallback logs a warning that names the leave, "the broker
+     did not confirm the leave", so that it can not be taken for the
+     error that `notify()` logs for a failed publish. The broker may
+     then publish the will, which overwrites the retained notice with
+     `time: null`; it still says offline.
 
 The race timers are cleared when the promise settles, so they do not
 hold the process open. The leave adds at most 4 s to the shutdown.
@@ -98,7 +100,9 @@ constructor changes anywhere.
 drain of the outgoing store, both I/O, while `init()` reaches
 `onModuleInit` through promises alone, so the listener is registered
 first. Were it not, the online notice would wait for a reconnect; the
-broker tests below would show it.
+broker tests below would show it. As a fallback for that case,
+`onConnect` calls a listener at once when `client.connected` is already
+true, so a missed first `connect` still announces the runner.
 
 ## Plan
 
@@ -159,6 +163,9 @@ broker tests below would show it.
      it moves to the new spec as the settled path.
    - New `test/unit/mqtt.presence.spec.ts` (pattern:
      `mqtt.notify.spec.ts`), not `mqtt.service.spec.ts` (219 lines).
+   - `test/unit/webhook.client.spec.ts` has 194 lines; the four
+     `sendOnce` cases go to a new `test/unit/webhook.once.spec.ts` if
+     the file would cross 250.
    - `test/e2e/mqtt.util.ts`: `nextNotification` takes a type parameter
      for `data`, defaulting to `StateDocumentDto`, so existing callers
      stay as they are.
@@ -207,7 +214,12 @@ broker tests below would show it.
       `test/e2e/mqtt.broker.spec.ts`, `lateSubscriber` unchanged.
 - [ ] Destroying the runner's socket makes the broker publish the will
       (`time: null`), and the reconnect publishes the online notice
-      again. Check: `test/e2e/mqtt.spec.ts` (local aedes broker).
+      again. The test subscribes to the presence topic before the
+      destroy, destroys the stream through a helper rather than bracket
+      access to a private member, which SonarCloud flags, and waits
+      across the 1 s `reconnectPeriod` of mqtt.js, with a timeout above
+      Jest's default 5 s. Check: `test/e2e/mqtt.spec.ts` (local aedes
+      broker, 203 lines), or a new e2e file if it nears 250.
 - [ ] `received()` of the test webhook first filters by `kind`, as a
       presence post has no `machine` and would pass the startup check;
       then the webhook receives one online post at startup and, after
