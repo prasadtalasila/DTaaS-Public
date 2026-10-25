@@ -1,9 +1,14 @@
+id: 'my-dt'  # names the digital twin; letters, digits, _, . or -, up to 64
+# attributes:  # optional; facts about the digital twin for a Manager
+#   city: 'Aarhus'  # values are strings, numbers or booleans
+#   beds: 120
 port: 5000
 location: 'scripts'  # directory of scripts, relative to this config file
 commands:  # list of permitted scripts
   - create
   - execute
   - terminate
+# stateMachine: 'scripts/state-machine.yaml'  # optional, relative to this file
 # database: 'runner.db'  # optional; keeps the command history in a file
 # mqtt:  # optional; serves the API over MQTT as well
 #   url: 'mqtt://localhost:1883'

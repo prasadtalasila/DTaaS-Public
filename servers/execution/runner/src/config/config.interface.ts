@@ -1,4 +1,5 @@
-import { MqttConfig } from '../mqtt/mqtt.config.js';
+import { z } from 'zod';
+import { configSchema } from './config.schema.js';
 
 // unused type
 export type PermitCommand = {
@@ -6,21 +7,15 @@ export type PermitCommand = {
   executable: string;
 };
 
-export type ConfigValues = {
-  port: number;
-  // os-compatible relative filepath of the config yaml file.
-  // The relative filepath is with reference to the execution
-  // directory of the runner
-  location: string;
-  commands: Array<string>;
-  // optional SQLite file for the command history and results, relative
-  // to the config file; the runner keeps them in memory without it
-  database?: string;
-  // optional; the runner serves its API over MQTT as well when it is set
-  mqtt?: MqttConfig;
-};
+// The configuration once loaded, with location, database and
+// stateMachine resolved against the directory of the config file
+export type ConfigValues = z.infer<typeof configSchema>;
 
+// Only seen before loadConfig, which main.ts calls before the server
+// listens
 export const configDefault: ConfigValues = {
+  id: 'runner',
+  attributes: {},
   port: 5000,
   location: 'script',
   commands: [],

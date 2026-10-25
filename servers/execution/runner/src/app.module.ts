@@ -5,6 +5,7 @@ import AppController from './app.controller.js';
 import ExecaManager from './execa-manager.service.js';
 import Queue from './queue.service.js';
 import Config from './config/configuration.service.js';
+import DescriptorService from './descriptor.service.js';
 import MqttRequestHandler from './mqtt/mqtt-request.handler.js';
 import MqttService, { MQTT_CONNECT } from './mqtt/mqtt.service.js';
 import FsmController from './fsm/fsm.controller.js';
@@ -19,6 +20,7 @@ import FsmService from './fsm/fsm.service.js';
     RunnerFactory,
     Config,
     FsmService,
+    DescriptorService,
     MqttRequestHandler,
     MqttService,
     { provide: MQTT_CONNECT, useValue: connect },

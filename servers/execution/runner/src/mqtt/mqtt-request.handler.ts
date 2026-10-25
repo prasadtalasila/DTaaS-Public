@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { MESSAGES } from '@nestjs/core/constants.js';
+import DescriptorService from '../descriptor.service.js';
 import ExecaManager from '../execa-manager.service.js';
 import {
   executeCommandSchema,
@@ -30,6 +31,7 @@ export default class MqttRequestHandler {
   constructor(
     private readonly manager: ExecaManager,
     private readonly fsm: FsmService,
+    private readonly descriptor: DescriptorService,
   ) {} // eslint-disable-line no-empty-function
 
   private readonly routes: Record<
@@ -49,6 +51,7 @@ export default class MqttRequestHandler {
       this.fsm.event(event, key),
     ),
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
+    dt: () => this.descriptor.describe(),
   };
 
   // An unexpected error gets the same body as an HTTP 500 response

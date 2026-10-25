@@ -60,6 +60,7 @@ A sample configuration is given below. Copy it into a file named
 _runner.yaml_, and update the values for your setup:
 
 ```yaml
+id: 'my-dt' # names the digital twin that this runner serves
 port: 5000
 location: 'scripts' # directory of scripts, relative to this config file
 commands: # list of permitted scripts
@@ -71,6 +72,16 @@ commands: # list of permitted scripts
 With this configuration, the scripts are placed in a `scripts` directory
 next to _runner.yaml_, and only the _create_, _execute_ and _terminate_
 scripts can be run.
+
+`id`, `port`, `location` and `commands` are required. The runner does
+not start when one of them is missing, when a value is invalid, or
+when _runner.yaml_ has a key that the runner does not know; the error
+message names every problem.
+
+Version 0.5.0 made `id` required and replaced the fixed
+_state-machine.yaml_ in `location` with the `stateMachine` key (see
+[State Machine](#state-machine)). A _runner.yaml_ of an earlier version
+needs both changes.
 
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
@@ -85,6 +96,24 @@ with respect to the path of _runner.yaml_ file.
 
 Warning: Ensure that the commands have execute permission
 on Linux platforms.
+
+### Digital Twin
+
+The `id` names the digital twin that the runner serves, so that a
+Manager can tell runners apart. It has up to 64 letters, digits, `_`,
+`.` or `-`, and starts with a letter or digit. Optional `attributes`
+describe the digital twin to a Manager:
+
+```yaml
+id: 'hospital-1'
+attributes: # optional; strings, numbers or booleans
+  city: 'Aarhus'
+  beds: 120
+```
+
+The attributes are a flat map: a value can not be a list or a map.
+Their names follow the pattern of `id`. The runner returns `id` and
+`attributes` on [GET /dt](#get-request-to-dt).
 
 ### Command History
 
@@ -147,8 +176,15 @@ describes running the runner in a docker container.
 A state machine moves a digital twin from one script to the next.
 The user starts it with a transition to a script, and from then on
 events and the exit of each script decide which script runs next.
-The state machine of a digital twin is in a file named
-_state-machine.yaml_ in the `location` directory, next to its scripts:
+The state machine of a digital twin is in a file that the
+`stateMachine` key of _runner.yaml_ names. A relative path is relative
+to _runner.yaml_, and an absolute path works too:
+
+```yaml
+stateMachine: 'scripts/state-machine.yaml'
+```
+
+The file holds the events and the states:
 
 ```yaml
 events: # the events that clients may send
@@ -181,8 +217,9 @@ states: # each state runs the script of the same name
 The runner does not start if the file is invalid, for example when a
 state is not a permitted command, a transition leads to an undeclared
 state or uses an undeclared event, or `$success` and `$failure`
-transitions alone form a loop. Without the file, the state machine is
-off. The runner reads the file when it starts.
+transitions alone form a loop, or if the file does not exist. Without
+the `stateMachine` key, the state machine is off. The runner reads the
+file when it starts.
 
 The runner does not stop the script of a state that the machine
 leaves; the script of the next state, such as _terminate_, has to do
@@ -231,9 +268,10 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 
 ### Application Programming Interface (API)
 
-Three REST API methods run commands, and three more drive the
-[state machine](#state-machine-requests). The routes for commands
-and their responses are:
+Three REST API methods run commands, three more drive the
+[state machine](#state-machine-requests), and one
+[describes the digital twin](#get-request-to-dt). The routes for
+commands and their responses are:
 
 | REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
 | :--------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
@@ -329,6 +367,24 @@ Both valid and invalid commands are recorded in the history.
 ]
 ```
 
+#### GET Request to /dt
+
+Describes the digital twin that the runner serves, from its
+[configuration](#digital-twin):
+
+```http
+{
+  "id": "hospital-1",
+  "attributes": { "city": "Aarhus", "beds": 120 },
+  "commands": ["create", "execute"],
+  "stateMachine": true
+}
+```
+
+`attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
+permitted commands, and `stateMachine` tells whether a state machine
+is loaded.
+
 #### Repeated Requests
 
 The runner does not run a command again for a repeated request:
@@ -384,13 +440,13 @@ after the request, or `null` before the first transition.
 | Status                | HTTP Status | Meaning                                                 |
 | :-------------------- | :---------- | :------------------------------------------------------ |
 | `accepted`            | 202         | the machine entered the state and started its script    |
-| `invalid state`       | 400         | the state is not in _state-machine.yaml_                |
+| `invalid state`       | 400         | the state is not in the state machine file              |
 | `invalid event`       | 400         | the event is not in `events`                            |
 | `invalid request key` | 400         | the request key belongs to another request              |
 | `busy`                | 409         | a transition request while the script of the state runs |
 | `no transition`       | 409         | the current state has no transition for the event       |
 | `script running`      | 409         | the script of the next state is still running           |
-| `no state machine`    | 404         | the `location` has no _state-machine.yaml_              |
+| `no state machine`    | 404         | _runner.yaml_ has no `stateMachine`                     |
 | `stopping`            | 503         | the runner is shutting down                             |
 
 A request body without a `state` or `event` gets the validation error
@@ -436,6 +492,7 @@ JSON as the matching HTTP request and response.
 | `<topic>/transition` | POST /fsm/transition  | `{"state": "<state>"}`       |
 | `<topic>/event`      | POST /fsm/event       | `{"event": "<event>"}`       |
 | `<topic>/fsm`        | GET /fsm              | ignored                      |
+| `<topic>/dt`         | GET /dt               | ignored                      |
 
 The runner publishes each response with QoS 1:
 

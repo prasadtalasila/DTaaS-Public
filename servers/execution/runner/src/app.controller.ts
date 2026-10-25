@@ -10,6 +10,8 @@ import {
 import { Response } from 'express';
 import { CommandStatus } from './interfaces/command.interface.js';
 import ExecaManager from './execa-manager.service.js';
+import DescriptorService from './descriptor.service.js';
+import { DescriptorDto } from './dto/descriptor.dto.js';
 import {
   ExecuteCommandDto,
   executeCommandSchema,
@@ -21,7 +23,15 @@ import ZodValidationPipe, { validRequestKey } from './validation.pipe.js';
 @Controller()
 export default class AppController {
   // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly manager: ExecaManager) {} // eslint-disable-line no-empty-function
+  constructor(
+    private readonly manager: ExecaManager,
+    private readonly descriptor: DescriptorService,
+  ) {} // eslint-disable-line no-empty-function
+
+  @Get('dt')
+  describe(): DescriptorDto {
+    return this.descriptor.describe();
+  }
 
   @Get('history')
   getHistory(): Array<ExecuteCommandDto> {

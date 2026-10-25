@@ -1,4 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
@@ -7,6 +8,13 @@ const status = {
   name: 'create',
   status: 'valid',
   logs: { stdout: 'hello world', stderr: '' },
+};
+
+const dt = {
+  id: 'hospital-1',
+  attributes: { city: 'Aarhus' },
+  commands: ['create'],
+  stateMachine: true,
 };
 
 function createHandler(success: boolean) {
@@ -24,9 +32,11 @@ function createHandler(success: boolean) {
     event: jest.fn((_event: string, _requestKey?: string) => accepted),
     check: jest.fn((): unknown => undefined),
   };
+  const descriptor = { describe: jest.fn(() => dt) };
   const handler = new MqttRequestHandler(
     manager as unknown as ExecaManager,
     fsm as unknown as FsmService,
+    descriptor as unknown as DescriptorService,
   );
   return { handler, manager, fsm };
 }
@@ -103,6 +113,11 @@ describe('MQTT request handler', () => {
     expect(await handler.handle('history', Buffer.alloc(0))).toEqual([
       { name: 'create' },
     ]);
+  });
+
+  it('Should return the descriptor of the digital twin', async () => {
+    const { handler } = createHandler(true);
+    expect(await handler.handle('dt', Buffer.alloc(0))).toEqual(dt);
   });
 
   it('Should return the HTTP 500 body when the request fails', async () => {

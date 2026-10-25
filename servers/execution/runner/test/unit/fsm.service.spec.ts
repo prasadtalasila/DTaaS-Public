@@ -1,6 +1,12 @@
 import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
-import { createService, scriptFolder, settle } from './fsm.fixture';
+import {
+  createService,
+  MACHINE_FILE,
+  scriptFolder,
+  settle,
+} from './fsm.fixture';
 
 describe('State machine service', () => {
   let dir: string;
@@ -11,7 +17,15 @@ describe('State machine service', () => {
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-  const setup = (location = dir) => createService(location);
+  const setup = () => createService(join(dir, MACHINE_FILE));
+
+  it('Should stop at startup when the file does not exist', () => {
+    const file = join(dir, 'missing.yaml');
+
+    expect(() => createService(file)).toThrow(
+      `State machine file ${file} does not exist or is not a file`,
+    );
+  });
 
   it('Should report a machine that has not started', () => {
     const { service } = setup();

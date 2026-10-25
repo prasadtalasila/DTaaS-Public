@@ -10,19 +10,19 @@ deferred (see below) and have no file.
 
 ## Status
 
-| File                                                   | Feature                    | Size | Status  | PR  |
-| :----------------------------------------------------- | :------------------------- | :--- | :------ | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | planned |     |
-| [02-state-document.md](02-state-document.md)           | One state document         | M    | planned |     |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | planned |     |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | planned |     |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned |     |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned |     |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned |     |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned |     |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned |     |
-| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | planned |     |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | planned |     |
+| File                                                   | Feature                    | Size | Status    | PR  |
+| :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | in review | #74 |
+| [02-state-document.md](02-state-document.md)           | One state document         | M    | planned   |     |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | planned   |     |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | planned   |     |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned   |     |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned   |     |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
+| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | planned   |     |
+| [12-health.md](12-health.md)                           | Health endpoint            | S    | planned   |     |
 
 Sizes: S is a day or less, M a few days with tests and documentation.
 
@@ -73,7 +73,8 @@ Each file opens with a header list (`Status`, `Depends on`, `PR`,
 - **Tasks**: a checkbox list; each task ends with its check, which is a
   named test file, a lint or build command, or a document section.
 
-`Status` is `planned`, `in progress` or `done`.
+`Status` is `planned`, `in progress`, `in review` (a pull request is
+open) or `done`.
 
 ## Decisions Shared by All Features
 

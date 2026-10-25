@@ -34,7 +34,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   load(): void {
     const definition = loadDefinition(
-      this.config.getLocation(),
+      this.config.getStateMachine(),
       this.config.permitCommands(),
     );
     this.machine = definition && new StateMachine(definition);
@@ -44,6 +44,10 @@ export default class FsmService implements BeforeApplicationShutdown {
   // as the database closes after the scripts that run
   beforeApplicationShutdown(): void {
     this.stopping = true;
+  }
+
+  hasMachine(): boolean {
+    return this.machine !== undefined;
   }
 
   check(): FsmStateDto | undefined {

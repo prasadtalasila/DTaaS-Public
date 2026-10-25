@@ -1,8 +1,8 @@
 # 01 DT Identity and Descriptor
 
-- Status: planned
+- Status: in review
 - Depends on: none
-- PR: none
+- PR: [#74](https://github.com/prasadtalasila/DTaaS-Public/pull/74)
 - Research note:
   [item 1](../dtn-research-notes.md#1-dt-identity-and-descriptor)
 
@@ -34,15 +34,25 @@ commands:
   (`src/fsm/definition.ts`, `NAME`). A missing or invalid `id` stops
   the runner at startup.
 - `attributes` is optional. Values are strings, numbers or booleans;
-  nested values are an error. Keys follow the name pattern.
+  nested values are an error. Keys follow the name pattern, and a
+  `__proto__` key is an error, as in the state machine file.
 - `stateMachine` replaces the fixed `state-machine.yaml` lookup in
-  `location`. Without the key no machine is loaded. This amends D1 of
-  the design document and is a breaking change for DTs that rely on the
-  fixed name; `README.md` and `config/runner.yaml.sample` show the key.
+  `location`. It is resolved with `path.resolve` against the directory
+  of `runner.yaml`, so an absolute path works too. Without the key no
+  machine is loaded; a key naming a missing file stops the runner with
+  a message naming the path. This amends D1 of the design document and
+  is a breaking change for DTs that rely on the fixed name.
+- `port`, `location` and `commands` are required, as every sample and
+  fixture already sets them; today a missing one is `undefined` at run
+  time. `database` and `mqtt` stay optional.
 - The whole file is parsed by one zod schema, `strict`, so an unknown
   key is an error. The message names every problem, as the `mqtt`
   check does today (`src/config/configuration.service.ts:32-40`), and
   that check folds into the schema.
+- Before `loadConfig` runs, `Config` holds `configDefault`, which gains
+  the placeholder `id: 'runner'`. It is never observable at run time,
+  since `main.ts` loads the configuration before the server listens;
+  only tests that construct `Config` directly see it.
 
 ### API
 
@@ -57,7 +67,8 @@ commands:
 }
 ```
 
-`attributes` is `{}` when none are configured; `stateMachine` says
+`attributes` is `{}` when none are configured (the schema defaults it);
+`stateMachine` says
 whether a machine is loaded. Later features add `manager` (05) to this
 document. The descriptor carries no runner version.
 
@@ -67,50 +78,82 @@ document. The descriptor carries no runner version.
    configuration, with `id`, `attributes`, `stateMachine`, `port`,
    `location`, `commands`, `database` and the existing
    `mqttConfigSchema`. Derive `ConfigValues` from it in
-   `src/config/config.interface.ts` and drop the unused
-   `PermitCommand` type if nothing else needs it (report it, do not
-   bundle unrelated removals).
-1. Parse the file through the schema in `Config.loadConfig`
-   (`src/config/configuration.service.ts`), resolve `stateMachine`
-   against the config directory like `database`, and add `getId()`,
-   `getAttributes()` and `getStateMachine()`.
-1. Make `loadDefinition` in `src/fsm/definition.ts` take the file path
-   instead of `location`, and have `FsmService.load` pass
-   `config.getStateMachine()`; keep `parseDefinition` as it is.
-1. Add `src/dto/descriptor.dto.ts` and a `descriptor()` method on a new
-   `src/descriptor.service.ts` that composes `Config` and `FsmService`.
+   `src/config/config.interface.ts` and add `id` to `configDefault`.
+   `PermitCommand` there is unused; report it in the PR, do not delete
+   it.
+1. In `src/config/configuration.service.ts`, check the raw YAML for a
+   `__proto__` key under `attributes` (export `hasOwnProto` from
+   `src/fsm/definition.ts` and reuse it, with `nameSchema`, from
+   there), parse through the schema, and move the path resolution
+   of `location`, `database` and
+   `stateMachine` into a `resolvePaths(dir, values)` helper so
+   `loadConfig` stays under Qlty's complexity limit. `stateMachine`
+   uses `path.resolve`; `location` and `database` keep `path.join`
+   (their limitation with absolute paths is pre-existing and not
+   changed here). Add `getId()`, `getAttributes()` and
+   `getStateMachine()`.
+1. In `src/fsm/definition.ts`, make `loadDefinition` take the file path
+   (or `undefined`) instead of `location`, throw a message naming the
+   path when the file is missing, pass the path to `parseDefinition`
+   so its errors name the real file, and remove `DEFINITION_FILE`.
+   `FsmService.load` passes `config.getStateMachine()`.
+1. Add `src/dto/descriptor.dto.ts` and `src/descriptor.service.ts`,
+   which composes `Config` and `FsmService`; register it in
+   `src/app.module.ts`.
 1. Add `GET /dt` to `src/app.controller.ts` and the `dt` route to
    `src/mqtt/mqtt.config.ts` and `src/mqtt/mqtt-request.handler.ts`.
-1. Update `config/runner.yaml.sample`, `test/config/runner.test.yaml`,
-   `test/data/config/*.yaml`, `api/dev.api.http`, `api/dev.mqtt.http`.
+1. Update the configuration files and every test that builds one or
+   relies on the fixed name:
+   - `config/runner.yaml.sample`, `test/config/runner.test.yaml`,
+     `test/data/config/*.yaml`: add `id`. The Jest test config carries
+     no `stateMachine`, as it permits only _create_ and the test state
+     machine has an _execute_ state.
+   - `test/e2e/fsm.spec.ts`: the inline `runner.yaml` gains `id` and
+     `stateMachine`; the "without a state machine" test omits the key
+     instead of deleting the file.
+   - `test/unit/fsm.fixture.ts`: mock `getStateMachine` and write the
+     file under a name it chooses.
+   - `test/unit/fsm.definition.spec.ts`: call `loadDefinition` with a
+     file path; add the missing-file case.
+   - `test/integration/options.service.spec.ts`: the default `id` and
+     the new getters.
+   - `test/unit/mqtt-request.handler.spec.ts`: the handler gains the
+     descriptor service as a constructor argument.
+   - `api/dev.api.http`, `api/dev.mqtt.http`: the `dt` request.
 1. Document the keys and the route in `README.md` (Configure, API, MQTT
-   API), amend D1 in `docs/state-machine-design.md` and add a decision
-   for the required `id`.
-1. Bump `package.json` to `0.5.0` for the `stateMachine` key.
+   API, and the error table that names _state-machine.yaml_),
+   `api/README.md`, `DEVELOPER.md`, `DOCKER.md` (the mounted
+   `runner.yaml` needs `id`), and `docs/state-machine-design.md` (the
+   file description and the error table that name the fixed file, D1,
+   A6, and a decision for the required `id`).
+1. Bump `package.json` to `0.5.0`: `id` is now required and the state
+   machine file is named in `runner.yaml`.
+1. List in the PR, for a separate change outside the runner:
+   `docs/developer/codebase/runner.md` and
+   `docs/user/servers/execution/runner/readme.md`.
 
 ## Tasks
 
-- [ ] Configuration schema accepts the sample file and rejects a missing
-      `id`, an invalid `id`, nested `attributes`, an unknown key and an
-      invalid `mqtt` section, each with a message naming the problem.
-      Check: `test/unit/config.schema.spec.ts`.
-- [ ] `Config` resolves `stateMachine` against the config directory and
-      exposes `getId`, `getAttributes`, `getStateMachine`. Check:
-      `test/integration/options.service.spec.ts`.
-- [ ] A runner without `stateMachine` loads no machine; one with the key
-      loads the named file; a key naming a missing file stops the runner
-      with a message. Check: `test/unit/fsm.definition.spec.ts`,
-      `test/unit/fsm.service.spec.ts`.
-- [ ] `GET /dt` returns the descriptor with `attributes: {}` when none
+- [x] Configuration schema accepts the sample file and rejects a missing
+      `id`, an invalid `id`, a missing `commands`, nested `attributes`,
+      an unknown key and an invalid `mqtt` section, each with a message
+      naming the problem. Check: `test/unit/config.schema.spec.ts`.
+- [x] `Config` rejects a `__proto__` attribute, resolves `stateMachine`
+      relative and absolute, and exposes `getId`, `getAttributes`,
+      `getStateMachine`. Check: `test/integration/options.service.spec.ts`.
+- [x] Without `stateMachine` no machine loads; with it the named file
+      loads; a missing file stops the runner and its error, like every
+      definition error, names the path. Check:
+      `test/unit/fsm.definition.spec.ts`, `test/unit/fsm.service.spec.ts`.
+- [x] `GET /dt` returns the descriptor with `attributes: {}` when none
       are configured. Check: `test/e2e/descriptor.spec.ts`.
-- [ ] The `dt` MQTT route returns the same body. Check:
-      `test/unit/mqtt-request.handler.spec.ts`,
-      `test/e2e/mqtt.spec.ts`.
-- [ ] Sample, test and request files carry `id` and `stateMachine`.
-      Check: `yarn test` runs green from the copied test config.
-- [ ] README and design document (D1 amended, new decision for `id`)
-      describe the keys and the route. Check:
-      `npx markdownlint-cli README.md docs/*.md` from the runner
-      directory.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
-      output.
+- [x] The `dt` MQTT route returns the same body. Check:
+      `test/unit/mqtt-request.handler.spec.ts`, `test/e2e/mqtt.spec.ts`.
+- [x] Every sample, fixture and request file carries `id`, and the
+      state machine tests load their file through `stateMachine`.
+      Check: `yarn test` runs green.
+- [x] README, `api/README.md`, `DEVELOPER.md`, `DOCKER.md` and the
+      design document (D1, A6, new decision for `id`) describe the keys
+      and the route. Check: `npx markdownlint-cli` on them.
+- [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no new
+      function crosses the Qlty thresholds. Check: their output.
