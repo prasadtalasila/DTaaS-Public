@@ -1,6 +1,5 @@
 id: 'test-runner'
 port: 5002
 location: 'script'  # directory location of scripts
-stateMachine: 'script/state-machine.yaml'
 commands:
   - create

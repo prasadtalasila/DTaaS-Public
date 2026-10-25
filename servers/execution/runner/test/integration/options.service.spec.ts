@@ -52,9 +52,7 @@ describe('Check Configuration Service', () => {
     expect(config.permitCommands()).toHaveLength(1);
     expect(config.permitCommands()).toContain('create');
     expect(config.getLocation()).toEqual(resolveFile('script'));
-    expect(config.getStateMachine()).toEqual(
-      resolveFile('script/state-machine.yaml'),
-    );
+    expect(config.getStateMachine()).toBeUndefined();
     expect(spyOnCLIOptions).toHaveBeenCalled();
     expect(config.getDatabase()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
