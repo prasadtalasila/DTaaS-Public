@@ -106,6 +106,7 @@ describe('check Queue service', () => {
       queue.open(join(dir, 'data', 'runner.db'));
       queue.enqueue('hello');
       expect(queue.checkHistory()).toStrictEqual([{ name: 'hello' }]);
+      expect(queue.mode()).toBe('file');
     } finally {
       queue.close();
       rmSync(dir, { recursive: true, force: true });
@@ -122,6 +123,7 @@ describe('check Queue service', () => {
     queue.open(undefined);
 
     expect(queue.checkHistory()).toStrictEqual([{ name: 'hello' }]);
+    expect(queue.mode()).toBe('memory');
   });
 
   it('should keep the commands in a database file across restarts', async () => {

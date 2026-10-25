@@ -8,6 +8,7 @@ import {
 } from './interfaces/command.interface.js';
 import Queue from './queue.service.js';
 import { ExecuteCommandDto } from './dto/command.dto.js';
+import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
 
@@ -154,5 +155,9 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
 
   checkHistory(): Array<ExecuteCommandDto> {
     return this.commandQueue.checkHistory();
+  }
+
+  databaseMode(): DatabaseMode {
+    return this.commandQueue.mode();
   }
 }

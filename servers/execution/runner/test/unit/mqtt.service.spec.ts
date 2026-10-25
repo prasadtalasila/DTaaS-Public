@@ -1,61 +1,6 @@
-import { EventEmitter } from 'node:events';
 import { describe, expect, it, jest } from '@jest/globals';
-import type { IPublishPacket, MqttClient } from 'mqtt';
-import Config from 'src/config/configuration.service';
-import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
-import MqttService, { MqttConnect } from 'src/mqtt/mqtt.service';
-import { MqttConfig } from 'src/mqtt/mqtt.config';
-
-class FakeClient extends EventEmitter {
-  subscribe = jest.fn();
-
-  publishAsync = jest.fn(
-    async (_topic: string, _message: string, _options: unknown) => undefined,
-  );
-
-  endAsync = jest.fn(async (_force?: boolean) => undefined);
-}
-
-const mqttConfig: MqttConfig = {
-  url: 'mqtt://user:secret@localhost:1883',
-  topic: 'dtaas/runner',
-  username: 'user',
-  password: 'secret',
-  protocolVersion: 5,
-};
-
-function setup(options: MqttConfig | undefined) {
-  const client = new FakeClient();
-  const connect = jest.fn<MqttConnect>(() => client as unknown as MqttClient);
-  const config = { getMqtt: () => options } as unknown as Config;
-  const handle = jest.fn(
-    async (
-      _route: string,
-      _payload: Buffer,
-      _requestKey?: string,
-    ): Promise<unknown> => ({
-      status: 'success',
-    }),
-  );
-  const handler = { handle } as unknown as MqttRequestHandler;
-  const service = new MqttService(config, handler, connect);
-  return { client, connect, handle, service };
-}
-
-const packet = (properties?: IPublishPacket['properties']) =>
-  ({ properties }) as IPublishPacket;
-
-// The service answers asynchronously, so wait for the reply to go out.
-// A received packet carries its topic, as in mqtt.js.
-const message = async (
-  client: FakeClient,
-  topic: string,
-  payload: Buffer,
-  received: IPublishPacket,
-) => {
-  client.emit('message', topic, payload, { ...received, topic });
-  await new Promise(setImmediate);
-};
+import type { IPublishPacket } from 'mqtt';
+import { message, mqttConfig, packet, setup } from './mqtt.fixture';
 
 describe('MQTT service', () => {
   it('Should stay disconnected without an MQTT configuration', async () => {
@@ -83,6 +28,7 @@ describe('MQTT service', () => {
         'dtaas/runner/event',
         'dtaas/runner/fsm',
         'dtaas/runner/dt',
+        'dtaas/runner/health',
       ],
       { qos: 1 },
       expect.any(Function),
@@ -248,5 +194,22 @@ describe('MQTT service', () => {
     service.start();
     await service.beforeApplicationShutdown();
     expect(client.endAsync).toHaveBeenCalledWith(true);
+  });
+
+  it('Should report MQTT as disabled without an MQTT configuration', () => {
+    const { service } = setup(undefined);
+    service.start();
+    expect(service.status()).toBe('disabled');
+  });
+
+  it('Should report whether the client is connected', async () => {
+    const { client, service } = setup(mqttConfig);
+    expect(service.status()).toBe('disconnected');
+    service.start();
+    expect(service.status()).toBe('disconnected');
+    client.connected = true;
+    expect(service.status()).toBe('connected');
+    await service.beforeApplicationShutdown();
+    expect(service.status()).toBe('disconnected');
   });
 });

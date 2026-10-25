@@ -1,6 +1,6 @@
 # 01 DT Identity and Descriptor
 
-- Status: in review
+- Status: done
 - Depends on: none
 - PR: [#74](https://github.com/prasadtalasila/DTaaS-Public/pull/74)
 - Research note:

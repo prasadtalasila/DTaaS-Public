@@ -10,10 +10,12 @@ import MqttRequestHandler from './mqtt/mqtt-request.handler.js';
 import MqttService, { MQTT_CONNECT } from './mqtt/mqtt.service.js';
 import FsmController from './fsm/fsm.controller.js';
 import FsmService from './fsm/fsm.service.js';
+import HealthService from './health.service.js';
+import HealthController from './health.controller.js';
 
 @Module({
   imports: [],
-  controllers: [AppController, FsmController],
+  controllers: [AppController, FsmController, HealthController],
   providers: [
     ExecaManager,
     Queue,
@@ -24,6 +26,7 @@ import FsmService from './fsm/fsm.service.js';
     MqttRequestHandler,
     MqttService,
     { provide: MQTT_CONNECT, useValue: connect },
+    HealthService,
   ],
 })
 export default class AppModule {}
