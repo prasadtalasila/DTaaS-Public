@@ -3,6 +3,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import Runner, { RunOutcome } from 'src/interfaces/runner.interface';
 import ExecaRunner from 'src/execa-runner';
 import RunnerFactory from 'src/runner-factory.service';
+import { scriptEnvironment } from 'src/fsm/script-context';
 import { nonExistingCommand } from 'test/utils';
 
 // The stop tests run scripts, and PowerShell takes a second or more to
@@ -44,6 +45,47 @@ describe('check command Runner based on execa library', () => {
     expect(status).toBe('success');
     expect(logs.get('stdout')).toEqual(expect.any(String));
     expect(logs.get('stderr')).toEqual('');
+  });
+
+  describe('environment', () => {
+    // scriptEnvironment inherits PATH and SystemRoot from the runner, as
+    // /bin/sh and powershell.exe need them to start
+    it('Should give a script the environment built for it', async () => {
+      const runner = RunnerFactory.create(resolve('script', 'print-context'));
+      const env = scriptEnvironment({
+        id: 'dt-1',
+        command: 'print-context',
+        state: 'print-context',
+        entry: 1,
+        values: { scope: 'multi' },
+      });
+
+      expect(await runner.run({ env })).toBe('success');
+      expect(runner.checkLogs().get('stdout')?.trim()).toBe(
+        'dt-1 print-context 1 multi',
+      );
+    });
+
+    it('Should not add the environment of the runner to it', async () => {
+      const runner = new ExecaRunner(process.execPath, [
+        '-e',
+        'process.stdout.write(process.env.RUNNER_TEST_OUTSIDE ?? "unset")',
+      ]);
+      const { PATH, SystemRoot } = process.env;
+      const env = scriptEnvironment({
+        id: 'dt-1',
+        command: 'node',
+        inherited: { PATH, SystemRoot },
+      });
+      process.env.RUNNER_TEST_OUTSIDE = 'outside';
+
+      try {
+        expect(await runner.run({ env })).toBe('success');
+      } finally {
+        delete process.env.RUNNER_TEST_OUTSIDE;
+      }
+      expect(runner.checkLogs().get('stdout')).toBe('unset');
+    });
   });
 
   describe('stop', () => {

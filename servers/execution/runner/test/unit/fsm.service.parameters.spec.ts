@@ -6,6 +6,7 @@ import {
   MACHINE_FILE,
   scriptFolder,
   settle,
+  withEnv,
 } from './fsm.fixture';
 
 const DEFINITION = `
@@ -90,7 +91,11 @@ describe('State machine service parameters', () => {
     const [stopped] = manager.stop.mock.invocationCallOrder;
     expect(stored).toBeLessThan(stopped);
     expect(manager.newCommand).toHaveBeenCalledTimes(2);
-    expect(manager.newCommand).toHaveBeenLastCalledWith('execute');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'execute',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should raise an event that two changes declare once', async () => {

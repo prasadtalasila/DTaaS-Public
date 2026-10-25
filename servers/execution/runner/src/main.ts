@@ -8,6 +8,7 @@ import CLI, { createCommand } from './config/commander.js';
 import MqttService from './mqtt/mqtt.service.js';
 import Queue from './queue.service.js';
 import FsmService from './fsm/fsm.service.js';
+import { runnerUrl } from './fsm/script-context.js';
 
 /*
 The js file extension in import is a limitation of typescript.
@@ -26,7 +27,11 @@ async function bootstrap(options: Keyv) {
   app.get<FsmService>(FsmService).load();
   app.get<Queue>(Queue).open(config.getDatabase());
   app.enableShutdownHooks();
-  app.get<MqttService>(MqttService).start();
   await app.listen(config.getPort());
+  // the scripts learn the port that the server listens on before any
+  // request over MQTT can start one
+  const fsm = app.get<FsmService>(FsmService);
+  fsm.setRunnerUrl(runnerUrl(app.getHttpServer()));
+  app.get<MqttService>(MqttService).start();
 }
 bootstrap(CLIOptions);

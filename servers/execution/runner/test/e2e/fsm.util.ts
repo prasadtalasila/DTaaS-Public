@@ -10,16 +10,16 @@ const SCRIPTS = ['create', 'execute', 'terminate'];
 
 const MACHINE_FILE = 'dt.yaml';
 
-// The scripts that print their names, and copies of the loops
-function writeScripts(dir: string, loops: string[]): void {
+// The scripts that print their names, and copies of test scripts
+function writeScripts(dir: string, copies: string[]): void {
   SCRIPTS.forEach((script) => {
     writeFileSync(join(dir, script), `#!/bin/sh\nprintf ${script}\n`, {
       mode: 0o755,
     });
     writeFileSync(join(dir, `${script}.ps1`), `Write-Output ${script}\n`);
   });
-  loops
-    .flatMap((loop) => [loop, `${loop}.ps1`])
+  copies
+    .flatMap((copy) => [copy, `${copy}.ps1`])
     .forEach((file) =>
       copyFileSync(join('test', 'data', 'scripts', file), join(dir, file)),
     );
@@ -27,21 +27,22 @@ function writeScripts(dir: string, loops: string[]): void {
 
 // A folder with a runner configuration, the scripts in both their
 // Linux and Windows versions, and the state machine of the definition,
-// which the configuration names when there is one. The loops are test
-// scripts of test/data/scripts that run until they are stopped.
+// which the configuration names when there is one. The copies are test
+// scripts of test/data/scripts, such as loops that run until they are
+// stopped.
 export function digitalTwin(
   definition: string | undefined,
-  loops: string[] = [],
+  copies: string[] = [],
 ): string {
   const dir = mkdtempSync(join(tmpdir(), 'runner-fsm-'));
-  const commands = [...SCRIPTS, ...loops];
+  const commands = [...SCRIPTS, ...copies];
   const config = `id: dt-1\nport: 5000\nlocation: '.'\ncommands: [${commands}]\n`;
   const machine = definition ? `stateMachine: ${MACHINE_FILE}\n` : '';
   writeFileSync(join(dir, 'runner.yaml'), config + machine);
   if (definition) {
     writeFileSync(join(dir, MACHINE_FILE), definition);
   }
-  writeScripts(dir, loops);
+  writeScripts(dir, copies);
   return dir;
 }
 

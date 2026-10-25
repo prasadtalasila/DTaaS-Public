@@ -1,11 +1,11 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { jest } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
-import { RunOutcome } from 'src/interfaces/runner.interface';
+import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 
 const DEFINITION = `
@@ -19,6 +19,12 @@ states:
 export const MACHINE_FILE = 'machine.yaml';
 
 export const settle = () => new Promise(setImmediate);
+
+// What the service passes with each script: its environment
+export const withEnv = { env: expect.any(Object) };
+
+// The names of the scripts that the fake manager was asked to run
+export const names = (calls: unknown[][]) => calls.map(([name]) => name);
 
 // A script folder with the state machine of the service tests
 export function scriptFolder(definition = DEFINITION): string {
@@ -45,7 +51,7 @@ function fakeManager() {
   const manager = {
     isRunning: jest.fn((name: string) => finishers.has(name)),
     newCommand: jest.fn(
-      (name: string) =>
+      (name: string, _key?: string, _options?: RunOptions) =>
         new Promise<[RunOutcome, Map<string, string>]>((resolve) => {
           finishers.set(name, (outcome) => {
             finishers.delete(name);
@@ -66,6 +72,7 @@ function fakeManager() {
 export function createService(file: string | undefined) {
   const { manager, finish } = fakeManager();
   const config = {
+    getId: () => 'dt-1',
     getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
   } as unknown as Config;

@@ -6,6 +6,7 @@ import {
   MACHINE_FILE,
   scriptFolder,
   settle,
+  withEnv,
 } from './fsm.fixture';
 
 describe('State machine service', () => {
@@ -45,7 +46,10 @@ describe('State machine service', () => {
       status: 'accepted',
       state: 'create',
     });
-    expect(manager.newCommand).toHaveBeenCalledWith('create');
+    // synchronously, so that the manager knows the script runs
+    expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
+      env: expect.objectContaining({ DT_STATE: 'create', DT_ENTRY: '1' }),
+    });
     expect(service.check()).toMatchObject({ status: 'running', entry: 1 });
   });
 
@@ -80,7 +84,11 @@ describe('State machine service', () => {
     service.transition('create');
     await finish('create', true);
 
-    expect(manager.newCommand).toHaveBeenLastCalledWith('execute');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'execute',
+      undefined,
+      withEnv,
+    );
     expect(service.check()).toMatchObject({
       state: 'execute',
       status: 'running',
@@ -92,7 +100,11 @@ describe('State machine service', () => {
     service.transition('create');
     await finish('create', false);
 
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should stay in a state without a completion transition', async () => {
@@ -114,7 +126,11 @@ describe('State machine service', () => {
       status: 'accepted',
       state: 'terminate',
     });
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should ignore the completion of a state it left', async () => {
@@ -176,7 +192,11 @@ describe('State machine service', () => {
     service.transition('create');
     await settle();
 
-    expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
+    expect(manager.newCommand).toHaveBeenLastCalledWith(
+      'terminate',
+      undefined,
+      withEnv,
+    );
   });
 
   it('Should signal each entry and each completion once', async () => {

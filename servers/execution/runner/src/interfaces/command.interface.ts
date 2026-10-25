@@ -1,5 +1,5 @@
 import { ExecuteCommandDto } from 'src/dto/command.dto.js';
-import { RunOutcome } from './runner.interface.js';
+import { RunOptions, RunOutcome } from './runner.interface.js';
 
 // How a command ended, and its stdout and stderr logs
 type CommandResult = [RunOutcome, Map<string, string>];
@@ -27,7 +27,11 @@ type CommandStatus = {
 };
 
 interface Manager {
-  newCommand(name: string, requestKey?: string): Promise<CommandResult>;
+  newCommand(
+    name: string,
+    requestKey?: string,
+    options?: RunOptions,
+  ): Promise<CommandResult>;
   checkHistory(): Array<ExecuteCommandDto>;
   checkStatus(): CommandStatus;
   stop(name?: string): Promise<string[]>;
