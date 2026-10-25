@@ -1,5 +1,5 @@
-import { execa } from 'execa';
-import Runner from './interfaces/runner.interface.js';
+import { execa, ResultPromise } from 'execa';
+import Runner, { RunOutcome } from './interfaces/runner.interface.js';
 
 export default class ExecaRunner implements Runner {
   command: string;
@@ -12,23 +12,52 @@ export default class ExecaRunner implements Runner {
 
   stderr: string = '';
 
-  constructor(command: string, args: string[] = []) {
+  private subprocess: ResultPromise | undefined;
+
+  // whether stop() reached the subprocess before it exited
+  private stopped = false;
+
+  // stopGrace: milliseconds between SIGTERM and SIGKILL on a stop;
+  // execa's default of five seconds without it
+  constructor(
+    command: string,
+    args: string[] = [],
+    private readonly stopGrace?: number,
+  ) {
     this.command = command;
     this.args = args;
   }
 
-  async run(): Promise<boolean> {
-    let status: boolean = false;
+  async run(): Promise<RunOutcome> {
     try {
-      const { stdout, stderr } = await execa(this.command, this.args);
+      const subprocess = execa(this.command, this.args, {
+        forceKillAfterDelay: this.stopGrace,
+      });
+      this.subprocess = subprocess;
+      const { stdout, stderr } = await subprocess;
       this.stderr = stderr;
       this.stdout = stdout;
-      status = true;
-    } catch (ENOENT) {
-      status = false;
+      return this.outcome(true);
+    } catch {
+      return this.outcome(false);
     }
+  }
 
-    return status;
+  private outcome(success: boolean): RunOutcome {
+    if (this.stopped) {
+      return 'stopped';
+    }
+    return success ? 'success' : 'failed';
+  }
+
+  // Sends SIGTERM, and SIGKILL after the grace period, and resolves when
+  // the subprocess has exited; a second call sends nothing more
+  async stop(): Promise<void> {
+    if (this.subprocess === undefined) {
+      return;
+    }
+    this.stopped ||= this.subprocess.kill();
+    await this.subprocess.catch(() => undefined);
   }
 
   checkLogs(): Map<string, string> {

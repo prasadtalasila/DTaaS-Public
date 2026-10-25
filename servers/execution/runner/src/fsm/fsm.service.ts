@@ -7,9 +7,22 @@ import {
   FsmStateDto,
   ScriptStatus,
 } from '../dto/fsm.dto.js';
-import { CompletionEvent, loadDefinition } from './definition.js';
+import { RunOutcome } from '../interfaces/runner.interface.js';
+import { CompletionEvent, loadDefinition, Transition } from './definition.js';
 import RecentReplies from './recent-replies.js';
 import StateMachine from './state-machine.js';
+
+const COMPLETION: Record<RunOutcome, CompletionEvent> = {
+  success: '$success',
+  failed: '$failure',
+  stopped: '$stopped',
+};
+
+const STATUS: Record<RunOutcome, ScriptStatus> = {
+  success: 'valid',
+  failed: 'invalid',
+  stopped: 'stopped',
+};
 
 // Moves the digital twin between the states of its state machine, and
 // runs the script of each state it enters. A transition request starts
@@ -23,6 +36,10 @@ export default class FsmService implements BeforeApplicationShutdown {
   private status: ScriptStatus = 'none';
 
   private stopping = false;
+
+  // The stops of stop transitions, in order, so that a later one does
+  // not run its script while the script of an earlier one still exits
+  private pendingStop: Promise<unknown> = Promise.resolve();
 
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
@@ -83,8 +100,17 @@ export default class FsmService implements BeforeApplicationShutdown {
       if (next === undefined) {
         return fsmReply('no transition', machine.state);
       }
-      return this.enter(machine, next);
+      return this.follow(machine, next);
     });
+  }
+
+  private follow(
+    machine: StateMachine,
+    { state, stop }: Transition,
+  ): FsmReplyDto {
+    return stop
+      ? this.enterStopping(machine, state)
+      : this.enter(machine, state);
   }
 
   // A repeated request key gets the reply to its first request, if that
@@ -130,40 +156,75 @@ export default class FsmService implements BeforeApplicationShutdown {
     return fsmReply('accepted', state);
   }
 
+  // Enters the state at once, so that the completion of the script it
+  // stops is stale, and runs the script of the state once the stopped
+  // script of the state it left has exited. A self-transition restarts
+  // the script.
+  private enterStopping(machine: StateMachine, state: string): FsmReplyDto {
+    const left = machine.state as string;
+    if (state !== left && this.manager.isRunning(state)) {
+      return fsmReply('script running', machine.state);
+    }
+    const entry = machine.enter(state);
+    this.status = 'running';
+    // manager.stop never rejects
+    this.pendingStop = this.pendingStop.then(() => this.manager.stop(left));
+    void this.pendingStop.then(() => this.runIfCurrent(machine, state, entry));
+    return fsmReply('accepted', state);
+  }
+
+  // Shutdown, or a later entry, while the stopped script exited means
+  // the script of this entry must not run
+  private async runIfCurrent(
+    machine: StateMachine,
+    state: string,
+    entry: number,
+  ): Promise<void> {
+    if (this.isCurrent(machine, entry)) {
+      await this.run(machine, state, entry);
+    }
+  }
+
+  private isCurrent(machine: StateMachine, entry: number): boolean {
+    return !this.stopping && machine.entry === entry;
+  }
+
   private async run(
     machine: StateMachine,
     state: string,
     entry: number,
   ): Promise<void> {
-    const success = await this.succeeds(state);
-    if (this.stopping || machine.entry !== entry) {
+    const outcome = await this.outcome(state);
+    if (!this.isCurrent(machine, entry)) {
       return;
     }
-    this.status = success ? 'valid' : 'invalid';
-    this.complete(machine, success ? '$success' : '$failure');
+    this.status = STATUS[outcome];
+    this.complete(machine, COMPLETION[outcome]);
   }
 
   // A script that could not start, as when the database is closed,
   // counts as failed
-  private async succeeds(state: string): Promise<boolean> {
+  private async outcome(state: string): Promise<RunOutcome> {
     try {
-      const [success] = await this.manager.newCommand(state);
-      return success;
+      const [outcome] = await this.manager.newCommand(state);
+      return outcome;
     } catch (error) {
       this.logger.error(`Script of state ${state} did not run: ${error}`);
-      return false;
+      return 'failed';
     }
   }
 
+  // No completion transition stops a script, as the definition refuses
+  // stop on completion events
   private complete(machine: StateMachine, event: CompletionEvent): void {
     const next = machine.next(event);
     if (next === undefined) {
       return;
     }
-    const { status } = this.enter(machine, next);
+    const { status } = this.enter(machine, next.state);
     if (status !== 'accepted') {
       this.logger.warn(
-        `Stayed in state ${machine.state} on ${event}: ${next} is ${status}`,
+        `Stayed in state ${machine.state} on ${event}: ${next.state} is ${status}`,
       );
     }
   }

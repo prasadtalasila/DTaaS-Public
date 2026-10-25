@@ -51,9 +51,13 @@ states: # each state runs the script of the same name
   keys, so each state has at most one transition per event: the
   machine is deterministic.
 - `events` lists the events of the DT. Clients may send only these.
-- `$success` and `$failure` are completion events. The runner raises
-  one of them when the script of the current state exits. Clients can
-  not send them.
+- `$success`, `$failure` and `$stopped` are completion events. The
+  runner raises one of them when the script of the current state
+  exits: `$stopped` when the runner stopped it (D19). Clients can not
+  send them.
+- A transition value is a state name, or `{ state, stop: true }`, which
+  stops the script of the state that the machine leaves before the
+  script of the next state runs (D20).
 
 ### Validation
 
@@ -67,9 +71,14 @@ invalid `mqtt` section. The file is valid when:
   the runner looks for it in the parsed YAML first);
 - every state is a permitted command of `runner.yaml`;
 - every transition leads to a declared state;
-- every event of a transition is declared in `events`, or is `$success`
-  or `$failure`;
-- no cycle is made of completion transitions alone.
+- every event of a transition is declared in `events`, or is a
+  completion event;
+- a transition object holds only `state` and `stop: true`, and is not
+  the transition of a completion event, whose script has already
+  exited;
+- no cycle is made of `$success` and `$failure` transitions alone.
+  `$stopped` is left out: it follows only a stop from outside, so a
+  loop through it can not run by itself.
 
 `events` may be left out, and a state without transitions may be left
 empty, as in `terminate:`. Without a `stateMachine` key, the state
@@ -83,6 +92,7 @@ key that names a missing file stops the runner.
 | `POST /fsm/transition` | `<topic>/transition` | `{"state": "create"}` |
 | `POST /fsm/event`      | `<topic>/event`      | `{"event": "stop"}`   |
 | `GET /fsm`             | `<topic>/fsm`        | ignored               |
+| `POST /stop`           | `<topic>/stop`       | `{"name": "execute"}` |
 
 A transition or event request is answered once the script of the new
 state has started, without waiting for it to finish. The body names
@@ -111,9 +121,15 @@ of the existing API, before any other check. `GET /fsm` answers:
 {"state": "execute", "status": "running", "events": ["reset", "start", "stop"]}
 ```
 
-`status` is `running`, `valid` or `invalid` for the script of the
-current state, and `none` before the first transition, when `state` is
-`null`.
+`status` is `running`, `valid`, `invalid` or `stopped` for the script
+of the current state, and `none` before the first transition, when
+`state` is `null`.
+
+`POST /stop` stops the running command of the given name, or every
+running command without one, and answers
+`{ "stopped": ["execute"] }` once their processes have exited. It
+belongs to the command API rather than the machine, and needs no
+state machine.
 
 ### Behaviour
 
@@ -125,12 +141,19 @@ current state, and `none` before the first transition, when `state` is
    is still running.
 1. Entering a state starts its script through `ExecaManager`, so the
    permitted-command check and the history apply unchanged.
-1. When the script exits, the runner raises `$success` or `$failure`,
-   if the machine is still in the same entry of that state. A
-   completion of an earlier entry is ignored.
-1. The runner does not stop the script of the state it leaves. The
-   script of the next state, such as _terminate_, is responsible for
-   stopping it.
+1. When the script exits, the runner raises `$success`, `$failure` or
+   `$stopped`, if the machine is still in the same entry of that
+   state. A completion of an earlier entry is ignored.
+1. A plain transition does not stop the script of the state it leaves.
+   The script of the next state, such as _terminate_, is responsible
+   for stopping it.
+1. On a transition with `stop: true` the runner refuses with
+   `script running` if the script of another target state runs (D8),
+   enters the target at once, which makes the completion of the old
+   script stale, and replies `accepted`. It then stops the script of
+   the state it left, waits until it has exited, and runs the script
+   of the target, unless shutdown began or a later entry happened
+   meanwhile. A self-transition thus restarts the script.
 
 ### Components
 
@@ -144,6 +167,7 @@ current state, and `none` before the first transition, when `state` is
 | `dto/fsm.dto.ts`         | request schemas and reply bodies                     |
 | `mqtt/*`                 | three more request topics                            |
 | `ExecaManager.isRunning` | tells whether a script is running                    |
+| `ExecaManager.stop`      | stops running scripts and waits until they exit      |
 
 ```mermaid
 sequenceDiagram
@@ -170,32 +194,38 @@ Fable reviewed a draft of this design. D7, D8, D11, D13, D14, the name
 pattern and the single definition unit came from its review; its
 proposal to derive the events from the transitions was declined (D4).
 
-| #   | Decision                                                                  | Reason                                                                                                                                                                                                                                                                                                                         |
-| :-- | :------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | YAML file that the `stateMachine` key of `runner.yaml` names              | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. Amended by issue 01 (S5): the fixed name `state-machine.yaml` in `location` gave way to a key, so that `runner.yaml`, the operator's file, names the DT author's file.                                      |
-| D2  | A state is a script of the same name                                      | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                                                                                                 |
-| D3  | Nested `transitions` maps instead of a list of transitions                | Duplicate YAML keys are an error, so a state can not have two transitions for one event, as in XState. The key is not XState's `on`, which YAML 1.1 parsers and yamllint read as `true`.                                                                                                                                       |
-| D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `transitions` at startup. Fable proposed deriving it; this was declined.                                                                   |
-| D5  | `$success` and `$failure` completion events                               | They give automatic transitions from one script to the next without a client. Clients can not send them: `events` only holds names that match the name pattern, which has no `$`, so a request for them is `invalid event`.                                                                                                    |
-| D6  | No initial state                                                          | The user's transition request starts the machine.                                                                                                                                                                                                                                                                              |
-| D7  | A transition request is accepted only when the machine is idle            | The owner said the state machine takes control once the script starts. An override at any time would compete with the machine. A hung script is left by an event, so the README asks for one out of each long state.                                                                                                           |
-| D8  | A state whose script is running can not be entered (409 `script running`) | `ExecaManager` joins a run in progress, so entering such a state would not run its script and would attach the completion of an earlier entry.                                                                                                                                                                                 |
-| D9  | Replies do not wait for the script                                        | A long _execute_ would hold the request open. The state is reported by `GET /fsm`.                                                                                                                                                                                                                                             |
-| D10 | Leaving a state does not stop its script                                  | The runner can not cancel a script. Waiting for it would block a `stop` event forever.                                                                                                                                                                                                                                         |
-| D11 | Reject cycles of completion transitions at startup                        | With fast scripts such a cycle would run forever and add a history row each time.                                                                                                                                                                                                                                              |
-| D12 | The machine lives in memory                                               | Nothing asks for recovery after a restart, and the scripts do not survive a restart either. The machine starts unstarted.                                                                                                                                                                                                      |
-| D13 | `Idempotency-Key` replays the reply in memory, for accepted requests      | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The header and user property have the names of `POST /`, but the keys are a namespace of their own, apart from the keys of `POST /` in the database. It keeps the last 256 accepted replies; a refused request changed nothing and is checked again. |
-| D14 | Stop accepting requests in `beforeApplicationShutdown`                    | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                                                                                                |
-| D15 | 202 Accepted for accepted requests                                        | The script has started, not finished.                                                                                                                                                                                                                                                                                          |
-| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones     | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them.                                                                                                                                                                                                                            |
-| D17 | A required `id`, and one strict schema for all of `runner.yaml`           | Added by issue 01. A Manager and the runner's notifications must name the DT, and the port or base topic does not. The `id` follows the name pattern of states. An unknown key of `runner.yaml` is an error, as in the state machine file.                                                                                     |
+| #   | Decision                                                                  | Reason                                                                                                                                                                                                                                                                                                                                                          |
+| :-- | :------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | YAML file that the `stateMachine` key of `runner.yaml` names              | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. Amended by issue 01 (S5): the fixed name `state-machine.yaml` in `location` gave way to a key, so that `runner.yaml`, the operator's file, names the DT author's file.                                                                       |
+| D2  | A state is a script of the same name                                      | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                                                                                                                                  |
+| D3  | Nested `transitions` maps instead of a list of transitions                | Duplicate YAML keys are an error, so a state can not have two transitions for one event, as in XState. The key is not XState's `on`, which YAML 1.1 parsers and yamllint read as `true`.                                                                                                                                                                        |
+| D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `transitions` at startup. Fable proposed deriving it; this was declined.                                                                                                    |
+| D5  | `$success` and `$failure` completion events                               | They give automatic transitions from one script to the next without a client. Clients can not send them: `events` only holds names that match the name pattern, which has no `$`, so a request for them is `invalid event`.                                                                                                                                     |
+| D6  | No initial state                                                          | The user's transition request starts the machine.                                                                                                                                                                                                                                                                                                               |
+| D7  | A transition request is accepted only when the machine is idle            | The owner said the state machine takes control once the script starts. An override at any time would compete with the machine. A hung script is left by an event, so the README asks for one out of each long state. A Manager that must force a state calls `POST /stop` first, which leaves the machine idle only in a state without a `$stopped` transition. |
+| D8  | A state whose script is running can not be entered (409 `script running`) | `ExecaManager` joins a run in progress, so entering such a state would not run its script and would attach the completion of an earlier entry. A transition with `stop: true` into the current state is the exception: it stops the script first (D20).                                                                                                         |
+| D9  | Replies do not wait for the script                                        | A long _execute_ would hold the request open. The state is reported by `GET /fsm`.                                                                                                                                                                                                                                                                              |
+| D10 | Leaving a state stops its script only on a transition with `stop: true`   | The runner can stop a script (D18), but the scripts of existing DTs stop one another, and a state whose script should outlive it must stay possible. The DT author marks the transitions that stop.                                                                                                                                                             |
+| D11 | Reject cycles of completion transitions at startup                        | With fast scripts such a cycle would run forever and add a history row each time.                                                                                                                                                                                                                                                                               |
+| D12 | The machine lives in memory                                               | Nothing asks for recovery after a restart, and the scripts do not survive a restart either. The machine starts unstarted.                                                                                                                                                                                                                                       |
+| D13 | `Idempotency-Key` replays the reply in memory, for accepted requests      | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The header and user property have the names of `POST /`, but the keys are a namespace of their own, apart from the keys of `POST /` in the database. It keeps the last 256 accepted replies; a refused request changed nothing and is checked again.                                  |
+| D14 | Stop accepting requests in `beforeApplicationShutdown`                    | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                                                                                                                                 |
+| D15 | 202 Accepted for accepted requests                                        | The script has started, not finished.                                                                                                                                                                                                                                                                                                                           |
+| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones     | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them.                                                                                                                                                                                                                                                             |
+| D17 | A required `id`, and one strict schema for all of `runner.yaml`           | Added by issue 01. A Manager and the runner's notifications must name the DT, and the port or base topic does not. The `id` follows the name pattern of states. An unknown key of `runner.yaml` is an error, as in the state machine file.                                                                                                                      |
+| D18 | A stop sends `SIGTERM`, then `SIGKILL` after `stopGrace` (5 s)            | execa's `forceKillAfterDelay` gives a script time to clean up and still ends one that ignores `SIGTERM`. `POST /stop` answers once the processes have exited, so a following request of the same command starts it afresh.                                                                                                                                      |
+| D19 | A run ends `success`, `failed` or `stopped` (`RunOutcome`)                | A boolean can not tell a deliberate stop from a crash. A run is `stopped` only when the runner's own stop reached the process; a kill from outside stays a failure, and a deliberate stop never counts as a crash for escalation (06).                                                                                                                          |
+| D20 | `$stopped` completion event and transitions with `stop: true`             | `$stopped` lets the DT author choose what follows a stop; without a `$stopped` transition the machine stays idle. A stop transition enters its target before the old script exits, so the reply does not wait (D9) and the old completion is stale; a self-transition with `stop: true` restarts the script.                                                    |
 
 ## Assumptions
 
 - A1: One runner serves one DT, so one machine per runner is enough.
 - A2: The scripts of a state machine are also listed in `commands`;
   the machine adds no way around that list.
-- A3: Scripts may run long. The DT's own scripts stop one another.
+- A3: Scripts may run long. The DT's own scripts stop one another, or
+  the runner stops them on `POST /stop` or a transition with
+  `stop: true`. A script ends its children on `SIGTERM`, as the runner
+  waits until its output pipes close.
 - A4: Events come from clients over HTTP or MQTT. Script exit is the
   only event the runner raises by itself.
 - A5: A script that is permitted but missing fails when it runs, and
@@ -246,6 +276,6 @@ proposal to derive the events from the transitions was declined (D4).
 
 ## Out of Scope
 
-Stopping a running script on a transition; guards, actions, timers,
+Guards, actions, timers,
 hierarchical or parallel states; persisting the machine across
 restarts; more than one machine per runner.

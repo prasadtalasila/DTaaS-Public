@@ -43,7 +43,7 @@ describe('check Queue service', () => {
 
   it('should store the result of a completed command', async () => {
     const id = queue.enqueue('hello');
-    queue.complete(id, [true, logs('hello world', 'warning')]);
+    queue.complete(id, ['success', logs('hello world', 'warning')]);
 
     expect(queue.activeCommand()).toEqual({
       id,
@@ -57,12 +57,22 @@ describe('check Queue service', () => {
 
   it('should store a failed command with empty logs', async () => {
     const id = queue.enqueue('terminate');
-    queue.complete(id, [false, new Map()]);
+    queue.complete(id, ['failed', new Map()]);
 
     expect(queue.activeCommand()).toMatchObject({
       status: 'invalid',
       stdout: '',
       stderr: '',
+      finished: true,
+    });
+  });
+
+  it('should store a stopped command as stopped', async () => {
+    const id = queue.enqueue('loop');
+    queue.complete(id, ['stopped', new Map()]);
+
+    expect(queue.activeCommand()).toMatchObject({
+      status: 'stopped',
       finished: true,
     });
   });
@@ -132,7 +142,7 @@ describe('check Queue service', () => {
     try {
       queue.open(file);
       const id = queue.enqueue('hello', 'key-1');
-      queue.complete(id, [true, logs('hello world')]);
+      queue.complete(id, ['success', logs('hello world')]);
       queue.close();
 
       const restarted = new Queue();

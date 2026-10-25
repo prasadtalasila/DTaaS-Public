@@ -27,16 +27,19 @@ describe('Check RunnerFactoryService', () => {
   it('should run the script directly on Linux', () => {
     const runner = RunnerFactory.create(
       'scripts/create',
+      1000,
       'linux',
     ) as ExecaRunner;
 
     expect(runner.command).toBe('scripts/create');
     expect(runner.args).toEqual([]);
+    expect(runner['stopGrace']).toBe(1000);
   });
 
   it('should run the PowerShell version of the script on Windows', () => {
     const runner = RunnerFactory.create(
       'scripts/create',
+      1000,
       'win32',
     ) as ExecaRunner;
 
@@ -48,5 +51,6 @@ describe('Check RunnerFactoryService', () => {
       '-File',
       'scripts/create.ps1',
     ]);
+    expect(runner['stopGrace']).toBe(1000);
   });
 });

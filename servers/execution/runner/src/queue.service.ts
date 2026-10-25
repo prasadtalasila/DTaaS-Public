@@ -8,6 +8,7 @@ import {
 } from './interfaces/command.interface.js';
 import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
+import { RunOutcome } from './interfaces/runner.interface.js';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
@@ -31,6 +32,13 @@ const RECORD = `SELECT id, name, status, stdout, stderr,
 
 const RECORD_BY_KEY = `${RECORD} WHERE id =
   (SELECT command_id FROM request_keys WHERE request_key = ?)`;
+
+// The status of a finished command in the commands table
+const STATUS: Record<RunOutcome, string> = {
+  success: 'valid',
+  failed: 'invalid',
+  stopped: 'stopped',
+};
 
 function toRecord(
   row: Record<string, unknown> | undefined,
@@ -95,14 +103,14 @@ export default class Queue {
       .run(requestKey, commandId);
   }
 
-  complete(id: number, [success, logs]: CommandResult): void {
+  complete(id: number, [outcome, logs]: CommandResult): void {
     this.db
       .prepare(
         `UPDATE commands SET status = ?, stdout = ?, stderr = ?,
           finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
       )
       .run(
-        success ? 'valid' : 'invalid',
+        STATUS[outcome],
         logs.get('stdout') ?? '',
         logs.get('stderr') ?? '',
         id,

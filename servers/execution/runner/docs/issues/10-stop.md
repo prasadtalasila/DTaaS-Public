@@ -1,6 +1,6 @@
 # 10 Stop a Running Script
 
-- Status: in progress
+- Status: in review
 - Depends on: 01 (for the `stopGrace` key; see Configuration)
 - PR: none
 - Research note:
@@ -163,29 +163,29 @@ machine moves on and is busy again.
 
 ## Tasks
 
-- [ ] `ExecaRunner.stop` ends a looping script with `stopped`; a script
+- [x] `ExecaRunner.stop` ends a looping script with `stopped`; a script
       that ignores `SIGTERM` is killed after the grace period; an outside
       kill is `failed`; a second `stop()` is harmless. Check:
       `test/integration/execa-runner.spec.ts` (the `SIGTERM` cases on
       POSIX only).
-- [ ] `ExecaManager.stop` stops one named run or all, awaits them,
+- [x] `ExecaManager.stop` stops one named run or all, awaits them,
       records `stopped`, a repeated key or joined request gets
       `stopped`, and a `newCommand` of the same name after the stop
-      runs the script again. Check: `test/integration/execa-manager.service.spec.ts`,
+      runs the script again. Check: `test/integration/execa-manager.stop.spec.ts`,
       `test/integration/queue.service.spec.ts`.
-- [ ] Definition accepts the object form, rejects `stop: false`, unknown
+- [x] Definition accepts the object form, rejects `stop: false`, unknown
       keys and `stop` on completion events, and accepts a loop through
       `$stopped`. Check: `test/unit/fsm.definition.spec.ts`.
-- [ ] A `POST /stop` of the current script raises `$stopped` and follows
+- [x] A `POST /stop` of the current script raises `$stopped` and follows
       its transition, or stays idle with status `stopped`; a
       stop-transition enters the target before the old script exits,
       ignores its completion, and restarts a self-transition. Check:
-      `test/unit/fsm.service.spec.ts` with a fake manager,
-      `test/e2e/fsm.spec.ts` with the loop script.
-- [ ] `POST /stop` and the MQTT route answer as specified, including an
-      empty body and payload. Check: `test/e2e/commander.spec.ts`,
+      `test/unit/fsm.service.stop.spec.ts` with a fake manager,
+      `test/e2e/fsm.stop.spec.ts` with the loop script.
+- [x] `POST /stop` and the MQTT route answer as specified, including an
+      empty body and payload. Check: `test/e2e/stop.spec.ts`,
       `test/unit/mqtt-request.handler.spec.ts`.
-- [ ] README, design document (D7, D8, D10) and request files updated.
+- [x] README, design document (D7, D8, D10) and request files updated.
       Check: `npx markdownlint-cli` on them.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass, and no function
+- [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no function
       crosses the Qlty thresholds. Check: their output.

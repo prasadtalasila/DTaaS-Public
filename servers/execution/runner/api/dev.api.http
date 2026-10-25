@@ -121,3 +121,16 @@ content-type: {{ContentType}}
 {
     "event": "stop"
 }
+
+### Stop every running command
+
+POST http://{{hostname}}:{{port}}/stop HTTP/1.1
+
+###
+
+POST http://{{hostname}}:{{port}}/stop HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "name": "execute"
+}

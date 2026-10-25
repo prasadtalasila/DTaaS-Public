@@ -38,6 +38,7 @@ describe('Check Configuration Service', () => {
     expect(config.getLocation()).toEqual('script');
     expect(config.getStateMachine()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
+    expect(config.getStopGrace()).toEqual(5000);
   });
 
   it('Should load correct configuration', async () => {
@@ -49,13 +50,13 @@ describe('Check Configuration Service', () => {
     expect(config.getId()).toEqual('test-runner');
     expect(config.getAttributes()).toEqual({});
     expect(config.getPort()).toEqual(5002);
-    expect(config.permitCommands()).toHaveLength(1);
-    expect(config.permitCommands()).toContain('create');
+    expect(config.permitCommands()).toEqual(['create', 'loop', 'ignore-term']);
     expect(config.getLocation()).toEqual(resolveFile('script'));
     expect(config.getStateMachine()).toBeUndefined();
     expect(spyOnCLIOptions).toHaveBeenCalled();
     expect(config.getDatabase()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
+    expect(config.getStopGrace()).toEqual(500);
   });
 
   it('Should load the MQTT configuration', async () => {

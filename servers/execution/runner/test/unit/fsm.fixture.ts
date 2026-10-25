@@ -5,6 +5,7 @@ import { jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -19,29 +20,36 @@ export const MACHINE_FILE = 'machine.yaml';
 export const settle = () => new Promise(setImmediate);
 
 // A script folder with the state machine of the service tests
-export function scriptFolder(): string {
+export function scriptFolder(definition = DEFINITION): string {
   const dir = mkdtempSync(join(tmpdir(), 'fsm-'));
-  writeFileSync(join(dir, MACHINE_FILE), DEFINITION);
+  writeFileSync(join(dir, MACHINE_FILE), definition);
   return dir;
 }
 
-// Runs each script until the test finishes it
+// Runs each script until the test finishes or stops it
 function fakeManager() {
-  const finishers = new Map<string, (success: boolean) => void>();
+  const finishers = new Map<string, (outcome: RunOutcome) => void>();
   const manager = {
     isRunning: jest.fn((name: string) => finishers.has(name)),
     newCommand: jest.fn(
       (name: string) =>
-        new Promise<[boolean, Map<string, string>]>((resolve) => {
-          finishers.set(name, (success) => {
+        new Promise<[RunOutcome, Map<string, string>]>((resolve) => {
+          finishers.set(name, (outcome) => {
             finishers.delete(name);
-            resolve([success, new Map()]);
+            resolve([outcome, new Map()]);
           });
         }),
     ),
+    stop: jest.fn(async (name?: string) => {
+      const names = [...finishers.keys()].filter(
+        (running) => name === undefined || name === running,
+      );
+      names.forEach((running) => finishers.get(running)?.('stopped'));
+      return names;
+    }),
   };
   const finish = async (name: string, success: boolean) => {
-    finishers.get(name)?.(success);
+    finishers.get(name)?.(success ? 'success' : 'failed');
     await settle();
   };
   return { manager, finish };

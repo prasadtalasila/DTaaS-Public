@@ -7,7 +7,7 @@ const definition = parseDefinition(
 events: [stop, start]
 states:
   create: {transitions: {$success: execute}}
-  execute: {transitions: {stop: create}}`,
+  execute: {transitions: {stop: {state: create, stop: true}}}`,
   ['create', 'execute'],
   'state-machine.yaml',
 );
@@ -46,9 +46,9 @@ describe('State machine', () => {
     const machine = new StateMachine(definition);
     machine.enter('create');
 
-    expect(machine.next('$success')).toBe('execute');
+    expect(machine.next('$success')).toEqual({ state: 'execute', stop: false });
     expect(machine.next('stop')).toBeUndefined();
     machine.enter('execute');
-    expect(machine.next('stop')).toBe('create');
+    expect(machine.next('stop')).toEqual({ state: 'create', stop: true });
   });
 });

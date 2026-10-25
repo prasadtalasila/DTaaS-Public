@@ -32,8 +32,8 @@ describe('State machine definition', () => {
     expect([...definition.states.keys()]).toEqual(permitted);
     expect(definition.states.get('create')).toEqual(
       new Map([
-        ['$success', 'execute'],
-        ['$failure', 'terminate'],
+        ['$success', { state: 'execute', stop: false }],
+        ['$failure', { state: 'terminate', stop: false }],
       ]),
     );
     expect(definition.states.get('terminate')).toEqual(new Map());
@@ -121,6 +121,51 @@ states:
       'states: {create: {transitions: {$success: create}}}',
       'create -> create',
     );
+  });
+
+  it('Should read a transition that stops the script', () => {
+    const definition = parseDefinition(
+      `
+events: [restart]
+states: {execute: {transitions: {restart: {state: execute, stop: true}}}}`,
+      permitted,
+      FILE,
+    );
+
+    expect(definition.states.get('execute')?.get('restart')).toEqual({
+      state: 'execute',
+      stop: true,
+    });
+  });
+
+  it.each([
+    ['stop: false', '{state: create, stop: false}', 'stop: true'],
+    ['no stop', '{state: create}', 'stop: true'],
+    ['an unknown key', '{state: create, stop: true, after: 5}', 'after'],
+    ['an undeclared state', '{state: configure, stop: true}', 'configure'],
+  ])('Should refuse a transition object with %s', (_, value, message) => {
+    expectInvalid(
+      `events: [go]\nstates: {create: {transitions: {go: ${value}}}}`,
+      message,
+    );
+  });
+
+  it.each(['$success', '$failure', '$stopped'])(
+    'Should refuse to stop the script on %s',
+    (event) => {
+      expectInvalid(
+        `states: {create: {transitions: {${event}: {state: create, stop: true}}}}`,
+        `state create can not stop its script on ${event}`,
+      );
+    },
+  );
+
+  it('Should allow a loop through $stopped', () => {
+    const loop = `
+states:
+  create: {transitions: {$stopped: execute}}
+  execute: {transitions: {$success: create, $stopped: execute}}`;
+    expect(() => parseDefinition(loop, permitted, FILE)).not.toThrow();
   });
 
   it('Should allow a cycle that waits for an event', () => {

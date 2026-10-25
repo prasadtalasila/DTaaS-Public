@@ -130,3 +130,15 @@ QoS: 1
 {}
 === wait-for-server
 {{ "" }}
+
+###
+
+# @name stop
+MQTT {{broker}}
+Subscribe: {{topic}}/stop/response
+Publish: {{topic}}/stop
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}

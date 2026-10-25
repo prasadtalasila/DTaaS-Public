@@ -150,6 +150,17 @@ The runner keeps reconnecting while the broker is unavailable or
 refuses the connection, and serves HTTP in the meantime. The runner does not start
 if the `mqtt` section is invalid.
 
+### Stop Grace Period
+
+A [stop](#stopping-scripts) sends `SIGTERM` to a script and, if the
+script is still running after a grace period, `SIGKILL`. The optional
+`stopGrace` sets the period in milliseconds; it is five seconds
+without it:
+
+```yaml
+stopGrace: 5000
+```
+
 ## Create Commands
 
 The runner requires commands / scripts to be run.
@@ -207,10 +218,14 @@ states: # each state runs the script of the same name
   _runner.yaml_. Entering a state runs its script.
 - `transitions` gives the next state for each event of a state.
 - `events` lists the events that clients may send. It may be left out
-  when only `$success` and `$failure` move the machine.
+  when only the completion events move the machine.
 - A state without transitions may be left empty, as in `terminate:`.
-- The runner raises `$success` or `$failure` itself when the script of
-  the current state exits. Clients can not send them.
+- The runner raises the completion events itself when the script of
+  the current state exits: `$success`, `$failure`, or `$stopped` when
+  the runner [stopped](#stopping-scripts) it. Clients can not send
+  them.
+- A transition may stop the script of the state that the machine
+  leaves, as described in [stopping scripts](#stopping-scripts).
 - State and event names have up to 64 letters, digits, `_`, `.` or
   `-`, and start with a letter or digit.
 
@@ -221,16 +236,69 @@ transitions alone form a loop, or if the file does not exist. Without
 the `stateMachine` key, the state machine is off. The runner reads the
 file when it starts.
 
-The runner does not stop the script of a state that the machine
-leaves; the script of the next state, such as _terminate_, has to do
-that. Nor does it enter a state whose script is still running: a
-`$success` or `$failure` transition into such a state is skipped with
-a warning in the log, and the machine stays idle in its state.
+A plain transition does not stop the script of the state that the
+machine leaves; the script of the next state, such as _terminate_, has
+to do that, unless the transition has `stop: true`. Nor does the runner
+enter a state whose script is still running: a completion transition
+into such a state is skipped with a warning in the log, and the machine
+stays idle in its state.
 
 A transition request waits until the machine is idle, so give each
 state whose script may run long an event that leads out of it, as
-_execute_ has `stop` above. Otherwise only a restart moves the machine
-while that script hangs.
+_execute_ has `stop` above. Otherwise only a
+[stop request](#post-request-to-stop) moves the machine while that
+script hangs, and only when the state has no `$stopped` transition;
+with one, the machine moves on and is busy again.
+
+### Stopping Scripts
+
+The runner stops a script on a [stop request](#post-request-to-stop)
+and on a transition with `stop: true`. It sends `SIGTERM` and, if the
+script still runs after the [grace period](#stop-grace-period),
+`SIGKILL`. A script that the runner stopped is `stopped` in the
+history and in `GET /`; a script killed from outside the runner has
+failed.
+
+When the runner stops the script of the current state, it raises
+`$stopped`. A state without a `$stopped` transition stays idle in that
+state, with the script status `stopped`. A loop through `$stopped` is
+allowed, as it needs a stop request each time.
+
+A transition stops the script of the state that the machine leaves
+when its value names the next state and `stop: true`:
+
+```yaml
+events:
+  - restart
+  - stop
+states:
+  execute:
+    transitions:
+      restart: { state: execute, stop: true } # restarts the script
+      stop: { state: terminate, stop: true }
+  terminate:
+```
+
+On such an event the runner enters the next state at once and answers
+`accepted`, then stops the script of the state it left, waits until
+that script has exited, and runs the script of the next state. The
+stopped script raises no `$stopped`, as the machine has left its
+state. A transition to the same state thus restarts its script, which
+a plain transition refuses while the script runs. A transition to
+another state whose script runs is refused with `script running`.
+`stop: true` is not allowed on `$success`, `$failure` and `$stopped`,
+whose script has already exited.
+
+Scripts must let a stop end them:
+
+- The runner waits until the stdout and stderr of a script close. A
+  child process that keeps them open, such as a foreground `sleep`
+  under `sh`, which survives the `SIGTERM` of its shell, holds up the
+  stop until it exits. End such children on `SIGTERM`, for example by
+  starting the last command with `exec`, or with a `trap`.
+- On Windows, the runner ends `powershell.exe` at once, without a
+  grace period, and the processes that the script started keep
+  running.
 
 The state machine is kept in memory, so after a restart it has no
 state until the next transition request.
@@ -268,7 +336,7 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 
 ### Application Programming Interface (API)
 
-Three REST API methods run commands, three more drive the
+Four REST API methods run and stop commands, three more drive the
 [state machine](#state-machine-requests), and one
 [describes the digital twin](#get-request-to-dt). The routes for
 commands and their responses are:
@@ -278,6 +346,7 @@ commands and their responses are:
 | localhost:port         | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
 | localhost:port         | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
 | localhost:port/history | GET         | Returns the array of well-formed POST requests received so far.         |                                                                                                         |
+| localhost:port/stop    | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
 
 #### POST Request to /
 
@@ -305,6 +374,16 @@ If the command is neither permitted nor available, the response will be
 ```http
 {
   "status": "invalid command"
+}
+```
+
+If a [stop request](#post-request-to-stop) stops the command, the
+response has the HTTP status 200 and is the one below. Versions before
+0.6.0 could not stop a command and had no such response.
+
+```http
+{
+  "status": "stopped"
 }
 ```
 
@@ -336,6 +415,9 @@ If the execution is unsuccessful, the status will be
   }
 }
 ```
+
+The status of a command that a stop request stopped is `stopped`, with
+empty logs.
 
 If an incorrectly formatted JSON is sent via POST request,
 a validation error is returned.
@@ -385,6 +467,38 @@ Describes the digital twin that the runner serves, from its
 permitted commands, and `stateMachine` tells whether a state machine
 is loaded.
 
+#### POST Request to /stop
+
+Stops the running command of the given name:
+
+```http
+{
+  "name": "<command name>"
+}
+```
+
+Without a `name`, or without a request body, it stops every running
+command. The runner stops each one as described in
+[stopping scripts](#stopping-scripts), and answers with HTTP status 200
+once they have exited, which can take the grace period and more:
+
+```http
+{
+  "stopped": ["<command name>"]
+}
+```
+
+The list is empty when nothing was running. The response does not wait
+for the state machine to follow `$stopped`, so `GET /fsm` straight
+after it may still show the old state for a moment. A request key is
+not needed: a repeated stop request finds nothing running.
+
+```bash
+curl -X POST http://localhost:5000/stop
+curl -X POST http://localhost:5000/stop \
+  -H 'Content-Type: application/json' -d '{"name": "execute"}'
+```
+
 #### Repeated Requests
 
 The runner does not run a command again for a repeated request:
@@ -402,7 +516,9 @@ A repeated request is not added to the history. The runner keeps the
 history, the logs and the request keys in its
 [database](#command-history) without a time limit. A command that was
 running when the runner stopped stays `invalid` in the history, and a
-repeat of its request gets that status.
+repeat of its request gets that status. A repeat of a request whose
+command a stop request stopped gets `stopped`, as does a request
+that joined that run.
 
 ```bash
 curl -X POST http://localhost:5000 \
@@ -458,7 +574,8 @@ kept in memory, apart from the keys of `POST /`. An older key is
 forgotten, and a repeat of it counts as a new request.
 
 `GET /fsm` returns the state, the status of its script (`none`,
-`running`, `valid` or `invalid`) and the events of the digital twin:
+`running`, `valid`, `invalid` or `stopped`) and the events of the
+digital twin:
 
 ```http
 {
@@ -524,6 +641,7 @@ JSON as the matching HTTP request and response.
 | `<topic>/fsm`        | GET /fsm              | ignored                      |
 | `<topic>/dt`         | GET /dt               | ignored                      |
 | `<topic>/health`     | GET /health           | ignored                      |
+| `<topic>/stop`       | POST /stop            | `{"name": "<command name>"}` |
 
 The runner answers a `health` request only while it is connected, so
 the reply always says `"mqtt": "connected"`; that a reply arrives at
@@ -543,7 +661,8 @@ or is one of its request topics.
 MQTT has no status codes, so the response payload alone tells
 the outcome. A request payload that is not a JSON object with a `name`
 gets the validation error of the HTTP API, and an unexpected failure
-gets the body of an HTTP 500 response.
+gets the body of an HTTP 500 response. A stop request may have an
+empty payload, or `{}`, to stop every running command.
 
 The runner subscribes with QoS 1, so the broker may deliver a request
 twice. An MQTT 5 request with an `idempotency-key` user property runs

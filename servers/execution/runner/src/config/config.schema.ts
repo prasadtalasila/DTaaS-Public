@@ -25,5 +25,8 @@ export const configSchema = z
     database: z.string().optional(),
     // optional; the runner serves its API over MQTT as well when it is set
     mqtt: mqttConfigSchema.optional(),
+    // optional; milliseconds from SIGTERM to SIGKILL when a script is
+    // stopped
+    stopGrace: z.int().positive().optional(),
   })
   .strict();
