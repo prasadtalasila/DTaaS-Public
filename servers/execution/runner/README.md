@@ -172,6 +172,10 @@ notify:
   token: 'secret' # optional; sent as Authorization: Bearer <token>
 ```
 
+The runner posts its [presence](#presence) at startup and, at
+shutdown, its offline notice once, with a 2 s timeout and no retry, so
+that a slow webhook does not hold the shutdown.
+
 ## Create Commands
 
 The runner requires commands / scripts to be run.
@@ -943,6 +947,10 @@ JSON as the matching HTTP request and response.
 | `<topic>/parameters`     | GET /parameters       | ignored                      |
 | `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`        |
 
+The runner also publishes [notifications](#notifications) under
+`<topic>/notify/<kind>`, among them its [presence](#presence) on
+`<topic>/notify/presence`, which is also the topic of its MQTT will.
+
 The runner answers a `health` request only while it is connected, so
 the reply always says `"mqtt": "connected"`; that a reply arrives at
 all tells that the runner is alive.
@@ -1013,8 +1021,9 @@ at startup. A document that differs from the last one sent only in its
 ```
 
 `data` is the whole state document, shortened here; `id` and `time` are
-those of the document. `kind` is `state`; later versions add other
-kinds. Documents built within the same millisecond can share `time`.
+those of the document. `kind` is `state` here, and `presence` for the
+notices of [presence](#presence); later versions add other kinds.
+Documents built within the same millisecond can share `time`.
 
 With MQTT enabled, the runner publishes each notification with QoS 1 on
 `<topic>/notify/<kind>`, for example `<topic>/notify/state`, retained,
@@ -1037,10 +1046,53 @@ order; a receiver that needs a strict order uses MQTT, which delivers
 the notifications in order. A failure is logged
 once, with the host of the webhook only, until a post succeeds again.
 At shutdown, the runner abandons the posts still in progress or waiting
-for a retry.
+for a retry, and posts only its offline notice.
 
 Without MQTT and a webhook, [GET /state](#get-request-to-state) is the
 only way to observe the state.
+
+#### Presence
+
+The runner announces that it joins and leaves, with notifications of
+kind `presence`. The online notice carries the
+[descriptor](#get-request-to-dt) of the DT:
+
+```json
+{
+  "kind": "presence",
+  "id": "hospital-1",
+  "time": "2026-10-25T10:00:00.000Z",
+  "data": { "online": true, "descriptor": { "id": "hospital-1" } }
+}
+```
+
+The offline notice has `"data": { "online": false }` and the time the
+runner left.
+
+With MQTT enabled, the runner publishes the online notice on
+`<topic>/notify/presence`, retained, each time it connects to the
+broker, the first time and after each reconnect. It connects with a
+will on the same topic: the offline notice, retained, with
+`"time": null`, as the will is fixed when the runner connects. The
+broker publishes the will only when the runner disappears without
+leaving: a crash, a kill or a lost connection. The will is the one
+notification without a time.
+
+At shutdown the runner leaves the broker in steps of at most 2 s each:
+
+1. It publishes the offline notice, retained, with the current time.
+1. Once the broker acknowledged the notice, or the publish failed, the
+   runner disconnects gracefully, so that the broker drops the will.
+1. Otherwise, or if the disconnect does not finish, it closes the
+   connection and logs a warning that the broker did not confirm the
+   leave. The broker may then publish the will, which replaces the
+   retained notice with one without a time; it still says offline.
+
+Leaving the broker thus adds at most 4 s to the shutdown.
+
+With a [webhook](#webhook), the runner posts the online notice once at
+startup, not on a reconnect, and the offline notice once at shutdown.
+Without MQTT and a webhook, nothing is announced.
 
 ## License
 

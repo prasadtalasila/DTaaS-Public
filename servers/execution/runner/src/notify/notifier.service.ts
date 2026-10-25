@@ -5,7 +5,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import DescriptorService from '../descriptor.service.js';
-import { NotificationDto, NotifyKind } from '../dto/notify.dto.js';
+import {
+  NotificationDto,
+  NotifyKind,
+  offlineNotification,
+} from '../dto/notify.dto.js';
 import MqttService from '../mqtt/mqtt.service.js';
 import WebhookClient from './webhook.client.js';
 
@@ -17,8 +21,9 @@ const RETAINED: Record<NotifyKind, boolean> = {
   presence: true,
 };
 
-// Sends the state document whenever it changes, and the notifications
-// of other kinds, over MQTT and the webhook
+// Sends the state document whenever it changes, the presence of the
+// runner, and the notifications of other kinds, over MQTT and the
+// webhook
 @Injectable()
 export default class Notifier
   implements OnModuleInit, OnApplicationBootstrap, BeforeApplicationShutdown
@@ -35,17 +40,28 @@ export default class Notifier
     private readonly webhook: WebhookClient,
   ) {} // eslint-disable-line no-empty-function
 
+  // The broker keeps only the last presence notice, so the runner
+  // announces itself on each connection; the webhook hears it once
   onModuleInit(): void {
     this.descriptor.onChange(() => this.sendState());
+    this.mqtt.onConnect(() => this.announce());
   }
 
-  // The state document at startup
+  // The presence and the state document at startup
   onApplicationBootstrap(): void {
+    if (!this.stopped) {
+      void this.webhook.post(this.online());
+    }
     this.sendState();
   }
 
-  beforeApplicationShutdown(): void {
+  // MqttService publishes the offline notice itself, as its client is
+  // already disconnecting when this hook runs
+  async beforeApplicationShutdown(): Promise<void> {
     this.stopped = true;
+    const { id } = this.descriptor.describe();
+    const time = new Date().toISOString();
+    await this.webhook.sendOnce(offlineNotification(id, time));
   }
 
   send(kind: NotifyKind, data: unknown): void {
@@ -69,6 +85,19 @@ export default class Notifier
     this.last = content;
     const { id, time } = document;
     this.publish({ kind: 'state', id, time, data: document });
+  }
+
+  private announce(): void {
+    if (!this.stopped) {
+      void this.mqtt.notify('presence', this.online(), RETAINED.presence);
+    }
+  }
+
+  private online(): NotificationDto {
+    const descriptor = this.descriptor.describe();
+    const time = new Date().toISOString();
+    const data = { online: true, descriptor };
+    return { kind: 'presence', id: descriptor.id, time, data };
   }
 
   // Neither transport rejects

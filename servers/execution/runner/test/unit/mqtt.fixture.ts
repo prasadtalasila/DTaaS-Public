@@ -19,6 +19,8 @@ export class FakeClient extends EventEmitter {
   );
 
   endAsync = jest.fn((_force?: boolean) => Promise.resolve(undefined));
+
+  stream = { destroy: jest.fn() };
 }
 
 export const mqttConfig: MqttConfig = {
@@ -32,7 +34,10 @@ export const mqttConfig: MqttConfig = {
 export function setup(options: MqttConfig | undefined) {
   const client = new FakeClient();
   const connect = jest.fn<MqttConnect>(() => client as unknown as MqttClient);
-  const config = { getMqtt: () => options } as unknown as Config;
+  const config = {
+    getMqtt: () => options,
+    getId: () => 'hospital-1',
+  } as unknown as Config;
   const handle = jest.fn(
     (
       _route: string,

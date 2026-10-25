@@ -1,6 +1,9 @@
+import { once } from 'node:events';
+import { AddressInfo, createServer, Server } from 'node:net';
 import { jest } from '@jest/globals';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { Aedes } from 'aedes';
 import { connectAsync, IPublishPacket, MqttClient } from 'mqtt';
 import Keyv from 'keyv';
 import AppModule from 'src/app.module';
@@ -32,6 +35,26 @@ export async function startRunner(
   app.get<MqttService>(MqttService).start();
   await app.init();
   return app;
+}
+
+export type Broker = { aedes: Aedes; server: Server; url: string };
+
+// A local aedes broker, which supports MQTT 3.1.1 only
+export async function startBroker(): Promise<Broker> {
+  const aedes = await Aedes.createBroker();
+  const server = createServer(aedes.handle);
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const { port } = server.address() as AddressInfo;
+  return { aedes, server, url: `mqtt://127.0.0.1:${port}` };
+}
+
+export async function stopBroker({ aedes, server }: Broker): Promise<void> {
+  await new Promise<void>((resolve) => {
+    aedes.close(() => resolve());
+  });
+  server.close();
+  await once(server, 'close');
 }
 
 export type Reply = {
@@ -70,12 +93,13 @@ export function nextReply(
 
 export type Notification = { body: NotificationDto; retain: boolean };
 
-// Resolves with the next state notification on the topic whose state
-// document passes the check, and whether the broker retained it
-export function nextNotification(
+// Resolves with the next notification on the topic whose data, by
+// default a state document, passes the check, and whether the broker
+// retained it
+export function nextNotification<Data = StateDocumentDto>(
   client: MqttClient,
   topic: string,
-  check: (document: StateDocumentDto) => boolean,
+  check: (data: Data) => boolean,
 ): Promise<Notification> {
   return new Promise((resolve) => {
     const listener = (
@@ -88,7 +112,7 @@ export function nextNotification(
         return;
       }
       const body = JSON.parse(payload.toString()) as NotificationDto;
-      if (check(body.data as StateDocumentDto)) {
+      if (check(body.data as Data)) {
         client.removeListener('message', listener);
         resolve({ body, retain });
       }
@@ -97,8 +121,8 @@ export function nextNotification(
   });
 }
 
-// Connects a new client and resolves with the first state notification
-// it receives on the topic, the one that the broker retained
+// Connects a new client and resolves with the first notification it
+// receives on the topic, the one that the broker retained
 export async function lateSubscriber(
   url: string,
   protocolVersion: 4 | 5,

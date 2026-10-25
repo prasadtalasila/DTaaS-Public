@@ -120,6 +120,7 @@ the container, and run `sudo chown 1000 data` if your user id is not 1000.
 At shutdown the runner waits for the commands in progress to finish.
 Docker stops a container forcibly after ten seconds, so set a longer
 `stop_grace_period` in the compose file for commands that take longer.
+With MQTT, leaving the broker can take up to 4 s of that period.
 
 The `compose.runner.yml` file has a Docker health check that asks
 `GET /health` with node, as the image has neither curl nor wget:

@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-import { AddressInfo, createServer, Server } from 'node:net';
 import {
   afterEach,
   beforeEach,
@@ -9,33 +7,19 @@ import {
   jest,
 } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
-import { Aedes } from 'aedes';
 import supertest from 'supertest';
 import { connectAsync, MqttClient } from 'mqtt';
 import { MqttRoute } from 'src/mqtt/mqtt.config';
 import { queriesJSON } from './util';
-import { lateSubscriber, nextNotification, startRunner } from './mqtt.util';
+import {
+  lateSubscriber,
+  nextNotification,
+  startBroker,
+  startRunner,
+  stopBroker,
+} from './mqtt.util';
 
 const TOPIC = 'dtaas/test/runner';
-
-type Broker = { aedes: Aedes; server: Server; url: string };
-
-async function startBroker(): Promise<Broker> {
-  const aedes = await Aedes.createBroker();
-  const server = createServer(aedes.handle);
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const { port } = server.address() as AddressInfo;
-  return { aedes, server, url: `mqtt://127.0.0.1:${port}` };
-}
-
-async function stopBroker({ aedes, server }: Broker): Promise<void> {
-  await new Promise<void>((resolve) => {
-    aedes.close(() => resolve());
-  });
-  server.close();
-  await once(server, 'close');
-}
 
 // Publishes one request and resolves with the topic and parsed body
 // of the reply

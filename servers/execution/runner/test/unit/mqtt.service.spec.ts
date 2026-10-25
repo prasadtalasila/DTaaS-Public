@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { IPublishPacket } from 'mqtt';
+import { presenceWill } from 'src/mqtt/mqtt.config';
 import { message, mqttConfig, packet, setup } from './mqtt.fixture';
 
 describe('MQTT service', () => {
@@ -18,6 +19,7 @@ describe('MQTT service', () => {
       password: 'secret',
       protocolVersion: 5,
       reconnectOnConnackError: true,
+      will: presenceWill('dtaas/runner', 'hospital-1'),
     });
     expect(client.subscribe).toHaveBeenCalledWith(
       [
@@ -191,13 +193,6 @@ describe('MQTT service', () => {
     );
     expect(error).toHaveBeenCalledTimes(2);
     expect(error).toHaveBeenCalledWith('MQTT error: refused');
-  });
-
-  it('Should disconnect on shutdown', async () => {
-    const { client, service } = setup(mqttConfig);
-    service.start();
-    await service.beforeApplicationShutdown();
-    expect(client.endAsync).toHaveBeenCalledWith(true);
   });
 
   it('Should report MQTT as disabled without an MQTT configuration', () => {

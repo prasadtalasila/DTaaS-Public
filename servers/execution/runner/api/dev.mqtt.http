@@ -183,7 +183,8 @@ QoS: 1
 
 # @name notifications
 # Subscribes to the notifications of the runner and publishes nothing;
-# the broker hands over the retained state document at once
+# the broker hands over the retained state document and presence
+# notice at once
 MQTT {{broker}}
 Subscribe: {{topic}}/notify/+
 QoS: 1

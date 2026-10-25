@@ -54,10 +54,26 @@ class Webhook extends EventEmitter {
     return `http://127.0.0.1:${port}/dt-events`;
   }
 
-  // The first post, received or to come, whose machine passes the check
+  // The first state post, received or to come, whose machine passes the
+  // check; a presence post has no machine
   received(check: (machine: Machine | null) => boolean): Promise<Post> {
-    const passes = (received: Post) =>
-      check((received.body.data as { machine: Machine | null }).machine);
+    return this.first(
+      ({ body }) =>
+        body.kind === 'state' &&
+        check((body.data as { machine: Machine | null }).machine),
+    );
+  }
+
+  // The first presence post, received or to come, online or not
+  presence(online: boolean): Promise<Post> {
+    return this.first(
+      ({ body }) =>
+        body.kind === 'presence' &&
+        (body.data as { online: boolean }).online === online,
+    );
+  }
+
+  private first(passes: (received: Post) => boolean): Promise<Post> {
     const earlier = this.posts.find(passes);
     if (earlier !== undefined) {
       return Promise.resolve(earlier);
@@ -76,7 +92,7 @@ class Webhook extends EventEmitter {
 
 describe('Webhook notifications', () => {
   let dir: string;
-  let app: INestApplication;
+  let app: INestApplication | undefined;
   let webhook: Webhook;
 
   beforeEach(async () => {
@@ -90,18 +106,25 @@ describe('Webhook notifications', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
     webhook.server.close();
     await once(webhook.server, 'close');
     rmSync(dir, { recursive: true, force: true });
     jest.restoreAllMocks();
   }, TIMEOUT);
 
+  const running = (): INestApplication => {
+    if (app === undefined) {
+      throw new Error('The runner is not running');
+    }
+    return app;
+  };
+
   it(
     'Should post the state document at startup and after a transition',
     async () => {
       const startup = await webhook.received((machine) => !machine?.state);
-      const { status } = await post(app, '/fsm/transition', {
+      const { status } = await post(running(), '/fsm/transition', {
         state: 'create',
       });
       const done = await webhook.received(
@@ -121,6 +144,32 @@ describe('Webhook notifications', () => {
         time: (done.body.data as { time: string }).time,
         data: { machine: { state: 'create', status: 'valid', entry: 1 } },
       });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'Should post the presence at startup and the leave at shutdown',
+    async () => {
+      const joined = await webhook.presence(true);
+      await running().close();
+      app = undefined;
+      const left = await webhook.presence(false);
+
+      expect(joined.body).toMatchObject({
+        kind: 'presence',
+        id: 'dt-1',
+        data: { online: true, descriptor: { id: 'dt-1', stateMachine: true } },
+      });
+      expect(left.body).toEqual({
+        kind: 'presence',
+        id: 'dt-1',
+        time: expect.any(String),
+        data: { online: false },
+      });
+      expect(
+        webhook.posts.filter(({ body }) => body.kind === 'presence'),
+      ).toHaveLength(2);
     },
     TIMEOUT,
   );
