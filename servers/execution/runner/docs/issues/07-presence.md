@@ -1,6 +1,6 @@
 # 07 Presence: Join and Leave
 
-- Status: in progress
+- Status: in review
 - Depends on: 01, 03
 - PR: none
 - Research note:
@@ -95,8 +95,9 @@ from its `connect` handler; `Notifier.onModuleInit` subscribes and
 publishes the online notice through `MqttService.notify`. No
 constructor changes anywhere.
 
-`main.ts` and `test/e2e/mqtt.util.ts` call `start()` before
-`app.init()`. The first `connect` event follows the CONNACK and the
+`main.ts` calls `start()` right before `app.listen()`, which runs
+`app.init()`, and `test/e2e/mqtt.util.ts` calls it before `app.init()`.
+The first `connect` event follows the CONNACK and the
 drain of the outgoing store, both I/O, while `init()` reaches
 `onModuleInit` through promises alone, so the listener is registered
 first. Were it not, the online notice would wait for a reconnect; the
@@ -264,9 +265,10 @@ true, so a missed first `connect` still announces the runner.
   and use the prototype spy.
 - The webhook e2e test closes the runner inside the test to see the
   offline post, so `app` became optional, as in the broker test.
-- D23 is worded to fit the existing column widths of the decision
-  table, so prettier does not realign every row and conflict with 05,
-  06 and 08, which add decisions in parallel.
+- The presence decision is D26: 08 took D23, and 05 and 06 claim D24
+  and D25. It is worded to fit the existing column widths of the
+  decision table, so prettier does not realign every row and conflict
+  with 05 and 06, which add decisions in parallel.
 - 08 (PR #81) keeps `start()` before `app.listen()`, so the order the
   Ownership paragraph relies on holds; were `start()` ever moved after
   `listen()`, `onConnect` registers the listener before the client
