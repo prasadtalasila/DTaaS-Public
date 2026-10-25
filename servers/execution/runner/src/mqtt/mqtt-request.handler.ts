@@ -9,6 +9,7 @@ import {
   requestKeySchema,
 } from '../dto/command.dto.js';
 import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
+import { healthReport } from '../dto/health.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
@@ -52,6 +53,8 @@ export default class MqttRequestHandler {
     ),
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
     dt: () => this.descriptor.describe(),
+    // a request arrives only over a connected client
+    health: () => healthReport('connected', this.manager.databaseMode()),
   };
 
   // An unexpected error gets the same body as an HTTP 500 response

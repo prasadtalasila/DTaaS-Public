@@ -98,6 +98,7 @@ docker compose -f compose.runner.dev.yml down
 - `GET /history` returns the commands received so far.
 - `GET /dt` returns the `id`, `attributes` and `commands` of the
   digital twin, and whether a state machine is loaded.
+- `GET /health` returns whether the runner and its connections are up.
 
 A sample request is:
 
@@ -119,6 +120,23 @@ the container, and run `sudo chown 1000 data` if your user id is not 1000.
 At shutdown the runner waits for the commands in progress to finish.
 Docker stops a container forcibly after ten seconds, so set a longer
 `stop_grace_period` in the compose file for commands that take longer.
+
+The `compose.runner.yml` file has a Docker health check that asks
+`GET /health` with node, as the image has neither curl nor wget:
+
+```yaml
+healthcheck:
+  test:
+    - CMD
+    - node
+    - -e
+    - "fetch('http://127.0.0.1:5000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+```
+
+If you change the `port` in `config/runner.yaml`, change it in the
+health check as well. The runner answers `200` also when its `status`
+is `degraded`, for example while it is not connected to its MQTT
+broker, so the check tells only whether the runner is alive.
 
 The runner serves the same API over MQTT when `config/runner.yaml`
 has an `mqtt` section. Inside the container, `localhost` refers to the

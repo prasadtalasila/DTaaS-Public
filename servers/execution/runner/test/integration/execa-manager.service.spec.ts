@@ -35,6 +35,10 @@ describe('Check execution manager based on execa library', () => {
 
   afterEach(() => queue.close());
 
+  it('Should report the mode of its database', () => {
+    expect((dt as ExecaManager).databaseMode()).toBe('memory');
+  });
+
   it('Should create object', async () => {
     try {
       expect(dt).toBeInstanceOf(ExecaManager);

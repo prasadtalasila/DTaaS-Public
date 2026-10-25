@@ -118,3 +118,15 @@ QoS: 1
 {"event": "restart"}
 === wait-for-server
 {{ "" }}
+
+###
+
+# @name health
+MQTT {{broker}}
+Subscribe: {{topic}}/health/response
+Publish: {{topic}}/health
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}

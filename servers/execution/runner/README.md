@@ -478,6 +478,36 @@ curl -X POST http://localhost:5000/fsm/event \
   -H 'Content-Type: application/json' -d '{"event": "stop"}'
 ```
 
+#### Health
+
+`GET /health` tells whether the runner answers and whether its
+connections are up. It is a liveness check only: it does not tell
+whether the digital twin does its job.
+
+```http
+{
+  "status": "ok",
+  "uptime": 3724,
+  "mqtt": "connected",
+  "database": "file"
+}
+```
+
+- `uptime` is the number of whole seconds since the runner started.
+- `mqtt` is `connected`, `disconnected` while the runner is not
+  connected to its broker, including while it reconnects, or `disabled`
+  without an `mqtt` section in the configuration.
+- `database` is `file` with a [database file](#command-history), else
+  `memory`.
+- `status` is `degraded` while `mqtt` is `disconnected`, else `ok`.
+
+The runner answers `200` in both cases. It connects to the broker after
+it starts, so the first replies may say `degraded`.
+
+```bash
+curl http://localhost:5000/health
+```
+
 ### MQTT API
 
 With MQTT enabled, the runner subscribes to one request topic
@@ -493,6 +523,11 @@ JSON as the matching HTTP request and response.
 | `<topic>/event`      | POST /fsm/event       | `{"event": "<event>"}`       |
 | `<topic>/fsm`        | GET /fsm              | ignored                      |
 | `<topic>/dt`         | GET /dt               | ignored                      |
+| `<topic>/health`     | GET /health           | ignored                      |
+
+The runner answers a `health` request only while it is connected, so
+the reply always says `"mqtt": "connected"`; that a reply arrives at
+all tells that the runner is alive.
 
 The runner publishes each response with QoS 1:
 

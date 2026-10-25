@@ -12,7 +12,7 @@ deferred (see below) and have no file.
 
 | File                                                   | Feature                    | Size | Status    | PR  |
 | :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | in review | #74 |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done      | #74 |
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | planned   |     |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | planned   |     |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | planned   |     |
@@ -22,7 +22,7 @@ deferred (see below) and have no file.
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | planned   |     |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | planned   |     |
+| [12-health.md](12-health.md)                           | Health endpoint            | S    | in review |     |
 
 Sizes: S is a day or less, M a few days with tests and documentation.
 
@@ -32,11 +32,12 @@ A feature starts when the features it depends on are merged.
 
 ```text
 01 identity ─┬─> 02 state-document ─┬─> 03 notifications ─> 06 escalation
-             │                      ├─> 12 health
              ├─> 04 parameters ─────┼─> 05 command-input
              │                      └─> 08 script-context
              ├─> 07 presence
              └─> 10 stop ─> 09 persistence
+
+12 health
 ```
 
 02 comes before 04 because the state document is where parameter values

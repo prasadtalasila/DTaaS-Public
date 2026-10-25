@@ -9,9 +9,11 @@ import MqttService from 'src/mqtt/mqtt.service';
 import { MqttConfig } from 'src/mqtt/mqtt.config';
 import { configFilename } from 'test/utils';
 
-// Starts the runner with the test configuration and the given MQTT
-// settings, and connects it to the broker
-export async function startRunner(mqtt: MqttConfig): Promise<INestApplication> {
+// Starts the runner with the test configuration and, if given, the MQTT
+// settings, and then connects it to the broker
+export async function startRunner(
+  mqtt?: MqttConfig,
+): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
@@ -20,8 +22,11 @@ export async function startRunner(mqtt: MqttConfig): Promise<INestApplication> {
   const options = new Keyv();
   await options.set('configFile', configFilename);
   await config.loadConfig(options);
-  jest.spyOn(config, 'getMqtt').mockReturnValue(mqtt);
+  if (mqtt !== undefined) {
+    jest.spyOn(config, 'getMqtt').mockReturnValue(mqtt);
+  }
   await app.init();
+  // start does nothing without an MQTT configuration
   app.get<MqttService>(MqttService).start();
   return app;
 }

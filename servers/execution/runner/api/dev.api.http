@@ -83,6 +83,10 @@ Idempotency-Key: 7d1e4a36-0b8a-4c51-9c0e-2b8f1e6f2a10
 ### Descriptor of the digital twin
 
 GET http://{{hostname}}:{{port}}/dt HTTP/1.1
+
+### Health of the runner
+
+GET http://{{hostname}}:{{port}}/health HTTP/1.1
 content-type: {{ContentType}}
 
 ### State machine of test/data/scripts/state-machine.yaml

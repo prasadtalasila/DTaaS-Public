@@ -29,6 +29,7 @@ export const mqttRoutes = [
   'event',
   'fsm',
   'dt',
+  'health',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];

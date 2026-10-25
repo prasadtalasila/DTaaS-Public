@@ -25,6 +25,7 @@ function createHandler(success: boolean) {
     ]),
     checkStatus: jest.fn(() => status),
     checkHistory: jest.fn(() => [{ name: 'create' }]),
+    databaseMode: jest.fn(() => 'file'),
   };
   const accepted = { status: 'accepted', state: 'create' };
   const fsm = {
@@ -118,6 +119,17 @@ describe('MQTT request handler', () => {
   it('Should return the descriptor of the digital twin', async () => {
     const { handler } = createHandler(true);
     expect(await handler.handle('dt', Buffer.alloc(0))).toEqual(dt);
+  });
+
+  it('Should report the health with MQTT connected', async () => {
+    const { handler } = createHandler(true);
+
+    expect(await handler.handle('health', Buffer.alloc(0))).toEqual({
+      status: 'ok',
+      uptime: expect.any(Number),
+      mqtt: 'connected',
+      database: 'file',
+    });
   });
 
   it('Should return the HTTP 500 body when the request fails', async () => {

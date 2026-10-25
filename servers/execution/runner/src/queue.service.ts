@@ -7,6 +7,7 @@ import {
   CommandResult,
 } from './interfaces/command.interface.js';
 import { ExecuteCommandDto } from './dto/command.dto.js';
+import { DatabaseMode } from './dto/health.dto.js';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
@@ -123,5 +124,10 @@ export default class Queue {
 
   findByKey(requestKey: string): CommandRecord | undefined {
     return toRecord(this.db.prepare(RECORD_BY_KEY).get(requestKey));
+  }
+
+  // an in-memory database has no location
+  mode(): DatabaseMode {
+    return this.db.location() === null ? 'memory' : 'file';
   }
 }

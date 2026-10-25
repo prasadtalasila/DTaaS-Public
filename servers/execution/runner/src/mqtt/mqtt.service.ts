@@ -12,6 +12,7 @@ import type {
 } from 'mqtt';
 import Config from '../config/configuration.service.js';
 import { REQUEST_KEY } from '../dto/command.dto.js';
+import { MqttHealth } from '../dto/health.dto.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
 import {
   defaultResponseTopic,
@@ -91,6 +92,13 @@ export default class MqttService implements BeforeApplicationShutdown {
     // force, as a graceful end waits for unacknowledged replies forever
     await this.client?.endAsync(true);
     this.client = undefined;
+  }
+
+  status(): MqttHealth {
+    if (this.config.getMqtt() === undefined) {
+      return 'disabled';
+    }
+    return this.client?.connected ? 'connected' : 'disconnected';
   }
 
   private static clientOptions(options: MqttConfig): IClientOptions {
