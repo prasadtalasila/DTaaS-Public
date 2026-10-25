@@ -1,6 +1,6 @@
 import { PipeTransform, BadRequestException } from '@nestjs/common';
 import { ZodSchema } from 'zod';
-import { ExecuteCommandDto, requestKeySchema } from './dto/command.dto';
+import { ExecuteCommandDto, requestKeySchema } from './dto/command.dto.js';
 
 export const validationFailed = (): BadRequestException =>
   new BadRequestException('Validation Failed');
