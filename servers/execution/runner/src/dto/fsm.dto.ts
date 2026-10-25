@@ -38,8 +38,11 @@ export const fsmReply = (
 
 export type ScriptStatus = 'none' | 'running' | 'valid' | 'invalid' | 'stopped';
 
+// entry counts the entries into states, so that two entries into the
+// same state can be told apart; it is 0 before the first transition
 export type FsmStateDto = {
   state: string | null;
   status: ScriptStatus;
+  entry: number;
   events: string[];
 };

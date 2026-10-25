@@ -28,6 +28,7 @@ describe('MQTT service', () => {
         'dtaas/runner/event',
         'dtaas/runner/fsm',
         'dtaas/runner/dt',
+        'dtaas/runner/state',
         'dtaas/runner/health',
         'dtaas/runner/stop',
       ],

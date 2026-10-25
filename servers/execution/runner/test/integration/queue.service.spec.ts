@@ -5,6 +5,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import Queue from 'src/queue.service';
 
+// An ISO 8601 UTC time, as the queue returns its timestamps
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
 const logs = (stdout: string, stderr = '') =>
   new Map([
     ['stdout', stdout],
@@ -38,6 +41,8 @@ describe('check Queue service', () => {
       stdout: '',
       stderr: '',
       finished: false,
+      receivedAt: expect.stringMatching(ISO_TIME),
+      finishedAt: null,
     });
   });
 
@@ -52,6 +57,22 @@ describe('check Queue service', () => {
       stdout: 'hello world',
       stderr: 'warning',
       finished: true,
+      receivedAt: expect.stringMatching(ISO_TIME),
+      finishedAt: expect.stringMatching(ISO_TIME),
+    });
+  });
+
+  it('should convert the timestamps that SQLite wrote to ISO 8601', () => {
+    queue['db']
+      .prepare(
+        `INSERT INTO commands (name, received_at, finished_at)
+          VALUES ('hello', '2026-10-25 09:59:58', '2026-10-25 10:00:00')`,
+      )
+      .run();
+
+    expect(queue.activeCommand()).toMatchObject({
+      receivedAt: '2026-10-25T09:59:58.000Z',
+      finishedAt: '2026-10-25T10:00:00.000Z',
     });
   });
 

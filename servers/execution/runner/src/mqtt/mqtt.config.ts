@@ -29,6 +29,7 @@ export const mqttRoutes = [
   'event',
   'fsm',
   'dt',
+  'state',
   'health',
   'stop',
 ] as const;

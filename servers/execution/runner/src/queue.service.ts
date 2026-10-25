@@ -27,7 +27,11 @@ const SCHEMA = `
     command_id INTEGER NOT NULL REFERENCES commands (id)
   )`;
 
+// The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
+// turns into ISO 8601 UTC; strftime of NULL is NULL
 const RECORD = `SELECT id, name, status, stdout, stderr,
+  strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
+  strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt,
   finished_at IS NOT NULL AS finished FROM commands`;
 
 const RECORD_BY_KEY = `${RECORD} WHERE id =
@@ -53,6 +57,8 @@ function toRecord(
     stdout: String(row.stdout),
     stderr: String(row.stderr),
     finished: Boolean(row.finished),
+    receivedAt: String(row.receivedAt),
+    finishedAt: row.finishedAt as string | null,
   };
 }
 
