@@ -10,7 +10,7 @@ parameters:
     values: [single, multi]
     default: single
     controllable: true
-    event: scope-changed # raised when the value changes
+    event: scope-changed  # raised when the value changes
   capacity:
     type: number
     default: 20
@@ -22,4 +22,4 @@ states:
   execute:
     transitions:
       restart: create
-      scope-changed: { state: execute, stop: true }
+      scope-changed: {state: execute, stop: true}
