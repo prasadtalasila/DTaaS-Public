@@ -153,12 +153,12 @@ is no stdout protocol (non-goal in the index).
 1. `AppController` gains `FsmService` (three constructor parameters)
    and passes `{ env: this.fsm.environment(name) }` to `newCommand`;
    so does the MQTT `execute` route (`mqtt-request.handler.ts:54-57`).
-1. In `src/main.ts`, after `await app.listen(config.getPort())`, call
-   `setRunnerUrl(runnerUrl(app.getHttpServer()))`, then start MQTT,
-   moved so no MQTT request starts a script before the URL is known;
-   nothing awaits in between, so no HTTP request does either. Without
-   `listen`, as in most tests, `RUNNER_URL` is unset and interpolates
-   empty.
+1. In `src/main.ts`, MQTT still starts before `app.listen`, so the
+   startup state document reaches the broker; after `listen`, call
+   `setRunnerUrl(runnerUrl(app.getHttpServer()))`. `listening` fires on
+   `nextTick`, so the URL is set before any MQTT message can be read.
+   Without `listen`, as in most tests, `RUNNER_URL` is unset and
+   interpolates empty.
 1. In `test/data/scripts/`, `print-context` and `.ps1` print `DT_ID`,
    `DT_STATE`, `DT_ENTRY`, `DT_PARAM_SCOPE` and `HINT` on one line;
    `raise-event` and `.ps1` raise `done` and print the status code.
@@ -239,8 +239,8 @@ is no stdout protocol (non-goal in the index).
   `app.listen(0)` and `setRunnerUrl` itself, as `main.ts` does.
 - The runner image has no `curl`, so the README's shell example needs
   a `node` variant for scripts that run in the container.
-- `raise-event.ps1` reaches `127.0.0.1` from Windows PowerShell 5.1
-  with `Invoke-RestMethod`; the e2e test passes on Windows.
+- Starting MQTT after `listen` lost the startup state document over
+  MQTT, as the notifier sends it at bootstrap; the order was restored.
 - `app.controller.spec.ts` did not await `loadConfig`; it now awaits it
   and loads `FsmService`, whose environment needs the id.
 - For 05: `scriptOutcome` takes `{ state, env }` and `POST /` passes

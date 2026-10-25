@@ -27,11 +27,12 @@ async function bootstrap(options: Keyv) {
   app.get<FsmService>(FsmService).load();
   app.get<Queue>(Queue).open(config.getDatabase());
   app.enableShutdownHooks();
+  // MQTT starts before listen, so that the startup state notification
+  // reaches the broker. listen resolves on nextTick, before any MQTT
+  // request can be read, so no script starts without RUNNER_URL.
+  app.get<MqttService>(MqttService).start();
   await app.listen(config.getPort());
-  // the scripts learn the port that the server listens on before any
-  // request over MQTT can start one
   const fsm = app.get<FsmService>(FsmService);
   fsm.setRunnerUrl(runnerUrl(app.getHttpServer()));
-  app.get<MqttService>(MqttService).start();
 }
 bootstrap(CLIOptions);

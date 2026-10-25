@@ -12,7 +12,7 @@ import {
 } from '../dto/fsm.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
-import { CompletionEvent, loadDefinition } from './definition.js';
+import { CompletionEvent, loadDefinition, Transition } from './definition.js';
 import Parameters from './parameters.js';
 import RecentReplies from './recent-replies.js';
 import { Env, RunnerContext } from './script-context.js';
@@ -130,10 +130,14 @@ export default class FsmService implements BeforeApplicationShutdown {
       if (next === undefined) {
         return fsmReply('no transition', machine.state);
       }
-      return next.stop
-        ? this.enterStopping(machine, next.state)
-        : this.enter(machine, next.state);
+      return this.follow(machine, next);
     });
+  }
+
+  private follow(machine: StateMachine, next: Transition): FsmReplyDto {
+    return next.stop
+      ? this.enterStopping(machine, next.state)
+      : this.enter(machine, next.state);
   }
 
   // The reply does not depend on the events, so a refused one is logged
@@ -185,10 +189,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     return fsmReply('accepted', state);
   }
 
-  // Enters the state at once, so that the completion of the script it
-  // stops is stale, and runs the script of the state once the stopped
-  // script of the state it left has exited. A self-transition restarts
-  // the script.
+  // Enters the state at once, making the stopped script's completion
+  // stale, and runs the state's script once that script has exited; a
+  // self-transition restarts the script.
   private enterStopping(machine: StateMachine, state: string): FsmReplyDto {
     const left = machine.state as string;
     if (state !== left && this.manager.isRunning(state)) {
@@ -207,9 +210,8 @@ export default class FsmService implements BeforeApplicationShutdown {
     return !this.stopping && machine.entry === entry;
   }
 
-  // Shutdown, or a later entry, while a stopped script exited means the
-  // script of this entry must not run. Otherwise the script starts at
-  // once, so that the manager knows it runs before enter returns.
+  // Skipped after shutdown or a later entry (a stopped script may exit
+  // late); otherwise it starts at once, so it runs before enter returns
   private async run(
     machine: StateMachine,
     state: string,
@@ -218,10 +220,8 @@ export default class FsmService implements BeforeApplicationShutdown {
     if (!this.isCurrent(machine, entry)) {
       return;
     }
-    const script = {
-      state,
-      env: this.context.environment(state, state, entry),
-    };
+    const env = this.context.environment(state, state, entry);
+    const script = { state, env };
     const outcome = await scriptOutcome(this.manager, script, this.logger);
     if (!this.isCurrent(machine, entry)) {
       return;
