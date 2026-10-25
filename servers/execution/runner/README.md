@@ -442,12 +442,26 @@ A shell script with `curl`; the code is `000` when the runner can not
 be reached:
 
 ```sh
-code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST   -H 'Content-Type: application/json' -d '{"event": "done"}'   "$RUNNER_URL/fsm/event")
+code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' -d '{"event": "done"}' \
+  "$RUNNER_URL/fsm/event")
 case "$code" in
   202 | 503) exit 0 ;;
   409) echo "not now" ;;
   *) echo "event refused: $code" >&2 && exit 1 ;;
 esac
+```
+
+The runner's container image has neither `curl` nor `wget`
+([DOCKER.md](DOCKER.md)). A script that runs in it uses `node`, which
+prints `0` when the runner can not be reached:
+
+```sh
+code=$(node -e "fetch(process.env.RUNNER_URL + '/fsm/event', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ event: 'done' }),
+}).then((reply) => console.log(reply.status), () => console.log(0))")
 ```
 
 The runner starts a `.ps1` script with Windows PowerShell 5.1, whose

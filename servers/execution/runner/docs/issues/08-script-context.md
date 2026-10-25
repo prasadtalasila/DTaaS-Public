@@ -129,8 +129,8 @@ is no stdout protocol (non-goal in the index).
      of the known-name set, and `envProblems(definition)`, one problem
      per unknown `${NAME}`, naming the variable and any state;
    - `scriptEnvironment(context: ScriptContext): Record<string, string>`,
-     pure, taking one object
-     `{ id, url, command, state, entry, values, definition, inherited, platform }`;
+     pure, taking one object with `id`, `url`, `command`, `state`,
+     `entry`, `values`, `definition`, `inherited` and `platform`;
      `inherited` and `platform` default to `process.env` and
      `process.platform`, so tests inject them;
    - `runnerUrl(server: Server)` from `node:http`, `undefined` unless
@@ -237,6 +237,8 @@ is no stdout protocol (non-goal in the index).
 - The e2e helper `startRunner` calls `app.init()`, not `listen`, so
   `RUNNER_URL` is unset in most tests; a test that needs it calls
   `app.listen(0)` and `setRunnerUrl` itself, as `main.ts` does.
+- The runner image has no `curl`, so the README's shell example needs
+  a `node` variant for scripts that run in the container.
 - `raise-event.ps1` reaches `127.0.0.1` from Windows PowerShell 5.1
   with `Invoke-RestMethod`; the e2e test passes on Windows.
 - `app.controller.spec.ts` did not await `loadConfig`; it now awaits it
