@@ -276,6 +276,5 @@ proposal to derive the events from the transitions was declined (D4).
 
 ## Out of Scope
 
-Guards, actions, timers,
-hierarchical or parallel states; persisting the machine across
-restarts; more than one machine per runner.
+Guards, actions, timers, hierarchical or parallel states; persisting
+the machine across restarts; more than one machine per runner.

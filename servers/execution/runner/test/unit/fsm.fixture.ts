@@ -26,9 +26,21 @@ export function scriptFolder(definition = DEFINITION): string {
   return dir;
 }
 
+type Finishers = Map<string, (outcome: RunOutcome) => void>;
+
+// Stops the named fake run, or every one
+const stopper = (finishers: Finishers) =>
+  jest.fn((name?: string) => {
+    const names = [...finishers.keys()].filter(
+      (running) => name === undefined || name === running,
+    );
+    names.forEach((running) => finishers.get(running)?.('stopped'));
+    return Promise.resolve(names);
+  });
+
 // Runs each script until the test finishes or stops it
 function fakeManager() {
-  const finishers = new Map<string, (outcome: RunOutcome) => void>();
+  const finishers: Finishers = new Map();
   const manager = {
     isRunning: jest.fn((name: string) => finishers.has(name)),
     newCommand: jest.fn(
@@ -40,13 +52,7 @@ function fakeManager() {
           });
         }),
     ),
-    stop: jest.fn(async (name?: string) => {
-      const names = [...finishers.keys()].filter(
-        (running) => name === undefined || name === running,
-      );
-      names.forEach((running) => finishers.get(running)?.('stopped'));
-      return names;
-    }),
+    stop: stopper(finishers),
   };
   const finish = async (name: string, success: boolean) => {
     finishers.get(name)?.(success ? 'success' : 'failed');

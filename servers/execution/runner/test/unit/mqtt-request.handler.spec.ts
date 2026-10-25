@@ -4,12 +4,7 @@ import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import { RunOutcome } from 'src/interfaces/runner.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
-
-const status = {
-  name: 'create',
-  status: 'valid',
-  logs: { stdout: 'hello world', stderr: '' },
-};
+import { fakeManager, status } from './mqtt.fixture';
 
 const dt = {
   id: 'hospital-1',
@@ -19,16 +14,7 @@ const dt = {
 };
 
 function createHandler(outcome: RunOutcome) {
-  const manager = {
-    newCommand: jest.fn(async (_name: string, _requestKey?: string) => [
-      outcome,
-      new Map(),
-    ]),
-    checkStatus: jest.fn(() => status),
-    checkHistory: jest.fn(() => [{ name: 'create' }]),
-    databaseMode: jest.fn(() => 'file'),
-    stop: jest.fn((_name?: string) => Promise.resolve(['create'])),
-  };
+  const manager = fakeManager(outcome);
   const accepted = { status: 'accepted', state: 'create' };
   const fsm = {
     transition: jest.fn((_state: string, _requestKey?: string) => accepted),

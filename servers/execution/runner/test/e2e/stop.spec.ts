@@ -33,9 +33,13 @@ describe('POST /stop', () => {
   const stop = () => supertest(app.getHttpServer()).post('/stop');
 
   it('Should stop nothing when nothing runs', async () => {
-    await stop().expect(HttpStatus.OK, { stopped: [] });
-    await stop().send({}).expect(HttpStatus.OK, { stopped: [] });
-    await stop().send({ name: 'loop' }).expect(HttpStatus.OK, { stopped: [] });
+    const replies = [
+      await stop(),
+      await stop().send({}),
+      await stop().send({ name: 'loop' }),
+    ].map(({ status, body }) => [status, body]);
+
+    expect(replies).toEqual(Array(3).fill([HttpStatus.OK, { stopped: [] }]));
   });
 
   it(
@@ -64,10 +68,16 @@ describe('POST /stop', () => {
     TIMEOUT,
   );
 
-  it('Should refuse a malformed request', () =>
-    stop().send({ name: 5 }).expect(HttpStatus.BAD_REQUEST, {
-      message: 'Validation Failed',
-      error: 'Bad Request',
-      statusCode: 400,
-    }));
+  it('Should refuse a malformed request', async () => {
+    const { status, body } = await stop().send({ name: 5 });
+
+    expect([status, body]).toEqual([
+      HttpStatus.BAD_REQUEST,
+      {
+        message: 'Validation Failed',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    ]);
+  });
 });

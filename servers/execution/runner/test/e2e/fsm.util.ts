@@ -10,6 +10,21 @@ const SCRIPTS = ['create', 'execute', 'terminate'];
 
 const MACHINE_FILE = 'dt.yaml';
 
+// The scripts that print their names, and copies of the loops
+function writeScripts(dir: string, loops: string[]): void {
+  SCRIPTS.forEach((script) => {
+    writeFileSync(join(dir, script), `#!/bin/sh\nprintf ${script}\n`, {
+      mode: 0o755,
+    });
+    writeFileSync(join(dir, `${script}.ps1`), `Write-Output ${script}\n`);
+  });
+  loops
+    .flatMap((loop) => [loop, `${loop}.ps1`])
+    .forEach((file) =>
+      copyFileSync(join('test', 'data', 'scripts', file), join(dir, file)),
+    );
+}
+
 // A folder with a runner configuration, the scripts in both their
 // Linux and Windows versions, and the state machine of the definition,
 // which the configuration names when there is one. The loops are test
@@ -26,17 +41,7 @@ export function digitalTwin(
   if (definition) {
     writeFileSync(join(dir, MACHINE_FILE), definition);
   }
-  SCRIPTS.forEach((script) => {
-    writeFileSync(join(dir, script), `#!/bin/sh\nprintf ${script}\n`, {
-      mode: 0o755,
-    });
-    writeFileSync(join(dir, `${script}.ps1`), `Write-Output ${script}\n`);
-  });
-  loops
-    .flatMap((loop) => [loop, `${loop}.ps1`])
-    .forEach((file) =>
-      copyFileSync(join('test', 'data', 'scripts', file), join(dir, file)),
-    );
+  writeScripts(dir, loops);
   return dir;
 }
 
@@ -48,20 +53,27 @@ const pause = () =>
     setTimeout(resolve, 50);
   });
 
-// Polls a GET route until its body passes the check
-export async function poll(
+type Body = Record<string, unknown>;
+
+// Polls a GET route until its body passes the check, every 50 ms for up
+// to 20 s
+export function poll(
   app: INestApplication,
   route: string,
-  check: (body: Record<string, unknown>) => boolean,
-) {
-  for (let attempt = 0; attempt < 400; attempt += 1) {
+  check: (body: Body) => boolean,
+): Promise<Body> {
+  const attempt = async (left: number): Promise<Body> => {
     const { body } = await supertest(app.getHttpServer()).get(route);
     if (check(body)) {
       return body;
     }
+    if (left === 0) {
+      throw new Error(`GET ${route} did not pass the check`);
+    }
     await pause();
-  }
-  throw new Error(`GET ${route} did not pass the check`);
+    return attempt(left - 1);
+  };
+  return attempt(400);
 }
 
 // Polls the machine until the script of the state has finished
