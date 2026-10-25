@@ -118,13 +118,17 @@ webhook:
    `move(machine, event)`, and fold `follow` (lines 138-145), whose
    only caller it was, into `move` (-8 lines). Move the body of
    `check()` (lines 75-85) to `StateMachine.describe(status)` in
-   `src/fsm/state-machine.ts` (-7 lines).
+   `src/fsm/state-machine.ts` (-7 lines). 05 makes the same move; the
+   later merge keeps one copy.
 1. Add `src/dto/escalation.dto.ts`: `escalateSchema` with the size
    refinements; `proposal` is a refinement on `z.unknown()` that
    accepts an object that is not an array, as `z.record` would drop a
    `__proto__` key silently. Also `EscalateBody`,
    `EscalateReplyDto = { status: 'accepted' }`, and `EscalationData`
-   with its `trigger` union.
+   with its `trigger` union. The size rule has a small helper of its
+   own, `fits(limit)`, which tests
+   `Buffer.byteLength(JSON.stringify(value), 'utf8')`; 05 is unmerged
+   and has the same rule, so the later merge moves it to one place.
 1. Add `src/fsm/escalation.ts`, which exports `escalationSchema` (the
    section, with `.prefault({})` so that both defaults apply when it is
    missing), its type `Escalation`, `EscalationListener`, and a plain
@@ -139,7 +143,9 @@ webhook:
    - `noTransition(machine, event)`: emits when `onNoTransition` is
      set, `machine.state` is defined, and the pair
      `(machine.entry, event)` was not sent; a new entry clears the
-     record.
+     record. It keeps two branches: a helper
+     `firstTime(machine, event): boolean` owns the record, which keeps
+     Qlty headroom.
    - `request(body, requestKey, machine)`: resolves `'escalate'` with
      `keep: () => true`; `compute` emits and returns the reply.
      `mismatch` cannot fire and returns the same reply. `machine` may
@@ -152,8 +158,10 @@ webhook:
    break it over five lines). `hasProtoKey` is unchanged: a strict
    object refuses `__proto__` as an unknown key. The file reaches 243.
    05 (`manager`) and 08 add sections here in parallel; the last of the
-   three to merge moves `findCycle` and `completionCycle` (lines
-   256-291) to `src/fsm/cycle.ts` if the file passes 250.
+   three to merge moves the cycle search, `LOOPING_EVENTS` through
+   `completionCycle` (lines 130-165), to `src/fsm/completion-cycle.ts`,
+   the name 05's plan uses, if the file passes 250, so that whichever
+   branch moves it produces the same file.
 1. In `src/fsm/fsm.service.ts`, without a new constructor parameter:
    - an `escalations = new Escalations()` field;
      `this.escalations.declare(definition?.escalation)` in `load()`;
@@ -168,6 +176,10 @@ webhook:
 1. `DescriptorService.onEscalation(listener)` forwards to
    `FsmService.onEscalation`, as `onChange` does. `Notifier.onModuleInit`
    adds `this.descriptor.onEscalation((data) => this.send('escalation', data))`.
+   The fakes of `DescriptorService` and `FsmService` in
+   `test/unit/notifier.service.spec.ts` and
+   `test/unit/descriptor.service.spec.ts` get `onEscalation` before the
+   first run.
 1. Add `POST /escalate` to `src/app.controller.ts`: `FsmService`
    becomes its third constructor parameter, under the limit of four,
    rather than an `escalate` passthrough on `DescriptorService`, which
@@ -179,7 +191,16 @@ webhook:
 1. For the end-to-end test, move `startBroker` and `stopBroker` from
    `test/e2e/mqtt.spec.ts` to `test/e2e/mqtt.util.ts`, and the `Webhook`
    server of `test/e2e/webhook.spec.ts` to `test/e2e/webhook.util.ts`,
-   with `received` checking the whole body.
+   with `received` checking the whole body. The test starts the runner
+   with `startRunner` of `test/e2e/util.ts` on a `digitalTwin` folder,
+   which loads the state machine, after
+   `jest.spyOn(Config.prototype, 'getMqtt')` and `'getNotify'`, as
+   `test/e2e/webhook.spec.ts:200-202` does, and then starts
+   `MqttService`; so MQTT, the webhook and the state machine run in one
+   runner. That an escalation is not retained is checked on the broker:
+   aedes's retained stream for `<base>/notify/+` holds only the state
+   topic. `lateSubscriber` resolves on the first message, so it can not
+   show that a message is missing.
 1. Sweep the documentation:
    - `README.md`: a `/escalate` row in the HTTP route table and the
      sentence that counts the routes; an `escalate` row in the MQTT
@@ -191,12 +212,19 @@ webhook:
      with a key over HTTP.
    - `docs/state-machine-design.md`: the Validation section's list of
      top-level keys; amend A4 (the runner raises escalations by itself
-     on the declared triggers; an escalation raises no event); add D23,
-     the next free number (05 may claim it in parallel; the later merge
-     renumbers): opt-in triggers declared by the DT author, deduplicated
-     per entry, and an explicit request that needs no machine.
+     on the declared triggers; an escalation raises no event); add D25
+     (D23 and D24 are 05's): opt-in triggers declared by the DT author,
+     deduplicated per entry, and an explicit request that needs no
+     machine.
+   - `src/dto/notify.dto.ts:1`: the comment says that only presence is
+     left, for 07.
    - `docs/issues/README.md`: the status row of 06. No version bump:
      the change adds routes and breaks none.
+   - `DEVELOPER.md` names no route or notification, so it needs no
+     change; the pull request says so. `docs/developer/codebase/runner.md`
+     documents the route set and goes stale; the pull request lists it
+     for a separate change, as no change leaves
+     `servers/execution/runner`.
 
 ## Tasks
 
@@ -235,9 +263,10 @@ webhook:
       for a bad body, and replays a repeated key without a second
       notification; the escalation reaches the webhook, and a client
       that subscribes to `<base>/notify/+` on the local aedes broker
-      after the escalation receives the retained `state` notification
-      and no `escalation`. Check: `test/e2e/escalation.spec.ts`.
-- [ ] README, request files, design document (Validation, A4, D23) and
+      after the escalation receives the retained `state` notification;
+      the broker retains nothing on `<base>/notify/escalation`. Check:
+      `test/e2e/escalation.spec.ts`.
+- [ ] README, request files, design document (Validation, A4, D25) and
       the index updated. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
 - [ ] `yarn build` and `yarn test` pass. eslint lints no `.ts` file,
