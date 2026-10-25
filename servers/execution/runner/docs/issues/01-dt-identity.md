@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: none
-- PR: none
+- PR: [#74](https://github.com/prasadtalasila/DTaaS-Public/pull/74)
 - Research note:
   [item 1](../dtn-research-notes.md#1-dt-identity-and-descriptor)
 

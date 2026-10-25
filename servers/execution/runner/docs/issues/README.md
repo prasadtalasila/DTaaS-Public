@@ -12,7 +12,7 @@ deferred (see below) and have no file.
 
 | File                                                   | Feature                    | Size | Status    | PR  |
 | :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | in review |     |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | in review | #74 |
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | planned   |     |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | planned   |     |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | planned   |     |
