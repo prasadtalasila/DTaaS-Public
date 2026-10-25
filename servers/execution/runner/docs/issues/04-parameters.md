@@ -1,6 +1,6 @@
 # 04 Declared Parameters With a Controllable Subset
 
-- Status: in review
+- Status: done
 - Depends on: 02 (for the `parameters` field of the state document)
 - PR: [#78](https://github.com/prasadtalasila/DTaaS-Public/pull/78)
 - Research note:
@@ -215,3 +215,21 @@ After the rebase onto 02, `parameters` in the state document becomes
       `npx tsc --noEmit --noUnusedLocals` is clean, and no function
       crosses the Qlty thresholds. Check: their output; the Qlty
       thresholds were counted by hand, as the CLI runs in CI.
+
+## Learnings
+
+- `parameters.ts` and `definition.ts` importing each other made
+  `nameSchema` a `const` in its temporal dead zone at startup;
+  `src/fsm/name.ts` breaks the cycle.
+- A plain `Parameters` class owned by `FsmService` instead of an
+  injectable service kept every constructor under four parameters.
+- `CURRENT_TIMESTAMP` ties within a second, so the latest value is the
+  row with the highest id. A multi-value `PUT` stores in one
+  transaction, so a database error leaves the store and memory as they
+  were (found in review, not in the first implementation).
+- prettier writes `{ state: x, stop: true }` and one space before an
+  inline comment; yamllint wants neither. YAML test data uses block
+  mappings and comments on their own line, or CI fails one of the two.
+- `fsm.service.ts` reached 249 lines; `RecentReplies.resolve` and
+  `Parameters.apply` made room for 03, and 06, 08 and 09 must each say
+  what they move out before adding to it.

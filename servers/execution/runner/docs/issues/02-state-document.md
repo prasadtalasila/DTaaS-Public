@@ -124,3 +124,19 @@ machine or not:
       `npx tsc --noEmit --noUnusedLocals` is clean (eslint lints no
       `.ts` file here), and no function crosses the Qlty thresholds.
       Check: their output.
+
+## Learnings
+
+- `CREATE TABLE IF NOT EXISTS` never changes an existing database file,
+  so new fields come from converting on read (`strftime` in the query)
+  or from a guarded `ALTER TABLE` (as 05 will need for its new columns),
+  never from a new column default.
+- `strftime('%Y-%m-%dT%H:%M:%fZ', …)` gives the same shape as
+  `toISOString()`, milliseconds included, for rows SQLite wrote with
+  second resolution.
+- The `commands` row says `invalid` until a command finishes (the column
+  default), so `running` is derived from `finished_at`; `GET /` still
+  shows `invalid` while a command runs.
+- Building the document in `DescriptorService`, which the controller and
+  the MQTT handler already hold, kept every constructor under Qlty's
+  limit of four parameters.

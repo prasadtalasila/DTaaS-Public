@@ -10,19 +10,19 @@ deferred (see below) and have no file.
 
 ## Status
 
-| File                                                   | Feature                    | Size | Status    | PR  |
-| :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done      | #74 |
-| [02-state-document.md](02-state-document.md)           | One state document         | M    | done      | #77 |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | in review | #79 |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned   |     |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned   |     |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
-| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
+| File                                                   | Feature                    | Size | Status  | PR  |
+| :----------------------------------------------------- | :------------------------- | :--- | :------ | :-- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done    | #74 |
+| [02-state-document.md](02-state-document.md)           | One state document         | M    | done    | #77 |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done    | #79 |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done    | #78 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned |     |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned |     |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned |     |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned |     |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned |     |
+| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done    | #76 |
+| [12-health.md](12-health.md)                           | Health endpoint            | S    | done    | #75 |
 
 Sizes: S is a day or less, M a few days with tests and documentation.
 
@@ -73,6 +73,8 @@ Each file opens with a header list (`Status`, `Depends on`, `PR`,
 - **Plan**: ordered steps that name the files they touch.
 - **Tasks**: a checkbox list; each task ends with its check, which is a
   named test file, a lint or build command, or a document section.
+- **Learnings**: what the implementation taught that the plan did not
+  foresee, written in the pull request that implements the issue.
 
 `Status` is `planned`, `in progress`, `in review` (a pull request is
 open) or `done`.
@@ -88,6 +90,44 @@ open) or `done`.
 | S5  | `runner.yaml` names the state machine file by path; the fixed name in `location` goes (amends D1).                                                                                             |
 | S6  | The runner never restarts a script on its own. A parameter change takes effect at the next script start, or through a declared event.                                                          |
 | S7  | Notification payloads share one envelope: `{ kind, id, time, data }`.                                                                                                                          |
+
+## Lessons for Every Issue
+
+From implementing 01, 02, 03, 04, 10 and 12:
+
+- Plans written before the code go stale. Before implementing, review
+  the plan against the current code: names, line numbers, file sizes
+  and constructor parameters all change as earlier issues merge.
+- eslint in this project lints no `.ts` file: the flat config's
+  `files: ['src/**', 'test/**']` never matches a non-JavaScript file, so
+  `yarn syntax` passes whatever the code. Until that is fixed, run
+  `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` and rely on
+  SonarCloud and Qlty in CI.
+- Qlty fails a function at complexity 5, at 4 parameters and at 4
+  returns, constructors included. Most redesigns in review came from
+  the constructor limit: prefer a plain class or signal owned by an
+  existing service to a new injectable that every caller must receive.
+- `fsm.service.ts`, `definition.ts` and several test files sit near the
+  250-line limit; each plan names what it moves out before it adds.
+- SonarCloud checks new test code too: an `async` arrow without
+  `await`, `await` inside a loop, a test without a Jest `expect`
+  (supertest's `.expect()` does not count), and bracket access to a
+  private member are all findings. Code moved into a new file counts as
+  new.
+- prettier and yamllint disagree on flow mappings and inline comments;
+  write YAML with block mappings and comments on their own line.
+- On Windows the full suite runs PowerShell scripts in parallel and
+  times out under load. `yarn test --maxWorkers=2` is reliable locally;
+  Linux CI is the authority.
+- `test/e2e/dist.spec.ts` starts the built runner; ts-jest hides a
+  relative import without its `.js` suffix, which breaks the build.
+- Before merging, read every CI conclusion and the Qlty status's
+  blocking count, not only the checks that pass; a PR retargeted after
+  its first push needs a new run (close and reopen) so Qlty compares
+  against the right base.
+- Rebase by squashing a branch's code commits first and resolving once
+  against the final shape; decision numbers in the design document and
+  rows of the status table are the usual conflicts.
 
 ## Deferred
 

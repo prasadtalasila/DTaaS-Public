@@ -1,6 +1,6 @@
 # 03 State Change Notifications
 
-- Status: in review
+- Status: done
 - Depends on: 02
 - PR: [#79](https://github.com/prasadtalasila/DTaaS-Public/pull/79)
 - Research note:
@@ -165,7 +165,7 @@ observation.
       passes both sources to one listener. Check:
       `test/unit/notifier.service.spec.ts`,
       `test/unit/descriptor.service.spec.ts`.
-- [ ] A transition over HTTP produces a retained message on
+- [x] A transition over HTTP produces a retained message on
       `<base>/notify/state` that a late subscriber receives. Check:
       `test/e2e/mqtt.broker.spec.ts` (runs in CI with the broker); a
       command over HTTP does the same on the local broker of
@@ -179,3 +179,28 @@ observation.
 - [x] `yarn build` and `yarn test` pass,
       `npx tsc --noEmit --noUnusedLocals` is clean, and no function or
       constructor crosses the Qlty thresholds. Check: their output.
+
+## Learnings
+
+- An injected emitter would have given `FsmService` and the notifier a
+  fourth constructor parameter and a dependency cycle; a plain `Changes`
+  object owned by `FsmService` and `Queue`, forwarded by
+  `DescriptorService.onChange`, needs none. 06 and 07 follow the same
+  pattern for escalations and the MQTT connection.
+- One document per state entry depends on `run` enqueueing its command
+  synchronously, so the queue signals first and the notifier skips the
+  entry's own, unchanged, document. An `await` before `enqueue` would
+  double the notifications.
+- Webhook posts are concurrent and arrive out of order (seen in the PR
+  evidence); MQTT delivers in order, and its retained message is the
+  latest.
+- The notifier stops before the queue closes because the queue closes
+  in `ExecaManager.onApplicationShutdown`, after every
+  `beforeApplicationShutdown` hook. Those hooks start in one pass, in
+  provider order, so `MqttService` is already disconnecting when a later
+  hook runs (07 depends on this).
+- Pending webhook retries kept Jest alive until they were aborted at
+  shutdown and their timers `unref()`-ed.
+- The broker test runs only in CI against Mosquitto with MQTT 5; the
+  local aedes broker speaks MQTT 3.1.1 and covers a late subscriber of a
+  retained message.

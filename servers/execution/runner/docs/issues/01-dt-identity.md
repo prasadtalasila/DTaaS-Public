@@ -157,3 +157,24 @@ document. The descriptor carries no runner version.
       and the route. Check: `npx markdownlint-cli` on them.
 - [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no new
       function crosses the Qlty thresholds. Check: their output.
+
+## Learnings
+
+- A strict whole-file schema breaks every fixture that writes a
+  `runner.yaml`; list them in the plan before starting.
+- zod 4 drops a `__proto__` key of a record without an error, so
+  `attributes` needs an explicit guard, as the state machine file does.
+- `path.join` of a directory and an absolute Windows path makes a
+  nonsense path; `stateMachine` uses `path.resolve`. `location` and
+  `database` keep `path.join` and its limit.
+- js-yaml throws on an empty or comment-only file and on a syntax error
+  without naming the file; the loader wraps both. A `stateMachine` that
+  names a directory gave a bare `EISDIR` until `statSync().isFile()`.
+- At the time of 01 the Jest test configuration permitted only _create_,
+  so it could not name the test state machine, which has an _execute_
+  state.
+- Starting the built runner for the PR evidence showed that it no longer
+  started at all: a value import without its `.js` suffix had come in
+  with the state machine. ts-jest resolves such paths, so no test saw
+  it. #73 fixed it and added `test/e2e/dist.spec.ts`, which runs the
+  build.

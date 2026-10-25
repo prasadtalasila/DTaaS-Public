@@ -114,3 +114,19 @@ the `beforeApplicationShutdown` hooks, before the scripts drain, so a
       files.
 - [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no function
       crosses the Qlty thresholds. Check: their output.
+
+## Learnings
+
+- `HealthService` injecting `MqttService`, which injects the MQTT
+  handler, which would inject `HealthService`, is a cycle; the caller
+  passes the MQTT status instead.
+- Nest closes the HTTP server right after the
+  `beforeApplicationShutdown` hooks, so a `503 stopping` could never be
+  observed and was dropped.
+- The runner image has neither curl nor wget; the container health check
+  uses `node -e fetch(…)`.
+- Rebasing onto 01 would have given `AppController` and the MQTT handler
+  a fourth constructor parameter; an own `HealthController` and a pure
+  `healthReport()` avoided it.
+- Test fakes moved into a shared fixture count as new code for
+  SonarCloud, which then flagged `async` arrows without `await`.
