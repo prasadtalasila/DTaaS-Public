@@ -184,24 +184,25 @@ true, so a missed first `connect` still announces the runner.
 
 ## Tasks
 
-- [ ] `presenceWill` gives a retained QoS 1 will on
+- [x] `presenceWill` gives a retained QoS 1 will on
       `<base>/notify/presence` with `online: false` and `time: null`;
       `clientOptions` carries it. Check: `test/unit/mqtt.config.spec.ts`
       and the options test of `test/unit/mqtt.service.spec.ts`.
-- [ ] `onConnect` listeners run on each `connect`. Shutdown publishes
+- [x] `onConnect` listeners run on each `connect`. Shutdown publishes
       the offline notice retained with the current time (fake clock)
       and then calls `endAsync()` without `true`; without MQTT it does
       nothing. Check: `test/unit/mqtt.presence.spec.ts`.
-- [ ] With fake timers, a `publishAsync` returning
+- [x] With fake timers, a `publishAsync` returning
       `new Promise(() => {})`, then `jest.advanceTimersByTimeAsync(2000)`,
       leads to `endAsync(true)` and a warning; an `endAsync()` that
       never settles leads, 2 s later, to `stream.destroy()`. Check:
       `test/unit/mqtt.presence.spec.ts`.
-- [ ] `sendOnce` posts once, does not retry a failure, logs it even
+- [x] `sendOnce` posts once, does not retry a failure, logs it even
       after `beforeApplicationShutdown`, and posts nothing without a
       webhook; the existing retry and abort tests pass unchanged.
-      Check: `test/unit/webhook.client.spec.ts`.
-- [ ] The notifier publishes the online notice with the descriptor,
+      Check: `test/unit/webhook.once.spec.ts` and
+      `test/unit/webhook.client.spec.ts`.
+- [x] The notifier publishes the online notice with the descriptor,
       retained, on each connect and posts nothing then; posts it at
       startup; awaits `sendOnce` with the offline notice at shutdown;
       and publishes nothing on a connect after shutdown. Check:
@@ -211,25 +212,64 @@ true, so a missed first `connect` still announces the runner.
       `app.close()`, it receives the offline one with a time. `afterEach`
       also deletes the retained presence topic, as it does the state
       topic, since the public broker is shared. Check:
-      `test/e2e/mqtt.broker.spec.ts`, `lateSubscriber` unchanged.
-- [ ] Destroying the runner's socket makes the broker publish the will
+      `test/e2e/mqtt.broker.spec.ts`, `lateSubscriber` unchanged; it
+      runs in CI only, as port 1883 is blocked on the development host.
+      The same two checks run locally against aedes in
+      `test/e2e/mqtt.presence.spec.ts`.
+- [x] Destroying the runner's socket makes the broker publish the will
       (`time: null`), and the reconnect publishes the online notice
       again. The test subscribes to the presence topic before the
       destroy, destroys the stream through a helper rather than bracket
       access to a private member, which SonarCloud flags, and waits
       across the 1 s `reconnectPeriod` of mqtt.js, with a timeout above
-      Jest's default 5 s. Check: `test/e2e/mqtt.spec.ts` (local aedes
-      broker, 203 lines), or a new e2e file if it nears 250.
-- [ ] `received()` of the test webhook first filters by `kind`, as a
+      Jest's default 5 s. Check: `test/e2e/mqtt.presence.spec.ts`
+      (local aedes broker).
+- [x] `received()` of the test webhook first filters by `kind`, as a
       presence post has no `machine` and would pass the startup check;
       then the webhook receives one online post at startup and, after
       `app.close()` in the test, one offline post with a time. Check:
       `test/e2e/webhook.spec.ts`.
-- [ ] README, `DOCKER.md`, design document and request file updated.
+- [x] README, `DOCKER.md`, design document and request file updated.
       Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass; eslint lints no
+- [x] `yarn syntax`, `yarn build` and `yarn test` pass; eslint lints no
       `.ts` file, so
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean; every changed file stays under 250 lines and every
       function under 25. Check: their output and `wc -l`.
+
+## Learnings
+
+- `mqtt.service.ts` ends at 249 lines, not well under 250 as planned:
+  the shutdown sequence, `settles` and `onConnect` outweigh the moved
+  `clientOptions`. The next issue that adds to it moves something out
+  first, such as `settles` or the response helpers.
+- The will-and-reconnect test cuts the runner's connection on the
+  broker's side, through the typed `conn` of the aedes `Client` that
+  the `clientReady` event hands over. That needs neither bracket access
+  nor an accessor on `MqttService` for its private client, and the
+  runner sees what a network failure gives it. With local copies of
+  the retained-notice and leave checks beside it, the presence tests
+  would have taken `mqtt.spec.ts` (203 lines) past 250, so they went to
+  `test/e2e/mqtt.presence.spec.ts`, with `startBroker` and `stopBroker`
+  moved to `mqtt.util.ts`.
+- aedes publishes the will on a forced end: replacing the graceful
+  `endAsync()` with `endAsync(true)` made the local leave test fail,
+  as the will replaced the retained offline notice. The local test
+  guards the graceful end; the Mosquitto test runs only in CI.
+- New tests spy on `Logger.prototype` instead of `service['logger']`.
+  The webhook test helpers moved into `test/unit/webhook.fixture.ts`
+  for `webhook.once.spec.ts`, so they count as new code for SonarCloud
+  and use the prototype spy.
+- The webhook e2e test closes the runner inside the test to see the
+  offline post, so `app` became optional, as in the broker test.
+- D23 is worded to fit the existing column widths of the decision
+  table, so prettier does not realign every row and conflict with 05,
+  06 and 08, which add decisions in parallel.
+- 08 moves `MqttService.start()` after `app.listen()` in `main.ts`.
+  Presence still works then: `onModuleInit` registers the listener
+  before the client exists, and the first `connect` announces the
+  runner. Whichever of 07 and 08 merges second updates the Ownership
+  paragraph above, which says `start()` comes before `app.init()`.
+- The version stays at 0.6.0, as the Spec says: presence adds a kind
+  and a topic and breaks no route.

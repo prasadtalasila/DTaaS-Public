@@ -36,6 +36,7 @@ const BASE = `dtaas/test/${randomUUID()}`;
 const TOPIC = `${BASE}/runner`;
 const REPLIES = `${BASE}/client`;
 const STATE = `${TOPIC}/notify/state`;
+const PRESENCE = `${TOPIC}/notify/presence`;
 
 jest.setTimeout(30000);
 
@@ -115,8 +116,13 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
   afterEach(async () => {
     await app?.close();
     app = undefined;
-    // an empty retained message deletes the state the runner left
-    await client.publishAsync(STATE, '', { qos: 1, retain: true });
+    // an empty retained message deletes the state and presence that the
+    // runner left
+    await Promise.all(
+      [STATE, PRESENCE].map((topic) =>
+        client.publishAsync(topic, '', { qos: 1, retain: true }),
+      ),
+    );
     await client.endAsync();
     jest.restoreAllMocks();
   });
@@ -207,5 +213,26 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it('keeps the presence for a later subscriber, then the leave', async () => {
+    const online = await lateSubscriber(url, 5, PRESENCE);
+    await app?.close();
+    app = undefined;
+    const offline = await lateSubscriber(url, 5, PRESENCE);
+
+    expect(online).toMatchObject({
+      body: { kind: 'presence', id: 'test-runner', data: { online: true } },
+      retain: true,
+    });
+    expect(offline).toEqual({
+      body: {
+        kind: 'presence',
+        id: 'test-runner',
+        time: expect.any(String),
+        data: { online: false },
+      },
+      retain: true,
+    });
   });
 });

@@ -260,6 +260,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D21 | Parameters are declared in the state machine file                         | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                     |
 | D22 | A parameter change raises only its declared event                         | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                               |
 | D23 | Scripts get the runner's context as environment variables                 | Added by issue 08. Every script language reads its environment, and nothing goes on the command line. Values are those at the script's start (S6). A declared `env` interpolates only runner variables, so a file means the same on every host. Events return over HTTP through `RUNNER_URL`, not stdout (open question 13).                                    |
+| D26 | Presence: an online notice per connect, an offline notice, a will         | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                      |
 
 ## Assumptions
 
@@ -277,6 +278,8 @@ proposal to derive the events from the transitions was declined (D4).
   over MQTT and a webhook, whenever the state document changes; a
   notification raises no event. Amended by issue 08: a script is such
   a client; it raises events over HTTP through `RUNNER_URL` (D23).
+  Amended by issue 07: the runner also announces itself unasked when it
+  connects and when it leaves (D26).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.
