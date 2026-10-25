@@ -14,7 +14,7 @@ import supertest from 'supertest';
 import { connectAsync, MqttClient } from 'mqtt';
 import { MqttRoute } from 'src/mqtt/mqtt.config';
 import { queriesJSON } from './util';
-import { startRunner } from './mqtt.util';
+import { lateSubscriber, nextNotification, startRunner } from './mqtt.util';
 
 const TOPIC = 'dtaas/test/runner';
 
@@ -78,6 +78,7 @@ const queryTypes: (keyof typeof queriesJSON)[] = [
 describe('Runner MQTT end-to-end tests', () => {
   let client: MqttClient;
   let app: INestApplication;
+  let url: string;
   // Undo only what started, so that a failed setup can not keep jest
   // from exiting
   const cleanups: Array<() => Promise<void>> = [];
@@ -85,6 +86,7 @@ describe('Runner MQTT end-to-end tests', () => {
   beforeEach(async () => {
     const broker = await startBroker();
     cleanups.push(() => stopBroker(broker));
+    url = broker.url;
     client = await connectAsync(broker.url, { protocolVersion: 4 });
     cleanups.push(() => client.endAsync());
     await client.subscribeAsync(`${TOPIC}/+/response`, { qos: 1 });
@@ -182,5 +184,20 @@ describe('Runner MQTT end-to-end tests', () => {
       { status: 'no state machine', state: null },
       400,
     ]);
+  });
+
+  it('keeps the last state document for a later subscriber', async () => {
+    const topic = `${TOPIC}/notify/state`;
+    await client.subscribeAsync(topic, { qos: 1 });
+    const finished = nextNotification(
+      client,
+      topic,
+      ({ command }) => command?.status === 'valid',
+    );
+    await supertest(app.getHttpServer()).post('/').send({ name: 'create' });
+    const { body } = await finished;
+
+    expect(await lateSubscriber(url, 4, topic)).toEqual({ body, retain: true });
+    expect(body).toMatchObject({ kind: 'state', id: 'test-runner' });
   });
 });

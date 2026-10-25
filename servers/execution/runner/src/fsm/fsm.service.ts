@@ -11,6 +11,7 @@ import {
   STATUS,
 } from '../dto/fsm.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
+import Changes, { ChangeListener } from '../notify/changes.js';
 import { CompletionEvent, loadDefinition, Transition } from './definition.js';
 import Parameters from './parameters.js';
 import RecentReplies from './recent-replies.js';
@@ -38,6 +39,9 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
+  // Signals a new state, or a new status of its script
+  private readonly changes = new Changes();
+
   // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly manager: ExecaManager,
@@ -60,6 +64,10 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.stopping = true;
   }
 
+  onChange(listener: ChangeListener): void {
+    this.changes.on(listener);
+  }
+
   hasMachine(): boolean {
     return this.machine !== undefined;
   }
@@ -80,12 +88,14 @@ export default class FsmService implements BeforeApplicationShutdown {
     return this.declared;
   }
 
-  // Applies the whole body or none of it, raises the events of the
-  // changes, and returns the problems of a refused body
+  // Applies the whole body or none of it, signals the new values before
+  // their events move the machine, and returns the problems of a refused
+  // body; the notifier skips a document that did not change
   setParameters(body: ParametersBody): string[] {
     const result = this.declared?.apply(body, (changes) =>
       this.queue.setParameters(changes),
     );
+    this.changes.emit();
     result?.events.forEach((event) => this.raise(event));
     return result?.problems ?? [];
   }
@@ -168,6 +178,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     const entry = machine.enter(state);
     this.status = 'running';
     void this.run(machine, state, entry);
+    // run enqueues the command synchronously, so the queue has already
+    // signalled the full document and the notifier skips this one
+    this.changes.emit();
     return fsmReply('accepted', state);
   }
 
@@ -185,6 +198,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     // manager.stop never rejects
     this.pendingStop = this.pendingStop.then(() => this.manager.stop(left));
     void this.pendingStop.then(() => this.runIfCurrent(machine, state, entry));
+    this.changes.emit();
     return fsmReply('accepted', state);
   }
 
@@ -214,6 +228,7 @@ export default class FsmService implements BeforeApplicationShutdown {
       return;
     }
     this.status = STATUS[outcome];
+    this.changes.emit();
     this.complete(machine, COMPLETION[outcome]);
   }
 

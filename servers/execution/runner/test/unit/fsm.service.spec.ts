@@ -178,4 +178,30 @@ describe('State machine service', () => {
 
     expect(manager.newCommand).toHaveBeenLastCalledWith('terminate');
   });
+
+  it('Should signal each entry and each completion once', async () => {
+    const { service, finish } = setup();
+    const changed = jest.fn();
+    service.onChange(changed);
+
+    service.transition('create');
+    expect(changed).toHaveBeenCalledTimes(1);
+    // the completion of create, and the entry into execute
+    await finish('create', true);
+    expect(changed).toHaveBeenCalledTimes(3);
+  });
+
+  it('Should signal no refused request', () => {
+    const { service } = setup();
+    service.transition('execute');
+    const changed = jest.fn();
+    service.onChange(changed);
+
+    service.transition('configure');
+    service.transition('create');
+    service.event('reset');
+    service.event('start');
+
+    expect(changed).not.toHaveBeenCalled();
+  });
 });

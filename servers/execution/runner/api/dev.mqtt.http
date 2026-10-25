@@ -178,3 +178,15 @@ QoS: 1
 {"scope": "multi"}
 === wait-for-server
 {{ "" }}
+
+###
+
+# @name notifications
+# Subscribes to the notifications of the runner and publishes nothing;
+# the broker hands over the retained state document at once
+MQTT {{broker}}
+Subscribe: {{topic}}/notify/+
+QoS: 1
+
+=== wait-for-server
+{{ "" }}

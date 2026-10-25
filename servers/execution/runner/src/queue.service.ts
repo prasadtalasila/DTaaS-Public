@@ -10,6 +10,7 @@ import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import { RunOutcome } from './interfaces/runner.interface.js';
 import { ParameterValue } from './dto/parameters.dto.js';
+import Changes, { ChangeListener } from './notify/changes.js';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
@@ -76,6 +77,13 @@ function toRecord(
 export default class Queue {
   private db = Queue.connect(':memory:');
 
+  // Signals a command that starts or finishes
+  private readonly changes = new Changes();
+
+  onChange(listener: ChangeListener): void {
+    this.changes.on(listener);
+  }
+
   open(file: string | undefined): void {
     if (file !== undefined) {
       mkdirSync(dirname(file), { recursive: true });
@@ -106,6 +114,7 @@ export default class Queue {
     if (requestKey !== undefined) {
       this.addKey(requestKey, id);
     }
+    this.changes.emit();
     return id;
   }
 
@@ -129,6 +138,7 @@ export default class Queue {
         logs.get('stderr') ?? '',
         id,
       );
+    this.changes.emit();
   }
 
   checkHistory(): Array<ExecuteCommandDto> {

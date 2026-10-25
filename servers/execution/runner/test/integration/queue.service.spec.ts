@@ -3,7 +3,14 @@ import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from '@jest/globals';
 import { ParameterValue } from 'src/dto/parameters.dto';
 import Queue from 'src/queue.service';
 
@@ -98,6 +105,16 @@ describe('check Queue service', () => {
       status: 'stopped',
       finished: true,
     });
+  });
+
+  it('should signal a command that starts and one that finishes', () => {
+    const changed = jest.fn();
+    queue.onChange(changed);
+
+    const id = queue.enqueue('hello', 'key-1');
+    expect(changed).toHaveBeenCalledTimes(1);
+    queue.complete(id, ['success', logs('hello world')]);
+    expect(changed).toHaveBeenCalledTimes(2);
   });
 
   it('should return correct active command when queue has more than one command', async () => {

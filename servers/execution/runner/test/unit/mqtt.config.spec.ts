@@ -3,6 +3,7 @@ import {
   defaultResponseTopic,
   isPublishableTopic,
   mqttConfigSchema,
+  notifyTopic,
   requestTopic,
 } from 'src/mqtt/mqtt.config';
 
@@ -64,5 +65,11 @@ describe('MQTT configuration', () => {
     ['$SYS/replies', false],
   ])('Should tell whether %p can be published to', (topic, expected) => {
     expect(isPublishableTopic(topic)).toBe(expected);
+  });
+
+  it('Should put the notifications two levels under the base topic', () => {
+    expect(notifyTopic('dtaas/runner', 'state')).toBe(
+      'dtaas/runner/notify/state',
+    );
   });
 });

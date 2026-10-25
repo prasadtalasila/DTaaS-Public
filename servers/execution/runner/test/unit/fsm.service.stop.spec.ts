@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import {
   createService,
   MACHINE_FILE,
@@ -163,5 +163,17 @@ describe('State machine service with stopped scripts', () => {
     await settle();
 
     expect(manager.newCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('Should signal a stop transition once, and not the stopped script', async () => {
+    const { service } = setup();
+    service.transition('execute');
+    const changed = jest.fn();
+    service.onChange(changed);
+
+    service.event('halt');
+    await settle();
+
+    expect(changed).toHaveBeenCalledTimes(1);
   });
 });

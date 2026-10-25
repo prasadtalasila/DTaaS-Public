@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -10,7 +13,15 @@ import {
 import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, IClientPublishOptions, MqttClient } from 'mqtt';
-import { nextReply, Reply, startRunner } from './mqtt.util';
+import Config from 'src/config/configuration.service';
+import FsmService from 'src/fsm/fsm.service';
+import {
+  lateSubscriber,
+  nextNotification,
+  nextReply,
+  Reply,
+  startRunner,
+} from './mqtt.util';
 
 // Runs only against a real broker, for example
 // MQTT_BROKER_URL=mqtt://test.mosquitto.org:1883 yarn test:broker
@@ -24,6 +35,7 @@ const host = BROKER_URL === undefined ? '' : new URL(BROKER_URL).host;
 const BASE = `dtaas/test/${randomUUID()}`;
 const TOPIC = `${BASE}/runner`;
 const REPLIES = `${BASE}/client`;
+const STATE = `${TOPIC}/notify/state`;
 
 jest.setTimeout(30000);
 
@@ -82,6 +94,18 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
     return supertest(app.getHttpServer()).get('/history');
   };
 
+  // Gives the running runner a state machine of one state, create
+  const loadMachine = (dir: string): INestApplication => {
+    if (app === undefined) {
+      throw new Error('The runner is not running');
+    }
+    const file = join(dir, 'machine.yaml');
+    writeFileSync(file, 'states: {create: {}}');
+    jest.spyOn(app.get(Config), 'getStateMachine').mockReturnValue(file);
+    app.get(FsmService).load();
+    return app;
+  };
+
   beforeEach(async () => {
     client = await connectAsync(url, { protocolVersion: 5 });
     await client.subscribeAsync(`${REPLIES}/#`, { qos: 1 });
@@ -91,6 +115,8 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
   afterEach(async () => {
     await app?.close();
     app = undefined;
+    // an empty retained message deletes the state the runner left
+    await client.publishAsync(STATE, '', { qos: 1, retain: true });
     await client.endAsync();
     jest.restoreAllMocks();
   });
@@ -156,6 +182,30 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
     } finally {
       // an empty retained message deletes the retained request
       await client.publishAsync(`${TOPIC}/execute`, '', retained);
+    }
+  });
+
+  it('keeps the state after a transition for a later subscriber', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'runner-broker-'));
+    try {
+      const runner = loadMachine(dir);
+      await client.subscribeAsync(STATE, { qos: 1 });
+      const finished = nextNotification(
+        client,
+        STATE,
+        ({ machine }) => machine?.status === 'valid',
+      );
+      await supertest(runner.getHttpServer())
+        .post('/fsm/transition')
+        .send({ state: 'create' });
+      const { body } = await finished;
+
+      expect(await lateSubscriber(url, 5, STATE)).toEqual({
+        body,
+        retain: true,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
