@@ -170,8 +170,9 @@ document. The descriptor carries no runner version.
 - js-yaml throws on an empty or comment-only file and on a syntax error
   without naming the file; the loader wraps both. A `stateMachine` that
   names a directory gave a bare `EISDIR` until `statSync().isFile()`.
-- The Jest test configuration permits only _create_, so it can not name
-  the test state machine, which has an _execute_ state.
+- At the time of 01 the Jest test configuration permitted only _create_,
+  so it could not name the test state machine, which has an _execute_
+  state.
 - Starting the built runner for the PR evidence showed that it no longer
   started at all: a value import without its `.js` suffix had come in
   with the state machine. ts-jest resolves such paths, so no test saw

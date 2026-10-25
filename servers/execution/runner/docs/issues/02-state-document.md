@@ -129,7 +129,8 @@ machine or not:
 
 - `CREATE TABLE IF NOT EXISTS` never changes an existing database file,
   so new fields come from converting on read (`strftime` in the query)
-  or from a guarded `ALTER TABLE` (05), never from a new column default.
+  or from a guarded `ALTER TABLE` (as 05 will need for its new columns),
+  never from a new column default.
 - `strftime('%Y-%m-%dT%H:%M:%fZ', …)` gives the same shape as
   `toISOString()`, milliseconds included, for rows SQLite wrote with
   second resolution.

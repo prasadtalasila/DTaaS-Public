@@ -194,10 +194,11 @@ observation.
 - Webhook posts are concurrent and arrive out of order (seen in the PR
   evidence); MQTT delivers in order, and its retained message is the
   latest.
-- Nest starts the `beforeApplicationShutdown` hooks of all providers in
-  one pass, in provider order, so the notifier stops before the queue
-  closes, and `MqttService` is already disconnecting when a later hook
-  runs (07 depends on this).
+- The notifier stops before the queue closes because the queue closes
+  in `ExecaManager.onApplicationShutdown`, after every
+  `beforeApplicationShutdown` hook. Those hooks start in one pass, in
+  provider order, so `MqttService` is already disconnecting when a later
+  hook runs (07 depends on this).
 - Pending webhook retries kept Jest alive until they were aborted at
   shutdown and their timers `unref()`-ed.
 - The broker test runs only in CI against Mosquitto with MQTT 5; the

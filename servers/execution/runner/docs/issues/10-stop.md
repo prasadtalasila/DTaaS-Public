@@ -203,7 +203,7 @@ machine moves on and is busy again.
   test scripts loop on short sleeps.
 - On Windows the stop ends `powershell.exe` at once and the processes it
   started keep running; `stopGrace` has no effect there.
-- The `SIGTERM` grace-period test can only run on Linux; it first ran in
-  CI.
+- The `SIGTERM` grace-period test is skipped on Windows, so it first ran
+  in CI.
 - SonarCloud does not count supertest's `.expect()` chains as test
   assertions, and flags `await` inside a loop; both turned up only in CI.
