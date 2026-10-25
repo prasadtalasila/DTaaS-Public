@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
 import { commandState, StateDocumentDto } from './dto/state.dto.js';
+import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
 import { ChangeListener } from './notify/changes.js';
 import Queue from './queue.service.js';
@@ -21,7 +22,7 @@ export default class DescriptorService {
       id: this.config.getId(),
       attributes: this.config.getAttributes(),
       commands: this.config.permitCommands(),
-      stateMachine: this.fsm.hasMachine(),
+      stateMachine: this.fsm.check() !== undefined,
     };
   }
 
@@ -40,5 +41,9 @@ export default class DescriptorService {
   onChange(listener: ChangeListener): void {
     this.fsm.onChange(listener);
     this.queue.onChange(listener);
+  }
+
+  onEscalation(listener: EscalationListener): void {
+    this.fsm.onEscalation(listener);
   }
 }

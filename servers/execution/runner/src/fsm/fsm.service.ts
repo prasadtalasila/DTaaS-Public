@@ -10,12 +10,14 @@ import {
   ScriptStatus,
   STATUS,
 } from '../dto/fsm.dto.js';
+import { EscalateBody, EscalateReplyDto } from '../dto/escalation.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import { CompletionEvent, loadDefinition, Transition } from './definition.js';
+import Escalations, { EscalationListener } from './escalation.js';
 import Parameters from './parameters.js';
-import RecentReplies from './recent-replies.js';
 import { Env, RunnerContext } from './script-context.js';
+import Requests from './requests.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
 
@@ -38,13 +40,18 @@ export default class FsmService implements BeforeApplicationShutdown {
   // not run its script while the script of an earlier one still exits
   private pendingStop: Promise<unknown> = Promise.resolve();
 
-  private readonly replies = new RecentReplies<FsmReplyDto>();
+  private readonly requests = new Requests(() => ({
+    machine: this.machine,
+    stopping: this.stopping,
+  }));
 
   // Signals a new state, or a new status of its script
   private readonly changes = new Changes();
 
   // What the scripts learn about the runner and the digital twin
   private readonly context = new RunnerContext();
+
+  private readonly escalations = new Escalations();
 
   // eslint-disable-next-line no-useless-constructor
   constructor(
@@ -61,6 +68,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.machine = definition && new StateMachine(definition);
     this.declared = definition && new Parameters(definition.parameters);
     this.context.load(this.config.getId(), definition, this.declared);
+    this.escalations.declare(definition?.escalation);
   }
 
   // The address of the HTTP API for scripts; undefined leaves it unset
@@ -84,8 +92,13 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.changes.on(listener);
   }
 
-  hasMachine(): boolean {
-    return this.machine !== undefined;
+  onEscalation(listener: EscalationListener): void {
+    this.escalations.on(listener);
+  }
+
+  // Needs no state machine, so that a plain DT escalates too
+  escalate(body: EscalateBody, requestKey?: string): EscalateReplyDto {
+    return this.escalations.request(body, requestKey, this.machine);
   }
 
   check(): FsmStateDto | undefined {
@@ -110,7 +123,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   // Moves an idle machine to any of its states
   transition(state: string, requestKey?: string): FsmReplyDto {
-    return this.request(`transition ${state}`, requestKey, (machine) => {
+    return this.requests.reply(`transition ${state}`, requestKey, (machine) => {
       if (!machine.hasState(state)) {
         return fsmReply('invalid state', machine.state);
       }
@@ -122,15 +135,12 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   event(event: string, requestKey?: string): FsmReplyDto {
-    return this.request(`event ${event}`, requestKey, (machine) => {
-      if (!machine.hasEvent(event)) {
-        return fsmReply('invalid event', machine.state);
+    return this.requests.reply(`event ${event}`, requestKey, (machine) => {
+      const reply = this.move(machine, event);
+      if (reply.status === 'no transition') {
+        this.escalations.noTransition(machine, event);
       }
-      const next = machine.next(event);
-      if (next === undefined) {
-        return fsmReply('no transition', machine.state);
-      }
-      return this.follow(machine, next);
+      return reply;
     });
   }
 
@@ -140,38 +150,26 @@ export default class FsmService implements BeforeApplicationShutdown {
       : this.enter(machine, next.state);
   }
 
-  // The reply does not depend on the events, so a refused one is logged
+  // A refused event is logged; an event a parameter raises never escalates
   private raise(event: string): void {
-    const { status, state } = this.event(event);
+    const { status, state } = this.requests.answer((machine) =>
+      this.move(machine, event),
+    );
     if (status !== 'accepted') {
       const level = status === 'no transition' ? 'debug' : 'warn';
       this.logger[level](`Stayed in state ${state} on ${event}: ${status}`);
     }
   }
 
-  // A repeated request key gets the reply to its first request, if that
-  // was accepted; a refused request changed nothing, so it is checked
-  // again
-  private request(
-    request: string,
-    requestKey: string | undefined,
-    handle: (machine: StateMachine) => FsmReplyDto,
-  ): FsmReplyDto {
-    return this.replies.resolve(requestKey, request, {
-      compute: () => this.reply(handle),
-      mismatch: () => fsmReply('invalid request key', this.machine?.state),
-      keep: ({ status }) => status === 'accepted',
-    });
-  }
-
-  private reply(handle: (machine: StateMachine) => FsmReplyDto): FsmReplyDto {
-    if (this.machine === undefined) {
-      return fsmReply('no state machine', undefined);
+  private move(machine: StateMachine, event: string): FsmReplyDto {
+    if (!machine.hasEvent(event)) {
+      return fsmReply('invalid event', machine.state);
     }
-    if (this.stopping) {
-      return fsmReply('stopping', this.machine.state);
+    const next = machine.next(event);
+    if (next === undefined) {
+      return fsmReply('no transition', machine.state);
     }
-    return handle(this.machine);
+    return this.follow(machine, next);
   }
 
   // ExecaManager joins a run in progress, which would not run the
@@ -231,11 +229,14 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.complete(machine, COMPLETION[outcome]);
   }
 
-  // No completion transition stops a script, as the definition refuses
-  // stop on completion events
+  // No completion transition stops a script (the definition refuses
+  // stop on them); a failure without a transition may escalate
   private complete(machine: StateMachine, event: CompletionEvent): void {
     const next = machine.next(event);
     if (next === undefined) {
+      if (event === '$failure') {
+        this.escalations.failure(machine);
+      }
       return;
     }
     const { status } = this.enter(machine, next.state);

@@ -141,6 +141,19 @@ content-type: {{ContentType}}
     "scope": "multi"
 }
 
+### Escalate to the Manager, with or without a state machine
+
+POST http://{{hostname}}:{{port}}/escalate HTTP/1.1
+content-type: {{ContentType}}
+Idempotency-Key: 3f2b9c4e
+
+{
+    "reason": "capacity",
+    "proposal": {
+        "scope": "multi"
+    }
+}
+
 ### Stop every running command
 
 POST http://{{hostname}}:{{port}}/stop HTTP/1.1

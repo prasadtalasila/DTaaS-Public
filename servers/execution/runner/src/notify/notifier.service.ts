@@ -45,6 +45,7 @@ export default class Notifier
   onModuleInit(): void {
     this.descriptor.onChange(() => this.sendState());
     this.mqtt.onConnect(() => this.announce());
+    this.descriptor.onEscalation((data) => this.send('escalation', data));
   }
 
   // The presence and the state document at startup

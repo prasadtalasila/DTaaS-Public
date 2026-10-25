@@ -4,6 +4,7 @@ import {
   defaultResponseTopic,
   isPublishableTopic,
   mqttConfigSchema,
+  mqttRoutes,
   notifyTopic,
   presenceWill,
   requestTopic,
@@ -72,6 +73,16 @@ describe('MQTT configuration', () => {
   it('Should put the notifications two levels under the base topic', () => {
     expect(notifyTopic('dtaas/runner', 'state')).toBe(
       'dtaas/runner/notify/state',
+    );
+    expect(notifyTopic('dtaas/runner', 'escalation')).toBe(
+      'dtaas/runner/notify/escalation',
+    );
+  });
+
+  it('Should serve escalations one level under the base topic', () => {
+    expect(mqttRoutes).toContain('escalate');
+    expect(requestTopic('dtaas/runner', 'escalate')).toBe(
+      'dtaas/runner/escalate',
     );
   });
 

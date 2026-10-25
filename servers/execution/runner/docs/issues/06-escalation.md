@@ -1,6 +1,6 @@
 # 06 Escalation Signal
 
-- Status: in progress
+- Status: in review
 - Depends on: 03
 - PR: none
 - Research note:
@@ -213,7 +213,7 @@ webhook:
    - `docs/state-machine-design.md`: the Validation section's list of
      top-level keys; amend A4 (the runner raises escalations by itself
      on the declared triggers; an escalation raises no event); add D25
-     (D23 and D24 are 05's): opt-in triggers declared by the DT author,
+     (D23 is 08's, D24 05's): opt-in triggers declared by the DT author,
      deduplicated per entry, and an explicit request that needs no
      machine.
    - `src/dto/notify.dto.ts:1`: the comment says that only presence is
@@ -228,12 +228,12 @@ webhook:
 
 ## Tasks
 
-- [ ] After the moves of steps 1 and 2 the service answers as before,
+- [x] After the moves of steps 1 and 2 the service answers as before,
       and `StateMachine.describe(status)` returns the machine document.
       Check: `test/unit/fsm.service.requests.spec.ts`,
       `test/unit/fsm.service.spec.ts`,
       `test/unit/fsm.state-machine.spec.ts`.
-- [ ] The section defaults both flags to `false` when missing or
+- [x] The section defaults both flags to `false` when missing or
       partial, and rejects an unknown key, `__proto__` and a
       non-boolean; `parseDefinition` carries it. `Escalations` emits
       nothing without flags, `failure` once per call, `no-transition`
@@ -242,35 +242,67 @@ webhook:
       and `entry: 0` without a machine, emits once per key, also for a
       repeat with another body, and every time without a key. Check:
       `test/unit/fsm.escalation.spec.ts`.
-- [ ] `escalateSchema` accepts a 1024-byte `reason` and a 4096-byte
+- [x] `escalateSchema` accepts a 1024-byte `reason` and a 4096-byte
       `proposal`, and rejects a missing or empty `reason`, one byte
       more of either, and a `proposal` that is an array or `null`.
       Check: `test/unit/escalation.dto.spec.ts`.
-- [ ] Through `FsmService` with a `scriptFolder` definition that has
+- [x] Through `FsmService` with a `scriptFolder` definition that has
       the section: a `$failure` without a transition escalates; one
       whose target's script is running does not; `$stopped` does not;
       a repeated client event escalates once per entry; an event that
       a parameter raises does not; nothing escalates with the flags
       off. Check: `test/unit/fsm.service.escalation.spec.ts`.
-- [ ] `DescriptorService.onEscalation` forwards; the notifier sends an
+- [x] `DescriptorService.onEscalation` forwards; the notifier sends an
       escalation unretained. Check: `test/unit/descriptor.service.spec.ts`,
       `test/unit/notifier.service.spec.ts`.
-- [ ] The MQTT `escalate` route returns `{ "status": "accepted" }`,
+- [x] The MQTT `escalate` route returns `{ "status": "accepted" }`,
       the validation body for a bad payload or key, and passes the key.
       Check: `test/unit/mqtt-request.escalate.spec.ts`,
       `test/unit/mqtt.config.spec.ts` (route list).
-- [ ] `POST /escalate` answers `202` with and without a machine, `400`
+- [x] `POST /escalate` answers `202` with and without a machine, `400`
       for a bad body, and replays a repeated key without a second
       notification; the escalation reaches the webhook, and a client
       that subscribes to `<base>/notify/+` on the local aedes broker
       after the escalation receives the retained `state` notification;
       the broker retains nothing on `<base>/notify/escalation`. Check:
       `test/e2e/escalation.spec.ts`.
-- [ ] README, request files, design document (Validation, A4, D25) and
+- [x] README, request files, design document (Validation, A4, D25) and
       the index updated. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass. eslint lints no `.ts` file,
+- [x] `yarn build` and `yarn test` pass. eslint lints no `.ts` file,
       so `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` must
       be clean, no file passes 250 lines, and no function crosses the
       Qlty thresholds. Check: their output; the Qlty thresholds counted
       by hand, as the CLI runs in CI.
+
+## Learnings
+
+- The plan's line numbers for the cycle search were stale (it named
+  256-291; the code was at 130-165). 08 merged first and moved it to
+  `src/fsm/completion-cycle.ts`, so `definition.ts` is 222 lines with
+  both the `env` and `escalation` sections.
+- 08 merged first with its own `request`, `reply`, `follow` and
+  `StateMachine.describe`. The rebase keeps 08's `follow` and
+  `describe`, replaces `request` and `reply` with `Requests`, and
+  drops `hasMachine()` for `check() !== undefined` in
+  `DescriptorService`. `fsm.service.ts` is then at 249 lines, with no
+  room left: 09 must move something out before it adds, for example
+  the script runs (`enter`, `enterStopping`, `run`, `complete`).
+- `startRunner` of `test/e2e/util.ts` does not start `MqttService`.
+  Starting it after `app.init()` misses the startup state notification,
+  so the end-to-end test makes a transition first to have a retained
+  state. 07 needs the startup message and should start MQTT before
+  `init`, as `test/e2e/mqtt.util.ts` does.
+- aedes 1.x does not declare `persistence` in its types; the
+  broker-side retained check casts to `{ createRetainedStream }` and
+  reads the stream with `Readable.toArray()`. Setting `escalation`
+  retained in `RETAINED` makes that test fail, so the check works.
+- A byte size by the JSON rule counts the quotes of a string, so a
+  1024-byte `reason` has 1022 ASCII characters; the README says so.
+- Jest passed a test file with a type error (a `kind: string` envelope
+  where `NotifyKind` was due); only the `tsc` check caught it.
+- No version bump: the change adds a section, a route and a
+  notification kind, and breaks no existing request.
+- `DEVELOPER.md` names no route or notification, so it needs no
+  change. `docs/developer/codebase/runner.md` documents the route set
+  and is stale; the pull request lists it for a separate change.
