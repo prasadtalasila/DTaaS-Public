@@ -46,13 +46,18 @@ cp config/runner.yaml.sample config/runner.yaml
 The sample configuration file is:
 
 ```yaml
+id: 'my-dt' # names the digital twin; letters, digits, _, . or -, up to 64
 port: 5000
-location: 'scripts'  # directory of scripts, relative to this config file
-commands:  # list of permitted scripts
+location: 'scripts' # directory of scripts, relative to this config file
+commands: # list of permitted scripts
   - create
   - execute
   - terminate
 ```
+
+The sample also lists the optional keys, commented out. The runner
+does not start without an `id`, so a `config/runner.yaml` copied from
+a sample older than version 0.5.0 needs one.
 
 Only the commands listed in `commands` can be executed, and only if
 a matching script exists in the `scripts` directory.
@@ -60,7 +65,9 @@ The `compose.runner.yml` file mounts `config/runner.yaml` as
 `/dtaas/runner/runner.yaml` and the `scripts` directory as
 `/dtaas/runner/scripts`, so keep `location: 'scripts'`.
 If you change the `port`, change the port mapping in `compose.runner.yml`
-as well.
+as well. A `stateMachine` file, such as `scripts/state-machine.yaml`,
+must be in the mounted `scripts` directory, as only that directory and
+`runner.yaml` are in the container.
 
 ### Run
 
@@ -89,6 +96,8 @@ docker compose -f compose.runner.dev.yml down
 - `POST /` with `{"name": "<command name>"}` executes a command.
 - `GET /` returns the status and logs of the last command.
 - `GET /history` returns the commands received so far.
+- `GET /dt` returns the `id`, `attributes` and `commands` of the
+  digital twin, and whether a state machine is loaded.
 
 A sample request is:
 
@@ -105,8 +114,7 @@ across container restarts, mount a directory for the database and
 name a file in it, for example `database: 'data/runner.db'` with the
 volume `./data:/dtaas/runner/data`. The runner runs as uid 1000 and
 must be able to write to that directory, so create it before starting
-the container, and run `sudo chown 1000 data` if your user id is not
-1000.
+the container, and run `sudo chown 1000 data` if your user id is not 1000.
 
 At shutdown the runner waits for the commands in progress to finish.
 Docker stops a container forcibly after ten seconds, so set a longer

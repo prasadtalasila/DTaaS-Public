@@ -27,8 +27,9 @@ runner serves one DT, so one script folder holds one state machine.
 
 ### State Machine File
 
-The runner reads `state-machine.yaml` from its `location` folder at
-startup.
+The runner reads the file that the `stateMachine` key of `runner.yaml`
+names, relative to `runner.yaml` or absolute, at startup. Before issue
+01 the file was `state-machine.yaml` in the `location` folder (D1).
 
 ```yaml
 events: [start, stop, reset] # the events clients may send
@@ -71,8 +72,9 @@ invalid `mqtt` section. The file is valid when:
 - no cycle is made of completion transitions alone.
 
 `events` may be left out, and a state without transitions may be left
-empty, as in `terminate:`. Without the file, the state machine is off
-and its endpoints answer 404 to well-formed requests.
+empty, as in `terminate:`. Without a `stateMachine` key, the state
+machine is off and its endpoints answer 404 to well-formed requests. A
+key that names a missing file stops the runner.
 
 ### API
 
@@ -99,7 +101,7 @@ the outcome, since MQTT has no status codes, and the current state:
 | `busy`                | 409  | a transition request while the state's script runs   |
 | `no transition`       | 409  | the current state has no transition for the event    |
 | `script running`      | 409  | the script of the target state is still running      |
-| `no state machine`    | 404  | the script folder has no `state-machine.yaml`        |
+| `no state machine`    | 404  | `runner.yaml` has no `stateMachine`                  |
 | `stopping`            | 503  | the runner is shutting down                          |
 
 A malformed body or request key gets the `Validation Failed` response
@@ -134,7 +136,7 @@ current state, and `none` before the first transition, when `state` is
 
 | Unit                     | Responsibility                                       |
 | :----------------------- | :--------------------------------------------------- |
-| `fsm/definition.ts`      | read, parse and check `state-machine.yaml`           |
+| `fsm/definition.ts`      | read, parse and check the state machine file         |
 | `fsm/state-machine.ts`   | pure machine: current state, entry count, next state |
 | `fsm/recent-replies.ts`  | bounded store of replies to repeated requests        |
 | `fsm/fsm.service.ts`     | runs scripts, raises completion events, replies      |
@@ -170,7 +172,7 @@ proposal to derive the events from the transitions was declined (D4).
 
 | #   | Decision                                                                  | Reason                                                                                                                                                                                                                                                                                                                         |
 | :-- | :------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | YAML file named `state-machine.yaml` in `location`                        | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. A fixed name needs no new configuration key.                                                                                                                                                                |
+| D1  | YAML file that the `stateMachine` key of `runner.yaml` names              | The owner asked for a file in the script folder. YAML matches `runner.yaml` and `js-yaml` is already a dependency. Amended by issue 01 (S5): the fixed name `state-machine.yaml` in `location` gave way to a key, so that `runner.yaml`, the operator's file, names the DT author's file.                                      |
 | D2  | A state is a script of the same name                                      | The owner speaks of transitions between scripts. A separate `script` key can be added later if two states must share a script.                                                                                                                                                                                                 |
 | D3  | Nested `transitions` maps instead of a list of transitions                | Duplicate YAML keys are an error, so a state can not have two transitions for one event, as in XState. The key is not XState's `on`, which YAML 1.1 parsers and yamllint read as `true`.                                                                                                                                       |
 | D4  | Explicit `events` list                                                    | The owner asked for events defined per DT. The list separates an unknown event (400) from an event without a transition in the current state (409), and catches a misspelt event in `transitions` at startup. Fable proposed deriving it; this was declined.                                                                   |
@@ -186,6 +188,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D14 | Stop accepting requests in `beforeApplicationShutdown`                    | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                                                                                                |
 | D15 | 202 Accepted for accepted requests                                        | The script has started, not finished.                                                                                                                                                                                                                                                                                          |
 | D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones     | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them.                                                                                                                                                                                                                            |
+| D17 | A required `id`, and one strict schema for all of `runner.yaml`           | Added by issue 01. A Manager and the runner's notifications must name the DT, and the port or base topic does not. The `id` follows the name pattern of states. An unknown key of `runner.yaml` is an error, as in the state machine file.                                                                                     |
 
 ## Assumptions
 
@@ -198,7 +201,8 @@ proposal to derive the events from the transitions was declined (D4).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.
-- A6: Changing `state-machine.yaml` takes effect on a restart.
+- A6: Changing the state machine file, or the `stateMachine` key that
+  names it, takes effect on a restart.
 - A7: A manual `POST /` of the script of the current state joins the
   machine's run. A manual run of another script does not affect the
   machine.
@@ -208,8 +212,8 @@ proposal to derive the events from the transitions was declined (D4).
 
 ## Error Handling
 
-- An invalid file stops the runner at startup with a message naming
-  each problem.
+- A missing or invalid file stops the runner at startup with a
+  message naming the file and each problem.
 - A script that fails to start, as when the database is closed, counts
   as a failed script.
 - A completion transition into a state whose script is running is

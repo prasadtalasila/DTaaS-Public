@@ -30,9 +30,10 @@ configuration and these scripts into the runner directory before they
 run and delete them afterwards.
 
 The directory also has a `state-machine.yaml` for the _create_ and
-_execute_ scripts, which `runner.test.yaml.sample` permits. A
-`config/runner.test.yaml` copied from an older sample that permits
-only _create_ stops the runner at startup; copy the sample again. The
+_execute_ scripts, which `runner.test.yaml.sample` permits and names
+with its `stateMachine` key. A `config/runner.test.yaml` copied from
+an older sample stops the runner at startup, as it lacks the required
+`id` or permits only _create_; copy the sample again. The
 [state machine design](docs/state-machine-design.md) explains the file
 and the decisions behind it.
 

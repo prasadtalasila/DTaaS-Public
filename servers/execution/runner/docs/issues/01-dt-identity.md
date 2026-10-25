@@ -1,6 +1,6 @@
 # 01 DT Identity and Descriptor
 
-- Status: in progress
+- Status: in review
 - Depends on: none
 - PR: none
 - Research note:
@@ -133,26 +133,26 @@ document. The descriptor carries no runner version.
 
 ## Tasks
 
-- [ ] Configuration schema accepts the sample file and rejects a missing
+- [x] Configuration schema accepts the sample file and rejects a missing
       `id`, an invalid `id`, a missing `commands`, nested `attributes`,
       an unknown key and an invalid `mqtt` section, each with a message
       naming the problem. Check: `test/unit/config.schema.spec.ts`.
-- [ ] `Config` rejects a `__proto__` attribute, resolves `stateMachine`
+- [x] `Config` rejects a `__proto__` attribute, resolves `stateMachine`
       relative and absolute, and exposes `getId`, `getAttributes`,
       `getStateMachine`. Check: `test/integration/options.service.spec.ts`.
-- [ ] Without `stateMachine` no machine loads; with it the named file
+- [x] Without `stateMachine` no machine loads; with it the named file
       loads; a missing file stops the runner and its error, like every
       definition error, names the path. Check:
       `test/unit/fsm.definition.spec.ts`, `test/unit/fsm.service.spec.ts`.
-- [ ] `GET /dt` returns the descriptor with `attributes: {}` when none
+- [x] `GET /dt` returns the descriptor with `attributes: {}` when none
       are configured. Check: `test/e2e/descriptor.spec.ts`.
-- [ ] The `dt` MQTT route returns the same body. Check:
+- [x] The `dt` MQTT route returns the same body. Check:
       `test/unit/mqtt-request.handler.spec.ts`, `test/e2e/mqtt.spec.ts`.
-- [ ] Every sample, fixture and request file carries `id`, and the
+- [x] Every sample, fixture and request file carries `id`, and the
       state machine tests load their file through `stateMachine`.
       Check: `yarn test` runs green.
-- [ ] README, `api/README.md`, `DEVELOPER.md`, `DOCKER.md` and the
+- [x] README, `api/README.md`, `DEVELOPER.md`, `DOCKER.md` and the
       design document (D1, A6, new decision for `id`) describe the keys
       and the route. Check: `npx markdownlint-cli` on them.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass, and no new
+- [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no new
       function crosses the Qlty thresholds. Check: their output.
