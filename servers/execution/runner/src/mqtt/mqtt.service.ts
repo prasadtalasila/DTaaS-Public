@@ -80,8 +80,8 @@ export default class MqttService implements BeforeApplicationShutdown {
       }
       lastError = message;
     });
-    client.on('message', (topic, payload, packet) =>
-      this.respond(client, topic, payload, packet),
+    client.on('message', (_topic, payload, packet) =>
+      this.respond(client, payload, packet),
     );
   }
 
@@ -105,10 +105,10 @@ export default class MqttService implements BeforeApplicationShutdown {
 
   private async respond(
     client: MqttClient,
-    topic: string,
     payload: Buffer,
     packet: IPublishPacket,
   ): Promise<void> {
+    const { topic } = packet;
     const route = this.routes.get(topic);
     if (route === undefined) {
       return;

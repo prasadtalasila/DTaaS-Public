@@ -45,9 +45,15 @@ function setup(options: MqttConfig | undefined) {
 const packet = (properties?: IPublishPacket['properties']) =>
   ({ properties }) as IPublishPacket;
 
-// The service answers asynchronously, so wait for the reply to go out
-const message = async (client: FakeClient, ...args: unknown[]) => {
-  client.emit('message', ...args);
+// The service answers asynchronously, so wait for the reply to go out.
+// A received packet carries its topic, as in mqtt.js.
+const message = async (
+  client: FakeClient,
+  topic: string,
+  payload: Buffer,
+  received: IPublishPacket,
+) => {
+  client.emit('message', topic, payload, { ...received, topic });
   await new Promise(setImmediate);
 };
 

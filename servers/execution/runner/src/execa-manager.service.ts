@@ -40,10 +40,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   async newCommand(name: string, key?: string): Promise<CommandResult> {
     // an empty key marks no request
     const requestKey = key === '' ? undefined : key;
-    const earlier =
-      requestKey === undefined
-        ? undefined
-        : this.commandQueue.findByKey(requestKey);
+    const earlier = this.earlierRequest(requestKey);
     if (earlier !== undefined) {
       return this.repeat(name, earlier);
     }
@@ -51,6 +48,20 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     if (current === undefined) {
       return this.start(name, requestKey);
     }
+    return this.join(name, current, requestKey);
+  }
+
+  private earlierRequest(requestKey?: string): CommandRecord | undefined {
+    return requestKey === undefined
+      ? undefined
+      : this.commandQueue.findByKey(requestKey);
+  }
+
+  private join(
+    name: string,
+    current: Run,
+    requestKey?: string,
+  ): Promise<CommandResult> {
     // keep the key, so that a retry of this request is a repeat too
     if (requestKey !== undefined) {
       this.commandQueue.addKey(requestKey, current.id);
