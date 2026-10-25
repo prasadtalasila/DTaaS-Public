@@ -77,10 +77,8 @@ replaced with _options_ in the names of test files.
 
 ## NPM package
 
-The package version is hardcoded as `PACKAGE_VERSION: string` in
-[CLI code](src/config/commander.ts). This package version needs to be
-same as `version` in `package.json`. The `test/unit/version.spec.ts` test
-fails if the two versions differ.
+The package version lives in `package.json` only; the code does not
+repeat it and the CLI has no `--version` flag.
 
 ### Github Package Registry
 

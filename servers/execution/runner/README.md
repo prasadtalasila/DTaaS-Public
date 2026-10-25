@@ -209,7 +209,6 @@ Usage: runner [options]
 Remote code execution for humans
 
 Options:
-  -v --version          package version
   -c --config <string>  runner config file specified in yaml format (default: "runner.yaml")
   -h --help             display help
 ```

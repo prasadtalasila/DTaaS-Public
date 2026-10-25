@@ -4,7 +4,6 @@ import { readFileSync } from 'fs';
 import Keyv from 'keyv';
 import resolveFile from './util.js';
 
-export const PACKAGE_VERSION: string = '0.4.0';
 const DEFAULT_CONFIG_FILENAME = 'runner.yaml';
 
 export function createCommand(name: string): [Command, Keyv] {
@@ -17,7 +16,6 @@ export default async function CLI(
 ): Promise<Keyv> {
   program
     .description('Remote code execution for humans')
-    .version(PACKAGE_VERSION, '-v --version', 'package version')
     .option(
       '-c --config <string>',
       'runner config file specified in yaml format',
