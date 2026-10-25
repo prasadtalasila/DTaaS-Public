@@ -60,9 +60,13 @@ async function startRunner(configFile: string): Promise<INestApplication> {
 const post = (app: INestApplication, route: string, body: object) =>
   supertest(app.getHttpServer()).post(route).send(body);
 
+// PowerShell takes a second or more to start on a loaded Windows host,
+// so a test that runs three scripts in turn needs more than the default
+const SCRIPT_CHAIN_TIMEOUT = 30000;
+
 // Polls the machine until the script of the state has finished
 async function settled(app: INestApplication, state: string) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
     const { body } = await supertest(app.getHttpServer()).get('/fsm');
     if (body.state === state && body.status !== 'running') {
       return body;
@@ -92,30 +96,38 @@ describe('Runner state machine end-to-end tests', () => {
     await app.close();
   });
 
-  it('Should run the scripts from state to state', async () => {
-    await supertest(app.getHttpServer())
-      .get('/fsm')
-      .expect(HttpStatus.OK, { state: null, status: 'none', events: ['stop'] });
+  it(
+    'Should run the scripts from state to state',
+    async () => {
+      await supertest(app.getHttpServer())
+        .get('/fsm')
+        .expect(HttpStatus.OK, {
+          state: null,
+          status: 'none',
+          events: ['stop'],
+        });
 
-    await post(app, '/fsm/transition', { state: 'create' }).expect(
-      HttpStatus.ACCEPTED,
-      { status: 'accepted', state: 'create' },
-    );
-    expect(await settled(app, 'execute')).toMatchObject({ status: 'valid' });
+      await post(app, '/fsm/transition', { state: 'create' }).expect(
+        HttpStatus.ACCEPTED,
+        { status: 'accepted', state: 'create' },
+      );
+      expect(await settled(app, 'execute')).toMatchObject({ status: 'valid' });
 
-    await post(app, '/fsm/event', { event: 'stop' }).expect(
-      HttpStatus.ACCEPTED,
-      { status: 'accepted', state: 'terminate' },
-    );
-    await settled(app, 'terminate');
-    await supertest(app.getHttpServer())
-      .get('/history')
-      .expect(HttpStatus.OK, [
-        { name: 'create' },
-        { name: 'execute' },
-        { name: 'terminate' },
-      ]);
-  });
+      await post(app, '/fsm/event', { event: 'stop' }).expect(
+        HttpStatus.ACCEPTED,
+        { status: 'accepted', state: 'terminate' },
+      );
+      await settled(app, 'terminate');
+      await supertest(app.getHttpServer())
+        .get('/history')
+        .expect(HttpStatus.OK, [
+          { name: 'create' },
+          { name: 'execute' },
+          { name: 'terminate' },
+        ]);
+    },
+    SCRIPT_CHAIN_TIMEOUT,
+  );
 
   it('Should refuse an undeclared state and an event without a transition', async () => {
     const state = await post(app, '/fsm/transition', { state: 'configure' });
