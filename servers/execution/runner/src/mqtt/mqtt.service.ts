@@ -13,6 +13,7 @@ import type {
 import Config from '../config/configuration.service.js';
 import { REQUEST_KEY } from '../dto/command.dto.js';
 import { MqttHealth } from '../dto/health.dto.js';
+import { NotificationDto, NotifyKind } from '../dto/notify.dto.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
 import {
   defaultResponseTopic,
@@ -20,6 +21,7 @@ import {
   MqttConfig,
   MqttRoute,
   mqttRoutes,
+  notifyTopic,
   requestTopic,
 } from './mqtt.config.js';
 
@@ -140,6 +142,30 @@ export default class MqttService implements BeforeApplicationShutdown {
       );
     } catch (error) {
       this.logger.error(`MQTT response on ${topic} failed: ${error}`);
+    }
+  }
+
+  // Publishes a notification with QoS 1; while the broker is unreachable,
+  // mqtt.js queues it and sends it on reconnect
+  async notify(
+    kind: NotifyKind,
+    body: NotificationDto,
+    retain: boolean,
+  ): Promise<void> {
+    const options = this.config.getMqtt();
+    if (this.client === undefined || options === undefined) {
+      return;
+    }
+    const topic = notifyTopic(options.topic, kind);
+    // A publish still waiting for its PUBACK when the client is ended at
+    // shutdown never settles; nothing awaits it then
+    try {
+      await this.client.publishAsync(topic, JSON.stringify(body), {
+        qos: 1,
+        retain,
+      });
+    } catch (error) {
+      this.logger.error(`MQTT notification on ${topic} failed: ${error}`);
     }
   }
 

@@ -13,6 +13,7 @@ import { Attributes, configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
+import { NotifyConfig } from '../notify/notify.config.js';
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -99,5 +100,9 @@ export default class Config {
 
   getStopGrace(): number {
     return this.configValues.stopGrace ?? DEFAULT_STOP_GRACE;
+  }
+
+  getNotify(): NotifyConfig | undefined {
+    return this.configValues.notify;
   }
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NotifyKind } from '../dto/notify.dto.js';
 
 // A base topic is a prefix for the request topics, so it can not hold
 // wildcards, start in the reserved $ space or end with a separator.
@@ -48,3 +49,8 @@ export const defaultResponseTopic = (topic: string): string =>
 // topic, so a response topic of a request must be a plain topic name.
 export const isPublishableTopic = (topic: string): boolean =>
   /^[^$#+][^#+]*$/.test(topic);
+
+// Notifications go two levels under the base topic, so that they can
+// not be taken for requests
+export const notifyTopic = (base: string, kind: NotifyKind): string =>
+  `${base}/notify/${kind}`;

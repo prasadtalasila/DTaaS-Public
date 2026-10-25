@@ -61,11 +61,13 @@ Without MQTT and without a webhook, nothing is announced.
 1. Add `presence(online)` to the notifier of 03
    (`src/notify/notifier.service.ts`), building the envelope with the
    descriptor of 01; give `WebhookClient` a `sendOnce(envelope)` for
-   the shutdown case.
+   the shutdown case. It needs a signal of its own, as
+   `beforeApplicationShutdown` of `WebhookClient` aborts the shared one
+   (03).
 1. In `src/mqtt/mqtt.service.ts`, add the will to `clientOptions`
-   (lines 96-104), publish the online envelope from the `connect`
-   handler in `listen` (lines 73-76), and publish the offline envelope
-   in `beforeApplicationShutdown` (lines 90-94) with a 2 s race before
+   (lines 106-114), publish the online envelope from the `connect`
+   handler in `listen` (lines 76-79), and publish the offline envelope
+   in `beforeApplicationShutdown` (lines 93-97) with a 2 s race before
    `endAsync(true)`.
 1. Call the webhook presence from `onApplicationBootstrap` and
    `beforeApplicationShutdown` of the notifier.

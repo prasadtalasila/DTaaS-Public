@@ -1,6 +1,6 @@
 # 03 State Change Notifications
 
-- Status: in progress
+- Status: in review
 - Depends on: 02
 - PR: none
 - Research note:
@@ -55,7 +55,7 @@ retained, so a Manager that connects later gets the current document;
 `escalation` is not. Which kinds are retained is a table in the
 notifier. The topics are two levels under the base topic. This amends
 D16: requests stay one level down, and the client subscribes to exact
-request topics (`src/mqtt/mqtt.service.ts:63`), so the `notify`
+request topics (`src/mqtt/mqtt.service.ts:65`), so the `notify`
 sub-tree cannot be mistaken for a request, and a `<topic>/+/response`
 subscription still covers every reply.
 
@@ -79,7 +79,7 @@ failed response is discarded before the retry. A `4xx` response is not
 retried. Notifications are sent independently and may arrive out of
 order. A failure is logged once per URL until a delivery succeeds, with
 the URL's host only, since the URL may carry credentials, as the MQTT
-service logs its broker (`src/mqtt/mqtt.service.ts:61`, `70-83`).
+service logs its broker (`src/mqtt/mqtt.service.ts:63`, `72-85`).
 
 At shutdown, `WebhookClient` aborts the fetches in progress and drops
 the retries still waiting; pending deliveries are abandoned.
@@ -141,24 +141,25 @@ observation.
 
 ## Tasks
 
-- [ ] `notify` schema accepts `url` alone and `url` with `token`, and
+- [x] `notify` schema accepts `url` alone and `url` with `token`, and
       rejects a non-URL and an unknown key. Check:
       `test/unit/notify.config.spec.ts`.
-- [ ] `FsmService` emits on entry, on a stop transition and on
+- [x] `FsmService` emits on entry, on a stop transition and on
       completion, once each, and not for a refused request; `Queue`
       emits on `enqueue` and `complete`. Check:
       `test/unit/fsm.service.spec.ts`,
+      `test/unit/fsm.service.stop.spec.ts`,
       `test/integration/queue.service.spec.ts`.
-- [ ] `MqttService.notify` publishes QoS 1 on `<base>/notify/<kind>`
+- [x] `MqttService.notify` publishes QoS 1 on `<base>/notify/<kind>`
       with the given retain flag and does nothing without MQTT. Check:
-      `test/unit/mqtt.service.spec.ts`.
-- [ ] Webhook client retries on network error and `5xx` at 1, 2 and
+      `test/unit/mqtt.notify.spec.ts`.
+- [x] Webhook client retries on network error and `5xx` at 1, 2 and
       4 s, stops after the third retry, does not retry `4xx`, sends the
       bearer token, logs a repeated failure once by host, and stops
       retrying after shutdown. Check: `test/unit/webhook.client.spec.ts`
       with fake timers for the delays and a fake `fetch` (a rejected
       `TimeoutError` stands for the timeout).
-- [ ] Notifier wraps the document in the envelope, retains `state` and
+- [x] Notifier wraps the document in the envelope, retains `state` and
       `presence` but not `escalation`, skips an unchanged document, and
       sends the startup document once; `DescriptorService.onChange`
       passes both sources to one listener. Check:
@@ -166,13 +167,15 @@ observation.
       `test/unit/descriptor.service.spec.ts`.
 - [ ] A transition over HTTP produces a retained message on
       `<base>/notify/state` that a late subscriber receives. Check:
-      `test/e2e/mqtt.broker.spec.ts` (runs in CI with the broker).
-- [ ] A transition produces a `POST` on a local test server configured
+      `test/e2e/mqtt.broker.spec.ts` (runs in CI with the broker); a
+      command over HTTP does the same on the local broker of
+      `test/e2e/mqtt.spec.ts`.
+- [x] A transition produces a `POST` on a local test server configured
       through `jest.spyOn(config, 'getNotify')`, and the test file
       finishes without `--forceExit`. Check: `test/e2e/webhook.spec.ts`.
-- [ ] README, design document (D16, A4) and request files updated.
+- [x] README, design document (D16, A4) and request files updated.
       Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass,
+- [x] `yarn build` and `yarn test` pass,
       `npx tsc --noEmit --noUnusedLocals` is clean, and no function or
       constructor crosses the Qlty thresholds. Check: their output.

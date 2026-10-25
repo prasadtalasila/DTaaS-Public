@@ -59,6 +59,22 @@ describe('State machine service parameters', () => {
     expect(manager.stop).not.toHaveBeenCalled();
   });
 
+  it('Should signal the new values before their events move the machine', () => {
+    const { service, manager } = setup();
+    service.transition('execute');
+    const states: Array<unknown> = [];
+    service.onChange(() =>
+      states.push([
+        service.parameters()?.values().scope,
+        manager.stop.mock.calls.length,
+      ]),
+    );
+
+    service.setParameters({ scope: 'multi' });
+
+    expect(states[0]).toEqual(['multi', 0]);
+  });
+
   it('Should store the values before it raises their events', async () => {
     const { service, queue, manager } = setup();
     service.transition('execute');

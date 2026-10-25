@@ -161,6 +161,17 @@ without it:
 stopGrace: 5000
 ```
 
+### Webhook
+
+The runner posts its [notifications](#notifications) to a webhook
+when the configuration has a `notify` section:
+
+```yaml
+notify:
+  url: 'https://manager.example.org/dt-events' # http:// or https://
+  token: 'secret' # optional; sent as Authorization: Bearer <token>
+```
+
 ## Create Commands
 
 The runner requires commands / scripts to be run.
@@ -873,6 +884,53 @@ commands. Use the access control of the broker to limit publishing
 on the request topics, and to limit the topics the runner may publish
 to. Use `mqtts://` or `wss://` with a username and password when the
 broker is not on the same computer.
+
+### Notifications
+
+The runner sends its [state document](#get-request-to-state) whenever
+the document changes: when the state machine enters a state, when the
+script of a state finishes, when a command starts or finishes, and once
+at startup. A document that differs from the last one sent only in its
+`time` is not sent again. Each notification is one JSON object:
+
+```json
+{
+  "kind": "state",
+  "id": "hospital-1",
+  "time": "2026-10-25T10:00:00.000Z",
+  "data": { "id": "hospital-1", "time": "2026-10-25T10:00:00.000Z" }
+}
+```
+
+`data` is the whole state document, shortened here; `id` and `time` are
+those of the document. `kind` is `state`; later versions add other
+kinds. Documents built within the same millisecond can share `time`.
+
+With MQTT enabled, the runner publishes each notification with QoS 1 on
+`<topic>/notify/<kind>`, for example `<topic>/notify/state`, retained,
+so that a Manager that subscribes later receives the current state at
+once. The notification topics are two levels under the base topic, so
+`<topic>/+/response` does not match them; subscribe to
+`<topic>/notify/+` instead. While the broker is unreachable, the runner
+queues the notifications in memory and publishes them in order when it
+connects again; a long outage holds every queued document in memory.
+
+```bash
+mosquitto_sub -h localhost -v -t 'dtaas/user1/runner/notify/+'
+```
+
+With a [webhook](#webhook), the runner posts each notification as
+`application/json`, with a 5 s timeout. It retries after 1 s, 2 s and
+4 s on a network error, a timeout or a `5xx` response, and not on any
+other response. Posts are independent, so they may arrive out of
+order; a receiver that needs a strict order uses MQTT, which delivers
+the notifications in order. A failure is logged
+once, with the host of the webhook only, until a post succeeds again.
+At shutdown, the runner abandons the posts still in progress or waiting
+for a retry.
+
+Without MQTT and a webhook, [GET /state](#get-request-to-state) is the
+only way to observe the state.
 
 ## License
 

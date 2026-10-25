@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { nameSchema } from '../fsm/definition.js';
 import { mqttConfigSchema } from '../mqtt/mqtt.config.js';
+import { notifyConfigSchema } from '../notify/notify.config.js';
 
 // Facts about the digital twin for a Manager; a flat map, so that a
 // Manager can filter runners by any of them
@@ -28,5 +29,7 @@ export const configSchema = z
     // optional; milliseconds from SIGTERM to SIGKILL when a script is
     // stopped
     stopGrace: z.int().positive().optional(),
+    // optional; the webhook that receives the notifications
+    notify: notifyConfigSchema.optional(),
   })
   .strict();

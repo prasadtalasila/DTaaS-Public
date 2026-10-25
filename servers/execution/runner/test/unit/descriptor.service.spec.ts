@@ -4,6 +4,7 @@ import DescriptorService from 'src/descriptor.service';
 import { FsmStateDto } from 'src/dto/fsm.dto';
 import FsmService from 'src/fsm/fsm.service';
 import { CommandRecord } from 'src/interfaces/command.interface';
+import Changes from 'src/notify/changes';
 import Queue from 'src/queue.service';
 
 const NOW = new Date('2026-10-25T10:00:00.000Z');
@@ -110,4 +111,21 @@ describe('Descriptor service', () => {
       });
     },
   );
+
+  it('Should pass the changes of the machine and the queue to a listener', () => {
+    const machineChanges = new Changes();
+    const queueChanges = new Changes();
+    const service = new DescriptorService(
+      {} as Config,
+      { onChange: (l: () => void) => machineChanges.on(l) } as FsmService,
+      { onChange: (l: () => void) => queueChanges.on(l) } as Queue,
+    );
+    const listener = jest.fn();
+
+    service.onChange(listener);
+    machineChanges.emit();
+    queueChanges.emit();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
 });

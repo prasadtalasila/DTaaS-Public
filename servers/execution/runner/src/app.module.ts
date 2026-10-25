@@ -13,6 +13,8 @@ import FsmService from './fsm/fsm.service.js';
 import HealthService from './health.service.js';
 import HealthController from './health.controller.js';
 import ParametersController from './parameters.controller.js';
+import WebhookClient from './notify/webhook.client.js';
+import Notifier from './notify/notifier.service.js';
 
 @Module({
   imports: [],
@@ -33,6 +35,8 @@ import ParametersController from './parameters.controller.js';
     MqttService,
     { provide: MQTT_CONNECT, useValue: connect },
     HealthService,
+    WebhookClient,
+    Notifier,
   ],
 })
 export default class AppModule {}
