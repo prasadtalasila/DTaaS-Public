@@ -22,7 +22,7 @@ deferred (see below) and have no file.
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | planned   |     |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | in review |     |
+| [12-health.md](12-health.md)                           | Health endpoint            | S    | in review | #75 |
 
 Sizes: S is a day or less, M a few days with tests and documentation.
 
