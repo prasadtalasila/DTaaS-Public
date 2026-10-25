@@ -32,8 +32,8 @@ request reaches the machine before `restore()`, which:
 
 1. Marks every unfinished `commands` row `interrupted`, finished at
    the startup time, even without a machine: no script survives.
-1. Without a state machine in `runner.yaml`, logs and ignores (but
-   keeps) a stored machine row.
+1. Without a state machine in `runner.yaml`, logs the stored state and
+   ignores (but keeps) the row.
 1. Otherwise applies the four recovery rules, then writes the result
    back, so a stale or `running` row is overwritten at once:
    - no row, or a row of an unstarted machine: unstarted, status
@@ -56,10 +56,9 @@ request reaches the machine before `restore()`, which:
    tests) after `restore()`, so that document is the restored one.
 
 `interrupted` is a new `ScriptStatus` and `CommandStateStatus`. The
-machine is idle in it: a transition request is accepted (D7), and an
-event with a transition moves it on. No script starts on recovery, so a
-crash loop cannot rerun a script forever; the Manager decides what
-comes next. Transitions are not added to the history (11).
+machine is idle in it (D7: transitions and events move it on). No
+script starts on recovery, so a crash loop cannot rerun one forever.
+Transitions are not added to the history (11).
 
 After a restart, `GET /fsm` of a runner killed while `execute` ran:
 
@@ -67,17 +66,16 @@ After a restart, `GET /fsm` of a runner killed while `execute` ran:
 { "state": "execute", "status": "interrupted", "entry": 3, "events": ["stop"] }
 ```
 
-`GET /` and `GET /state` show its command as `interrupted`. A repeat of
-that command's request key is `failed` at the manager (`storedResult`
-maps any status it does not know to `failed`): `400 invalid command`
-before 05, `200 failed` after it.
+`GET /` and `GET /state` show its command as `interrupted`; a repeat of
+its request key is `failed` at the manager (`storedResult` maps an
+unknown status so): `400 invalid command` before 05, `200 failed` after.
 
 ## Plan
 
 1. Start after 06 and 08 merge; make room first in
    `src/fsm/fsm.service.ts` (249 lines; about 247 after 06's moves and
    08's net 14). 09 adds about 19 even with step 6's `MachineStore`.
-   Moves, behaviour unchanged, all four planned, to about 237:
+   Moves, behaviour unchanged, all four planned, to about 238:
    - `isCurrent` folds into its one remaining caller, the start check
      of `run` (-4);
    - the refusal logging of `raise` and `complete` becomes one
@@ -86,8 +84,10 @@ before 05, `200 failed` after it.
      and the debug level for `no transition`, which
      `test/unit/fsm.service.parameters.spec.ts` asserts;
    - `pendingStop` and its chaining move to a plain `StopChain` in
-     `src/fsm/stop-chain.ts`, whose `after(left, run)` runs `run` once
-     the stopped script of `left` has exited (-4);
+     `src/fsm/stop-chain.ts`, built from the `ExecaManager` in the
+     constructor body like `MachineStore`; its `after(left, run)` runs
+     `run` once the stopped script of `left` has exited, and its comment
+     carries "manager.stop never rejects" (-3);
    - `enterStopping` folds into `enter(machine, state, left?)`: one
      guard `left !== state && this.manager.isRunning(state)` (with
      `left` undefined it is today's check), then `machine.enter`, the
@@ -171,7 +171,9 @@ before 05, `200 failed` after it.
    `GET /fsm` status lists and the `command.status` text of
    `GET /state` (02), and the Repeated Requests sentence on a running
    command, with 05's "a row that never finished replays as `failed`"
-   now a row interrupted by a restart. `docs/state-machine-design.md`:
+   now a row interrupted by a restart; and the Parameters text that
+   values "start at their defaults each time the runner starts", now
+   false. `docs/state-machine-design.md`:
    replace D12, add a decision with the next free number for
    `interrupted` instead of a re-run, a Behaviour item for the restart,
    `fsm/recovery.ts`, `fsm/machine-store.ts` and the `Queue` machine
@@ -189,8 +191,7 @@ before 05, `200 failed` after it.
       table opens with its commands intact;
       `markInterrupted` marks only unfinished rows, stores the time as
       `YYYY-MM-DD HH:MM:SS`, and `commandState` shows `interrupted`.
-      Check: `test/integration/queue.machine.spec.ts` (new;
-      `queue.service.spec.ts` is 247 lines).
+      Check: `test/integration/queue.machine.spec.ts` (new; the other is 247).
 - [ ] A repeat of the request key of an interrupted command gets
       `failed`; `onApplicationShutdown` closes the database only after a
       continuation of a run's result, three microtasks later, wrote to
@@ -205,8 +206,7 @@ before 05, `200 failed` after it.
 - [ ] `Parameters.restore` keeps valid values of declared parameters and
       returns the names of a removed parameter, a value of another type
       and a removed enum value. Check:
-      `test/unit/fsm.parameters.restore.spec.ts` (new;
-      `fsm.parameters.spec.ts` is 235 lines).
+      `test/unit/fsm.parameters.restore.spec.ts` (new; the spec is 235).
 - [ ] `MachineStore` logs a throwing `saveMachine` without throwing,
       marks commands interrupted with and without a definition, logs
       and ignores a row without one, writes the recovered row back, and
