@@ -19,7 +19,7 @@ deferred (see below) and have no file.
 | [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
 | [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned   |     |
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned   |     |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | in review |     |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | in review | #81 |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
 | [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
