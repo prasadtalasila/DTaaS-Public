@@ -9,6 +9,7 @@ import {
 import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import { RunOutcome } from './interfaces/runner.interface.js';
+import { ParameterValue } from './dto/parameters.dto.js';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
@@ -25,6 +26,13 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS request_keys (
     request_key TEXT PRIMARY KEY,
     command_id INTEGER NOT NULL REFERENCES commands (id)
+  );
+  -- each change of a parameter, with its value as JSON
+  CREATE TABLE IF NOT EXISTS parameters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    changed_at TEXT NOT NULL
   )`;
 
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
@@ -143,5 +151,37 @@ export default class Queue {
   // an in-memory database has no location
   mode(): DatabaseMode {
     return this.db.location() === null ? 'memory' : 'file';
+  }
+
+  // Records the changes of one request together, or none of them
+  setParameters(changes: ReadonlyMap<string, ParameterValue>): void {
+    const insert = this.db.prepare(
+      'INSERT INTO parameters (name, value, changed_at) VALUES (?, ?, ?)',
+    );
+    const time = new Date().toISOString();
+    this.db.exec('BEGIN');
+    try {
+      changes.forEach((value, name) =>
+        insert.run(name, JSON.stringify(value), time),
+      );
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  // The latest value of each parameter; the highest id is the latest,
+  // as two changes can share a timestamp
+  parameterValues(): Record<string, ParameterValue> {
+    const rows = this.db
+      .prepare(
+        `SELECT name, value FROM parameters WHERE id IN
+          (SELECT MAX(id) FROM parameters GROUP BY name)`,
+      )
+      .all();
+    return Object.fromEntries(
+      rows.map(({ name, value }) => [String(name), JSON.parse(String(value))]),
+    );
   }
 }

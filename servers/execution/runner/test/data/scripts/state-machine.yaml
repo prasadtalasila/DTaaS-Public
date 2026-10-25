@@ -1,7 +1,20 @@
 # The state machine of the test scripts, for trying out the state
-# machine requests of api/dev.api.http and api/dev.mqtt.http
+# machine and parameters requests of api/dev.api.http and
+# api/dev.mqtt.http
 events:
   - restart
+  - scope-changed
+parameters:
+  scope:
+    type: enum
+    values: [single, multi]
+    default: single
+    controllable: true
+    event: scope-changed # raised when the value changes
+  capacity:
+    type: number
+    default: 20
+    controllable: false
 states:
   create:
     transitions:
@@ -9,3 +22,4 @@ states:
   execute:
     transitions:
       restart: create
+      scope-changed: { state: execute, stop: true }

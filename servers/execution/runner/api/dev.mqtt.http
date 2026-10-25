@@ -154,3 +154,27 @@ QoS: 1
 {}
 === wait-for-server
 {{ "" }}
+
+###
+
+# @name parameters
+MQTT {{broker}}
+Subscribe: {{topic}}/parameters/response
+Publish: {{topic}}/parameters
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name set-parameters
+MQTT {{broker}}
+Subscribe: {{topic}}/set-parameters/response
+Publish: {{topic}}/set-parameters
+QoS: 1
+
+{"scope": "multi"}
+=== wait-for-server
+{{ "" }}

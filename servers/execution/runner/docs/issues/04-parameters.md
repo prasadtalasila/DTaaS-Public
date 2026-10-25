@@ -1,6 +1,6 @@
 # 04 Declared Parameters With a Controllable Subset
 
-- Status: in progress
+- Status: in review
 - Depends on: 02 (for the `parameters` field of the state document)
 - PR: none
 - Research note:
@@ -153,7 +153,9 @@ After the rebase onto 02, `parameters` in the state document becomes
    `test/unit/fsm.fixture.ts` passes a fake `Queue` with `setParameter`
    and `parameterValues`. The service is near 250 lines: move the
    `COMPLETION` and `STATUS` maps to `src/dto/fsm.dto.ts`, next to
-   `ScriptStatus`.
+   `ScriptStatus`. That was not enough, so `outcome()`, which turns a
+   script that could not start into `failed`, moved to
+   `src/fsm/script-outcome.ts` as well.
 1. Add `src/dto/parameters.dto.ts` and `src/parameters.controller.ts`
    (`GET` and `PUT /parameters`, taking only `FsmService`; problems
    become `new BadRequestException(problems)`), and the `parameters`
@@ -163,7 +165,9 @@ After the rebase onto 02, `parameters` in the state document becomes
    No constructor gains a parameter.
 1. After rebasing onto 02: `DescriptorService.state()` sets
    `parameters: this.fsm.parameters()?.values() ?? {}`; one line, no
-   constructor change.
+   constructor change. `Queue.setParameters(changes)` stores the
+   changes of one request in a transaction, so a database failure part
+   way leaves both the store and memory unchanged.
 1. Update `test/data/scripts/state-machine.yaml`, `api/*.http`,
    `test/unit/mqtt.config.spec.ts` (route list), `README.md` (State
    Machine and API sections, with the YAML typing notes above),
@@ -177,34 +181,37 @@ After the rebase onto 02, `parameters` in the state document becomes
 
 ## Tasks
 
-- [ ] `nameSchema` lives in `src/fsm/name.ts` and the runner still
+- [x] `nameSchema` lives in `src/fsm/name.ts` and the runner still
       starts. Check: `test/e2e/dist.spec.ts` after `yarn build`.
-- [ ] Schema accepts the example, and rejects a missing `default`, a
+- [x] Schema accepts the example, and rejects a missing `default`, a
       `default` of the wrong type or outside `values`, `enum` without
       `values`, a non-finite number, an `event` not in `events`, a
       `__proto__` name, and two names with one variable name, each with
       a message. Check: `test/unit/fsm.parameters.spec.ts` (new; the
       definition spec is near 250 lines).
-- [ ] `Queue` stores changes and returns the latest value per name,
+- [x] `Queue` stores changes and returns the latest value per name,
       also for two changes within a second. Check:
       `test/integration/queue.service.spec.ts`.
-- [ ] `Parameters.check` rejects a body with any bad entry without
+- [x] `Parameters.check` rejects a body with any bad entry without
       applying the good ones, lists every problem, and returns the
       changes and the events once each in declaration order. Check:
       `test/unit/fsm.parameters.spec.ts`.
-- [ ] `FsmService.setParameters` stores the values before raising the
+- [x] `FsmService.setParameters` stores the values before raising the
       events, raises each declared event once, and logs a refused event
       without failing. Check: `test/unit/fsm.service.parameters.spec.ts`.
-- [ ] `GET` and `PUT /parameters` behave as specified, including `404`
+- [x] `GET` and `PUT /parameters` behave as specified, including `404`
       without a machine, `400` with every problem, and `{}`. Check:
       `test/e2e/parameters.spec.ts`.
-- [ ] MQTT routes return the same bodies, including `400`. Check:
-      `test/unit/mqtt-request.handler.spec.ts`, `test/e2e/mqtt.spec.ts`.
-- [ ] After the rebase onto 02, `GET /state` shows the current values.
-      Check: `test/e2e/state.spec.ts`.
-- [ ] README, `DEVELOPER.md`, design document, request files and the
+- [x] MQTT routes return the same bodies, including `400`. Check:
+      `test/unit/mqtt-request.parameters.spec.ts` (new; the handler
+      spec is near 250 lines), `test/e2e/mqtt.spec.ts`.
+- [x] After the rebase onto 02, `GET /state` shows the current values.
+      Check: `test/e2e/parameters.spec.ts`,
+      `test/unit/descriptor.service.spec.ts`.
+- [x] README, `DEVELOPER.md`, design document, request files and the
       08 and 09 plans updated. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass,
+- [x] `yarn build` and `yarn test` pass,
       `npx tsc --noEmit --noUnusedLocals` is clean, and no function
-      crosses the Qlty thresholds. Check: their output.
+      crosses the Qlty thresholds. Check: their output; the Qlty
+      thresholds were counted by hand, as the CLI runs in CI.

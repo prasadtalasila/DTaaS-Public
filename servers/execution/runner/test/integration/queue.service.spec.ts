@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { ParameterValue } from 'src/dto/parameters.dto';
 import Queue from 'src/queue.service';
 
 // An ISO 8601 UTC time, as the queue returns its timestamps
@@ -176,5 +177,54 @@ describe('check Queue service', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it('should have no parameter values before the first change', () => {
+    expect(queue.parameterValues()).toEqual({});
+  });
+
+  it('should return the latest value of each parameter', () => {
+    queue.setParameters(
+      new Map<string, ParameterValue>([
+        ['scope', 'single'],
+        ['capacity', 20],
+      ]),
+    );
+    queue.setParameters(
+      new Map<string, ParameterValue>([
+        ['scope', 'multi'],
+        ['enabled', false],
+      ]),
+    );
+
+    expect(queue.parameterValues()).toEqual({
+      scope: 'multi',
+      capacity: 20,
+      enabled: false,
+    });
+  });
+
+  it('should record each change of a parameter with an ISO timestamp', () => {
+    queue.setParameters(new Map([['scope', 'multi']]));
+    queue.setParameters(new Map([['scope', 'single']]));
+
+    const rows = (queue as unknown as { db: DatabaseSync }).db
+      .prepare('SELECT name, value, changed_at FROM parameters ORDER BY id')
+      .all();
+    expect(rows.map(({ value }) => value)).toEqual(['"multi"', '"single"']);
+    rows.forEach(({ changed_at: changedAt }) =>
+      expect(new Date(String(changedAt)).toISOString()).toBe(changedAt),
+    );
+  });
+
+  it('should keep none of the changes of a request when one fails', () => {
+    // undefined can not be stored, so the second insert fails
+    const changes = new Map([
+      ['scope', 'multi'],
+      ['capacity', undefined],
+    ]) as unknown as Map<string, ParameterValue>;
+
+    expect(() => queue.setParameters(changes)).toThrow();
+    expect(queue.parameterValues()).toEqual({});
   });
 });

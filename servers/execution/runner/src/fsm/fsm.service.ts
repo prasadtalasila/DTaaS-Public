@@ -1,28 +1,21 @@
 import { BeforeApplicationShutdown, Injectable, Logger } from '@nestjs/common';
 import Config from '../config/configuration.service.js';
 import ExecaManager from '../execa-manager.service.js';
+import Queue from '../queue.service.js';
 import {
+  COMPLETION,
   fsmReply,
   FsmReplyDto,
   FsmStateDto,
   ScriptStatus,
+  STATUS,
 } from '../dto/fsm.dto.js';
-import { RunOutcome } from '../interfaces/runner.interface.js';
+import { ParametersBody } from '../dto/parameters.dto.js';
 import { CompletionEvent, loadDefinition, Transition } from './definition.js';
+import Parameters from './parameters.js';
 import RecentReplies from './recent-replies.js';
+import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
-
-const COMPLETION: Record<RunOutcome, CompletionEvent> = {
-  success: '$success',
-  failed: '$failure',
-  stopped: '$stopped',
-};
-
-const STATUS: Record<RunOutcome, ScriptStatus> = {
-  success: 'valid',
-  failed: 'invalid',
-  stopped: 'stopped',
-};
 
 // Moves the digital twin between the states of its state machine, and
 // runs the script of each state it enters. A transition request starts
@@ -32,6 +25,8 @@ export default class FsmService implements BeforeApplicationShutdown {
   private readonly logger = new Logger(FsmService.name);
 
   private machine: StateMachine | undefined;
+
+  private declared: Parameters | undefined;
 
   private status: ScriptStatus = 'none';
 
@@ -47,6 +42,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   constructor(
     private readonly manager: ExecaManager,
     private readonly config: Config,
+    private readonly queue: Queue,
   ) {} // eslint-disable-line no-empty-function
 
   load(): void {
@@ -55,6 +51,7 @@ export default class FsmService implements BeforeApplicationShutdown {
       this.config.permitCommands(),
     );
     this.machine = definition && new StateMachine(definition);
+    this.declared = definition && new Parameters(definition.parameters);
   }
 
   // No transition or completion starts a script once shutdown begins,
@@ -77,6 +74,29 @@ export default class FsmService implements BeforeApplicationShutdown {
       entry: this.machine.entry,
       events: this.machine.events,
     };
+  }
+
+  parameters(): Parameters | undefined {
+    return this.declared;
+  }
+
+  // Applies the whole body or none of it, and returns the problems of a
+  // refused one. Values are stored before they are committed, so that a
+  // failing database changes neither; then their events are raised.
+  setParameters(body: ParametersBody): string[] {
+    const parameters = this.declared;
+    if (parameters === undefined) {
+      return [];
+    }
+    const result = parameters.check(body);
+    if ('problems' in result) {
+      return result.problems;
+    }
+    const { changes, events } = result;
+    this.queue.setParameters(changes);
+    parameters.commit(changes);
+    events.forEach((event) => this.raise(event));
+    return [];
   }
 
   // Moves an idle machine to any of its states
@@ -103,6 +123,15 @@ export default class FsmService implements BeforeApplicationShutdown {
       }
       return this.follow(machine, next);
     });
+  }
+
+  // The reply does not depend on the events, so a refused one is logged
+  private raise(event: string): void {
+    const { status, state } = this.event(event);
+    if (status !== 'accepted') {
+      const level = status === 'no transition' ? 'debug' : 'warn';
+      this.logger[level](`Stayed in state ${state} on ${event}: ${status}`);
+    }
   }
 
   private follow(
@@ -195,24 +224,12 @@ export default class FsmService implements BeforeApplicationShutdown {
     state: string,
     entry: number,
   ): Promise<void> {
-    const outcome = await this.outcome(state);
+    const outcome = await scriptOutcome(this.manager, state, this.logger);
     if (!this.isCurrent(machine, entry)) {
       return;
     }
     this.status = STATUS[outcome];
     this.complete(machine, COMPLETION[outcome]);
-  }
-
-  // A script that could not start, as when the database is closed,
-  // counts as failed
-  private async outcome(state: string): Promise<RunOutcome> {
-    try {
-      const [outcome] = await this.manager.newCommand(state);
-      return outcome;
-    } catch (error) {
-      this.logger.error(`Script of state ${state} did not run: ${error}`);
-      return 'failed';
-    }
   }
 
   // No completion transition stops a script, as the definition refuses

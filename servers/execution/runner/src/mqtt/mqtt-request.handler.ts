@@ -1,4 +1,9 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { z } from 'zod';
 import { MESSAGES } from '@nestjs/core/constants.js';
 import DescriptorService from '../descriptor.service.js';
@@ -11,6 +16,7 @@ import {
 } from '../dto/command.dto.js';
 import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
 import { healthReport } from '../dto/health.dto.js';
+import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
@@ -65,6 +71,10 @@ export default class MqttRequestHandler {
     state: () => this.descriptor.state(),
     // a request arrives only over a connected client
     health: () => healthReport('connected', this.manager.databaseMode()),
+    parameters: () => this.parameterDocument(),
+    'set-parameters': this.whenValid(parametersBodySchema, (body) =>
+      this.setParameters(body),
+    ),
   };
 
   // An unexpected error gets the same body as an HTTP 500 response
@@ -97,5 +107,20 @@ export default class MqttRequestHandler {
       }
       return handle(request.data, requestKey);
     };
+  }
+
+  private parameterDocument(): unknown {
+    return (
+      this.fsm.parameters()?.document() ??
+      fsmReply('no state machine', undefined)
+    );
+  }
+
+  // A refused body gets the body of the HTTP 400 reply
+  private setParameters(body: ParametersBody): unknown {
+    const problems = this.fsm.setParameters(body);
+    return problems.length > 0
+      ? new BadRequestException(problems).getResponse()
+      : this.parameterDocument();
   }
 }

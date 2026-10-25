@@ -62,7 +62,8 @@ nothing runs.
 1. Reorder `bootstrap` in `src/main.ts` so `Queue.open` precedes
    `FsmService.load`, and add `FsmService.restore()` after both, which
    applies the recovery rules and emits `state` on `Changes`.
-1. Restore parameter values in `ParametersService` from `Queue` at the
+1. Restore parameter values in `FsmService.parameters()` from
+   `Queue.parameterValues()` at the
    same point.
 1. Document the behaviour in `README.md` (Command History, State
    Machine: replace the lines that say the machine is lost on restart),
@@ -82,7 +83,7 @@ nothing runs.
       transition moves the machine. Check:
       `test/unit/fsm.service.spec.ts`.
 - [ ] Parameter values survive a restore. Check:
-      `test/unit/parameters.service.spec.ts`.
+      `test/unit/fsm.service.parameters.spec.ts`.
 - [ ] Two runner instances started in turn on one database file: the
       second reports the first's state, `interrupted` when the first
       was killed mid-script. Check: `test/e2e/restart.spec.ts`.

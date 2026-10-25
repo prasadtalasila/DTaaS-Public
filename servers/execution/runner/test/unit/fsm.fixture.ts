@@ -6,6 +6,7 @@ import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import { RunOutcome } from 'src/interfaces/runner.interface';
+import Queue from 'src/queue.service';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -68,7 +69,15 @@ export function createService(file: string | undefined) {
     getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
   } as unknown as Config;
-  const service = new FsmService(manager as unknown as ExecaManager, config);
+  const queue = {
+    setParameters: jest.fn(),
+    parameterValues: jest.fn(() => ({})),
+  };
+  const service = new FsmService(
+    manager as unknown as ExecaManager,
+    config,
+    queue as unknown as Queue,
+  );
   service.load();
-  return { service, manager, finish };
+  return { service, manager, finish, queue };
 }

@@ -58,13 +58,18 @@ states: # each state runs the script of the same name
 - A transition value is a state name, or `{ state, stop: true }`, which
   stops the script of the state that the machine leaves before the
   script of the next state runs (D20).
+- `parameters` declares the parameters of the DT, which a Manager reads
+  and, if `controllable`, sets over the API (D21, D22). Each has a
+  `type` (`string`, `number`, `boolean` or `enum` with `values`), a
+  `default`, and an optional `event` raised when its value changes.
 
 ### Validation
 
 The runner refuses to start when the file is invalid, as it does for an
 invalid `mqtt` section. The file is valid when:
 
-- it holds only `events` and `states`, and each state holds only `transitions`;
+- it holds only `events`, `states` and `parameters`, and each state
+  holds only `transitions`;
 - every state and event name matches `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
   property such as `__proto__` (zod skips a `__proto__` record key, so
@@ -78,7 +83,13 @@ invalid `mqtt` section. The file is valid when:
   exited;
 - no cycle is made of `$success` and `$failure` transitions alone.
   `$stopped` is left out: it follows only a stop from outside, so a
-  loop through it can not run by itself.
+  loop through it can not run by itself;
+- every parameter name matches the name pattern and is not
+  `__proto__`, has a known `type`, a `default` of that type (a finite
+  number for `number`, one of `values` for `enum`), an `event` declared
+  in `events` if any, and no other key;
+- no two parameter names give the same variable name, `DT_PARAM_`
+  followed by the name in upper case with `.` and `-` as `_`.
 
 `events` may be left out, and a state without transitions may be left
 empty, as in `terminate:`. Without a `stateMachine` key, the state
@@ -94,6 +105,7 @@ key that names a missing file stops the runner.
 | `GET /fsm`             | `<topic>/fsm`        | ignored               |
 | `POST /stop`           | `<topic>/stop`       | `{"name": "execute"}` |
 | `GET /state`           | `<topic>/state`      | ignored               |
+| `GET /parameters`      | `<topic>/parameters` | ignored               |
 
 A transition or event request is answered once the script of the new
 state has started, without waiting for it to finish. The body names
@@ -137,6 +149,14 @@ running command without one, and answers
 belongs to the command API rather than the machine, and needs no
 state machine.
 
+`GET /parameters` answers with the value and declaration of each
+parameter. `PUT /parameters`, or `<topic>/set-parameters`, takes
+`{"scope": "multi"}`; it checks the whole body first and answers `400`
+with every problem, changing nothing. Otherwise it stores and applies
+the changed values, raises their events, and answers `200` with the
+document of `GET /parameters`. Both routes answer `404` with the
+`no state machine` body without a machine.
+
 ### Behaviour
 
 1. A transition request moves an idle machine to any declared state.
@@ -166,16 +186,22 @@ state machine.
 | Unit                     | Responsibility                                       |
 | :----------------------- | :--------------------------------------------------- |
 | `fsm/definition.ts`      | read, parse and check the state machine file         |
+| `fsm/name.ts`            | name pattern of states, events, parameters and ids   |
+| `fsm/parameters.ts`      | parameter schema, checks, values and changes         |
+| `fsm/script-outcome.ts`  | runs a state's script; failed if it can not start    |
 | `fsm/state-machine.ts`   | pure machine: current state, entry count, next state |
 | `fsm/recent-replies.ts`  | bounded store of replies to repeated requests        |
 | `fsm/fsm.service.ts`     | runs scripts, raises completion events, replies      |
 | `fsm/fsm.controller.ts`  | HTTP routes                                          |
+| `ParametersController`   | HTTP routes of the parameters                        |
 | `dto/fsm.dto.ts`         | request schemas and reply bodies                     |
 | `mqtt/*`                 | the request topics of these routes                   |
 | `DescriptorService`      | builds the document of `GET /state`                  |
 | `dto/state.dto.ts`       | the state document and its latest command            |
+| `dto/parameters.dto.ts`  | parameters body schema and document                  |
 | `ExecaManager.isRunning` | tells whether a script is running                    |
 | `ExecaManager.stop`      | stops running scripts and waits until they exit      |
+| `Queue.setParameter`     | records each parameter change with its time          |
 
 ```mermaid
 sequenceDiagram
@@ -224,6 +250,8 @@ proposal to derive the events from the transitions was declined (D4).
 | D18 | A stop sends `SIGTERM`, then `SIGKILL` after `stopGrace` (5 s)            | execa's `forceKillAfterDelay` gives a script time to clean up and still ends one that ignores `SIGTERM`. `POST /stop` answers once the processes have exited, so a following request of the same command starts it afresh.                                                                                                                                      |
 | D19 | A run ends `success`, `failed` or `stopped` (`RunOutcome`)                | A boolean can not tell a deliberate stop from a crash. A run is `stopped` only when the runner's own stop reached the process; a kill from outside stays a failure, and a deliberate stop never counts as a crash for escalation (06).                                                                                                                          |
 | D20 | `$stopped` completion event and transitions with `stop: true`             | `$stopped` lets the DT author choose what follows a stop; without a `$stopped` transition the machine stays idle. A stop transition enters its target before the old script exits, so the reply does not wait (D9) and the old completion is stale; a self-transition with `stop: true` restarts the script.                                                    |
+| D21 | Parameters are declared in the state machine file                         | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                     |
+| D22 | A parameter change raises only its declared event                         | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                               |
 
 ## Assumptions
 
@@ -235,7 +263,8 @@ proposal to derive the events from the transitions was declined (D4).
   `stop: true`. A script ends its children on `SIGTERM`, as the runner
   waits until its output pipes close.
 - A4: Events come from clients over HTTP or MQTT. Script exit is the
-  only event the runner raises by itself.
+  only event the runner raises by itself; a parameter change raises
+  the event its declaration names, on a client's request (D22).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.
@@ -256,6 +285,9 @@ proposal to derive the events from the transitions was declined (D4).
   as a failed script.
 - A completion transition into a state whose script is running is
   skipped with a warning; the machine stays where it is, idle.
+- An event that a parameter change raises and the machine refuses is
+  logged, at debug level for `no transition` and as a warning
+  otherwise; the parameter change stands.
 
 ## Testing
 

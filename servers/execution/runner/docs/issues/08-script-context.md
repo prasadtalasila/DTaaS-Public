@@ -83,7 +83,7 @@ raise events (non-goal in the index).
    `src/execa-runner.ts`; `RunnerFactory.create` is unchanged.
 1. Build the environment in `ExecaManager.execute`
    (`src/execa-manager.service.ts:98-106`) from `Config`,
-   `FsmService.check()`, `ParametersService` and the definition.
+   `FsmService.check()`, `FsmService.parameters()` and the definition.
 1. Document the variables, `env` and the contract in `README.md`
    (Create Commands, State Machine), with examples in
    `test/data/scripts/` that read them; amend A4 in the design
