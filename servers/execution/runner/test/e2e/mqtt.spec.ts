@@ -130,6 +130,18 @@ describe('Runner MQTT end-to-end tests', () => {
     ]);
   });
 
+  it('replies with the descriptor of the digital twin', async () => {
+    const { body } = await supertest(app.getHttpServer()).get('/dt');
+
+    await expectReply(client, 'dt', {}, body);
+    expect(body).toEqual({
+      id: 'test-runner',
+      attributes: {},
+      commands: ['create'],
+      stateMachine: false,
+    });
+  });
+
   it('serves HTTP and MQTT from the same command queue', async () => {
     await request(client, 'execute', { name: 'create' });
     await supertest(app.getHttpServer())

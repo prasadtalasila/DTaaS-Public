@@ -73,6 +73,18 @@ QoS: 1
 
 ###
 
+# @name dt
+MQTT {{broker}}
+Subscribe: {{topic}}/dt/response
+Publish: {{topic}}/dt
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name fsm
 MQTT {{broker}}
 Subscribe: {{topic}}/fsm/response
