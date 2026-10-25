@@ -1,6 +1,6 @@
 # 08 Runner Context and Events for Scripts
 
-- Status: in review
+- Status: done
 - Depends on: 04; coordinates with 05
 - PR: [#81](https://github.com/prasadtalasila/DTaaS-Public/pull/81)
 - Research note:

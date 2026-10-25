@@ -175,8 +175,8 @@ has begun the notifier sends nothing; a request is still answered
 - [x] `yarn build` and `yarn test` pass. eslint lints no `.ts` file,
       so `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` must
       be clean, no file passes 250 lines, and no function crosses the
-      Qlty thresholds. Check: their output; the Qlty thresholds counted
-      by hand, as the CLI runs in CI.
+      Qlty thresholds. Check: their output, and
+      `qlty metrics --functions` (highest complexity 4).
 
 ## Learnings
 

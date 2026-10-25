@@ -16,8 +16,8 @@ import Changes, { ChangeListener } from '../notify/changes.js';
 import { CompletionEvent, loadDefinition, Transition } from './definition.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import Parameters from './parameters.js';
-import { Env, RunnerContext } from './script-context.js';
 import Requests from './requests.js';
+import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
 
