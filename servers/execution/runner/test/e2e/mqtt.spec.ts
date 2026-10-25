@@ -142,6 +142,18 @@ describe('Runner MQTT end-to-end tests', () => {
     });
   });
 
+  it('replies with the state document of GET /state', async () => {
+    const { body } = await supertest(app.getHttpServer()).get('/state');
+
+    await expectReply(
+      client,
+      'state',
+      {},
+      { ...body, time: expect.any(String) },
+    );
+    expect(body).toMatchObject({ id: 'test-runner', machine: null });
+  });
+
   it('replies to stop with the stopped commands', () =>
     expectReply(client, 'stop', {}, { stopped: [] }));
 

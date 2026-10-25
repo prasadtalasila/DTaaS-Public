@@ -93,6 +93,7 @@ key that names a missing file stops the runner.
 | `POST /fsm/event`      | `<topic>/event`      | `{"event": "stop"}`   |
 | `GET /fsm`             | `<topic>/fsm`        | ignored               |
 | `POST /stop`           | `<topic>/stop`       | `{"name": "execute"}` |
+| `GET /state`           | `<topic>/state`      | ignored               |
 
 A transition or event request is answered once the script of the new
 state has started, without waiting for it to finish. The body names
@@ -118,12 +119,17 @@ A malformed body or request key gets the `Validation Failed` response
 of the existing API, before any other check. `GET /fsm` answers:
 
 ```text
-{"state": "execute", "status": "running", "events": ["reset", "start", "stop"]}
+{"state": "execute", "status": "running", "entry": 3, "events": ["reset", "start", "stop"]}
 ```
 
 `status` is `running`, `valid`, `invalid` or `stopped` for the script
 of the current state, and `none` before the first transition, when
-`state` is `null`.
+`state` is `null`. `entry` counts the entries into states, `0` before
+the first, so that two entries into the same state can be told apart.
+
+`GET /state` joins the body of `GET /fsm`, or `null` without a state
+machine, with the identity of the digital twin, its parameters and the
+latest command without its logs, in one document.
 
 `POST /stop` stops the running command of the given name, or every
 running command without one, and answers
@@ -165,7 +171,9 @@ state machine.
 | `fsm/fsm.service.ts`     | runs scripts, raises completion events, replies      |
 | `fsm/fsm.controller.ts`  | HTTP routes                                          |
 | `dto/fsm.dto.ts`         | request schemas and reply bodies                     |
-| `mqtt/*`                 | three more request topics                            |
+| `mqtt/*`                 | the request topics of these routes                   |
+| `DescriptorService`      | builds the document of `GET /state`                  |
+| `dto/state.dto.ts`       | the state document and its latest command            |
 | `ExecaManager.isRunning` | tells whether a script is running                    |
 | `ExecaManager.stop`      | stops running scripts and waits until they exit      |
 

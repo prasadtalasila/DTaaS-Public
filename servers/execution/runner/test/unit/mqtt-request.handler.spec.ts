@@ -4,14 +4,13 @@ import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import { RunOutcome } from 'src/interfaces/runner.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
-import { fakeManager, status } from './mqtt.fixture';
-
-const dt = {
-  id: 'hospital-1',
-  attributes: { city: 'Aarhus' },
-  commands: ['create'],
-  stateMachine: true,
-};
+import {
+  dt,
+  fakeDescriptor,
+  fakeManager,
+  stateDocument,
+  status,
+} from './mqtt.fixture';
 
 function createHandler(outcome: RunOutcome) {
   const manager = fakeManager(outcome);
@@ -21,7 +20,7 @@ function createHandler(outcome: RunOutcome) {
     event: jest.fn((_event: string, _requestKey?: string) => accepted),
     check: jest.fn((): unknown => undefined),
   };
-  const descriptor = { describe: jest.fn(() => dt) };
+  const descriptor = fakeDescriptor();
   const handler = new MqttRequestHandler(
     manager as unknown as ExecaManager,
     fsm as unknown as FsmService,
@@ -146,6 +145,13 @@ describe('MQTT request handler', () => {
     expect(await handler.handle('dt', Buffer.alloc(0))).toEqual(dt);
   });
 
+  it('Should return the state document of the digital twin', async () => {
+    const { handler } = createHandler('success');
+    expect(await handler.handle('state', Buffer.alloc(0))).toEqual(
+      stateDocument,
+    );
+  });
+
   it('Should report the health with MQTT connected', async () => {
     const { handler } = createHandler('success');
 
@@ -217,7 +223,7 @@ describe('MQTT request handler', () => {
 
     it('Should return the state of the machine', async () => {
       const { handler, fsm } = createHandler('success');
-      const state = { state: null, status: 'none', events: [] };
+      const state = { state: null, status: 'none', entry: 0, events: [] };
       fsm.check.mockReturnValueOnce(state);
 
       expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual(state);

@@ -74,6 +74,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     return {
       state: this.machine.state ?? null,
       status: this.status,
+      entry: this.machine.entry,
       events: this.machine.events,
     };
   }

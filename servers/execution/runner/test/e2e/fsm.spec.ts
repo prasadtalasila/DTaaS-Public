@@ -50,6 +50,7 @@ describe('Runner state machine end-to-end tests', () => {
         .expect(HttpStatus.OK, {
           state: null,
           status: 'none',
+          entry: 0,
           events: ['stop'],
         });
 

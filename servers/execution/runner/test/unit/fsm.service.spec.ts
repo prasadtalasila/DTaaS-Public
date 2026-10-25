@@ -33,6 +33,7 @@ describe('State machine service', () => {
     expect(service.check()).toEqual({
       state: null,
       status: 'none',
+      entry: 0,
       events: ['reset', 'stop'],
     });
   });
@@ -45,7 +46,7 @@ describe('State machine service', () => {
       state: 'create',
     });
     expect(manager.newCommand).toHaveBeenCalledWith('create');
-    expect(service.check()?.status).toBe('running');
+    expect(service.check()).toMatchObject({ status: 'running', entry: 1 });
   });
 
   it('Should refuse an undeclared state', () => {

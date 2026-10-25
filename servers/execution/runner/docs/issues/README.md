@@ -13,7 +13,7 @@ deferred (see below) and have no file.
 | File                                                   | Feature                    | Size | Status    | PR  |
 | :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
 | [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done      | #74 |
-| [02-state-document.md](02-state-document.md)           | One state document         | M    | planned   |     |
+| [02-state-document.md](02-state-document.md)           | One state document         | M    | in review | #77 |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | planned   |     |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | planned   |     |
 | [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
@@ -21,7 +21,7 @@ deferred (see below) and have no file.
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned   |     |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
-| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | in review | #76 |
+| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
 | [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
 
 Sizes: S is a day or less, M a few days with tests and documentation.

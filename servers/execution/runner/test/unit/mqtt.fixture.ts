@@ -77,3 +77,24 @@ export const fakeManager = (outcome: RunOutcome) => ({
   databaseMode: jest.fn(() => 'file'),
   stop: jest.fn((_name?: string) => Promise.resolve(['create'])),
 });
+
+export const dt = {
+  id: 'hospital-1',
+  attributes: { city: 'Aarhus' },
+  commands: ['create'],
+  stateMachine: true,
+};
+
+export const stateDocument = {
+  id: 'hospital-1',
+  time: '2026-10-25T10:00:00.000Z',
+  machine: null,
+  parameters: {},
+  command: null,
+};
+
+// A DescriptorService, for the MQTT request handler tests
+export const fakeDescriptor = () => ({
+  describe: jest.fn(() => dt),
+  state: jest.fn(() => stateDocument),
+});

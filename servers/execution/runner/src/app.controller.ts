@@ -13,6 +13,7 @@ import { CommandStatus } from './interfaces/command.interface.js';
 import ExecaManager from './execa-manager.service.js';
 import DescriptorService from './descriptor.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
+import { StateDocumentDto } from './dto/state.dto.js';
 import {
   ExecuteCommandDto,
   executeCommandSchema,
@@ -35,6 +36,11 @@ export default class AppController {
   @Get('dt')
   describe(): DescriptorDto {
     return this.descriptor.describe();
+  }
+
+  @Get('state')
+  state(): StateDocumentDto {
+    return this.descriptor.state();
   }
 
   @Get('history')

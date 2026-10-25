@@ -4,6 +4,8 @@ import { RunOutcome } from './runner.interface.js';
 // How a command ended, and its stdout and stderr logs
 type CommandResult = [RunOutcome, Map<string, string>];
 
+// A command in the queue, with its times in ISO 8601 UTC; finishedAt is
+// null while it runs
 type CommandRecord = {
   id: number;
   name: string;
@@ -11,6 +13,8 @@ type CommandRecord = {
   stdout: string;
   stderr: string;
   finished: boolean;
+  receivedAt: string;
+  finishedAt: string | null;
 };
 
 type CommandStatus = {
