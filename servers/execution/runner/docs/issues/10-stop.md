@@ -1,7 +1,7 @@
 # 10 Stop a Running Script
 
-- Status: planned
-- Depends on: 01
+- Status: in progress
+- Depends on: 01 (for the `stopGrace` key; see Configuration)
 - PR: none
 - Research note:
   [item 10](../dtn-research-notes.md#10-stop-a-running-script)
@@ -17,109 +17,175 @@ event while its script keeps running. This feature adds a stop.
 ### Mechanism
 
 A stop sends `SIGTERM` and, if the process is still alive after the
-grace period, `SIGKILL` (execa's `forceKillAfterDelay`). The grace
-period is `stopGrace` in `runner.yaml`, in milliseconds, default
-`5000`. On Windows execa's kill ends the process at once; the README
-says so.
+grace period, `SIGKILL` (execa's `forceKillAfterDelay`). A run is
+`stopped` only when the runner's own `stop()` was called and the
+process then exited; a process killed from outside (`kill`, the OOM
+killer) stays a failure. `stop()` is idempotent: a second call while
+the first waits does nothing more.
+
+execa resolves only after the script's stdout and stderr close. A
+script whose children keep the pipes open (a foreground `sleep` under
+`sh` survives the shell's `SIGTERM`) holds the stop until they exit;
+scripts must end their children on `SIGTERM`, for example with `exec`
+or a `trap`. On Windows, execa ends `powershell.exe` at once with
+`TerminateProcess`, and the processes the script started keep running.
+The README says both.
+
+### Configuration
+
+`stopGrace` in `runner.yaml`, in milliseconds, default `5000`. Until 01
+merges it is an optional key of today's `ConfigValues` with a
+`getStopGrace()` getter; on the rebase after 01 it moves into 01's
+schema.
+
+### Outcome
+
+`run` reports one of `success`, `failed` and `stopped`
+(`RunOutcome`). `CommandResult` becomes `[RunOutcome, Map]` in place of
+`[boolean, Map]`, and the queue stores the matching status: `valid`,
+`invalid` or `stopped`. A repeated request key of a stopped run, and a
+request joined to a run that is then stopped, get `stopped`.
+`POST /` and the MQTT `execute` route answer a stopped run with `200`
+and `{ "status": "stopped" }`; success and failure keep today's
+replies.
 
 ### `$stopped`
 
-A stopped script completes with a new completion event, `$stopped`,
-next to `$success` and `$failure`. It is distinct so that a deliberate
-stop never looks like a crash: it does not count for `onFailure`
-escalation (06), and the command's history status is `stopped`, not
-`invalid`. A state with no `$stopped` transition goes idle silently in
-that state, with script status `stopped` (a new `ScriptStatus`). The
-completion cycle check includes `$stopped` transitions.
+A stopped script of the current entry completes with a new completion
+event, `$stopped`, next to `$success` and `$failure`, and the script
+status becomes `stopped` (a new `ScriptStatus`). A state with no
+`$stopped` transition stays idle in that state. A deliberate stop never
+looks like a crash: it does not count for `onFailure` escalation (06).
+The completion-cycle check leaves `$stopped` out: it fires only after
+an outside `POST /stop`, so a loop through it cannot run by itself.
 
 ### API
 
-`POST /stop` and `<base>/stop`, body optional:
+`POST /stop` and `<base>/stop`, body optional (`{}`, an empty HTTP
+body or an empty MQTT payload all mean "everything"):
 
 ```json
 { "name": "execute" }
 ```
 
-Without a body every run in progress is stopped (there is usually one);
-with `name`, that run only. Reply `200 { "stopped": ["execute"] }`,
-with `[]` when nothing was running or the name was not running. The
-reply returns when the processes have exited, so it may take up to the
-grace period plus a moment.
+Without `name` every run in progress is stopped; with it, that run
+only. Reply `200 { "stopped": ["execute"] }`, `[]` when nothing was
+running. The route takes no request key: a repeat finds nothing
+running and answers `[]`. The reply comes when the processes have
+exited, so it can take the grace period and more; it does not wait for
+the machine's `$stopped` transition, so a `GET /fsm` straight after may
+still show the old state for a moment.
 
 ### Transition with stop
-
-A transition may stop the current state's script before entering the
-next state:
 
 ```yaml
 states:
   execute:
     transitions:
-      restart: { state: create, stop: true }
+      restart: { state: execute, stop: true }
       stop: idle
 ```
 
-A transition value is a state name, as today, or an object
-`{ state, stop: true }`. On the event, the runner stops the script of
-the current state, waits for it to exit, then enters the target. The
-stopped script's completion is attributed to the earlier entry and
-ignored, as any late completion is today
-(`src/fsm/fsm.service.ts:135`), so `$stopped` fires only for a
-`POST /stop` of the current state's script. The event reply is still
-`202 accepted` when the stop begins; `GET /state` shows the result.
+A transition value is a state name, as today, or `{ state, stop: true }`
+(`stop: false` and unknown keys are errors). `stop: true` is refused on
+`$success`, `$failure` and `$stopped`, whose script has already ended.
 
-A `transition` request while a script runs stays `409 busy` (D7): a
-Manager that wants to force a state calls `POST /stop` first.
+On such an event the runner, in this order:
+
+1. refuses with `script running` if the target's script runs and the
+   target is not the current state (D8 as before);
+1. enters the target synchronously, which increments the entry number,
+   so the old script's completion is stale and ignored;
+1. sets the script status to `running` and replies
+   `202 { "status": "accepted", "state": "<target>" }`;
+1. stops the script of the state it left (the name captured before
+   entering), waits for it to exit, and then, unless shutdown began or
+   a later entry happened meanwhile, runs the target's script. When
+   that script had already finished, the stop does nothing and the
+   target runs at once.
+
+So a self-transition with `stop: true` restarts the script, which is the
+use case of a parameter change. Without `stop: true` D8 still refuses
+it while the script runs.
+
+A `transition` request while a script runs stays `409 busy` (D7). A
+Manager that wants to force a state calls `POST /stop` first, which
+works only when the state has no `$stopped` transition; otherwise the
+machine moves on and is busy again.
 
 ## Plan
 
-1. Add `stopGrace` to the configuration schema of 01.
-1. Add `stop(): Promise<void>` to `Runner`
-   (`src/interfaces/runner.interface.ts`); in `src/execa-runner.ts`
-   keep the subprocess handle and implement the signal and grace
-   period. Report `stopped` as a third outcome of `run` (`success`,
-   `failed`, `stopped`), building on the `RunOutcome` of 05 or adding
-   it here if 05 has not landed.
-1. Keep the `Runner` in `ExecaManager.running`
-   (`src/execa-manager.service.ts:30`, `84-96`), add `stop(name?)`
-   that stops and awaits the runs, and record `stopped` in `Queue`.
-1. Add `$stopped` to `COMPLETION_EVENTS` in `src/fsm/definition.ts`,
-   extend the transition value schema to the object form, and carry the
-   `stop` flag in `Transitions`.
-1. In `src/fsm/fsm.service.ts`, map a `stopped` outcome to `$stopped`
-   in `run`, and make `event` stop the current script before `enter`
-   when the transition says so.
-1. Add `POST /stop` to `src/app.controller.ts` and the `stop` MQTT
-   route.
-1. Add a long-running test script (sleep loop, shell and `.ps1`) to
-   `test/data/scripts/`.
-1. Update `api/*.http`, `README.md` (State Machine: rewrite the
-   long-state guidance; API; MQTT API), the design document (replace
-   D10, amend D7, add a decision for `$stopped`) and the developer
-   page.
+1. Add `stopGrace?` to `ConfigValues` and `getStopGrace()` to
+   `src/config/configuration.service.ts`.
+1. Add `RunOutcome` and `stop(): Promise<void>` to `Runner`
+   (`src/interfaces/runner.interface.ts`). In `src/execa-runner.ts`,
+   keep the subprocess, pass `forceKillAfterDelay`, record that
+   `stop()` was called, catch the rejection as today, and map the
+   result to an outcome. `RunnerFactory.create` passes the grace
+   period.
+1. Change `CommandResult` to `[RunOutcome, Map]`
+   (`src/interfaces/command.interface.ts`) and every user: `Queue.complete`
+   and `storedResult` (`src/queue.service.ts`,
+   `src/execa-manager.service.ts`), `executeResponse`
+   (`src/dto/command.dto.ts`), `AppController.newCommand`, the MQTT
+   `execute` route, `FsmService.succeeds`, and the tests and fakes
+   (`test/unit/fsm.fixture.ts`, which also gains a `stop(name)` that
+   finishes the fake run as `stopped`, and the specs using
+   `[true, …]`).
+1. In `ExecaManager`, create the runner in `start` and keep it in
+   `Run`, together with the promise `start` returns; add `stop(name?)`
+   that stops the matching runs and awaits those promises, so the run
+   has left `running` when the stop resolves and a new `newCommand` of
+   the same name starts afresh instead of joining it. It returns the
+   names. A run whose command is not permitted has no
+   runner and nothing to stop.
+1. In `src/fsm/definition.ts`, add `$stopped` to `COMPLETION_EVENTS`,
+   accept the object transition form, refuse `stop` on completion
+   events, keep `$stopped` out of `completionTargets`, and carry the
+   flag in `Transitions`. `src/fsm/state-machine.ts`'s `next()` returns
+   the target and the flag.
+1. In `src/fsm/fsm.service.ts`, map the outcome to `$success`,
+   `$failure` or `$stopped`. Put the stop-transition path of the event
+   flow above into a helper or a small unit of its own, so the service
+   stays under 250 lines and each function under complexity 5.
+1. Add `POST /stop` to `src/app.controller.ts` with a schema that
+   accepts no body, and the `stop` MQTT route, treating an empty
+   payload as `{}`.
+1. Add test scripts to `test/data/scripts/` that loop on short sleeps
+   (`while :; do sleep 0.1; done`, and one with `trap '' TERM`), with
+   `.ps1` versions.
+1. Update `api/*.http`, `README.md` (State Machine: the long-state
+   guidance, the pipe and Windows limits; API; MQTT API), and the
+   design document (replace D10, amend D7 and D8, add decisions for
+   `$stopped` and `RunOutcome`).
+1. Bump the minor version in `package.json` (0.6.0 after 01's 0.5.0)
+   and note the new `stopped` reply of `POST /` in the README.
 
 ## Tasks
 
-- [ ] `ExecaRunner.stop` ends a sleeping script with the `stopped`
-      outcome; a script that ignores `SIGTERM` is killed after the grace
-      period. Check: `test/integration/execa-runner.spec.ts` (the
-      ignore case on POSIX only).
-- [ ] `ExecaManager.stop` stops one named run or all, awaits them, and
-      records `stopped`. Check:
-      `test/integration/execa-manager.service.spec.ts`,
+- [ ] `ExecaRunner.stop` ends a looping script with `stopped`; a script
+      that ignores `SIGTERM` is killed after the grace period; an outside
+      kill is `failed`; a second `stop()` is harmless. Check:
+      `test/integration/execa-runner.spec.ts` (the `SIGTERM` cases on
+      POSIX only).
+- [ ] `ExecaManager.stop` stops one named run or all, awaits them,
+      records `stopped`, a repeated key or joined request gets
+      `stopped`, and a `newCommand` of the same name after the stop
+      runs the script again. Check: `test/integration/execa-manager.service.spec.ts`,
       `test/integration/queue.service.spec.ts`.
-- [ ] Definition accepts the object transition form, rejects
-      `stop: false` and unknown keys, and finds a completion cycle
-      through `$stopped`. Check: `test/unit/fsm.definition.spec.ts`.
-- [ ] A `POST /stop` of the current state's script raises `$stopped`
-      and follows its transition, or goes idle with status `stopped`;
-      a stop-transition enters the target after the script exits and
-      ignores the late completion. Check: `test/unit/fsm.service.spec.ts`
-      with a fake manager, `test/e2e/fsm.spec.ts` with the sleep script.
-- [ ] `POST /stop` and the MQTT route reply as specified. Check:
-      `test/e2e/commander.spec.ts`,
+- [ ] Definition accepts the object form, rejects `stop: false`, unknown
+      keys and `stop` on completion events, and accepts a loop through
+      `$stopped`. Check: `test/unit/fsm.definition.spec.ts`.
+- [ ] A `POST /stop` of the current script raises `$stopped` and follows
+      its transition, or stays idle with status `stopped`; a
+      stop-transition enters the target before the old script exits,
+      ignores its completion, and restarts a self-transition. Check:
+      `test/unit/fsm.service.spec.ts` with a fake manager,
+      `test/e2e/fsm.spec.ts` with the loop script.
+- [ ] `POST /stop` and the MQTT route answer as specified, including an
+      empty body and payload. Check: `test/e2e/commander.spec.ts`,
       `test/unit/mqtt-request.handler.spec.ts`.
-- [ ] README, design document (D7, D10) and request files updated.
-      Check: `npx markdownlint-cli README.md docs/*.md`.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
-      output.
+- [ ] README, design document (D7, D8, D10) and request files updated.
+      Check: `npx markdownlint-cli` on them.
+- [ ] `yarn syntax`, `yarn build` and `yarn test` pass, and no function
+      crosses the Qlty thresholds. Check: their output.
