@@ -159,7 +159,7 @@ true, so a missed first `connect` still announces the runner.
       and publishes nothing on a connect after shutdown. Check:
       `test/unit/notifier.service.spec.ts`, its fakes extended with
       `onConnect` and `sendOnce`.
-- [ ] A late subscriber receives the retained online notice; after
+- [x] A late subscriber receives the retained online notice; after
       `app.close()`, it receives the offline one with a time. `afterEach`
       also deletes the retained presence topic, as it does the state
       topic, since the public broker is shared. Check:
