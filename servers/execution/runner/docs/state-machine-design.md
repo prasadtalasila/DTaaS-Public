@@ -68,8 +68,8 @@ states: # each state runs the script of the same name
 The runner refuses to start when the file is invalid, as it does for an
 invalid `mqtt` section. The file is valid when:
 
-- it holds only `events`, `states` and `parameters`, and each state
-  holds only `transitions`;
+- it holds only `events`, `states`, `parameters` and `env`, and each
+  state holds only `transitions` and `env`;
 - every state and event name matches `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
   property such as `__proto__` (zod skips a `__proto__` record key, so
@@ -89,7 +89,12 @@ invalid `mqtt` section. The file is valid when:
   number for `number`, one of `values` for `enum`), an `event` declared
   in `events` if any, and no other key;
 - no two parameter names give the same variable name, `DT_PARAM_`
-  followed by the name in upper case with `.` and `-` as `_`.
+  followed by the name in upper case with `.` and `-` as `_`;
+- every `env` name matches `^[A-Z][A-Z0-9_]*$` and does not start with
+  `DT_` or `RUNNER_`, every value is a string, a finite number or a
+  boolean, and every `${NAME}` in a value names a runner variable
+  (`RUNNER_URL`, `DT_ID`, `DT_STATE`, `DT_ENTRY`) or the variable of a
+  declared parameter.
 
 `events` may be left out, and a state without transitions may be left
 empty, as in `terminate:`. Without a `stateMachine` key, the state
@@ -183,25 +188,27 @@ document of `GET /parameters`. Both routes answer `404` with the
 
 ### Components
 
-| Unit                     | Responsibility                                       |
-| :----------------------- | :--------------------------------------------------- |
-| `fsm/definition.ts`      | read, parse and check the state machine file         |
-| `fsm/name.ts`            | name pattern of states, events, parameters and ids   |
-| `fsm/parameters.ts`      | parameter schema, checks, values and changes         |
-| `fsm/script-outcome.ts`  | runs a state's script; failed if it can not start    |
-| `fsm/state-machine.ts`   | pure machine: current state, entry count, next state |
-| `fsm/recent-replies.ts`  | bounded store of replies to repeated requests        |
-| `fsm/fsm.service.ts`     | runs scripts, raises completion events, replies      |
-| `fsm/fsm.controller.ts`  | HTTP routes                                          |
-| `ParametersController`   | HTTP routes of the parameters                        |
-| `dto/fsm.dto.ts`         | request schemas and reply bodies                     |
-| `mqtt/*`                 | the request topics of these routes                   |
-| `DescriptorService`      | builds the document of `GET /state`                  |
-| `dto/state.dto.ts`       | the state document and its latest command            |
-| `dto/parameters.dto.ts`  | parameters body schema and document                  |
-| `ExecaManager.isRunning` | tells whether a script is running                    |
-| `ExecaManager.stop`      | stops running scripts and waits until they exit      |
-| `Queue.setParameter`     | records each parameter change with its time          |
+| Unit                      | Responsibility                                       |
+| :------------------------ | :--------------------------------------------------- |
+| `fsm/definition.ts`       | read, parse and check the state machine file         |
+| `fsm/completion-cycle.ts` | finds a loop of completion transitions               |
+| `fsm/script-context.ts`   | `env` schema and checks, the environment of a script |
+| `fsm/name.ts`             | name pattern of states, events, parameters and ids   |
+| `fsm/parameters.ts`       | parameter schema, checks, values and changes         |
+| `fsm/script-outcome.ts`   | runs a state's script; failed if it can not start    |
+| `fsm/state-machine.ts`    | pure machine: current state, entry count, next state |
+| `fsm/recent-replies.ts`   | bounded store of replies to repeated requests        |
+| `fsm/fsm.service.ts`      | runs scripts, raises completion events, replies      |
+| `fsm/fsm.controller.ts`   | HTTP routes                                          |
+| `ParametersController`    | HTTP routes of the parameters                        |
+| `dto/fsm.dto.ts`          | request schemas and reply bodies                     |
+| `mqtt/*`                  | the request topics of these routes                   |
+| `DescriptorService`       | builds the document of `GET /state`                  |
+| `dto/state.dto.ts`        | the state document and its latest command            |
+| `dto/parameters.dto.ts`   | parameters body schema and document                  |
+| `ExecaManager.isRunning`  | tells whether a script is running                    |
+| `ExecaManager.stop`       | stops running scripts and waits until they exit      |
+| `Queue.setParameter`      | records each parameter change with its time          |
 
 ```mermaid
 sequenceDiagram
@@ -252,6 +259,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D20 | `$stopped` completion event and transitions with `stop: true`             | `$stopped` lets the DT author choose what follows a stop; without a `$stopped` transition the machine stays idle. A stop transition enters its target before the old script exits, so the reply does not wait (D9) and the old completion is stale; a self-transition with `stop: true` restarts the script.                                                    |
 | D21 | Parameters are declared in the state machine file                         | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                     |
 | D22 | A parameter change raises only its declared event                         | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                               |
+| D23 | Scripts get the runner's context as environment variables                 | Added by issue 08. Every script language reads its environment, and nothing goes on the command line. Values are those at the script's start (S6). A declared `env` interpolates only runner variables, so a file means the same on every host. Events return over HTTP through `RUNNER_URL`, not stdout (open question 13).                                    |
 
 ## Assumptions
 
@@ -267,7 +275,8 @@ proposal to derive the events from the transitions was declined (D4).
   the event its declaration names, on a client's request (D22).
   Amended by issue 03: the runner also publishes its state unasked,
   over MQTT and a webhook, whenever the state document changes; a
-  notification raises no event.
+  notification raises no event. Amended by issue 08: a script is such
+  a client; it raises events over HTTP through `RUNNER_URL` (D23).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.

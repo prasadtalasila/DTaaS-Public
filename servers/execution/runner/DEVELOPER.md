@@ -33,6 +33,12 @@ _ignore-term_ ignores `SIGTERM`, so on Linux only `SIGKILL` after the
 grace period ends it. They loop on short sleeps, so that no child
 process holds their output open long after a stop.
 
+The _print-context_ script prints the runner variables that it gets,
+and _raise-event_ raises the event `done` through `RUNNER_URL` and
+prints the status code of the reply, for the tests of the
+[script environment](README.md#script-environment). On Linux,
+_raise-event_ needs `curl`; on Windows it uses `Invoke-RestMethod`.
+
 The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names
 with its `stateMachine` key. A `config/runner.test.yaml` copied from

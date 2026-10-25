@@ -1,6 +1,6 @@
 # 08 Runner Context and Events for Scripts
 
-- Status: in progress
+- Status: in review
 - Depends on: 04; coordinates with 05
 - PR: none
 - Research note:
@@ -86,32 +86,11 @@ The README tells a script how to raise a declared event:
 | `409` `no transition`, `script running`                              | not now: the current state has no transition for the event, or the next state's script still runs                                          |
 | `503` `stopping`                                                     | the runner is shutting down; the script should exit                                                                                        |
 
-A shell script uses `curl` without `jq`; the code is `000` when the
-runner can not be reached:
-
-```sh
-code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-  -H 'Content-Type: application/json' -d '{"event": "done"}' \
-  "$RUNNER_URL/fsm/event")
-case "$code" in
-  202 | 503) exit 0 ;;
-  409) echo "not now" ;;
-  *) echo "event refused: $code" >&2 && exit 1 ;;
-esac
-```
-
-A PowerShell script runs in Windows PowerShell 5.1 (`powershell.exe`),
-whose `Invoke-RestMethod` throws on a `4xx` or `5xx` reply and has no
-`-SkipHttpErrorCheck`. `202` is the route's only success status, and
-`$code` is `0` when the runner can not be reached:
-
-```powershell
-try {
-  Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/fsm/event" `
-    -ContentType 'application/json' -Body '{"event": "done"}' | Out-Null
-  $code = 202
-} catch { $code = [int]$_.Exception.Response.StatusCode }
-```
+A shell example uses `curl` without `jq` (`000` when the runner can not
+be reached); a PowerShell 5.1 example catches the exception that
+`Invoke-RestMethod` throws on a `4xx` or `5xx` reply, as it has no
+`-SkipHttpErrorCheck` (`0` when unreachable). Both are in the README,
+Raising Events From Scripts.
 
 A script reads parameters with `GET ${RUNNER_URL}/parameters` (04), or
 from the `DT_PARAM_*` variables as they were at its start.
@@ -197,38 +176,38 @@ is no stdout protocol (non-goal in the index).
 
 ## Tasks
 
-- [ ] The moves of step 1 change no behaviour; `run` starts the script
+- [x] The moves of step 1 change no behaviour; `run` starts the script
       synchronously on `enter` and not for a stale stop. Check:
       `test/unit/fsm.definition.spec.ts`, `test/unit/fsm.service.spec.ts`
       and `test/unit/fsm.service.stop.spec.ts`; `wc -l`.
-- [ ] `scriptEnvironment` gives the runner variables with and without
+- [x] `scriptEnvironment` gives the runner variables with and without
       a machine and a URL, merges in order, interpolates, stringifies,
       adds a state's `env` only for its command, and drops `Path` for a
       declared `PATH` and `dt_id` for `DT_ID` on an injected `win32`,
       not on `linux`. Check: `test/unit/script-context.spec.ts` (new).
-- [ ] The schema accepts `env` at both levels and rejects a lower-case
+- [x] The schema accepts `env` at both levels and rejects a lower-case
       name, a `DT_` or `RUNNER_` name, a nested or `null` value, a
       non-finite number, `${OTHER_DECLARED}`, `${HOME}` and a
       `__proto__` key at either level, each with a message. Check:
       `test/unit/fsm.env.spec.ts` (new; the definition spec is 239).
-- [ ] `ExecaRunner` gives the child exactly the environment passed,
+- [x] `ExecaRunner` gives the child exactly the environment passed,
       built with `scriptEnvironment` so that `PATH` and `SystemRoot`
       still start `/bin/sh` and `powershell.exe`;
       `ExecaManager` hands options to a new run and ignores them on a
       join or a repeat. Check: `test/integration/execa-runner.spec.ts`,
       `test/integration/execa-manager.env.spec.ts` (new; the service
       spec is 216).
-- [ ] `run` passes the `env` of the entry it starts, also for a stop
+- [x] `run` passes the `env` of the entry it starts, also for a stop
       transition's target, and `environment(command)` that of the
       current entry; in `test/unit/fsm.fixture.ts` the fake `newCommand`
       takes a third argument and the fake config gains `getId`. Check:
       `test/unit/fsm.service.environment.spec.ts` (new), asserting the
       `env` that `newCommand` receives.
-- [ ] `POST /` and MQTT `execute` pass `fsm.environment(name)`. Check:
+- [x] `POST /` and MQTT `execute` pass `fsm.environment(name)`. Check:
       the `newCommand` assertions of
       `test/integration/app.controller.spec.ts` and
       `test/unit/mqtt-request.handler.spec.ts` expect it.
-- [ ] With a parameter `scope` and a file-level
+- [x] With a parameter `scope` and a file-level
       `HINT: '${DT_ID}-${DT_PARAM_SCOPE}'`, `print-context` prints
       `dt-1 print-context 1 single dt-1-single` when the machine runs
       it, an empty state and `0` from `POST /` before the first
@@ -236,11 +215,33 @@ is no stdout protocol (non-goal in the index).
       `await app.listen(0)` and the same `setRunnerUrl` call as
       `main.ts`, `raise-event` moves the machine on `done`. Check:
       `test/e2e/script-context.spec.ts` (new).
-- [ ] The built runner loads. Check: `test/e2e/dist.spec.ts` after
+- [x] The built runner loads. Check: `test/e2e/dist.spec.ts` after
       `yarn build`. Documents updated. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass,
+- [x] `yarn build` and `yarn test` pass,
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is clean
       (eslint lints no `.ts` file here), no changed file reaches 250
       lines, and no function crosses the Qlty thresholds. Check: their
       output; the thresholds counted by hand.
+
+## Learnings
+
+- Issue 03 left `fsm.service.ts` at 249 lines, so a private builder
+  call did not fit: `RunnerContext` holds the id, URL, definition and
+  parameters, and with the moves of step 1 the service ends at 248.
+- zod 4 reports a refused record key only as "Invalid key in record",
+  so `envSchema` checks the names in a `superRefine` to name the rule.
+- `extendEnv: false` gives the child nothing but the env passed, so the
+  builder must carry the inherited environment: without `PATH` and
+  `SystemRoot`, `/bin/sh` and `powershell.exe` do not start.
+- The e2e helper `startRunner` calls `app.init()`, not `listen`, so
+  `RUNNER_URL` is unset in most tests; a test that needs it calls
+  `app.listen(0)` and `setRunnerUrl` itself, as `main.ts` does.
+- `raise-event.ps1` reaches `127.0.0.1` from Windows PowerShell 5.1
+  with `Invoke-RestMethod`; the e2e test passes on Windows.
+- `app.controller.spec.ts` did not await `loadConfig`; it now awaits it
+  and loads `FsmService`, whose environment needs the id.
+- For 05: `scriptOutcome` takes `{ state, env }` and `POST /` passes
+  `{ env }`, so 05 adds `input` to that object; `completionCycle` is a
+  default export. For 06: escalation belongs in the README's Raising
+  Events From Scripts.
