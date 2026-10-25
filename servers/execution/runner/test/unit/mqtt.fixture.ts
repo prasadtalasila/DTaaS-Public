@@ -13,10 +13,11 @@ export class FakeClient extends EventEmitter {
   subscribe = jest.fn();
 
   publishAsync = jest.fn(
-    async (_topic: string, _message: string, _options: unknown) => undefined,
+    (_topic: string, _message: string, _options: unknown) =>
+      Promise.resolve(undefined),
   );
 
-  endAsync = jest.fn(async (_force?: boolean) => undefined);
+  endAsync = jest.fn((_force?: boolean) => Promise.resolve(undefined));
 }
 
 export const mqttConfig: MqttConfig = {
@@ -32,13 +33,11 @@ export function setup(options: MqttConfig | undefined) {
   const connect = jest.fn<MqttConnect>(() => client as unknown as MqttClient);
   const config = { getMqtt: () => options } as unknown as Config;
   const handle = jest.fn(
-    async (
+    (
       _route: string,
       _payload: Buffer,
       _requestKey?: string,
-    ): Promise<unknown> => ({
-      status: 'success',
-    }),
+    ): Promise<unknown> => Promise.resolve({ status: 'success' }),
   );
   const handler = { handle } as unknown as MqttRequestHandler;
   const service = new MqttService(config, handler, connect);
