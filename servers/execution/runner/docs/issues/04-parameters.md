@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 02 (for the `parameters` field of the state document)
-- PR: none
+- PR: [#78](https://github.com/prasadtalasila/DTaaS-Public/pull/78)
 - Research note:
   [item 4](../dtn-research-notes.md#4-declared-parameters-with-a-controllable-subset-r2)
 
