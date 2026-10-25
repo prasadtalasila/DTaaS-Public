@@ -71,6 +71,7 @@ dtaas platform uninstall
     - [user add](#user-add)
     - [user delete](#user-delete)
     - [user pause / stop / resume](#user-pause--stop--resume)
+    - [user status](#user-status)
     - [config reconcile](#config-reconcile)
   - [User files](#user-files)
   - [Configuration Reference dtaas.toml](#configuration-reference-dtaastoml)
@@ -187,7 +188,8 @@ Copies the full project structure for a specific deployment scenario
 directory ready to be customised. It also writes the user workspace
 templates that `user add` builds new workspaces from: `users.server.yml`,
 `users.server.secure.yml`, `users.resources.yml`, and the `files/template/`
-skeleton.
+skeleton. For the types that run the logger it also creates `logs/logger/`
+(see [platform install](#platform-install)).
 
 ```bash
 dtaas deployment generate --type <name>
@@ -279,6 +281,29 @@ Internally runs `docker compose up -d` against the `docker-compose.yml` in
 the installation directory. Before starting, it ensures per-user workspace
 directories for every `[[users]]` record exist, recreating each from
 `files/template/` if missing and sets ownership to `1000:100`.
+
+For the `localhost`, `insecure-server`, `secure-server` and
+`secure-server-gitlab` types it also creates `logs/logger/`, where the logger
+microservice writes its events, and gives it to `1000:1000`, the user that
+runs the logger. This replaces the logger step of the manual installation
+guides. Only `logs/logger/` changes owner, never `logs/` itself, which
+`secure-server-gitlab` also mounts into GitLab.
+
+Both ownership changes use `sudo` on Linux and macOS and are skipped on
+Windows. Before `sudo` runs, the command says what it is for, since `sudo`
+may ask for your password. `logs/logger/` is left alone when it already
+belongs to `1000:1000`, for example when you are that user. When a change
+fails, for example because `sudo` is not available, the command prints a
+warning with the commands to run by hand and carries on:
+
+```text
+Setting the owner of logs/logger/ to 1000:1000 with sudo (it may ask for your password)
+Warning: could not set the owner of logs/logger/
+  Run: sudo chown -R 1000:1000 -- /home/admin/dtaas/logs/logger
+```
+
+When `logs/` or `logs/logger/` is a symbolic link, the command does not
+change its owner and prints a warning instead.
 
 **Options:**
 
@@ -947,6 +972,28 @@ alice, bob paused successfully
 
 ---
 
+### user status
+
+Reports the state of every additional user's container, or of one
+named user. It is the per-user part of `platform status`, using the
+same table and `--json` format.
+
+```bash
+dtaas user status
+dtaas user status alice
+dtaas user status --json
+```
+
+A username that is not in `dtaas.users.registry.json` is rejected, so
+a typo is not mistaken for a stopped user. A registered user without
+a container is reported as not provisioned. The command exits `0`
+whenever it can read the deployment.
+
+| Option | Default | Description |
+| :----- | :------ | :---------- |
+| `USERNAME` | — | Report only this user |
+| `--json` | off | Emit machine-readable JSON instead of the table |
+
 ### config reconcile
 
 Reports drift between `dtaas.users.registry.json` (which **should** be
@@ -1039,7 +1086,7 @@ it is valid with `dtaas config validate` before running any other command.
 | Section | `localhost` | `insecure-server` | `secure-server` | `secure-server-gitlab` |
 |---|:---:|:---:|:---:|:---:|
 | `[common]` | Required | Required | Required | Required |
-| `[common.security]` | Not used | Not used | Required | Required |
+| `[common.security]` | Not used | Optional (`tls = false`) | Required | Required |
 | `[common.resources]` | Optional | Optional | Optional | Optional |
 | `[gitlab]` | Optional | Optional | Optional | Optional |
 | `[[users]]` | Optional | Required | Required | Required |
@@ -1048,6 +1095,11 @@ it is valid with `dtaas config validate` before running any other command.
 | `[insecure-server]` | Not used | Required | Not used | Not used |
 | `[secure-server]` | Not used | Not used | Required | Not used |
 | `[secure-server-gitlab]` | Not used | Not used | Not used | Required |
+
+`dtaas user add` reads `[common.security].tls` for every deployment
+type to choose the per-user compose template. For `insecure-server`,
+leave the section out or set `tls = false`; `tls = true` gives the new
+users the HTTPS template, which the HTTP-only deployment does not serve.
 
 #### Workspace deployments
 
@@ -1071,7 +1123,7 @@ type (see matrix above).
 # ── Metadata (top level) ──────────────────────────────────────────────────────
 # Describes the instance. Only git-repo is checked by validate (an http(s) URL).
 name     = "Digital Twin as a Service (DTaaS)"
-version  = "2.2.0"
+version  = "2.2.1"
 owner    = "The INTO-CPS-Association"
 git-repo = "https://github.com/into-cps-association/DTaaS.git"
 
@@ -1204,6 +1256,8 @@ keycloak-issuer-url     = "https://keycloak.example.com/realms/dtaas"
 keycloak-client-id      = "workspace"
 keycloak-client-secret  = "s3cr3t"
 oauth-secret            = "random-signing-string"
+# Not written to config/client.js (auth-authority is only checked to be
+# a URL). Set REACT_APP_CLIENT_ID and REACT_APP_AUTH_AUTHORITY there by hand.
 client-id               = "dtaas-frontend"
 auth-authority          = "https://keycloak.example.com/realms/dtaas"
 ```

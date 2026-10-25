@@ -41,16 +41,16 @@ and the decisions behind it.
 ```bash
 yarn install    # Install dependencies for the microservice
 yarn syntax     # Analyze code for errors and style issues
-yarn format     #format .ts[x] and .js[x] files with prettier
+yarn format     # Format .ts, .tsx, .css and .scss files with prettier
 yarn graph      # Generate dependency graphs in the code
-yarn build      # Compile ES6 to ES5 and copy JS files to build/ directory
+yarn build      # Compile TypeScript into the dist/ directory
 yarn test       # Run tests
 yarn test:e2e   # Run only end-to-end tests
 yarn test:broker # Run the MQTT 5 tests against the broker in MQTT_BROKER_URL
 yarn test:nocov # Run the tests but do not report coverage
 yarn test:watchAll # Watch changes in test/ and run the tests
 yarn start      # Start the application
-yarn clean      # Deletes directories "build", "coverage", and "dist"
+yarn clean      # Deletes "build", "node_modules", "coverage", "dist" and graph files
 ```
 
 ### MQTT Tests
@@ -83,7 +83,7 @@ repeat it and the CLI has no `--version` flag.
 ### Github Package Registry
 
 The Github actions workflow of
-[lib microservice](../../../.github/workflows/runner.yml) publishes the **runner**
+[runner](../../../.github/workflows/runner.yml) publishes the **runner**
 into
 [packages](https://github.com/orgs/INTO-CPS-Association/packages?repo_name=DTaaS).
 

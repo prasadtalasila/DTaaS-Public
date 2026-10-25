@@ -111,7 +111,8 @@ rather than reasoning about style.
 
 `pre-commit install` sets up both stages. The commit stage runs
 formatting, markdown and shell checks; the push stage runs the test
-suites for whichever projects you touched.
+suites of `client`, `servers/lib` and `servers/execution/runner` when
+you touched them.
 
 Beyond those: prefer clarity to cleverness, keep functions focused, name
 symbols meaningfully, comment only non-obvious logic, and handle errors
@@ -125,8 +126,10 @@ Conventions the linters do not enforce, which the existing code follows:
   through the `Config` class in `src/pkg/config.py`. Modules under
   `src/pkg/` raise exceptions, except `config.py` and `utils.py`, which
   return `(result, Exception | None)` pairs. The command modules turn
-  both into `click.ClickException`. Test commands with Click's
-  `CliRunner`, not `subprocess`.
+  both into `click.ClickException`. The ownership helpers in
+  `host_dirs.py` are best-effort: a failed `sudo chown` prints a warning
+  with the commands to run by hand instead of raising. Test commands
+  with Click's `CliRunner`, not `subprocess`.
 - **`client/`**: functional React components with hooks; shared state in
   Redux Toolkit slices; unit and integration tests with Jest and React
   Testing Library, end-to-end tests with Playwright.

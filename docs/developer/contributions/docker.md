@@ -17,18 +17,29 @@ The `developer/` directory holds two separate things:
   Node, Python and documentation toolchains needed to work on the code.
   See `developer/devenv/README.md`.
 
+The diagram shows the localhost instance that `developer/check/` starts:
+two user workspaces, the library and logger microservices and the client
+behind Traefik, with forward-auth signing users in through GitLab.
+
+![Containers of the developer check instance](docker-check.png#only-light)
+![Containers of the developer check instance](docker-check-dark.png#only-dark)
+
 ## CI Dockerfile Validation
 
-A pull request that modifies `client/**`, `servers/lib/**` or the
-relevant Dockerfiles triggers a Docker build check. The check uses the
-reusable workflow `.github/workflows/docker-build.yml` and runs in
-parallel with the test jobs, so it does not lengthen the build.
+A pull request that modifies `client/**`, `servers/lib/**`,
+`servers/logger/**` or the relevant Dockerfiles triggers a Docker build
+check. The check uses the reusable workflow
+`.github/workflows/docker-build.yml` and runs in parallel with the test
+jobs. It builds each image for both `linux/amd64` and `linux/arm64`,
+each on a native runner (`ubuntu-latest` and `ubuntu-24.04-arm`), so an
+image that fails to build on either platform fails the check.
 
-| Workflow | Dockerfile validated | Notes |
-| :--- | :--- | :--- |
-| `.github/workflows/client.yml` | `developer/check/client.dockerfile` | Full multi-stage build inside Docker |
-| `.github/workflows/client.yml` | `developer/check/client.built.dockerfile` | Validates the publish image Dockerfile |
-| `.github/workflows/lib-ms.yml` | `developer/check/libms.dockerfile` | Full multi-stage build inside Docker |
+| Workflow                          | Dockerfile validated                      | Notes                                  |
+| :-------------------------------- | :---------------------------------------- | :------------------------------------- |
+| `.github/workflows/client.yml`    | `developer/check/client.dockerfile`       | Full multi-stage build inside Docker   |
+| `.github/workflows/client.yml`    | `developer/check/client.built.dockerfile` | Validates the publish image Dockerfile |
+| `.github/workflows/lib-ms.yml`    | `developer/check/libms.dockerfile`        | Full multi-stage build inside Docker   |
+| `.github/workflows/logger-ms.yml` | `developer/check/logger.dockerfile`       | Full multi-stage build inside Docker   |
 
 The Docker build checks also run on pushes. The push triggers of
 `.github/workflows/client.yml` and `.github/workflows/lib-ms.yml` cover
@@ -39,15 +50,33 @@ on, the `feature/distributed-demo` branch. Because the push trigger
 covers only the source code directories, a change to a Dockerfile alone
 does not re-publish an already published package version.
 
+In all three workflows, the Docker publish jobs wait for the Docker
+build check to pass on both platforms. A publish that has started is
+never cancelled by a newer push; only superseded pull request runs are.
+
 The logger microservice workflow (`.github/workflows/logger-ms.yml`)
-builds and checks the image from `developer/check/logger.dockerfile`. It
-publishes that image on pushes to `feature/*` and `release-v*` branches,
-and its push trigger includes that Dockerfile.
+also runs the image from `developer/check/logger.dockerfile` on amd64
+and checks its health endpoint. It publishes that image on pushes to
+`feature/*` and `release-v*` branches, and its push trigger includes
+that Dockerfile.
 
 ## Publish Docker Images
 
 Build and publish the Docker images. This step is needed only to
 publish images to Docker Hub.
+
+The CI workflows publish every image for both `linux/amd64` and
+`linux/arm64`. The `docker build` commands below build only for the
+platform of the machine they run on. To publish both platforms by hand,
+create a builder that supports multi-platform output once with
+`docker buildx create --use`, then run
+`docker buildx build --platform linux/amd64,linux/arm64 --push`
+with the same `-t` and `-f` arguments instead of `docker build` and
+`docker push`. The platform that differs from the host is built under
+QEMU emulation, which is several times slower. Docker Desktop and
+Rancher Desktop provide the emulation; on a plain Linux Docker Engine,
+register it first with
+`docker run --privileged --rm tonistiigi/binfmt --install arm64`.
 
 !!! warning
     Only project maintainers publish images. Other developers
@@ -71,14 +100,14 @@ Regular users should use the packages from npm and Docker Hub.
 
 The packages are:
 
-| Package Name  | Description                                    | Availability                                                                                                                                          |
-| :------------ | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dtaas-web     | React web application                          | [docker hub](https://hub.docker.com/r/intocps/dtaas-web) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/dtaas-web)         |
-| libms         | Library microservice                           | [npmjs](https://www.npmjs.com/package/@into-cps-association/libms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/libms)         |
-|               |                                                | [docker hub](https://hub.docker.com/r/intocps/libms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/libms)                 |
-| logger-ms     | Logger microservice                            | [npmjs](https://www.npmjs.com/package/@into-cps-association/logger-ms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/logger-ms) |
-|               |                                                | [docker hub](https://hub.docker.com/r/intocps/logger-ms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/logger-ms)         |
-| runner        | REST API wrapper for multiple scripts/programs | [npmjs](https://www.npmjs.com/package/@into-cps-association/runner) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/runner)       |
+| Package Name  | Description                                    | Availability                                                                                                                                                  |
+| :------------ | :--------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| dtaas-web     | React web application                          | [docker hub](https://hub.docker.com/r/intocps/dtaas-web) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/dtaas-web)                 |
+| libms         | Library microservice                           | [npmjs](https://www.npmjs.com/package/@into-cps-association/libms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/libms)                 |
+|               |                                                | [docker hub](https://hub.docker.com/r/intocps/libms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/libms)                         |
+| logger-ms     | Logger microservice                            | [npmjs](https://www.npmjs.com/package/@into-cps-association/logger-ms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/logger-ms)         |
+|               |                                                | [docker hub](https://hub.docker.com/r/intocps/logger-ms) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/container/logger-ms)                 |
+| runner        | REST API wrapper for multiple scripts/programs | [npmjs](https://www.npmjs.com/package/@into-cps-association/runner) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/runner)               |
 | dt-automation | Data and business-logic layer of the client    | [npmjs](https://www.npmjs.com/package/@into-cps-association/dt-automation) and [github](https://github.com/INTO-CPS-Association/DTaaS/pkgs/npm/dt-automation) |
 
 ### React Website
@@ -162,3 +191,34 @@ docker run -d -v ${PWD}/logs:/dtaas/logger/logs \
 ```
 
 The captured events are written to `logs/workflow-logs.jsonl`.
+
+### Add arm64 to an Older Version
+
+Versions published before the workflows built both platforms carry only
+a `linux/amd64` image. The manual workflow
+`.github/workflows/docker-add-arm64.yml` adds a `linux/arm64` image to
+such a version on both Docker Hub and GHCR. It keeps the published amd64
+image, builds arm64 natively from the commit the version was published
+from, and points the version tag, and `latest` if it pointed at the same
+image, at both. It refuses a version that is missing or already
+multi-platform.
+
+Run it from the Actions tab with:
+
+- the image name and the version, for example `1.7.2`
+- the full 40-character SHA of the commit the version was published
+  from
+- the Dockerfile path at that commit; Dockerfiles moved from
+  `developer/` to `developer/check/`, so older commits need the old path
+- for `dtaas-web`, the Node.js version its publish workflow used at that
+  commit, for example `24` for 1.7.1
+
+The workflow refuses a commit whose `package.json` version or Dockerfile
+does not match the image and version. Keep `dry-run` on for a first run:
+it builds and pushes the arm64 image by digest without moving any tag.
+Then run it again with `dry-run` switched off; that run builds arm64
+again and leaves the dry-run image untagged.
+
+If the last job fails after it has updated GHCR but not Docker Hub, use
+"Re-run failed jobs" on that run. A new run would refuse the version,
+because GHCR already lists both platforms.
