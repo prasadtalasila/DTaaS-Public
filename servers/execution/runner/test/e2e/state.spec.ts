@@ -10,7 +10,7 @@ const TIMEOUT = 30000;
 
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-type CommandState = { status?: string } | null;
+type PolledCommand = { status?: string } | null;
 
 describe('GET /state', () => {
   let dir: string;
@@ -64,12 +64,13 @@ describe('GET /state', () => {
     'Should show a running command, and its status once it has stopped',
     async () => {
       await start(undefined);
-      const run = post(app, '/', { name: 'loop' }).then((response) => response);
+      // supertest sends a request when it is awaited, so start it now
+      const run = Promise.resolve(post(app, '/', { name: 'loop' }));
 
       const running = await poll(
         app,
         '/state',
-        (body) => (body.command as CommandState)?.status === 'running',
+        (body) => (body.command as PolledCommand)?.status === 'running',
       );
       expect(running.command).toEqual({
         name: 'loop',

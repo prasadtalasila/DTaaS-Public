@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -63,7 +64,7 @@ describe('check Queue service', () => {
   });
 
   it('should convert the timestamps that SQLite wrote to ISO 8601', () => {
-    queue['db']
+    (queue as unknown as { db: DatabaseSync }).db
       .prepare(
         `INSERT INTO commands (name, received_at, finished_at)
           VALUES ('hello', '2026-10-25 09:59:58', '2026-10-25 10:00:00')`,
