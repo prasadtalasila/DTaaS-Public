@@ -189,19 +189,19 @@ is no stdout protocol (non-goal in the index).
       name, a `DT_` or `RUNNER_` name, a nested or `null` value, a
       non-finite number, `${OTHER_DECLARED}`, `${HOME}` and a
       `__proto__` key at either level, each with a message. Check:
-      `test/unit/fsm.env.spec.ts` (new; the definition spec is 239).
+      `test/unit/fsm.declared-env.spec.ts` (new; the definition spec
+      is 239).
 - [x] `ExecaRunner` gives the child exactly the environment passed,
       built with `scriptEnvironment` so that `PATH` and `SystemRoot`
       still start `/bin/sh` and `powershell.exe`;
       `ExecaManager` hands options to a new run and ignores them on a
       join or a repeat. Check: `test/integration/execa-runner.spec.ts`,
-      `test/integration/execa-manager.env.spec.ts` (new; the service
-      spec is 216).
+      `test/integration/execa-manager.script-env.spec.ts` (new).
 - [x] `run` passes the `env` of the entry it starts, also for a stop
       transition's target, and `environment(command)` that of the
       current entry; in `test/unit/fsm.fixture.ts` the fake `newCommand`
       takes a third argument and the fake config gains `getId`. Check:
-      `test/unit/fsm.service.environment.spec.ts` (new), asserting the
+      `test/unit/fsm.service.script-env.spec.ts` (new), asserting the
       `env` that `newCommand` receives.
 - [x] `POST /` and MQTT `execute` pass `fsm.environment(name)`. Check:
       the `newCommand` assertions of

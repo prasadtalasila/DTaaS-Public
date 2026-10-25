@@ -128,6 +128,12 @@ From implementing 01, 02, 03, 04, 10 and 12:
 - Rebase by squashing a branch's code commits first and resolving once
   against the final shape; decision numbers in the design document and
   rows of the status table are the usual conflicts.
+- Qlty Cloud's dotenv-linter takes any file whose name contains `.env`
+  (`fsm.env.spec.ts`, `x.environment.spec.ts`) for a dotenv file and
+  rewrites it, prettier then fails, and the `qlty check` status reports
+  "Build errored". Name such files `*-env.spec.ts`. The `Qlty` workflow
+  runs only actionlint and osv-scanner, so it does not catch this;
+  `qlty check --upstream <base>` locally does.
 
 ## Deferred
 
