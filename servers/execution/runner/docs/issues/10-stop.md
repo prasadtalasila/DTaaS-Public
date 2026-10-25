@@ -189,3 +189,21 @@ machine moves on and is busy again.
       Check: `npx markdownlint-cli` on them.
 - [x] `yarn syntax`, `yarn build` and `yarn test` pass, and no function
       crosses the Qlty thresholds. Check: their output.
+
+## Learnings
+
+- A stop transition must enter its target before stopping the old
+  script, so the old completion is stale; a self-transition needed D8
+  checked only for another state, and the restart could join the dying
+  run until `stop()` awaited the run's start promise.
+- Two quick stop transitions overlapped scripts until their stops were
+  chained (`pendingStop`).
+- execa resolves only when stdout and stderr close: a child that keeps
+  them open, such as a foreground `sleep` under `sh`, holds a stop, so
+  test scripts loop on short sleeps.
+- On Windows the stop ends `powershell.exe` at once and the processes it
+  started keep running; `stopGrace` has no effect there.
+- The `SIGTERM` grace-period test can only run on Linux; it first ran in
+  CI.
+- SonarCloud does not count supertest's `.expect()` chains as test
+  assertions, and flags `await` inside a loop; both turned up only in CI.
