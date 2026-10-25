@@ -71,7 +71,6 @@ export function createService(file: string | undefined) {
   } as unknown as Config;
   const queue = {
     setParameters: jest.fn(),
-    parameterValues: jest.fn(() => ({})),
   };
   const service = new FsmService(
     manager as unknown as ExecaManager,

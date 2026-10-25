@@ -1,6 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
-import { CompletionEvent } from '../fsm/definition.js';
+import type { CompletionEvent } from '../fsm/definition.js';
 import { RunOutcome } from '../interfaces/runner.interface.js';
 
 export const transitionSchema = z.object({ state: z.string() }).required();

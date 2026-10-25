@@ -168,6 +168,22 @@ export default class Parameters {
     return { changes, events: this.events(changes) };
   }
 
+  // Applies the whole body or none of it: the changes are stored before
+  // they are committed, so that a failing store changes neither. The
+  // events of the changes are the caller's to raise.
+  apply(
+    body: ParametersBody,
+    store: (changes: ReadonlyMap<string, ParameterValue>) => void,
+  ): { problems: string[]; events: string[] } {
+    const result = this.check(body);
+    if ('problems' in result) {
+      return { problems: result.problems, events: [] };
+    }
+    store(result.changes);
+    this.commit(result.changes);
+    return { problems: [], events: result.events };
+  }
+
   commit(changes: ReadonlyMap<string, ParameterValue>): void {
     changes.forEach((value, name) => {
       this.current[name] = value;

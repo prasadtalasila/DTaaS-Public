@@ -80,23 +80,14 @@ export default class FsmService implements BeforeApplicationShutdown {
     return this.declared;
   }
 
-  // Applies the whole body or none of it, and returns the problems of a
-  // refused one. Values are stored before they are committed, so that a
-  // failing database changes neither; then their events are raised.
+  // Applies the whole body or none of it, raises the events of the
+  // changes, and returns the problems of a refused body
   setParameters(body: ParametersBody): string[] {
-    const parameters = this.declared;
-    if (parameters === undefined) {
-      return [];
-    }
-    const result = parameters.check(body);
-    if ('problems' in result) {
-      return result.problems;
-    }
-    const { changes, events } = result;
-    this.queue.setParameters(changes);
-    parameters.commit(changes);
-    events.forEach((event) => this.raise(event));
-    return [];
+    const result = this.declared?.apply(body, (changes) =>
+      this.queue.setParameters(changes),
+    );
+    result?.events.forEach((event) => this.raise(event));
+    return result?.problems ?? [];
   }
 
   // Moves an idle machine to any of its states
@@ -151,17 +142,11 @@ export default class FsmService implements BeforeApplicationShutdown {
     requestKey: string | undefined,
     handle: (machine: StateMachine) => FsmReplyDto,
   ): FsmReplyDto {
-    const earlier = this.replies.get(requestKey);
-    if (earlier !== undefined) {
-      return earlier.request === request
-        ? earlier.reply
-        : fsmReply('invalid request key', this.machine?.state);
-    }
-    const reply = this.reply(handle);
-    if (reply.status === 'accepted') {
-      this.replies.add(requestKey, request, reply);
-    }
-    return reply;
+    return this.replies.resolve(requestKey, request, {
+      compute: () => this.reply(handle),
+      mismatch: () => fsmReply('invalid request key', this.machine?.state),
+      keep: ({ status }) => status === 'accepted',
+    });
   }
 
   private reply(handle: (machine: StateMachine) => FsmReplyDto): FsmReplyDto {
