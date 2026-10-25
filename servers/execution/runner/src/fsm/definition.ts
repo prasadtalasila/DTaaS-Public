@@ -3,12 +3,16 @@ import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
 // Raised by the runner, not by clients, when the script of a state exits
-export const COMPLETION_EVENTS = ['$success', '$failure'] as const;
+export const COMPLETION_EVENTS = ['$success', '$failure', '$stopped'] as const;
 
 export type CompletionEvent = (typeof COMPLETION_EVENTS)[number];
 
-// The next state for each event of one state
-export type Transitions = ReadonlyMap<string, string>;
+// The next state of an event, and whether the script of the state that
+// the machine leaves is stopped before the next one runs
+export type Transition = { state: string; stop: boolean };
+
+// The transition of each event of one state
+export type Transitions = ReadonlyMap<string, Transition>;
 
 export type Definition = {
   events: ReadonlySet<string>;
@@ -23,10 +27,16 @@ export const nameSchema = z
   .string()
   .regex(NAME, 'must be up to 64 letters, digits, _, . or -, from a letter');
 
+// A state name, or an object that stops the script first
+const targetSchema = z.union(
+  [nameSchema, z.object({ state: nameSchema, stop: z.literal(true) }).strict()],
+  { error: 'must be a state name, or a state with stop: true' },
+);
+
 const stateSchema = z
   .object({
     transitions: z
-      .record(z.union([nameSchema, z.enum(COMPLETION_EVENTS)]), nameSchema)
+      .record(z.union([nameSchema, z.enum(COMPLETION_EVENTS)]), targetSchema)
       .nullish(),
   })
   .strict()
@@ -48,13 +58,26 @@ type File = z.infer<typeof fileSchema>;
 const isCompletion = (event: string): boolean =>
   (COMPLETION_EVENTS as readonly string[]).includes(event);
 
+const toTransition = (value: z.infer<typeof targetSchema>): Transition =>
+  typeof value === 'string' ? { state: value, stop: false } : value;
+
+const toTransitions = (
+  transitions?: Record<string, z.infer<typeof targetSchema>> | null,
+): Transitions =>
+  new Map(
+    Object.entries(transitions ?? {}).map(([event, value]) => [
+      event,
+      toTransition(value),
+    ]),
+  );
+
 function toDefinition({ events, states }: File): Definition {
   return {
     events: new Set(events),
     states: new Map(
       Object.entries(states).map(([state, value]) => [
         state,
-        new Map(Object.entries(value?.transitions ?? {})),
+        toTransitions(value?.transitions),
       ]),
     ),
   };
@@ -70,12 +93,19 @@ function transitionProblems(
 ): string[] {
   const entries = [...transitions];
   const targets = entries
-    .filter(([, target]) => !states.has(target))
-    .map(([, target]) => `state ${state} leads to undeclared state ${target}`);
+    .filter(([, target]) => !states.has(target.state))
+    .map(
+      ([, target]) =>
+        `state ${state} leads to undeclared state ${target.state}`,
+    );
   const undeclared = entries
     .filter(([event]) => !isDeclared(events, event))
     .map(([event]) => `state ${state} uses undeclared event ${event}`);
-  return [...targets, ...undeclared];
+  // the script has already exited when a completion event is raised
+  const stops = entries
+    .filter(([event, { stop }]) => stop && isCompletion(event))
+    .map(([event]) => `state ${state} can not stop its script on ${event}`);
+  return [...targets, ...undeclared, ...stops];
 }
 
 // The problems of the states and transitions of a definition
@@ -94,8 +124,12 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
   return problems;
 }
 
+// $stopped follows only a stop request from outside, so a loop through
+// it can not run by itself
+const LOOPING_EVENTS: CompletionEvent[] = ['$success', '$failure'];
+
 const completionTargets = (transitions?: Transitions): string[] =>
-  COMPLETION_EVENTS.flatMap((event) => transitions?.get(event) ?? []);
+  LOOPING_EVENTS.flatMap((event) => transitions?.get(event)?.state ?? []);
 
 // Depth-first search from the last state of the path; a cycle is a
 // path that reaches a state already on it. The done states have been

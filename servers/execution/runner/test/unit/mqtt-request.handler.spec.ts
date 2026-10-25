@@ -2,13 +2,9 @@ import { describe, expect, it, jest } from '@jest/globals';
 import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
-
-const status = {
-  name: 'create',
-  status: 'valid',
-  logs: { stdout: 'hello world', stderr: '' },
-};
+import { fakeManager, status } from './mqtt.fixture';
 
 const dt = {
   id: 'hospital-1',
@@ -17,16 +13,8 @@ const dt = {
   stateMachine: true,
 };
 
-function createHandler(success: boolean) {
-  const manager = {
-    newCommand: jest.fn(async (_name: string, _requestKey?: string) => [
-      success,
-      new Map(),
-    ]),
-    checkStatus: jest.fn(() => status),
-    checkHistory: jest.fn(() => [{ name: 'create' }]),
-    databaseMode: jest.fn(() => 'file'),
-  };
+function createHandler(outcome: RunOutcome) {
+  const manager = fakeManager(outcome);
   const accepted = { status: 'accepted', state: 'create' };
   const fsm = {
     transition: jest.fn((_state: string, _requestKey?: string) => accepted),
@@ -46,7 +34,7 @@ const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
 describe('MQTT request handler', () => {
   it('Should report a successful command execution', async () => {
-    const { handler, manager } = createHandler(true);
+    const { handler, manager } = createHandler('success');
 
     const body = await handler.handle('execute', json({ name: 'create' }));
 
@@ -55,7 +43,7 @@ describe('MQTT request handler', () => {
   });
 
   it('Should pass the request key on', async () => {
-    const { handler, manager } = createHandler(true);
+    const { handler, manager } = createHandler('success');
 
     await handler.handle('execute', json({ name: 'create' }), 'key-1');
 
@@ -63,7 +51,7 @@ describe('MQTT request handler', () => {
   });
 
   it('Should refuse a request key that is too long', async () => {
-    const { handler, manager } = createHandler(true);
+    const { handler, manager } = createHandler('success');
 
     const body = await handler.handle(
       'execute',
@@ -80,11 +68,48 @@ describe('MQTT request handler', () => {
   });
 
   it('Should report an invalid command', async () => {
-    const { handler } = createHandler(false);
+    const { handler } = createHandler('failed');
 
     const body = await handler.handle('execute', json({ name: 'test' }));
 
     expect(body).toEqual({ status: 'invalid command' });
+  });
+
+  it('Should report a stopped command execution', async () => {
+    const { handler } = createHandler('stopped');
+
+    const body = await handler.handle('execute', json({ name: 'create' }));
+
+    expect(body).toEqual({ status: 'stopped' });
+  });
+
+  it.each([
+    ['an empty payload', Buffer.alloc(0), undefined],
+    ['an empty object', json({}), undefined],
+    ['a name', json({ name: 'create' }), 'create'],
+  ])('Should stop the runs for %s', async (_, payload, name) => {
+    const { handler, manager } = createHandler('success');
+
+    const body = await handler.handle('stop', payload);
+
+    expect(manager.stop).toHaveBeenCalledWith(name);
+    expect(body).toEqual({ stopped: ['create'] });
+  });
+
+  it.each([
+    ['a payload that is not JSON', Buffer.from('create')],
+    ['a name that is not a string', json({ name: 1 })],
+  ])('Should refuse to stop for %s', async (_, payload) => {
+    const { handler, manager } = createHandler('success');
+
+    const body = await handler.handle('stop', payload);
+
+    expect(manager.stop).not.toHaveBeenCalled();
+    expect(body).toEqual({
+      message: 'Validation Failed',
+      error: 'Bad Request',
+      statusCode: 400,
+    });
   });
 
   it.each([
@@ -92,7 +117,7 @@ describe('MQTT request handler', () => {
     ['a request that is not JSON', Buffer.from('create')],
     ['an empty request', Buffer.alloc(0)],
   ])('Should return the validation error for %s', async (_, payload) => {
-    const { handler, manager } = createHandler(true);
+    const { handler, manager } = createHandler('success');
 
     const body = await handler.handle('execute', payload);
 
@@ -105,24 +130,24 @@ describe('MQTT request handler', () => {
   });
 
   it('Should return the status of the last command', async () => {
-    const { handler } = createHandler(true);
+    const { handler } = createHandler('success');
     expect(await handler.handle('status', Buffer.alloc(0))).toEqual(status);
   });
 
   it('Should return the command history', async () => {
-    const { handler } = createHandler(true);
+    const { handler } = createHandler('success');
     expect(await handler.handle('history', Buffer.alloc(0))).toEqual([
       { name: 'create' },
     ]);
   });
 
   it('Should return the descriptor of the digital twin', async () => {
-    const { handler } = createHandler(true);
+    const { handler } = createHandler('success');
     expect(await handler.handle('dt', Buffer.alloc(0))).toEqual(dt);
   });
 
   it('Should report the health with MQTT connected', async () => {
-    const { handler } = createHandler(true);
+    const { handler } = createHandler('success');
 
     expect(await handler.handle('health', Buffer.alloc(0))).toEqual({
       status: 'ok',
@@ -133,7 +158,7 @@ describe('MQTT request handler', () => {
   });
 
   it('Should return the HTTP 500 body when the request fails', async () => {
-    const { handler, manager } = createHandler(true);
+    const { handler, manager } = createHandler('success');
     manager.newCommand.mockRejectedValueOnce(new Error('spawn failed'));
     jest.spyOn(handler['logger'], 'error').mockImplementation(() => undefined);
 
@@ -153,7 +178,7 @@ describe('MQTT request handler', () => {
     };
 
     it('Should pass a transition request on', async () => {
-      const { handler, fsm } = createHandler(true);
+      const { handler, fsm } = createHandler('success');
 
       const body = await handler.handle(
         'transition',
@@ -166,7 +191,7 @@ describe('MQTT request handler', () => {
     });
 
     it('Should pass an event on', async () => {
-      const { handler, fsm } = createHandler(true);
+      const { handler, fsm } = createHandler('success');
 
       await handler.handle('event', json({ event: 'stop' }));
 
@@ -180,7 +205,7 @@ describe('MQTT request handler', () => {
     ] as const)(
       'Should return the validation error for a bad %s request',
       async (route, payload, requestKey) => {
-        const { handler, fsm } = createHandler(true);
+        const { handler, fsm } = createHandler('success');
 
         const body = await handler.handle(route, payload, requestKey);
 
@@ -191,7 +216,7 @@ describe('MQTT request handler', () => {
     );
 
     it('Should return the state of the machine', async () => {
-      const { handler, fsm } = createHandler(true);
+      const { handler, fsm } = createHandler('success');
       const state = { state: null, status: 'none', events: [] };
       fsm.check.mockReturnValueOnce(state);
 
@@ -199,7 +224,7 @@ describe('MQTT request handler', () => {
     });
 
     it('Should answer that there is no state machine', async () => {
-      const { handler } = createHandler(true);
+      const { handler } = createHandler('success');
 
       expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual({
         status: 'no state machine',

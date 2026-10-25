@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
   HttpStatus,
   Post,
   Res,
@@ -17,6 +18,9 @@ import {
   executeCommandSchema,
   executeResponse,
   REQUEST_KEY,
+  StopDto,
+  stopSchema,
+  StopResponseDto,
 } from './dto/command.dto.js';
 import ZodValidationPipe, { validRequestKey } from './validation.pipe.js';
 
@@ -45,13 +49,22 @@ export default class AppController {
     @Res({ passthrough: true }) res: Response,
     @Headers(REQUEST_KEY) requestKey?: string,
   ): Promise<void> {
-    const [success] = await this.manager.newCommand(
+    const [outcome] = await this.manager.newCommand(
       executeCommandDto.name,
       validRequestKey(requestKey),
     );
     res
-      .status(success ? HttpStatus.OK : HttpStatus.BAD_REQUEST)
-      .send(executeResponse(success));
+      .status(outcome === 'failed' ? HttpStatus.BAD_REQUEST : HttpStatus.OK)
+      .send(executeResponse(outcome));
+  }
+
+  // Answers once the stopped scripts have exited
+  @Post('stop')
+  @HttpCode(HttpStatus.OK)
+  async stop(
+    @Body(new ZodValidationPipe(stopSchema)) { name }: StopDto,
+  ): Promise<StopResponseDto> {
+    return { stopped: await this.manager.stop(name) };
   }
 
   @Get()

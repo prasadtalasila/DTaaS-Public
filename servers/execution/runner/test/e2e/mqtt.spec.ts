@@ -137,10 +137,13 @@ describe('Runner MQTT end-to-end tests', () => {
     expect(body).toEqual({
       id: 'test-runner',
       attributes: {},
-      commands: ['create'],
+      commands: ['create', 'loop', 'ignore-term'],
       stateMachine: false,
     });
   });
+
+  it('replies to stop with the stopped commands', () =>
+    expectReply(client, 'stop', {}, { stopped: [] }));
 
   it('serves HTTP and MQTT from the same command queue', async () => {
     await request(client, 'execute', { name: 'create' });

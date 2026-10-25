@@ -27,7 +27,11 @@ The `test/data/scripts` directory has a bash script and a PowerShell
 (`.ps1`) script for each test command, so that `yarn start` and
 `yarn test` work on both Linux and Windows. The tests copy the test
 configuration and these scripts into the runner directory before they
-run and delete them afterwards.
+run and delete them afterwards. The _loop_ and _ignore-term_ scripts
+run until they are stopped, for the tests of stopping a script;
+_ignore-term_ ignores `SIGTERM`, so on Linux only `SIGKILL` after the
+grace period ends it. They loop on short sleeps, so that no child
+process holds their output open long after a stop.
 
 The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names

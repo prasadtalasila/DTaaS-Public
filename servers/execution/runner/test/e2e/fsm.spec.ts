@@ -1,5 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   afterAll,
@@ -12,11 +11,7 @@ import {
 } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
-import { startRunner } from './util';
-
-const SCRIPTS = ['create', 'execute', 'terminate'];
-
-const MACHINE_FILE = 'dt.yaml';
+import { digitalTwin, post, settled, startRunner } from './fsm.util';
 
 const DEFINITION = `
 events: [stop]
@@ -25,51 +20,16 @@ states:
   execute: {transitions: {stop: terminate}}
   terminate:`;
 
-// A folder with a runner configuration, the scripts in both their
-// Linux and Windows versions, and a state machine, which the
-// configuration names unless asked not to
-function digitalTwin(named = true): string {
-  const dir = mkdtempSync(join(tmpdir(), 'runner-fsm-'));
-  const machine = named ? `stateMachine: ${MACHINE_FILE}\n` : '';
-  const config = `id: dt-1\nport: 5000\nlocation: '.'\ncommands: [${SCRIPTS}]\n`;
-  writeFileSync(join(dir, 'runner.yaml'), config + machine);
-  writeFileSync(join(dir, MACHINE_FILE), DEFINITION);
-  SCRIPTS.forEach((script) => {
-    writeFileSync(join(dir, script), `#!/bin/sh\nprintf ${script}\n`, {
-      mode: 0o755,
-    });
-    writeFileSync(join(dir, `${script}.ps1`), `Write-Output ${script}\n`);
-  });
-  return dir;
-}
-
-const post = (app: INestApplication, route: string, body: object) =>
-  supertest(app.getHttpServer()).post(route).send(body);
-
 // PowerShell takes a second or more to start on a loaded Windows host,
 // so a test that runs three scripts in turn needs more than the default
 const SCRIPT_CHAIN_TIMEOUT = 30000;
-
-// Polls the machine until the script of the state has finished
-async function settled(app: INestApplication, state: string) {
-  for (let attempt = 0; attempt < 400; attempt += 1) {
-    const { body } = await supertest(app.getHttpServer()).get('/fsm');
-    if (body.state === state && body.status !== 'running') {
-      return body;
-    }
-    await new Promise((resolve) => {
-      setTimeout(resolve, 50);
-    });
-  }
-  throw new Error(`The machine did not settle in state ${state}`);
-}
 
 describe('Runner state machine end-to-end tests', () => {
   let dir: string;
   let app: INestApplication;
 
   beforeAll(() => {
-    dir = digitalTwin();
+    dir = digitalTwin(DEFINITION);
   });
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -159,7 +119,7 @@ describe('Runner state machine end-to-end tests', () => {
 
 describe('Runner without a state machine', () => {
   it('Should answer 404 on the state machine routes', async () => {
-    const dir = digitalTwin(false);
+    const dir = digitalTwin(undefined);
     const app = await startRunner(join(dir, 'runner.yaml'));
     const reply = { status: 'no state machine', state: null };
 

@@ -7,6 +7,7 @@ import {
   executeCommandSchema,
   executeResponse,
   requestKeySchema,
+  stopSchema,
 } from '../dto/command.dto.js';
 import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
 import { healthReport } from '../dto/health.dto.js';
@@ -14,11 +15,16 @@ import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
 
+// An empty payload is undefined, like an empty HTTP body, and a payload
+// that is not JSON is null, so that only the first gets a default
 function parseJson(payload: Buffer): unknown {
+  if (payload.length === 0) {
+    return undefined;
+  }
   try {
     return JSON.parse(payload.toString());
   } catch {
-    return undefined;
+    return null;
   }
 }
 
@@ -40,9 +46,12 @@ export default class MqttRequestHandler {
     (payload: Buffer, requestKey?: string) => unknown
   > = {
     execute: this.whenValid(executeCommandSchema, async ({ name }, key) => {
-      const [success] = await this.manager.newCommand(name, key);
-      return executeResponse(success);
+      const [outcome] = await this.manager.newCommand(name, key);
+      return executeResponse(outcome);
     }),
+    stop: this.whenValid(stopSchema, async ({ name }) => ({
+      stopped: await this.manager.stop(name),
+    })),
     status: () => this.manager.checkStatus(),
     history: () => this.manager.checkHistory(),
     transition: this.whenValid(transitionSchema, ({ state }, key) =>

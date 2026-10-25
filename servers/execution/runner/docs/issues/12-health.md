@@ -1,6 +1,6 @@
 # 12 Health Endpoint
 
-- Status: in review
+- Status: done
 - Depends on: none
 - PR: [#75](https://github.com/prasadtalasila/DTaaS-Public/pull/75)
 - Research note:

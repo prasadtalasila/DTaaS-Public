@@ -4,7 +4,11 @@ import * as yaml from 'js-yaml';
 import { Injectable } from '@nestjs/common';
 import Keyv from 'keyv';
 import { z } from 'zod';
-import { configDefault, ConfigValues } from './config.interface.js';
+import {
+  configDefault,
+  ConfigValues,
+  DEFAULT_STOP_GRACE,
+} from './config.interface.js';
 import { Attributes, configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import { hasOwnProto } from '../fsm/definition.js';
@@ -91,5 +95,9 @@ export default class Config {
 
   getMqtt(): MqttConfig | undefined {
     return this.configValues.mqtt;
+  }
+
+  getStopGrace(): number {
+    return this.configValues.stopGrace ?? DEFAULT_STOP_GRACE;
   }
 }

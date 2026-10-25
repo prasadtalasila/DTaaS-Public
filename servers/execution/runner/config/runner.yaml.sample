@@ -10,6 +10,7 @@ commands:  # list of permitted scripts
   - terminate
 # stateMachine: 'scripts/state-machine.yaml'  # optional, relative to this file
 # database: 'runner.db'  # optional; keeps the command history in a file
+# stopGrace: 5000  # optional; milliseconds from SIGTERM to SIGKILL on a stop
 # mqtt:  # optional; serves the API over MQTT as well
 #   url: 'mqtt://localhost:1883'
 #   topic: 'dtaas/user1/runner'  # base topic, unique to this runner

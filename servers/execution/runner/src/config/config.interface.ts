@@ -11,6 +11,10 @@ export type PermitCommand = {
 // stateMachine resolved against the directory of the config file
 export type ConfigValues = z.infer<typeof configSchema>;
 
+// milliseconds from SIGTERM to SIGKILL when a script is stopped,
+// without stopGrace in runner.yaml
+export const DEFAULT_STOP_GRACE = 5000;
+
 // Only seen before loadConfig, which main.ts calls before the server
 // listens
 export const configDefault: ConfigValues = {

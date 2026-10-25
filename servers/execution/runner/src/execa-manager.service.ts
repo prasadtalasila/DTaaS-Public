@@ -11,17 +11,27 @@ import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
+import Runner, { RunOutcome } from './interfaces/runner.interface.js';
+
+// The outcome of a stored command; an unfinished one counts as failed
+const OUTCOME: Record<string, RunOutcome> = {
+  valid: 'success',
+  stopped: 'stopped',
+};
 
 const storedResult = (command: CommandRecord): CommandResult => [
-  command.status === 'valid',
+  OUTCOME[command.status] ?? 'failed',
   new Map([
     ['stdout', command.stdout],
     ['stderr', command.stderr],
   ]),
 ];
 
-// A command run in progress, and its row in the queue
-type Run = { id: number; result: Promise<CommandResult> };
+// A command run in progress, its row in the queue, and its runner; a
+// command that is not permitted has no runner
+type Run = { id: number; result: Promise<CommandResult>; runner?: Runner };
+
+type StoppableRun = [string, Run & { runner: Runner }];
 
 @Injectable()
 export default class ExecaManager implements Manager, OnApplicationShutdown {
@@ -83,7 +93,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       this.logger.warn(
         `Refused ${JSON.stringify(name)}: its request key is of ${earlier.name}`,
       );
-      return [false, new Map<string, string>()];
+      return ['failed', new Map<string, string>()];
     }
     this.logger.log(`Discarded a repeated request for ${JSON.stringify(name)}`);
     const current = this.running.get(name);
@@ -93,28 +103,61 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     return storedResult(earlier);
   }
 
-  private async start(
-    name: string,
-    requestKey?: string,
-  ): Promise<CommandResult> {
+  private start(name: string, requestKey?: string): Promise<CommandResult> {
     const id = this.commandQueue.enqueue(name, requestKey);
-    const result = this.execute(id, name);
-    this.running.set(name, { id, result });
+    const runner = this.createRunner(name);
+    const result = this.finish(name, this.execute(id, runner));
+    this.running.set(name, { id, result, runner });
+    return result;
+  }
+
+  private createRunner(name: string): Runner | undefined {
+    if (!this.config.permitCommands().includes(name)) {
+      return undefined;
+    }
+    return RunnerFactory.create(
+      join(this.config.getLocation(), name),
+      this.config.getStopGrace(),
+    );
+  }
+
+  // The run leaves the running ones once its result is stored
+  private async finish(
+    name: string,
+    execution: Promise<CommandResult>,
+  ): Promise<CommandResult> {
     try {
-      return await result;
+      return await execution;
     } finally {
       this.running.delete(name);
     }
   }
 
-  private async execute(id: number, name: string): Promise<CommandResult> {
-    let result: CommandResult = [false, new Map<string, string>()];
-    if (this.config.permitCommands().includes(name)) {
-      const task = RunnerFactory.create(join(this.config.getLocation(), name));
-      result = [await task.run(), task.checkLogs()];
+  private async execute(id: number, runner?: Runner): Promise<CommandResult> {
+    let result: CommandResult = ['failed', new Map<string, string>()];
+    if (runner !== undefined) {
+      result = [await runner.run(), runner.checkLogs()];
     }
     this.commandQueue.complete(id, result);
     return result;
+  }
+
+  // Stops the run of the named command, or every run, and resolves with
+  // their names once they have finished, so that a new request for one
+  // of them starts the command afresh
+  async stop(name?: string): Promise<string[]> {
+    const runs = this.stoppable(name);
+    runs.forEach(([, { runner }]) => void runner.stop());
+    await Promise.allSettled(runs.map(([, { result }]) => result));
+    return runs.map(([command]) => command);
+  }
+
+  // The runs of the named command, or all of them, that have a runner
+  private stoppable(name?: string): StoppableRun[] {
+    return [...this.running].filter(
+      (run): run is StoppableRun =>
+        run[1].runner !== undefined && (name === undefined || name === run[0]),
+    );
   }
 
   // Lets the runs in progress finish, as their results go to the

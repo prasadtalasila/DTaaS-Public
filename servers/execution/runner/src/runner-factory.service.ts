@@ -7,17 +7,16 @@ export default class RunnerFactory {
   // Windows can not execute shell scripts, so it runs <script>.ps1 instead
   static create(
     command: string,
+    stopGrace?: number,
     platform: NodeJS.Platform = process.platform,
   ): Runner {
     if (platform === 'win32') {
-      return new ExecaRunner('powershell.exe', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        `${command}.ps1`,
-      ]);
+      return new ExecaRunner(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `${command}.ps1`],
+        stopGrace,
+      );
     }
-    return new ExecaRunner(command);
+    return new ExecaRunner(command, [], stopGrace);
   }
 }

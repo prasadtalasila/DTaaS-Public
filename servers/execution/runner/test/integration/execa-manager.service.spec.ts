@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, beforeEach } from '@jest/globals';
 import ExecaManager from 'src/execa-manager.service';
 import { Manager, CommandStatus } from 'src/interfaces/command.interface';
 import { ExecuteCommandDto } from 'src/dto/command.dto';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
 import Keyv from 'keyv';
@@ -48,23 +49,23 @@ describe('Check execution manager based on execa library', () => {
   });
 
   it('Should execute a valid command', async () => {
-    let status: boolean = false;
+    let status: RunOutcome = 'failed';
     let logs: Map<string, string> = new Map<string, string>();
 
     [status, logs] = await dt.newCommand(permittedCommand(config));
 
     expect(logs.get('stdout')).toEqual(expect.any(String));
     expect(logs.get('stderr')).toEqual('');
-    expect(status).toBe(true);
+    expect(status).toBe('success');
   });
 
   it('Should not execute an invalid command', async () => {
-    let status: boolean = true;
+    let status: RunOutcome = 'success';
     let logs: Map<string, string> = new Map<string, string>();
 
     [status, logs] = await dt.newCommand(nonExistingCommand);
 
-    expect(status).toBe(false);
+    expect(status).toBe('failed');
     expect(logs.get('stdout')).toBeUndefined();
     expect(logs.get('stderr')).toBeUndefined();
   });
@@ -113,7 +114,7 @@ describe('Check execution manager based on execa library', () => {
       }),
     );
 
-    expect(commandStatus).toEqual([false, true]);
+    expect(commandStatus).toEqual(['failed', 'success']);
   });
 
   describe('repeated requests', () => {
@@ -123,7 +124,7 @@ describe('Check execution manager based on execa library', () => {
         dt.newCommand('create'),
       ]);
 
-      expect(results.map(([status]) => status)).toEqual([true, true]);
+      expect(results.map(([status]) => status)).toEqual(['success', 'success']);
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
@@ -131,7 +132,7 @@ describe('Check execution manager based on execa library', () => {
       const [, firstLogs] = await dt.newCommand('create', 'key-1');
       const [status, logs] = await dt.newCommand('create', 'key-1');
 
-      expect(status).toBe(true);
+      expect(status).toBe('success');
       expect(logs.get('stdout')).toEqual(firstLogs.get('stdout'));
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
@@ -140,7 +141,7 @@ describe('Check execution manager based on execa library', () => {
       await dt.newCommand('create', 'key-1');
       const [status] = await dt.newCommand('execute', 'key-1');
 
-      expect(status).toBe(false);
+      expect(status).toBe('failed');
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
@@ -161,7 +162,7 @@ describe('Check execution manager based on execa library', () => {
       ]);
       const [status] = await dt.newCommand('create', 'key-2');
 
-      expect(status).toBe(true);
+      expect(status).toBe('success');
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
@@ -170,7 +171,7 @@ describe('Check execution manager based on execa library', () => {
 
       const [status] = await dt.newCommand('create', 'key-1');
 
-      expect(status).toBe(false);
+      expect(status).toBe('failed');
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
@@ -209,7 +210,7 @@ describe('Check execution manager based on execa library', () => {
     const run = dt.newCommand('create');
     await (dt as ExecaManager).onApplicationShutdown();
 
-    expect((await run)[0]).toBe(true);
+    expect((await run)[0]).toBe('success');
     expect(() => queue.checkHistory()).toThrow();
   });
 });

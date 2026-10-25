@@ -21,8 +21,8 @@ deferred (see below) and have no file.
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | planned   |     |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | planned   |     |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
-| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | planned   |     |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | in review | #75 |
+| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | in review | #76 |
+| [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
 
 Sizes: S is a day or less, M a few days with tests and documentation.
 

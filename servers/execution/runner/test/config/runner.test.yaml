@@ -3,3 +3,6 @@ port: 5002
 location: 'script'  # directory location of scripts
 commands:
   - create
+  - loop
+  - ignore-term
+stopGrace: 500  # milliseconds from SIGTERM to SIGKILL on a stop

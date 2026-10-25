@@ -1,4 +1,4 @@
-import { Definition } from './definition.js';
+import { Definition, Transition } from './definition.js';
 
 // The current state of a digital twin and the transitions out of it.
 // Each entry into a state has a number, so that the completion of the
@@ -31,7 +31,7 @@ export default class StateMachine {
     return this.definition.events.has(event);
   }
 
-  next(event: string): string | undefined {
+  next(event: string): Transition | undefined {
     if (this.current === undefined) {
       return undefined;
     }
