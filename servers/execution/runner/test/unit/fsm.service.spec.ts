@@ -23,7 +23,7 @@ describe('State machine service', () => {
     const file = join(dir, 'missing.yaml');
 
     expect(() => createService(file)).toThrow(
-      `State machine file ${file} does not exist`,
+      `State machine file ${file} does not exist or is not a file`,
     );
   });
 

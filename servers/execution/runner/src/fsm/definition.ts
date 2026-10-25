@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 
@@ -191,8 +191,10 @@ export function loadDefinition(
   if (file === undefined) {
     return undefined;
   }
-  if (!existsSync(file)) {
-    throw new Error(`State machine file ${file} does not exist`);
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    throw new Error(
+      `State machine file ${file} does not exist or is not a file`,
+    );
   }
   return parseDefinition(readFileSync(file, 'utf8'), permitted, file);
 }

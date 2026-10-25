@@ -17,7 +17,7 @@ export default class DescriptorService {
       id: this.config.getId(),
       attributes: this.config.getAttributes(),
       commands: this.config.permitCommands(),
-      stateMachine: this.fsm.check() !== undefined,
+      stateMachine: this.fsm.hasMachine(),
     };
   }
 }

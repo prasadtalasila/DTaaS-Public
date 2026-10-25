@@ -13,6 +13,16 @@ import { MqttConfig } from '../mqtt/mqtt.config.js';
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
 
+// js-yaml throws on an empty file and on a syntax error, neither of
+// which names the file
+function readConfig(file: string): unknown {
+  try {
+    return yaml.load(readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw invalid(file, String(error));
+  }
+}
+
 // zod skips a __proto__ key of a record without an error, so look for
 // one among the attributes first
 function parseConfig(content: unknown, file: string): ConfigValues {
@@ -47,7 +57,7 @@ export default class Config {
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
-    const values = parseConfig(yaml.load(readFileSync(file, 'utf8')), file);
+    const values = parseConfig(readConfig(file), file);
     this.configValues = resolvePaths(path.dirname(file), values);
   }
 

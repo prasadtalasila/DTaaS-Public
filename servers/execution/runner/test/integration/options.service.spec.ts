@@ -109,6 +109,15 @@ describe('Check Configuration Service', () => {
       ).rejects.toThrow(/Invalid configuration[\s\S]*__proto__/);
     });
 
+    it('Should name the file when it is empty or not YAML', async () => {
+      await expect(load('# nothing here\n')).rejects.toThrow(
+        /Invalid configuration in .*runner.yaml:/,
+      );
+      await expect(load('id: [dt-1\n')).rejects.toThrow(
+        /Invalid configuration in .*runner.yaml:[\s\S]*YAMLException/,
+      );
+    });
+
     it('Should reject a configuration without an id', async () => {
       await expect(load(base)).rejects.toThrow(/at id/);
     });

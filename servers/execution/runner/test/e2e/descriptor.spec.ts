@@ -23,7 +23,7 @@ describe('Runner descriptor end-to-end tests', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
     rmSync(dir, { recursive: true, force: true });
   });
 

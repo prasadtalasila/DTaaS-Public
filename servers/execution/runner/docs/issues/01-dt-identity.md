@@ -105,8 +105,9 @@ document. The descriptor carries no runner version.
 1. Update the configuration files and every test that builds one or
    relies on the fixed name:
    - `config/runner.yaml.sample`, `test/config/runner.test.yaml`,
-     `test/data/config/*.yaml`: add `id`; the test config adds
-     `stateMachine: 'script/state-machine.yaml'`.
+     `test/data/config/*.yaml`: add `id`. The Jest test config carries
+     no `stateMachine`, as it permits only _create_ and the test state
+     machine has an _execute_ state.
    - `test/e2e/fsm.spec.ts`: the inline `runner.yaml` gains `id` and
      `stateMachine`; the "without a state machine" test omits the key
      instead of deleting the file.

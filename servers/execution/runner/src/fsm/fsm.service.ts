@@ -46,6 +46,10 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.stopping = true;
   }
 
+  hasMachine(): boolean {
+    return this.machine !== undefined;
+  }
+
   check(): FsmStateDto | undefined {
     if (this.machine === undefined) {
       return undefined;

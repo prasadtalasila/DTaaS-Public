@@ -170,7 +170,15 @@ describe('State machine file', () => {
     const file = join(dir, FILE);
 
     expect(() => loadDefinition(file, permitted)).toThrow(
-      `State machine file ${file} does not exist`,
+      `State machine file ${file} does not exist or is not a file`,
+    );
+  });
+
+  it('Should refuse a directory as the file', () => {
+    dir = mkdtempSync(join(tmpdir(), 'fsm-'));
+
+    expect(() => loadDefinition(dir, permitted)).toThrow(
+      `State machine file ${dir} does not exist or is not a file`,
     );
   });
 
