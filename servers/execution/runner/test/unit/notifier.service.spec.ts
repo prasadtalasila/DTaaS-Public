@@ -24,34 +24,44 @@ const online: NotificationDto = {
   data: { online: true, descriptor },
 };
 
+// Fakes of the MQTT service and the webhook client; connect() signals a
+// connection to the broker
+function transports() {
+  const connects: Array<() => void> = [];
+  const notify = jest.fn<MqttService['notify']>(() => Promise.resolve());
+  const onConnect = (listener: () => void) => connects.push(listener);
+  const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());
+  const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
+  return {
+    mqtt: { notify, onConnect } as unknown as MqttService,
+    webhook: { post, sendOnce } as unknown as WebhookClient,
+    calls: { notify, post, sendOnce },
+    connect: () => connects.forEach((listener) => listener()),
+  };
+}
+
 // A notifier over fakes of its sources and transports; change() makes
-// the state document the given one and signals the change, and
-// connect() signals a connection to the broker
+// the state document the given one and signals the change
 function setup() {
   let current = document('2026-10-25T09:59:58.000Z');
   const listeners: Array<() => void> = [];
-  const connects: Array<() => void> = [];
   const source = {
     describe: () => descriptor,
     state: () => current,
     onChange: (listener: () => void) => listeners.push(listener),
   };
-  const notify = jest.fn<MqttService['notify']>(() => Promise.resolve());
-  const onConnect = (listener: () => void) => connects.push(listener);
-  const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());
-  const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
+  const { mqtt, webhook, calls, connect } = transports();
   const notifier = new Notifier(
     source as unknown as DescriptorService,
-    { notify, onConnect } as unknown as MqttService,
-    { post, sendOnce } as unknown as WebhookClient,
+    mqtt,
+    webhook,
   );
   notifier.onModuleInit();
   const change = (next: ReturnType<typeof document>) => {
     current = next;
     listeners.forEach((listener) => listener());
   };
-  const connect = () => connects.forEach((listener) => listener());
-  return { notifier, notify, post, sendOnce, change, connect };
+  return { notifier, ...calls, change, connect };
 }
 
 describe('Notifier', () => {

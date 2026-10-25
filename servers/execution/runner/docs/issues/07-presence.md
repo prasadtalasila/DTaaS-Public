@@ -240,10 +240,11 @@ true, so a missed first `connect` still announces the runner.
 
 ## Learnings
 
-- `mqtt.service.ts` ends at 249 lines, not well under 250 as planned:
-  the shutdown sequence, `settles` and `onConnect` outweigh the moved
-  `clientOptions`. The next issue that adds to it moves something out
-  first, such as `settles` or the response helpers.
+- With `settles` module-level, `mqtt.service.ts` reached 249 lines, not
+  well under 250 as planned: the shutdown sequence and `onConnect`
+  outweigh the moved `clientOptions`. `settles` moved to
+  `src/mqtt/settles.ts` in review, which leaves the service at 240
+  lines for 05, 06 and 08.
 - The will-and-reconnect test cuts the runner's connection on the
   broker's side, through the typed `conn` of the aedes `Client` that
   the `clientReady` event hands over. That needs neither bracket access
@@ -266,10 +267,9 @@ true, so a missed first `connect` still announces the runner.
 - D23 is worded to fit the existing column widths of the decision
   table, so prettier does not realign every row and conflict with 05,
   06 and 08, which add decisions in parallel.
-- 08 moves `MqttService.start()` after `app.listen()` in `main.ts`.
-  Presence still works then: `onModuleInit` registers the listener
-  before the client exists, and the first `connect` announces the
-  runner. Whichever of 07 and 08 merges second updates the Ownership
-  paragraph above, which says `start()` comes before `app.init()`.
+- 08 (PR #81) keeps `start()` before `app.listen()`, so the order the
+  Ownership paragraph relies on holds; were `start()` ever moved after
+  `listen()`, `onConnect` registers the listener before the client
+  exists and the first `connect` still announces the runner.
 - The version stays at 0.6.0, as the Spec says: presence adds a kind
   and a topic and breaks no route.

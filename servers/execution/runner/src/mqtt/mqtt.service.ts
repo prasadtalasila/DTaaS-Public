@@ -20,6 +20,7 @@ import {
 } from '../dto/notify.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
+import settles from './settles.js';
 import {
   clientOptions,
   defaultResponseTopic,
@@ -36,18 +37,6 @@ export const MQTT_CONNECT = Symbol('MQTT_CONNECT');
 
 // milliseconds that each step of leaving the broker may take
 const LEAVE_TIMEOUT = 2000;
-
-// Resolves with whether the promise settled in time; the timer is
-// cleared once it does, so that it does not hold the process open
-const settles = (promise: Promise<unknown>, ms: number): Promise<boolean> =>
-  new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), ms);
-    const settled = () => {
-      clearTimeout(timer);
-      resolve(true);
-    };
-    promise.then(settled, settled);
-  });
 
 // Serves the runner API over MQTT. Each HTTP route has a request topic,
 // and the reply goes to the MQTT 5 response topic of the request, or
@@ -112,7 +101,9 @@ export default class MqttService implements BeforeApplicationShutdown {
   }
 
   // Calls the listener on each connection to the broker, and at once if
-  // the client is connected already
+  // the client is connected already. mqtt.js sets connected before it
+  // emits connect, so a listener added in between is called twice, which
+  // is harmless for the retained, idempotent online notice.
   onConnect(listener: ChangeListener): void {
     this.connects.on(listener);
     if (this.client?.connected) {
