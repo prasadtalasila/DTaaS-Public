@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 02
-- PR: none
+- PR: [#79](https://github.com/prasadtalasila/DTaaS-Public/pull/79)
 - Research note:
   [item 3](../dtn-research-notes.md#3-state-change-notifications)
 

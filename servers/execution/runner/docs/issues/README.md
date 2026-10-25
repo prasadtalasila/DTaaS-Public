@@ -14,7 +14,7 @@ deferred (see below) and have no file.
 | :----------------------------------------------------- | :------------------------- | :--- | :-------- | :-- |
 | [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done      | #74 |
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | done      | #77 |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | in review |     |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | in review | #79 |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
 | [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
 | [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned   |     |
