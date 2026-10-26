@@ -194,8 +194,12 @@ has begun the notifier sends nothing; a request is still answered
 - `startRunner` of `test/e2e/util.ts` does not start `MqttService`.
   Starting it after `app.init()` misses the startup state notification,
   so the end-to-end test makes a transition first to have a retained
-  state. 07 needs the startup message and should start MQTT before
-  `init`, as `test/e2e/mqtt.util.ts` does.
+  state.
+- 07 merged before 06 and made the same moves of `startBroker`,
+  `stopBroker` and the `Webhook` server; the rebase keeps 07's
+  `mqtt.util.ts`, and `webhook.util.ts` holds 07's `received` and
+  `presence` with a public `first`. With 07, the broker retains the
+  presence and state topics, and still not the escalation one.
 - aedes 1.x does not declare `persistence` in its types; the
   broker-side retained check casts to `{ createRetainedStream }` and
   reads the stream with `Readable.toArray()`. Setting `escalation`
