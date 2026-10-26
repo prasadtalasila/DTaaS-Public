@@ -54,6 +54,17 @@ describe('State machine service across restarts', () => {
     });
   });
 
+  it('Should mark the commands interrupted without a state machine', () => {
+    const { service, queue } = createService(undefined);
+    queue.loadMachine.mockReturnValue(KILLED);
+
+    service.restore();
+
+    expect(service.check()).toBeUndefined();
+    expect(queue.markInterrupted).toHaveBeenCalled();
+    expect(queue.saveMachine).not.toHaveBeenCalled();
+  });
+
   it('Should accept a transition from an interrupted state', () => {
     const { service, manager } = restored();
 

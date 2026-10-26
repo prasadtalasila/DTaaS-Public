@@ -214,6 +214,5 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
   refused event, so the name of the next state left the message.
 - `test/e2e/mqtt.broker.spec.ts` runs only in CI; it asserts no shape
   that 09 changes, as `interrupted` needs a restart from a file.
-- Not changed here: the index's Delivery still says `0.7.0`, and
-  `docs/developer/codebase/runner.md` still says the database holds
-  only commands; both are for a separate change.
+- Not changed here: `docs/developer/codebase/runner.md` still says the
+  database holds only commands; it is for a separate change.

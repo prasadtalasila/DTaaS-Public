@@ -39,8 +39,20 @@ async function stopRunner(app: INestApplication): Promise<void> {
 
 describe('Runner restarts', () => {
   let dir: string;
+  // The runners a test started and has not closed
+  let apps: INestApplication[] = [];
 
-  const start = () => startStoredRunner(join(dir, 'runner.yaml'));
+  async function start(): Promise<INestApplication> {
+    const app = await startStoredRunner(join(dir, 'runner.yaml'));
+    apps.push(app);
+    return app;
+  }
+
+  // A runner that the test closes itself, as a restart does
+  function closed(app: INestApplication): INestApplication {
+    apps = apps.filter((open) => open !== app);
+    return app;
+  }
 
   // Enters loop, whose script runs until it is stopped
   async function startLoop(): Promise<INestApplication> {
@@ -55,22 +67,29 @@ describe('Runner restarts', () => {
     appendFileSync(join(dir, 'runner.yaml'), 'database: runner.db\n');
   });
 
-  // Windows refuses to remove a database file that is open, so each test
-  // closes its runners
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  // Windows refuses to remove a database file that is open, so the
+  // runners close first, even after a failed assertion
+  afterEach(async () => {
+    try {
+      await Promise.all(apps.map(stopRunner));
+    } finally {
+      apps = [];
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, TIMEOUT);
 
   it(
     'Should report the script of a killed runner as interrupted',
     async () => {
       const first = await startLoop();
-      const db = new DatabaseSync(join(dir, 'runner.db'));
+      const db = new DatabaseSync(join(dir, 'runner.db'), { timeout: 5000 });
       const machine = db.prepare('SELECT state, entry, status FROM machine');
       expect(machine.get()).toEqual({
         state: 'loop',
         entry: 1,
         status: 'running',
       });
-      await stopRunner(first);
+      await stopRunner(closed(first));
       // as a killed runner leaves them
       db.exec("UPDATE machine SET status = 'running'");
       db.exec('UPDATE commands SET finished_at = NULL');
@@ -92,7 +111,6 @@ describe('Runner restarts', () => {
       });
       expect(status).toBe(HttpStatus.ACCEPTED);
       expect(await settled(second, 'create')).toMatchObject({ entry: 2 });
-      await stopRunner(second);
     },
     TIMEOUT,
   );
@@ -109,7 +127,7 @@ describe('Runner restarts', () => {
           original();
           void first.get(ExecaManager).stop();
         });
-      await first.close();
+      await closed(first).close();
 
       const second = await start();
       expect(await get(second, '/fsm')).toMatchObject({
@@ -117,7 +135,6 @@ describe('Runner restarts', () => {
         status: 'stopped',
         entry: 1,
       });
-      await stopRunner(second);
     },
     TIMEOUT,
   );
