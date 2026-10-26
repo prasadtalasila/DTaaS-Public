@@ -125,10 +125,13 @@ names a database file, relative to the configuration file:
 database: 'runner.db'
 ```
 
-With a database file, the history, the status of the last command and
-the request keys of [repeated requests](#repeated-requests) survive a
-restart of the runner. The runner creates the directory of the
-database file if needed. Give each runner a database file of its own.
+With a database file, the history, the status of the last command,
+the request keys of [repeated requests](#repeated-requests), the
+[state machine](#restarts) and the [parameter values](#parameters)
+survive a restart of the runner. No script survives one: a command that
+was running when the runner stopped is `interrupted` after the restart.
+The runner creates the directory of the database file if needed. Give
+each runner a database file of its own.
 
 ### MQTT
 
@@ -233,6 +236,9 @@ The `DOCKER.md` file in the
 describes running the runner in a docker container.
 
 ## State Machine
+
+[STATE-MACHINE.md](STATE-MACHINE.md) is a guide to writing and running
+a state machine, with two worked examples.
 
 A state machine moves a digital twin from one script to the next.
 The user starts it with a transition to a script, and from then on
@@ -352,8 +358,28 @@ Scripts must let a stop end them:
   grace period, and the processes that the script started keep
   running.
 
-The state machine is kept in memory, so after a restart it has no
-state until the next transition request.
+### Restarts
+
+The runner stores the state, the entry counter and the status of the
+script in its [database](#command-history) at each entry and each
+script exit, and resumes them when it starts again. With the database
+in memory, a restarted runner has no state until the next transition
+request.
+
+- A state whose script was running when the runner stopped comes back
+  with the status `interrupted`. The runner does not run that script
+  again; the machine is idle, so a transition request or an event moves
+  it on.
+- A script that exits while the runner shuts down keeps its status, but
+  the runner does not follow its completion transition.
+- A stored state that the state machine file no longer has is dropped
+  with a warning in the log, and the machine starts without a state.
+  The entry counter is kept, so entry numbers never repeat.
+- Without the `stateMachine` key, the runner logs the stored state and
+  keeps it for a later start with the state machine.
+
+Version 0.8.0 added the restore and the status `interrupted`; a runner
+of an earlier version always started without a state.
 
 ### Parameters
 
@@ -408,8 +434,11 @@ transition restarts the script, as `scope-changed` does above with a
 self-transition and `stop: true`.
 
 The runner records each change, with its time, in its
-[database](#command-history), but the values start at their defaults
-each time the runner starts.
+[database](#command-history), and restores the latest values when it
+starts again. A stored value of a parameter that is no longer declared,
+or that no longer fits its declaration, such as a removed enum value,
+is dropped with a warning in the log, and the parameter starts at its
+default. A restored value raises no event.
 
 ### Declared Environment
 
@@ -667,10 +696,11 @@ code:
 ```
 
 The status is `valid` for a script that succeeded, `failed` for one
-that failed, `stopped` for one that a stop request stopped, and
-`invalid` for a command that is not permitted, whose logs are empty and
-whose `exitCode` is `null`. Before the first command, the name is
-`none` and the status `invalid`.
+that failed, `stopped` for one that a stop request stopped,
+`interrupted` for one that was running when the runner stopped (see
+[Command History](#command-history)), and `invalid` for a command that
+is not permitted, whose logs are empty and whose `exitCode` is `null`.
+Before the first command, the name is `none` and the status `invalid`.
 
 If an incorrectly formatted JSON is sent via POST request,
 a validation error is returned.
@@ -751,11 +781,12 @@ status 200 whether or not a state machine is loaded:
   `time` the time of the document.
 - `machine` is the body of [GET /fsm](#state-machine-requests), or
   `null` without a state machine.
-- `parameters` is `{}`, as the runner has no parameters yet.
+- `parameters` holds the value of each [parameter](#parameters), and
+  is `{}` without a state machine.
 - `command` is the latest command, or `null` before the first one. Its
   `status` is `running` until it finishes, and then `valid`, `failed`,
-  `invalid` or `stopped` as in [GET /](#get-request-to-), with
-  `finishedAt` set.
+  `invalid`, `stopped` or `interrupted` as in
+  [GET /](#get-request-to-), with `finishedAt` set.
   The logs stay on `GET /`. The latest command may be one of `POST /`
   while the script of the state machine runs; `machine.status` tells
   the status of that script.
@@ -817,8 +848,8 @@ The runner does not run a command again for a repeated request:
 A repeated request is not added to the history. The runner keeps the
 history, the logs and the request keys in its
 [database](#command-history) without a time limit. A command that was
-running when the runner stopped stays `invalid` in the database, and a
-repeat of its request gets `failed` with `exitCode` `null`. A repeat
+running when the runner stopped is `interrupted` after the restart, and
+a repeat of its request gets `failed` with `exitCode` `null`. A repeat
 of a request whose command a stop request stopped gets `stopped`, as
 does a request that joined that run.
 
@@ -876,7 +907,8 @@ kept in memory, apart from the keys of `POST /`. An older key is
 forgotten, and a repeat of it counts as a new request.
 
 `GET /fsm` returns the state, the status of its script (`none`,
-`running`, `valid`, `invalid` or `stopped`), the number of entries
+`running`, `valid`, `invalid`, `stopped` or `interrupted` after a
+[restart](#restarts)), the number of entries
 into states so far, and the events of the digital twin:
 
 ```http

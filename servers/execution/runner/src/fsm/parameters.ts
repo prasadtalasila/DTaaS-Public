@@ -190,6 +190,25 @@ export default class Parameters {
     });
   }
 
+  // Takes the stored values of declared parameters that fit their
+  // declarations, and returns the names of the others, which keep their
+  // defaults
+  restore(values: Record<string, ParameterValue>): string[] {
+    const entries = Object.entries(values);
+    const fits = ([name, value]: [string, ParameterValue]) =>
+      this.fits(name, value);
+    this.commit(new Map(entries.filter(fits)));
+    return entries.filter((entry) => !fits(entry)).map(([name]) => name);
+  }
+
+  private fits(name: string, value: ParameterValue): boolean {
+    const declaration = this.declarations.get(name);
+    return (
+      declaration !== undefined &&
+      valueProblems(name, declaration, value).length === 0
+    );
+  }
+
   private problems(name: string, value: ParameterValue): string[] {
     const declaration = this.declarations.get(name);
     if (declaration === undefined) {

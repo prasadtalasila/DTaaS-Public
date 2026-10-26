@@ -8,9 +8,17 @@ import {
 } from './interfaces/command.interface.js';
 import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
+import { StoredMachine } from './dto/fsm.dto.js';
 import { RunOutcome } from './interfaces/runner.interface.js';
 import { ParameterValue } from './dto/parameters.dto.js';
 import Changes, { ChangeListener } from './notify/changes.js';
+import {
+  LOAD_MACHINE,
+  MACHINE_SCHEMA,
+  MARK_INTERRUPTED,
+  SAVE_MACHINE,
+  toStoredMachine,
+} from './queue.machine.js';
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
@@ -35,7 +43,8 @@ const SCHEMA = `
     name TEXT NOT NULL,
     value TEXT NOT NULL,
     changed_at TEXT NOT NULL
-  )`;
+  );
+  ${MACHINE_SCHEMA}`;
 
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
 // turns into ISO 8601 UTC; strftime of NULL is NULL
@@ -217,5 +226,20 @@ export default class Queue {
     return Object.fromEntries(
       rows.map(({ name, value }) => [String(name), JSON.parse(String(value))]),
     );
+  }
+
+  // The machine of the state machine service, which no change signals
+  saveMachine({ state, entry, status }: StoredMachine): void {
+    this.db.prepare(SAVE_MACHINE).run(state ?? null, entry, status);
+  }
+
+  loadMachine(): StoredMachine | undefined {
+    return toStoredMachine(this.db.prepare(LOAD_MACHINE).get());
+  }
+
+  // Marks the commands that never finished, as no script survives a
+  // restart; time is an ISO 8601 time
+  markInterrupted(time: string): void {
+    this.db.prepare(MARK_INTERRUPTED).run(time);
   }
 }

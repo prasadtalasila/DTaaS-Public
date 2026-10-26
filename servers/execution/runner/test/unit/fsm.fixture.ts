@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
+import { StoredMachine } from 'src/dto/fsm.dto';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import { CommandResult } from 'src/interfaces/command.interface';
@@ -79,6 +80,10 @@ export function createService(file: string | undefined) {
   } as unknown as Config;
   const queue = {
     setParameters: jest.fn(),
+    parameterValues: jest.fn(() => ({})),
+    saveMachine: jest.fn(),
+    loadMachine: jest.fn((): StoredMachine | undefined => undefined),
+    markInterrupted: jest.fn(),
   };
   const service = new FsmService(
     manager as unknown as ExecaManager,

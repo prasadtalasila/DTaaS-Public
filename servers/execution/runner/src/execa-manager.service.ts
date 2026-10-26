@@ -170,11 +170,15 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   }
 
   // Lets the runs in progress finish, as their results go to the
-  // database, which closes after them
+  // database, which closes after them. FsmService stores the status of a
+  // script a few microtasks after its run settles, so the database closes
+  // only after the next turn of the event loop; nothing between a run
+  // settling and that write may await I/O.
   async onApplicationShutdown(): Promise<void> {
     await Promise.allSettled(
       [...this.running.values()].map(({ result }) => result),
     );
+    await new Promise(setImmediate);
     this.commandQueue.close();
   }
 

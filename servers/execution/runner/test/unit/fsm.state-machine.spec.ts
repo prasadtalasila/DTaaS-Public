@@ -60,6 +60,14 @@ describe('State machine', () => {
     });
   });
 
+  it('Should resume from a restored state and entry', () => {
+    const machine = new StateMachine(definition, 'execute', 3);
+
+    expect(machine.state).toBe('execute');
+    expect(machine.next('stop')).toEqual({ state: 'create', stop: true });
+    expect(machine.enter('create')).toBe(4);
+  });
+
   it('Should find the next state of the current state', () => {
     const machine = new StateMachine(definition);
     machine.enter('create');

@@ -5,7 +5,8 @@ import {
 } from './interfaces/command.interface.js';
 import { RunOptions, RunOutcome } from './interfaces/runner.interface.js';
 
-// The outcome of a stored command; an unfinished one counts as failed
+// The outcome of a stored command; an unfinished or interrupted one
+// counts as failed
 const OUTCOME: Record<string, RunOutcome> = {
   valid: 'success',
   stopped: 'stopped',

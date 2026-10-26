@@ -26,6 +26,7 @@ async function bootstrap(options: Keyv) {
   await config.loadConfig(options);
   app.get<FsmService>(FsmService).load();
   app.get<Queue>(Queue).open(config.getDatabase());
+  app.get<FsmService>(FsmService).restore();
   app.enableShutdownHooks();
   // MQTT starts before listen, so that the startup state notification
   // reaches the broker. init and listen yield only to microtasks and

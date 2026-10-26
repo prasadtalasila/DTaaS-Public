@@ -3,14 +3,15 @@ import { Definition, Transition } from './definition.js';
 
 // The current state of a digital twin and the transitions out of it.
 // Each entry into a state has a number, so that the completion of the
-// script of an earlier entry can be told apart.
+// script of an earlier entry can be told apart. A machine restored after
+// a restart starts in its stored state and entry.
 export default class StateMachine {
-  private current: string | undefined;
-
-  private entries = 0;
-
   // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly definition: Definition) {} // eslint-disable-line no-empty-function
+  constructor(
+    private readonly definition: Definition,
+    private current?: string,
+    private entries = 0,
+  ) {} // eslint-disable-line no-empty-function
 
   get state(): string | undefined {
     return this.current;
