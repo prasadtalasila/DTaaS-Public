@@ -21,12 +21,14 @@ import {
 } from '../dto/fsm.dto.js';
 import ZodValidationPipe, { validRequestKey } from '../validation.pipe.js';
 import FsmService from './fsm.service.js';
+import { AccessRoute } from '../auth/roles.js';
 
 @Controller('fsm')
 export default class FsmController {
   constructor(private readonly fsm: FsmService) {}
 
   @Get()
+  @AccessRoute('fsm')
   check(@Res({ passthrough: true }) res: Response): FsmStateDto | FsmReplyDto {
     const state = this.fsm.check();
     if (state === undefined) {
@@ -37,6 +39,7 @@ export default class FsmController {
   }
 
   @Post('transition')
+  @AccessRoute('transition')
   transition(
     @Body(new ZodValidationPipe(transitionSchema)) { state }: TransitionDto,
     @Res({ passthrough: true }) res: Response,
@@ -49,6 +52,7 @@ export default class FsmController {
   }
 
   @Post('event')
+  @AccessRoute('event')
   event(
     @Body(new ZodValidationPipe(eventSchema)) { event }: EventDto,
     @Res({ passthrough: true }) res: Response,

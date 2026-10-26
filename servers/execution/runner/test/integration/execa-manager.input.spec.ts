@@ -50,6 +50,14 @@ describe('Command input and outcome of the execution manager', () => {
     expect(JSON.parse(logs.get('stdout') as string)).toEqual({ ward: 'B' });
   });
 
+  it('Should store the caller with the command it starts', async () => {
+    const enqueue = jest.spyOn(queue, 'enqueue');
+
+    await manager.newCommand('create', 'key-1', { by: 'alice' });
+
+    expect(enqueue).toHaveBeenCalledWith('create', 'key-1', 'alice');
+  });
+
   it('Should report and store a failing script with its exit code', async () => {
     const [status, logs, exitCode] = await manager.newCommand('fail');
 

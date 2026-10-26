@@ -35,6 +35,15 @@ export const AccessRoute = (route: MqttRoute) =>
 const managerExecutes = (role: Role, route: MqttRoute): boolean =>
   role === 'manager' && route === 'execute';
 
+// Whether the body asks to execute one of manager.commands
+export const listedCommand = (
+  commands: readonly string[],
+  body: unknown,
+): boolean => {
+  const name = (body as { name?: unknown } | null | undefined)?.name;
+  return typeof name === 'string' && commands.includes(name);
+};
+
 // Refuses the principal the route with a 403; listed tells whether the
 // command of an execute request is one of manager.commands
 export function authorize(

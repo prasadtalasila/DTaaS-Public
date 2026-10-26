@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { ForbiddenException } from '@nestjs/common';
 import { Role } from 'src/auth/auth.config';
-import { authorize, ROUTE_ROLES } from 'src/auth/roles';
+import { authorize, listedCommand, ROUTE_ROLES } from 'src/auth/roles';
 import { MqttRoute, mqttRoutes } from 'src/mqtt/mqtt.config';
 
 // The role table of the spec: open, yes, no, or manager.commands
@@ -44,6 +44,17 @@ describe('Roles', () => {
   it('Should have a row for every route, health open', () => {
     expect(Object.keys(ROUTE_ROLES).sort()).toEqual([...mqttRoutes].sort());
     expect(ROUTE_ROLES.health).toBe('public');
+  });
+
+  it.each([
+    [{ name: 'admit' }, true],
+    [{ name: 'open' }, false],
+    [{ name: ['admit'] }, false],
+    [{}, false],
+    [null, false],
+    [undefined, false],
+  ])('Should tell whether %j executes a listed command', (body, listed) => {
+    expect(listedCommand(['admit', 'discharge'], body)).toBe(listed);
   });
 
   it.each(cases)('Should answer %s for %s as %s', (route, role, answer) => {
