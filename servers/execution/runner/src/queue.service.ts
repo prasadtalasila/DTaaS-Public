@@ -14,37 +14,11 @@ import { ParameterValue } from './dto/parameters.dto.js';
 import Changes, { ChangeListener } from './notify/changes.js';
 import {
   LOAD_MACHINE,
-  MACHINE_SCHEMA,
   MARK_INTERRUPTED,
   SAVE_MACHINE,
   toStoredMachine,
 } from './queue.machine.js';
-
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS commands (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'invalid',
-    stdout TEXT NOT NULL DEFAULT '',
-    stderr TEXT NOT NULL DEFAULT '',
-    exit_code INTEGER,
-    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    finished_at TEXT
-  );
-  -- the keys with which clients mark requests, and the command each
-  -- request ran or joined
-  CREATE TABLE IF NOT EXISTS request_keys (
-    request_key TEXT PRIMARY KEY,
-    command_id INTEGER NOT NULL REFERENCES commands (id)
-  );
-  -- each change of a parameter, with its value as JSON
-  CREATE TABLE IF NOT EXISTS parameters (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    value TEXT NOT NULL,
-    changed_at TEXT NOT NULL
-  );
-  ${MACHINE_SCHEMA}`;
+import { createSchema } from './queue.schema.js';
 
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
 // turns into ISO 8601 UTC; strftime of NULL is NULL
@@ -64,14 +38,6 @@ const STATUS: Record<RunOutcome, string> = {
   failed: 'failed',
   stopped: 'stopped',
 };
-
-// A database file of a version before 0.7.0 has no exit_code column
-function addExitCode(db: DatabaseSync): void {
-  const columns = db.prepare('PRAGMA table_info(commands)').all();
-  if (!columns.some(({ name }) => name === 'exit_code')) {
-    db.exec('ALTER TABLE commands ADD COLUMN exit_code INTEGER');
-  }
-}
 
 function toRecord(
   row: Record<string, unknown> | undefined,
@@ -123,15 +89,15 @@ export default class Queue {
   // waits up to five seconds for a database file that is locked
   private static connect(file: string): DatabaseSync {
     const db = new DatabaseSync(file, { timeout: 5000 });
-    db.exec(SCHEMA);
-    addExitCode(db);
+    createSchema(db);
     return db;
   }
 
-  enqueue(name: string, requestKey?: string): number {
+  // by is the caller that submitted the command, if one did
+  enqueue(name: string, requestKey?: string, by?: string): number {
     const { lastInsertRowid } = this.db
-      .prepare('INSERT INTO commands (name) VALUES (?)')
-      .run(name);
+      .prepare('INSERT INTO commands (name, by) VALUES (?, ?)')
+      .run(name, by ?? null);
     const id = Number(lastInsertRowid);
     if (requestKey !== undefined) {
       this.addKey(requestKey, id);
