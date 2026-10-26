@@ -1,0 +1,53 @@
+# The state machine of the hospital digital twin. The hospital is open
+# for admissions, full, or closed; each state runs the script of the same
+# name in scripts/.
+events:
+  - full
+  - beds-free
+  - scope-changed
+  - close
+  - reopen
+parameters:
+  # the shared-policy parameter: a patient goes to the requested ward
+  # only (single), or to any ward with a free bed (multi)
+  scope:
+    type: enum
+    values:
+      - single
+      - multi
+    default: single
+    controllable: true
+    event: scope-changed
+  # beds per ward, which the Manager may read but not change
+  capacity:
+    type: number
+    default: 2
+    controllable: false
+env:
+  HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
+escalation:
+  onFailure: true
+  onNoTransition: true
+manager:
+  commands:
+    - admit
+    - discharge
+states:
+  open:
+    env:
+      POLL_MS: 500
+    transitions:
+      full: full
+      scope-changed:
+        state: open
+        stop: true
+      close:
+        state: closed
+        stop: true
+      $stopped: closed
+  full:
+    transitions:
+      beds-free: open
+  closed:
+    transitions:
+      reopen: open

@@ -1,0 +1,28 @@
+# The runner of the digital twin of one hospital, for the bed-management
+# demo; see README.md
+id: 'hospital-1'
+attributes:
+  name: 'Hospital 1'
+  city: 'Aarhus'
+  latitude: 56.19
+  longitude: 10.17
+  wards: 2
+port: 5100
+location: 'scripts'
+commands:
+  - open
+  - full
+  - closed
+  - admit
+  - discharge
+stateMachine: 'hospital.fsm.yaml'
+database: 'run/hospital.db'
+# milliseconds from SIGTERM to SIGKILL on a stop
+stopGrace: 1000
+mqtt:
+  url: 'mqtt://127.0.0.1:18830'
+  topic: 'dtaas/hospital-1'
+  # the local aedes broker speaks MQTT 3.1.1 only
+  protocolVersion: 4
+notify:
+  url: 'http://127.0.0.1:18080/dt-events'
