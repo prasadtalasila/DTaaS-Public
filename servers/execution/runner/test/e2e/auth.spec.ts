@@ -107,7 +107,7 @@ describe('Access control end-to-end tests', () => {
   });
 
   it.each([
-    ['a Basic header', 'Basic YWxpY2U6c2VjcmV0', 'malformed credential'],
+    ['a Digest header', 'Digest username=alice', 'malformed credential'],
     [
       'a token of three parts that are not JSON',
       'Bearer a.b.c',

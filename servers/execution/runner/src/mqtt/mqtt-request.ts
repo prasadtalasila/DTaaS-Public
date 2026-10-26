@@ -1,3 +1,4 @@
+import { HttpException } from '@nestjs/common';
 import type { IClientPublishOptions, IPublishPacket } from 'mqtt';
 import Access from '../auth/access.js';
 import { Principal } from '../auth/auth.config.js';
@@ -52,4 +53,13 @@ export function openRequest(
   }
   const { principal, body } = access.mqtt(packet.topic, payload);
   return { body, requestKey: key, principal };
+}
+
+// The body of the HTTP reply of a refusal, such as a 401 of openRequest;
+// any other error is thrown again
+export function refusalBody(error: unknown): object | string {
+  if (error instanceof HttpException) {
+    return error.getResponse();
+  }
+  throw error;
 }

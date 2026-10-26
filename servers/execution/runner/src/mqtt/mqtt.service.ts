@@ -3,7 +3,6 @@ import {
   Injectable,
   Logger,
   BeforeApplicationShutdown,
-  HttpException,
 } from '@nestjs/common';
 import type { IClientOptions, IPublishPacket, MqttClient } from 'mqtt';
 import { ROUTE_ROLES } from '../auth/roles.js';
@@ -16,7 +15,7 @@ import {
 } from '../dto/notify.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
-import { openRequest, publishOptions } from './mqtt-request.js';
+import { openRequest, publishOptions, refusalBody } from './mqtt-request.js';
 import settles from './settles.js';
 import {
   clientOptions,
@@ -189,10 +188,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     try {
       return this.handler.handle(route, openRequest(packet, payload, access));
     } catch (error) {
-      if (error instanceof HttpException) {
-        return error.getResponse();
-      }
-      throw error;
+      return refusalBody(error);
     }
   }
 

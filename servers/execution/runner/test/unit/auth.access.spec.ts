@@ -71,7 +71,7 @@ describe('Access over HTTP', () => {
   it.each([
     ['no header', undefined, 'missing credential'],
     ['an empty header', '', 'missing credential'],
-    ['a Basic header', 'Basic YWxpY2U6c2VjcmV0', 'malformed credential'],
+    ['a Digest header', 'Digest username=alice', 'malformed credential'],
     ['a bearer of two parts', 'Bearer a.b', 'malformed credential'],
     ['another script token', `Bearer ${'A'.repeat(43)}`, 'invalid credential'],
     ['a short script token', 'Bearer abc', 'invalid credential'],

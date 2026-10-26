@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from '@jest/globals';
 import { UnauthorizedException } from '@nestjs/common';
 import { publicKeyObject } from 'src/auth/auth.config';
@@ -62,6 +63,14 @@ describe('JWS', () => {
     const changed = encodeSegment({ ...claims, aud: 'hospital-2' });
 
     expect(refusal(() => verified(`${head}.${changed}.${signature}`))).toBe(
+      'invalid credential',
+    );
+  });
+
+  it('Should refuse a token whose key can not verify Ed25519', () => {
+    const { publicKey } = generateKeyPairSync('x25519');
+
+    expect(refusal(() => verifyJws(parseJws(token), () => publicKey))).toBe(
       'invalid credential',
     );
   });

@@ -1,4 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import Access from 'src/auth/access';
 import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
@@ -55,6 +56,27 @@ describe('MQTT service with access control', () => {
       message: 'missing credential',
       error: 'Unauthorized',
     });
+  });
+
+  it('Should log an unexpected failure to open a request', async () => {
+    const control = access();
+    jest.spyOn(control, 'mqtt').mockImplementation(() => {
+      throw new Error('broken');
+    });
+    const { client, handle, service } = setup(mqttConfig, control);
+    service.start();
+    const log = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    await message(client, TOPIC, Buffer.from('x.y.z'), packet());
+
+    expect(handle).not.toHaveBeenCalled();
+    expect(client.publishAsync).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      `MQTT response on ${TOPIC} failed: Error: broken`,
+    );
+    log.mockRestore();
   });
 
   it('Should answer health without a credential', async () => {
