@@ -195,6 +195,13 @@ document of `GET /parameters`. Both routes answer `404` with the
    the state it left, waits until it has exited, and runs the script
    of the target, unless shutdown began or a later entry happened
    meanwhile. A self-transition thus restarts the script.
+1. On a restart the runner marks every unfinished command
+   `interrupted` and resumes the stored machine: the state of a script
+   that was running comes back with the status `interrupted`, and a
+   stored state that the file no longer has leaves the machine
+   unstarted, with its entry count (D12, D28). A script that exits
+   during shutdown stores its status, but its completion transition
+   does not run (D14).
 
 ### Components
 
@@ -210,6 +217,9 @@ document of `GET /parameters`. Both routes answer `404` with the
 | `fsm/state-machine.ts`    | pure machine: current state, entry count, next state |
 | `fsm/recent-replies.ts`   | bounded store of replies to repeated requests        |
 | `fsm/requests.ts`         | transition and event requests, and their keys        |
+| `fsm/stop-chain.ts`       | runs the stops of stop transitions in order          |
+| `fsm/recovery.ts`         | pure: the machine to resume from the stored row      |
+| `fsm/machine-store.ts`    | stores the machine, and restores it at startup       |
 | `fsm/escalation.ts`       | escalation section, triggers and requests            |
 | `dto/escalation.dto.ts`   | escalation body schema and notification data         |
 | `fsm/fsm.service.ts`      | runs scripts, raises completion events, replies      |
@@ -223,6 +233,7 @@ document of `GET /parameters`. Both routes answer `404` with the
 | `ExecaManager.isRunning`  | tells whether a script is running                    |
 | `ExecaManager.stop`       | stops running scripts and waits until they exit      |
 | `Queue.setParameter`      | records each parameter change with its time          |
+| `Queue` machine methods   | store the `machine` row; mark commands interrupted   |
 
 ```mermaid
 sequenceDiagram
@@ -262,7 +273,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D9  | Replies do not wait for the script                                                             | A long _execute_ would hold the request open. The state is reported by `GET /fsm`.                                                                                                                                                                                                                                                                              |
 | D10 | Leaving a state stops its script only on a transition with `stop: true`                        | The runner can stop a script (D18), but the scripts of existing DTs stop one another, and a state whose script should outlive it must stay possible. The DT author marks the transitions that stop.                                                                                                                                                             |
 | D11 | Reject cycles of completion transitions at startup                                             | With fast scripts such a cycle would run forever and add a history row each time.                                                                                                                                                                                                                                                                               |
-| D12 | The machine lives in memory                                                                    | Nothing asks for recovery after a restart, and the scripts do not survive a restart either. The machine starts unstarted.                                                                                                                                                                                                                                       |
+| D12 | The machine is stored in the database and resumed                                              | Amended by issue 09. A DT that forgets its state reports a wrong one to a Manager after a restart. One `machine` row in the database of `Queue` holds the state, entry and status, written at each entry and script exit; a failed write is only logged. In memory, the machine starts unstarted.                                                               |
 | D13 | `Idempotency-Key` replays the reply in memory, for accepted requests                           | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The header and user property have the names of `POST /`, but the keys are a namespace of their own, apart from the keys of `POST /` in the database. It keeps the last 256 accepted replies; a refused request changed nothing and is checked again.                                  |
 | D14 | Stop accepting requests in `beforeApplicationShutdown`                                         | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                                                                                                                                 |
 | D15 | 202 Accepted for accepted requests                                                             | The script has started, not finished.                                                                                                                                                                                                                                                                                                                           |
@@ -278,6 +289,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D25 | Escalation triggers are opt-in; a request needs no machine                                     | Added by issue 06 (S4); D23 is 08's, D24 05's. Only the DT author knows when its adaptation is exhausted, so the runner escalates by itself only on the declared triggers, a repeated event once per entry. `POST /escalate` needs no machine, so a plain DT escalates too. An escalation is not retained, so a late Manager does not act on an old one.        |
 | D26 | Presence: an online notice per connect, an offline notice, a will                              | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                      |
 | D27 | Command input goes to stdin, is not stored, and a failed script is told from a refused command | Added by issue 05. Stdin keeps input off the command line of a remote execution service. The input may hold personal data and nothing reads it back. A permitted script that fails is `failed` (200, with its result); `invalid command` (400) stays for a command that is not permitted. The machine's `ScriptStatus` keeps `invalid` for a failed script.     |
+| D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                               |
 
 ## Assumptions
 
@@ -323,6 +335,9 @@ proposal to derive the events from the transitions was declined (D4).
 - An event that a parameter change raises and the machine refuses is
   logged, at debug level for `no transition` and as a warning
   otherwise; the parameter change stands.
+- A failed write of the machine is logged; the reply stands. A stored
+  state or parameter value that the file no longer allows is dropped
+  with a warning at startup.
 
 ## Testing
 
@@ -351,5 +366,5 @@ proposal to derive the events from the transitions was declined (D4).
 
 ## Out of Scope
 
-Guards, actions, timers, hierarchical or parallel states; persisting
-the machine across restarts; more than one machine per runner.
+Guards, actions, timers, hierarchical or parallel states; more than
+one machine per runner.

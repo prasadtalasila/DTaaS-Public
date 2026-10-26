@@ -16,11 +16,11 @@ deferred (see below) and have no file.
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | done      | #77 |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done      | #79 |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | in review | #84 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | done      | #84 |
 | [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | done      | #83 |
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done      | #82 |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done      | #81 |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | in review |     |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
 | [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
 
@@ -35,7 +35,7 @@ A feature starts when the features it depends on are merged.
              ├─> 04 parameters ─────┼─> 05 command-input
              │                      └─> 08 script-context
              ├─> 07 presence
-             └─> 10 stop ─> 09 persistence
+             └─> 10 stop ─> 09 persistence (after 06 and 08)
 
 12 health
 ```
@@ -136,6 +136,11 @@ From implementing 01, 02, 03, 04, 10 and 12:
   "Build errored". Name such files `*-env.spec.ts`. The `Qlty` workflow
   runs only actionlint and osv-scanner, so it does not catch this;
   `qlty check --upstream <base>` locally does.
+- `test/e2e/mqtt.broker.spec.ts` runs only in CI, against Mosquitto,
+  so a change to a reply, status or stored shape passes locally and
+  fails there (05's first run); grep it for the old shapes.
+- On Windows, `yarn test -t` with a pattern of two words breaks the
+  command line before Jest sees it; use a one-word pattern.
 
 ## Deferred
 

@@ -1,6 +1,6 @@
 # 05 Command Input, Outcome and Exposure
 
-- Status: in review
+- Status: done
 - Depends on: 01, 04
 - PR: [#84](https://github.com/prasadtalasila/DTaaS-Public/pull/84)
 - Research note:

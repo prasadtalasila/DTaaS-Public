@@ -1,6 +1,6 @@
 # 09 Persist the Machine Across Restarts
 
-- Status: in progress
+- Status: in review
 - Depends on: 03, 04, 10; implemented after 06 and 08
 - PR: none
 - Research note:
@@ -73,177 +73,147 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
 ## Plan
 
 1. Start after 06 and 08 merge; make room first in
-   `src/fsm/fsm.service.ts` (249 lines; about 247 after 06's moves and
-   08's net 14). 09 adds about 19 even with step 6's `MachineStore`.
-   Moves, behaviour unchanged, all four planned, to about 238:
-   - `isCurrent` folds into its one remaining caller, the start check
-     of `run` (-4);
+   `src/fsm/fsm.service.ts` (249 lines), behaviour unchanged:
+   - `isCurrent` folds into the start check of `run`;
    - the refusal logging of `raise` and `complete` becomes one
-     `logStay(logger, reply, event)` in 06's `src/fsm/requests.ts` (-9),
-     keeping the text `Stayed in state <state> on <event>: <status>`
-     and the debug level for `no transition`, which
+     `logStay(logger, reply, event)` in `src/fsm/requests.ts`, with the
+     text `Stayed in state <state> on <event>: <status>` and the debug
+     level for `no transition` that
      `test/unit/fsm.service.parameters.spec.ts` asserts;
-   - `pendingStop` and its chaining move to a plain `StopChain` in
+   - `pendingStop` moves to a plain `StopChain` in
      `src/fsm/stop-chain.ts`, built from the `ExecaManager` in the
-     constructor body like `MachineStore`; its `after(left, run)` runs
-     `run` once the stopped script of `left` has exited, and its comment
-     carries "manager.stop never rejects" (-3);
-   - `enterStopping` folds into `enter(machine, state, left?)`: one
-     guard `left !== state && this.manager.isRunning(state)` (with
-     `left` undefined it is today's check), then `machine.enter`, the
-     status, `store.save`, `void this.run(...)` without `left` or
-     `this.stops.after(left, ...)` with it, the emit and the reply.
-     Three parameters, complexity about 3 (-12). 06's `move` calls
-     `this.enter(machine, state, stop ? machine.state : undefined)`.
+     constructor body; `after(left, run)` runs `run` once the stopped
+     script of `left` has exited ("manager.stop never rejects");
+   - `enterStopping` folds into `enter(machine, state, left?)`, guarded
+     by `left !== state && this.manager.isRunning(state)`;
+   - (changed) 08's `follow`, the one caller of `enter` with `left`,
+     folds into `move`, which drops the `Transition` import. 05 moved
+     `raise` into `Requests.raise`, which now calls `logStay`, and
+     added `managerCommands`: the merge came to 252 lines, so
+     `StopChain.after(left?, run)` also runs `run` at once without
+     `left`, and `enter` loses its branch. The service ends at 248.
 1. `interrupted` joins `ScriptStatus` (`src/dto/fsm.dto.ts`, which also
-   gains `StoredMachine`: `state: string | undefined`, `entry`,
-   `status`) and `CommandStateStatus` (`src/dto/state.dto.ts`), but not
-   a `STATUS` map: it is no `RunOutcome` (05 adds `failed` to the one
-   in `src/queue.service.ts`). The `OUTCOME` comment in
-   `src/execa-manager.service.ts` says `interrupted` counts as failed.
-1. `src/queue.service.ts` (197 lines, gains about 35): add
-   `CREATE TABLE IF NOT EXISTS machine` to `SCHEMA` (`id` fixed to 1 by
-   a `CHECK`, `state TEXT` nullable, `entry`, `status`, `updated_at`),
-   the whole migration: no `ALTER` is needed. Add
-   `saveMachine(machine: StoredMachine)` (`INSERT OR REPLACE`, row 1),
-   `loadMachine(): StoredMachine | undefined` (`NULL` state as
-   `undefined`), and `markInterrupted(time: string)`, which sets
-   `status = 'interrupted'` and `finished_at = datetime(?)` (the format
-   of `CURRENT_TIMESTAMP`) on rows whose `finished_at` is `NULL`. None
-   emits a change. Past 249 lines after 05, the SQL moves to constants
-   in a new `src/queue.machine.ts`.
-1. Add `src/fsm/recovery.ts`, pure:
-   `recover(definition: Definition, stored?: StoredMachine): Recovered`,
-   with `Recovered = { state, entry, status, warning? }`, applying the
-   four rules with one `return` (four would reach Qlty's threshold) and
-   complexity at most 4, the `running` to `interrupted` mapping and the
-   warning text in small helpers.
-1. `src/fsm/state-machine.ts`: the constructor becomes
-   `(definition, state?, entry?)`, the last two replacing the `current`
-   and `entries` fields; `definition` stays private, and
-   `FsmService.load()` keeps it in a private field unless 08's
-   `RunnerContext` exposes it. `src/fsm/parameters.ts`:
-   `Parameters.restore(values): string[]` commits each value whose name
-   is declared and whose `valueProblems` is empty, and returns the rest.
-1. Add `src/fsm/machine-store.ts`: a plain class `MachineStore`, built
-   from `(queue, logger)`, with `save(machine, status)` (`saveMachine`
-   in a try/catch that logs), `markInterrupted(time)`, `load()` and
-   `restore(definition?, parameters?): Recovered`. `restore` marks the
-   commands interrupted; without a definition it logs a stored row and
-   returns the unstarted machine; otherwise it applies `recover`, writes
-   the result back with `save`, and restores the parameter values. One
-   private helper logs both warnings, the unknown state and the dropped
-   parameters, keeping `restore` within Qlty's complexity.
-1. `src/fsm/fsm.service.ts`:
-   - a `MachineStore` field, built in the constructor body from the
-     queue and the logger (a field initializer cannot read a parameter
-     property under `target: ES2022`); no constructor gains a parameter;
-   - `restore()`, about five lines: from
-     `this.store.restore(definition, this.declared)` it sets `status`
-     and `this.machine = definition && new StateMachine(...)`, so the
-     machine stays undefined without a definition;
-   - `enter` (with `enterStopping` folded in) calls `this.store.save`
-     once the status is `running`, and `run` once the status is set;
-   - after the script, `run` sets, emits and stores the status whenever
-     `machine.entry === entry`, and skips only `complete` once
-     `stopping` is set. The start check keeps `stopping`, so a stop
-     transition's target does not start during shutdown and comes back
-     `interrupted`.
-1. `src/execa-manager.service.ts`: `onApplicationShutdown` awaits one
-   `setImmediate` between the runs settling and `close()` (two
-   microtasks after a settle; `run` writes one later). Its comment
-   states the invariant: nothing between a run settling and that write
-   awaits I/O. One line, over an `awaitBeforeClose(promise)` set with a
-   method and two call sites in files near their limits.
-1. `src/main.ts`: add `app.get<FsmService>(FsmService).restore()` after
-   `Queue.open`. No other line moves.
-1. `test/unit/fsm.fixture.ts`: the fake queue gains `loadMachine`
-   (returns `undefined`), `saveMachine`, `markInterrupted` and
-   `parameterValues` (returns `{}`) as `jest.fn`. `test/e2e/util.ts`:
-   `startStoredRunner(configFile)` mirrors `main.ts` (`loadConfig`,
-   `FsmService.load()`, `Queue.open(config.getDatabase())`,
-   `FsmService.restore()`, `app.init()`; no MQTT in the test
-   configuration). `startRunner` stays in memory, as `runner.mqtt.yaml`
-   names a database file; its comment stops claiming to mirror
-   `main.ts`.
-1. Documents. `README.md`: Command History, the State Machine text on
-   the machine lost on restart, `interrupted` in the `GET /` and
-   `GET /fsm` status lists and the `command.status` text of
-   `GET /state` (02), and the Repeated Requests sentence on a running
-   command, with 05's "a row that never finished replays as `failed`"
-   now a row interrupted by a restart; and the Parameters text that
-   values "start at their defaults each time the runner starts", now
-   false. `docs/state-machine-design.md`:
-   replace D12, add a decision with the next free number for
-   `interrupted` instead of a re-run, a Behaviour item for the restart,
-   `fsm/recovery.ts`, `fsm/machine-store.ts` and the `Queue` machine
-   methods in Components, and drop persistence from Out of Scope.
-   `docs/issues/README.md`: the status row, and "after 06 and 08" at
-   09 in the Order diagram. A new status in existing routes breaks: the
-   next free minor version (05 claims `0.7.0`) and a README line. This
-   file gains `## Learnings`; `api/*.http` is unchanged.
+   gains `StoredMachine`) and `CommandStateStatus`
+   (`src/dto/state.dto.ts`), but no `STATUS` map: it is no
+   `RunOutcome`. The `OUTCOME` comment in `src/execa-manager.service.ts`
+   says `interrupted` counts as failed.
+1. `src/queue.service.ts` gains `saveMachine` (`INSERT OR REPLACE`, row
+   1), `loadMachine` (`NULL` state as `undefined`) and
+   `markInterrupted(time)` (`finished_at = datetime(?)` on unfinished
+   rows); none emits a change. `CREATE TABLE IF NOT EXISTS machine`
+   (`id` fixed to 1 by a `CHECK`) joins `SCHEMA`: no `ALTER` is needed.
+   (changed) The SQL is in `src/queue.machine.ts` from the start: 05
+   took the service from 197 to 221 lines, and with 09's 24 it is at 245.
+1. `src/fsm/recovery.ts`, pure: `recover(definition, stored?)` returns
+   `Recovered = StoredMachine & { warning? }` by the four rules,
+   complexity 3, two returns, with the `running` to `interrupted`
+   mapping and the warning in helpers.
+1. The constructor of `StateMachine` takes
+   `(definition, current?, entries = 0)`.
+   `Parameters.restore(values): string[]` commits the values of
+   declared parameters that fit, and returns the other names.
+   (changed) 08's `RunnerContext` keeps the definition private, so
+   `FsmService.load()` keeps it in a field.
+1. `src/fsm/machine-store.ts`: a plain `MachineStore(queue, logger)`
+   with `save` (a try/catch that logs) and
+   `restore(definition?, parameters?)`, which marks the commands, logs
+   and ignores a stored row without a definition, applies `recover`,
+   writes the result back and restores the parameters; one helper logs
+   both warnings.
+   (changed) No `markInterrupted` or `load` wrappers, as only `restore`
+   uses them; `save` takes `{ state, entry }`, which both a
+   `StateMachine` and a `Recovered` have.
+1. `src/fsm/fsm.service.ts`: a `MachineStore` field built in the
+   constructor body (no constructor gains a parameter); `restore()`
+   sets `status` and `machine` from `store.restore`; `enter` stores the
+   `running` entry; after the script `run` sets, emits and stores the
+   status whenever `machine.entry === entry`, and skips only `complete`
+   once `stopping` is set. The start check keeps `stopping`, so a stop
+   transition's target does not start during shutdown and comes back
+   `interrupted`.
+1. `ExecaManager.onApplicationShutdown` awaits one `setImmediate`
+   between the runs settling and `close()`; its comment states the
+   invariant that nothing between a run settling and the write awaits
+   I/O.
+1. `src/main.ts`: `FsmService.restore()` right after `Queue.open`.
+1. `test/unit/fsm.fixture.ts`: the fake queue gains `loadMachine`,
+   `saveMachine`, `markInterrupted` and `parameterValues`.
+   `test/e2e/util.ts`: `startStoredRunner` mirrors `main.ts` without
+   MQTT; `startRunner` stays in memory. (changed) Both share two small
+   helpers, `createApp` and `configure`.
+1. Documents: `README.md` (Command History, a Restarts section for the
+   lost-state text, `interrupted` in `GET /`, `GET /state`, `GET /fsm`
+   and Repeated Requests, the Parameters text on defaults, a 0.8.0
+   line); `docs/state-machine-design.md` (D12 replaced, D28 for
+   `interrupted`, a Behaviour item, Components, Error Handling, Out of
+   Scope); the index row and the Order diagram; version `0.8.0` (05
+   claims `0.7.0`, D24 and D27). `api/*.http` and `DEVELOPER.md` are
+   unchanged.
 
 ## Tasks
 
-- [ ] `saveMachine` and `loadMachine` round-trip a started and an
-      unstarted row in one row, return `undefined` before the first
-      save, and survive reopening a file; a file without the `machine`
-      table opens with its commands intact;
-      `markInterrupted` marks only unfinished rows, stores the time as
-      `YYYY-MM-DD HH:MM:SS`, and `commandState` shows `interrupted`.
-      Check: `test/integration/queue.machine.spec.ts` (new; the other is 247).
-- [ ] A repeat of the request key of an interrupted command gets
-      `failed`; `onApplicationShutdown` closes the database only after a
-      continuation of a run's result, three microtasks later, wrote to
-      it. Check: `test/integration/execa-manager.service.spec.ts`.
-- [ ] `recover` returns unstarted for no row, keeps the entry of an
-      unstarted row, warns and keeps the entry for an unknown state,
-      turns `running` into `interrupted`, and keeps `valid`, `invalid`,
-      `stopped` and `interrupted`. Check: `test/unit/fsm.recovery.spec.ts`
-      (new). A `StateMachine` built with a state and an entry follows
-      that state's transitions and numbers the next entry after it.
-      Check: `test/unit/fsm.state-machine.spec.ts`.
-- [ ] `Parameters.restore` keeps valid values of declared parameters and
-      returns the names of a removed parameter, a value of another type
-      and a removed enum value. Check:
-      `test/unit/fsm.parameters.restore.spec.ts` (new; the spec is 235).
-- [ ] `MachineStore` logs a throwing `saveMachine` without throwing,
-      marks commands interrupted with and without a definition, logs
-      and ignores a row without one, writes the recovered row back, and
-      warns about an unknown state and dropped parameters. Check:
-      `test/unit/fsm.machine-store.spec.ts` (new), against a fake queue.
-- [ ] `check()` after `restore()` returns the restored document; from
-      `interrupted`, a transition is accepted and an event with a
-      transition moves the machine; plain and stop entries and `run`
-      store the machine, and the reply stays `accepted` when the write
-      throws; a script that finishes after `beforeApplicationShutdown`
-      stores its status and does not follow its completion transition
-      (only this test covers that; the e2e `loop` has no completion
-      transitions). Check: `test/unit/fsm.service.restore.spec.ts`
-      (new); `fsm.service.spec.ts`, `fsm.service.stop.spec.ts` and
-      `fsm.service.parameters.spec.ts` pass unchanged after the moves.
-- [ ] Restart, portable to Windows. `digitalTwin(DEFINITION, ['loop'])`
-      makes the folder and the test appends `database: runner.db` to its
-      `runner.yaml`, so the file is in the folder `afterAll` removes;
-      `loop` has a `halt` event to `create` and no completion
-      transitions. Killed: start with `startStoredRunner`, enter `loop`,
-      open a second `DatabaseSync` on the file and expect the row
-      `loop`, entry 1, `running`; `manager.stop()`, `app.close()`; then
-      `UPDATE machine SET status = 'running'` and
-      `UPDATE commands SET finished_at = NULL` through it, as a killed
-      runner leaves them, and close it right away. A second runner
-      reports `loop`, entry 1, `interrupted` on `GET /fsm`, `GET /` and
-      `GET /state`, and accepts a transition to `create`; the test lets
-      `create` finish and closes that app before `afterAll`, as Windows
-      refuses to remove an open database file. Graceful: enter `loop`, spy
-      on `beforeApplicationShutdown` with an implementation that calls
-      the bound original, then `void manager.stop()`; `app.close()`; the
-      second runner reports `loop`, `stopped`. Check:
-      `test/e2e/restart.spec.ts` (new), with Jest `expect` assertions.
-- [ ] Documents and version updated. Check: from the repository root,
-      `npx markdownlint-cli -c .markdownlint.yaml` on them.
-- [ ] `yarn build` and `yarn test` pass,
-      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is clean
-      (eslint lints no `.ts` file here), no changed file reaches 250
-      lines, and no function crosses the Qlty thresholds. Check: their
-      output and `wc -l`; the thresholds counted by hand.
+- [x] `saveMachine` and `loadMachine` round-trip a started and an
+      unstarted row, return `undefined` before the first save and
+      survive reopening a file; a file without the `machine` table
+      opens with its commands; `markInterrupted` marks only unfinished
+      rows, as `YYYY-MM-DD HH:MM:SS`, and `commandState` shows
+      `interrupted`. Check: `test/integration/queue.machine.spec.ts`.
+- [x] A repeat of the key of an interrupted command gets `failed`;
+      `onApplicationShutdown` closes the database only after a write
+      three microtasks after a run's result (fails without the
+      `setImmediate`). Check:
+      `test/integration/execa-manager.service.spec.ts`.
+- [x] `recover`: each rule and each kept status. Check:
+      `test/unit/fsm.recovery.spec.ts`. A `StateMachine` built with a
+      state and entry follows its transitions and numbers the next
+      entry after it. Check: `test/unit/fsm.state-machine.spec.ts`.
+- [x] `Parameters.restore` keeps fitting values and returns a removed
+      parameter, another type and a removed enum value. Check:
+      `test/unit/fsm.parameters.restore.spec.ts`.
+- [x] `MachineStore`: a throwing save is logged, commands are marked
+      with and without a definition, a row without one is logged and
+      ignored, the recovered row is written back, and both warnings.
+      Check: `test/unit/fsm.machine-store.spec.ts`.
+- [x] `check()` after `restore()`; from `interrupted` a transition and
+      an event move the machine; entries and `run` store the machine,
+      and a throwing write leaves the reply `accepted`; a script that
+      finishes during shutdown stores its status and does not complete.
+      Check: `test/unit/fsm.service.restore.spec.ts`; the other
+      `fsm.service*.spec.ts` pass unchanged.
+- [x] Restart: killed (the row is `loop`, 1, `running`; after the rows
+      are reset as a kill leaves them, a second runner reports
+      `interrupted` on `GET /fsm`, `GET /` and `GET /state` and accepts
+      a transition) and graceful (`stopped`, which also fails without
+      the `setImmediate`). (changed) Each test has its own folder.
+      Check: `test/e2e/restart.spec.ts`.
+- [x] Documents and version. Check: `npx markdownlint-cli`.
+- [x] `yarn build`, `yarn test`, the `tsc` check, prettier, no file at
+      250 lines, Qlty `check`, `smells` and `metrics`. Check: their
+      output.
+
+## Learnings
+
+- The plan put the stop transition in `move`; 08 had added `follow`
+  between them, and folding it in paid for the definition field and
+  `restore`. A `Definition` import that pushed the line past 80
+  characters would have cost five lines.
+- 05 and 09 together bring `queue.service.ts` to 245 lines, so the
+  machine SQL went to `queue.machine.ts` at once; the `machine` table
+  joins `SCHEMA` through a template, and the rebase onto 05 merged the
+  file without a conflict.
+- The rebase onto 05 conflicted in `fsm.service.ts` (05's `raise` move
+  against 09's `logStay`), `execa-manager.service.ts` (05 moved
+  `OUTCOME` to `command-result.ts`, where the comment now goes), the
+  `CommandStateStatus` union, the README and the decision table, whose
+  columns 05's D27 had widened.
+- The order at shutdown hangs on microtasks: the run of the manager
+  settles a few microtasks before `FsmService.run` writes. Both the
+  integration test and the graceful e2e test fail without the
+  `setImmediate`.
+- `logStay` gives a skipped completion transition the text of a
+  refused event, so the name of the next state left the message.
+- `test/e2e/mqtt.broker.spec.ts` runs only in CI; it asserts no shape
+  that 09 changes, as `interrupted` needs a restart from a file.
+- Not changed here: the index's Delivery still says `0.7.0`, and
+  `docs/developer/codebase/runner.md` still says the database holds
+  only commands; both are for a separate change.
