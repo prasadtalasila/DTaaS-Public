@@ -9,18 +9,19 @@ dt() {
   local path=$1 method=GET body='' option
   shift
   local options=("$@")
-  while [ $# -gt 0 ]; do
+  while [[ $# -gt 0 ]]; do
     option=$1
     shift
     case $option in
       -X) method=$1 ;;
-      --json) body=$1 && [ "$method" = GET ] && method=POST ;;
+      --json) body=$1 && [[ $method == GET ]] && method=POST ;;
+      *) ;;
     esac
   done
   # Git Bash would turn the path into a Windows path for node
   local auth
   auth=$(MSYS_NO_PATHCONV=1 node tools/sign.mjs http "$method" "$path" "$body")
-  if [ -n "$auth" ]; then
+  if [[ -n $auth ]]; then
     options+=(-H "Authorization: $auth")
   fi
   curl -s -w '\n%{http_code}' "${options[@]}" "http://localhost:5100$path" |
