@@ -1,6 +1,6 @@
 # 09 Persist the Machine Across Restarts
 
-- Status: in review
+- Status: done
 - Depends on: 03, 04, 10; implemented after 06 and 08
 - PR: [#86](https://github.com/prasadtalasila/DTaaS-Public/pull/86)
 - Research note:
