@@ -141,6 +141,9 @@ From implementing 01, 02, 03, 04, 10 and 12:
   fails there (05's first run); grep it for the old shapes.
 - On Windows, `yarn test -t` with a pattern of two words breaks the
   command line before Jest sees it; use a one-word pattern.
+- Render every Mermaid diagram with mermaid-cli and look at the image:
+  a diagram that parses can still be wrong, and some syntax, such as
+  `note below of` in a state diagram, fails only when rendered.
 
 ## Deferred
 

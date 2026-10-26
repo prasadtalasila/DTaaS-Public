@@ -237,6 +237,9 @@ describes running the runner in a docker container.
 
 ## State Machine
 
+[STATE-MACHINE.md](STATE-MACHINE.md) is a guide to writing and running
+a state machine, with two worked examples.
+
 A state machine moves a digital twin from one script to the next.
 The user starts it with a transition to a script, and from then on
 events and the exit of each script decide which script runs next.
@@ -778,7 +781,8 @@ status 200 whether or not a state machine is loaded:
   `time` the time of the document.
 - `machine` is the body of [GET /fsm](#state-machine-requests), or
   `null` without a state machine.
-- `parameters` is `{}`, as the runner has no parameters yet.
+- `parameters` holds the value of each [parameter](#parameters), and
+  is `{}` without a state machine.
 - `command` is the latest command, or `null` before the first one. Its
   `status` is `running` until it finishes, and then `valid`, `failed`,
   `invalid`, `stopped` or `interrupted` as in

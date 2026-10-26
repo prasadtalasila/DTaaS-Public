@@ -148,7 +148,11 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
    `interrupted`, a Behaviour item, Components, Error Handling, Out of
    Scope); the index row and the Order diagram; version `0.8.0` (05
    claims `0.7.0`, D24 and D27). `api/*.http` and `DEVELOPER.md` are
-   unchanged.
+   unchanged. (changed) At the owner's request: a user guide,
+   `STATE-MACHINE.md`, with two worked examples, linked from the
+   README; the design document rewritten for runner developers, with
+   its sequence diagram corrected and state diagrams of the lifecycle
+   and the restore.
 
 ## Tasks
 
@@ -187,6 +191,10 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
       the `setImmediate`). (changed) Each test has its own folder.
       Check: `test/e2e/restart.spec.ts`.
 - [x] Documents and version. Check: `npx markdownlint-cli`.
+- [x] `STATE-MACHINE.md` and the design document, with every diagram
+      rendered. Check: `npx @mermaid-js/mermaid-cli@11` on both files
+      and the rendered images; the replies of example 1 come from a
+      runner, and those of example 2 from the demo's recording.
 - [x] `yarn build`, `yarn test`, the `tsc` check, prettier, no file at
       250 lines, Qlty `check`, `smells` and `metrics`. Check: their
       output.
@@ -214,5 +222,10 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
   refused event, so the name of the next state left the message.
 - `test/e2e/mqtt.broker.spec.ts` runs only in CI; it asserts no shape
   that 09 changes, as `interrupted` needs a restart from a file.
+- The sequence diagram of the design document parsed in mermaid 9, 10
+  and 11; its error showed only in the drawing, where the entries after
+  the first skipped `StateMachine.enter`. Rendering also caught
+  `note below of`, which `stateDiagram-v2` refuses, and self-transition
+  labels that overlap other edges, so self-transitions became notes.
 - Not changed here: `docs/developer/codebase/runner.md` still says the
   database holds only commands; it is for a separate change.
