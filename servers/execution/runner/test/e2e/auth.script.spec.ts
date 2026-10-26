@@ -59,20 +59,27 @@ describe('Script token end-to-end tests', () => {
 
   afterEach(() => app.close());
 
+  // Starts the runner with alice listed, and gives its scripts the URL
+  // and the token as main.ts does
+  async function listenWithAccess() {
+    app = await startRunner(join(dir, 'runner.yaml'));
+    const { publicKey } = alice;
+    const access = new Access(
+      [{ name: 'alice', role: 'client', publicKey }],
+      'dt-1',
+    );
+    jest.spyOn(app.get<Config>(Config), 'access').mockReturnValue(access);
+    const enqueue = jest.spyOn(app.get<Queue>(Queue), 'enqueue');
+    await app.listen(0);
+    const fsm = app.get<FsmService>(FsmService);
+    fsm.setRunnerApi(runnerUrl(app.getHttpServer()), access.scriptToken);
+    return { access, enqueue, fsm };
+  }
+
   it(
     'Should let a state script raise an event with RUNNER_TOKEN',
     async () => {
-      app = await startRunner(join(dir, 'runner.yaml'));
-      const publicKey = alice.publicKey;
-      const access = new Access(
-        [{ name: 'alice', role: 'client', publicKey }],
-        'dt-1',
-      );
-      jest.spyOn(app.get<Config>(Config), 'access').mockReturnValue(access);
-      const enqueue = jest.spyOn(app.get<Queue>(Queue), 'enqueue');
-      await app.listen(0);
-      const fsm = app.get<FsmService>(FsmService);
-      fsm.setRunnerApi(runnerUrl(app.getHttpServer()), access.scriptToken);
+      const { access, enqueue, fsm } = await listenWithAccess();
       const body = JSON.stringify({ state: 'raise-event' });
       const call = { method: 'POST', path: '/fsm/transition', body };
 
