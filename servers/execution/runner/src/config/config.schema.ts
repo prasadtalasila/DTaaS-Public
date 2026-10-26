@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { authSchema } from '../auth/auth.config.js';
 import { nameSchema } from '../fsm/definition.js';
 import { mqttConfigSchema } from '../mqtt/mqtt.config.js';
 import { notifyConfigSchema } from '../notify/notify.config.js';
@@ -31,5 +32,7 @@ export const configSchema = z
     stopGrace: z.int().positive().optional(),
     // optional; the webhook that receives the notifications
     notify: notifyConfigSchema.optional(),
+    // optional; the principals that may call the runner, and their roles
+    auth: authSchema.optional(),
   })
   .strict();
