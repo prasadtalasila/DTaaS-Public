@@ -1,0 +1,113 @@
+# Hospital Bed Management Demo
+
+A terminal recording of every feature of the runner, told as the
+hospital bed-management case study of the paper _Self-Adaptation in
+Digital Twin Networks: A Hospital Bed Management Coordination Case
+Study_ (`.research-papers/Generalization_of_Self_Adaptation_in_DT_Networks`).
+One runner manages the digital twin (DT) of one hospital; the person at
+the terminal plays the DT Manager of the network.
+
+The recording is [hospital.cast](hospital.cast), an
+[asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) file of
+about 50 kB and three and a half minutes. It was recorded on Windows against runner
+version 0.7.0 (`feature/distributed-demo` at `f0f7f083`).
+
+## Play
+
+```bash
+asciinema play hospital.cast
+```
+
+Or in a web page, with
+[asciinema-player](https://docs.asciinema.org/manual/player/):
+
+```html
+<div id="demo"></div>
+<script src="asciinema-player.min.js"></script>
+<script>
+  AsciinemaPlayer.create('hospital.cast', document.getElementById('demo'));
+</script>
+```
+
+The recording has a marker at each section, so the player can jump
+between them.
+
+## Scenario
+
+`hospital-1` in Aarhus has two wards, cardiology and maternity, of
+`capacity` beds each. Its state machine
+([hospital.fsm.yaml](hospital.fsm.yaml)) has three states, each running
+the script of the same name in [scripts](scripts):
+
+| State    | Script       | Meaning                                                            |
+| :------- | :----------- | :----------------------------------------------------------------- |
+| `open`   | `open.ps1`   | Admits patients; watches the beds and raises `full` when none free |
+| `full`   | `full.ps1`   | No free bed and no early discharge; fails, which escalates         |
+| `closed` | `closed.ps1` | Admits nobody                                                      |
+
+The Manager submits two commands, declared under `manager.commands`:
+
+- `admit` with input `{"patient": "p-1", "ward": "cardiology"}` on
+  stdin. Under scope `single` the patient goes to the requested ward
+  only; under `multi`, to any ward with a free bed. Without a bed the
+  script escalates with a proposal of scope `multi` and exits 3.
+- `discharge` with input `{"patient": "p-1"}`, which frees the bed and
+  raises `beds-free`.
+
+`scope` is the shared-policy parameter θ ∈ {single, multi} of the
+paper, controllable by the Manager; changing it raises `scope-changed`,
+a `stop: true` self-transition that restarts `open`. `capacity` is
+declared but not controllable.
+
+## Sections
+
+| Time | Section                                       | Features                                                                         |
+| ---: | :-------------------------------------------- | :------------------------------------------------------------------------------- |
+| 0:00 | Setup                                         | `runner.yaml`, state machine file, demo shell helpers                            |
+| 0:15 | Presence: online                              | Retained online notice with the descriptor; first state document                 |
+| 0:31 | DT identity and descriptor                    | `GET /dt`, the MQTT `dt` route                                                   |
+| 0:38 | Health                                        | `GET /health`                                                                    |
+| 0:41 | One state document                            | `GET /state`                                                                     |
+| 0:44 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`                     |
+| 0:54 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command |
+| 1:21 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script                        |
+| 1:43 | Baseline: last command                        | `GET /` with the exit code                                                       |
+| 1:47 | Declared parameters                           | `GET`/`PUT /parameters`; refused non-controllable; event raised                  |
+| 2:05 | Script raises an event; escalation on failure | `full` raised over HTTP; `$failure` without a transition                         |
+| 2:27 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                    |
+| 2:41 | MQTT request/response with input              | MQTT `execute`; late subscriber gets retained state and presence                 |
+| 2:56 | Baseline: history                             | `GET /history`                                                                   |
+| 2:59 | Stop                                          | `POST /stop`; `$stopped` transition                                              |
+| 3:11 | Webhook                                       | Every notification also posted to the webhook                                    |
+| 3:15 | Presence: offline                             | Graceful shutdown leaves a retained offline notice                               |
+
+## Assumptions
+
+- One hospital DT; the other DTs of the network and the Manager's
+  allocation algorithm are out of scope. The terminal user acts as the
+  Manager.
+- Two wards, cardiology and maternity, with 2 beds each; the beds live
+  in `run/ward.json`, a stand-in for the hospital's information system.
+- A patient the hospital cannot take is refused by `admit` (exit 3)
+  rather than queued; the escalation carries the proposal the paper's
+  DT would send (scope `multi`).
+- The broker is a local aedes broker on port 18830 (MQTT 3.1.1), and the
+  webhook is a local receiver on port 18080; both only log what they
+  receive.
+
+## Record Again
+
+From `servers/execution/runner`, after `yarn install` and `yarn build`:
+
+```bash
+node demo/hospital/tools/record.mjs
+node demo/hospital/tools/check-cast.mjs demo/hospital/hospital.cast
+```
+
+`record.mjs` starts the broker, subscriber, webhook receiver and runner
+([tools/services.mjs](tools/services.mjs)), plays the steps of
+[tools/steps.mjs](tools/steps.mjs) in Git Bash (`DEMO_BASH` overrides
+the shell) with real output and simulated typing, and writes
+`hospital.cast`. Everything the run writes goes to `run/`, which git
+ignores. On Linux the runner starts the state scripts with `/bin/sh`, so
+it needs shell versions of the `.ps1` scripts in `scripts/`.
