@@ -1,17 +1,11 @@
-// node tools/check-cast.mjs [FILE]: checks that an asciicast v2 file is
-// valid and replays its timings: a JSON header, then one JSON event per
-// line with a time that never goes back, a known type and a string
+// node tools/check-cast.mjs: checks that hospital.cast is valid
+// asciicast v2 and replays its timings: a JSON header, then one JSON
+// event per line with a time that never goes back, a known type and a
+// string
 import { readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Only a .cast file of the demo folder, whatever path the argument has
-const DEMO = fileURLToPath(new URL('..', import.meta.url));
-const name = path.basename(process.argv[2] ?? 'hospital.cast');
-if (!name.endsWith('.cast')) {
-  throw new Error('expected the name of a .cast file');
-}
-const file = path.join(DEMO, name);
+const file = fileURLToPath(new URL('../hospital.cast', import.meta.url));
 const [first, ...lines] = readFileSync(file, 'utf8').trimEnd().split('\n');
 const header = JSON.parse(first);
 const problems = [];
@@ -36,7 +30,7 @@ lines.forEach((line, index) => {
 });
 
 console.log(
-  `${name}: ${statSync(file).size} bytes, ${header.width}x${header.height},` +
+  `hospital.cast: ${statSync(file).size} bytes, ${header.width}x${header.height},` +
     ` ${clock.toFixed(1)} s, events ${JSON.stringify(counts)},` +
     ` longest gap ${longestGap.toFixed(2)} s`,
 );

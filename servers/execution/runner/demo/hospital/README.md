@@ -106,7 +106,7 @@ From `servers/execution/runner`, after `yarn install` and `yarn build`:
 
 ```bash
 node demo/hospital/tools/record.mjs
-node demo/hospital/tools/check-cast.mjs demo/hospital/hospital.cast
+node demo/hospital/tools/check-cast.mjs
 ```
 
 `record.mjs` starts the broker, subscriber, webhook receiver and runner
