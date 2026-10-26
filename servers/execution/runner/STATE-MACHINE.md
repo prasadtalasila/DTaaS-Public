@@ -517,9 +517,8 @@ and the latest parameter values at each change. When it starts again:
   `interrupted`. The runner does not run the script again, as it may
   have done part of its work; the machine is idle, so send a transition
   request or an event.
-- The commands that had not finished are `interrupted` in `GET /`,
-  `GET /state` and the history; a repeat of such a request gets
-  `failed`.
+- The commands that had not finished are `interrupted` in `GET /` and
+  `GET /state`; a repeat of such a request gets `failed`.
 - A stored state that the file no longer has is dropped with a warning
   in the log, and the machine starts without a state. The entry count
   is kept, so entry numbers never repeat.

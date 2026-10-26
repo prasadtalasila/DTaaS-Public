@@ -27,7 +27,7 @@ completion transition is skipped, so it is not reported `interrupted`.
 ### Recovery
 
 `main.ts` runs the configuration, `FsmService.load()`, `Queue.open`,
-`FsmService.restore()`, MQTT, `listen` (08 swaps the last two), so no
+`FsmService.restore()`, MQTT, `listen`, so no
 request reaches the machine before `restore()`, which:
 
 1. Marks every unfinished `commands` row `interrupted`, finished at

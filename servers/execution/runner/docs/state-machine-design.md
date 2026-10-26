@@ -372,10 +372,8 @@ stateDiagram-v2
     [*] --> stored : restore()
     stored --> Unstarted : no row, or unstarted
     stored --> Unstarted : state not in the file, warning
-    stored --> Interrupted : status running
-    stored --> Idle : valid, invalid, stopped, interrupted
+    stored --> Idle : stored status kept, running restored as interrupted
     Unstarted --> Running : transition
-    Interrupted --> Running : transition or event
     Idle --> Running : transition or event
     note right of Unstarted : keeps the stored entry count
 ```
