@@ -1,0 +1,441 @@
+# 16 React to Peer State
+
+- Status: planned
+- Depends on: 13, 15b
+- PR: none yet
+- Research note:
+  [item 16](../dtn-research-notes.md#16-react-to-peer-state)
+
+## Spec
+
+P2 describes decentralised adaptation, in which "the DTs coordinate
+their adaptation through peer-to-peer communication" and adapt "based on
+the collective knowledge of the network", but gives no mechanism; P1
+plans to compare its centralised Manager with such variants. The runner
+already has a vocabulary for what moves a DT: events. This feature
+turns a change at a peer into an event of the DT, declared by the DT
+author, so that peer-to-peer coordination needs no new channel and no
+logic in scripts.
+
+The peers are the positive list of 13: the operator names each peer in
+`runner.yaml`, and 13 watches each enabled peer's `notify/presence` and
+`notify/state` and keeps the last document of each. There is no
+discovery, so open question 3 of the research notes (a shared base
+topic for discovery) does not arise. The event is raised by the runner
+itself, from a document 13 has accepted, not by a script over HTTP, so
+open question 13 (a script flooding the machine) does not arise either;
+edge triggering, below, bounds the events to one per change of
+interest, which is the rate limit item 16 asked for.
+
+### The section
+
+A top-level `subscriptions` list in the state machine file, the DT
+author's file (S4):
+
+```yaml
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+```
+
+- `peer` is the `id` of a peer listed in `runner.yaml`, enabled or
+  not. It is checked at load against the configuration, as states are
+  checked against `commands`.
+- `when` holds exactly one of `state: <name>`, which holds when the
+  peer's latest state document has that `machine.state`, and
+  `online: true` or `online: false`, which holds when the peer's latest
+  presence notice has that `online`. `<name>` follows the name pattern;
+  it is the peer's state, so it is not checked against this file's
+  states.
+- `event` is an event under `events`. Completion events can not be
+  named, as the name pattern has no `$`.
+- The section is optional; without it, nothing changes.
+
+The runner refuses the file, and does not start, when an entry has
+another key or misses one, `when` has no key, both keys or another one,
+`peer` is not listed under `peers` in `runner.yaml`, `event` is not
+under `events`, or two entries have the same `peer`, `when` and
+`event`. The same `peer` and `when` with different events is allowed:
+both events are raised, in file order. Each problem is one line of the
+error, as for the other sections.
+
+### When the event is raised
+
+The runner keeps, per subscription, whether its condition held in the
+last document seen from that peer: `true`, `false` or unknown. It
+raises `event` only when the condition turns from not holding, or
+unknown, to holding. The first document after subscribing counts as a
+change, so the retained `full` of a peer that is already full fires at
+startup.
+
+- A state condition reads state documents only, and an `online`
+  condition presence notices only; a document of the other kind leaves
+  the record as it is.
+- A peer whose machine is `null`, or which has no state machine, holds
+  no state condition.
+- A presence notice does not touch the record of a state condition: a
+  peer that restarts and reports `full` again raises nothing, as it was
+  `full` before.
+- The will of 07, `online: false` with `time: null`, and the offline
+  notice of a graceful shutdown both hold `online: false`; whichever
+  comes first raises the event, and the second changes nothing.
+- One document can raise several events; they are raised in file
+  order, each against the state the previous one produced, as the
+  events of a parameter change are (D22).
+- A duplicate delivery (MQTT QoS 1) changes nothing, as the condition
+  already holds.
+
+### Worked example
+
+`hospital-1` lists `hospital-2` as a peer, and its file has, apart
+from the sections and transitions of the demo today:
+
+```yaml
+events:
+  - full
+  - beds-free
+  - scope-changed
+  - close
+  - reopen
+  - neighbour-full
+  - neighbour-down
+subscriptions:
+  - peer: hospital-2
+    when: { state: full }
+    event: neighbour-full
+  - peer: hospital-2
+    when: { online: false }
+    event: neighbour-down
+states:
+  open:
+    transitions:
+      neighbour-full: { state: open, stop: true }
+```
+
+`hospital-2` publishes these state documents, and one presence notice:
+
+| #   | What happened at `hospital-2`  | `machine.state`   | `command`                 | `hospital-1` raises |
+| :-- | :----------------------------- | :---------------- | :------------------------ | :------------------ |
+| 1   | enters `open`                  | `open`            | `open`, running           | nothing             |
+| 2   | admits `p-1`                   | `open`            | `admit`, running          | nothing             |
+| 3   | `admit` finishes               | `open`            | `admit`, valid            | nothing             |
+| 4   | admits `p-2`, finishes         | `open`            | `admit`, valid            | nothing             |
+| 5   | last bed taken, enters `full`  | `full`            | `full`, running           | `neighbour-full`    |
+| 6   | script of `full` finishes      | `full`            | `full`, valid             | nothing             |
+| 7   | Manager discharges `p-1`       | `full`            | `discharge`, running      | nothing             |
+| 8   | `beds-free`, enters `open`     | `open`            | `open`, running           | nothing             |
+| 9   | runner of hospital-2 is killed | (presence notice) | `online: false`, the will | `neighbour-down`    |
+
+- 1 to 4: `open` is not `full`; the first document sets the record to
+  `false`.
+- 5: `open` became `full`. `open` of `hospital-1` restarts at its next
+  entry, so its script stops forwarding overflow to `hospital-2`.
+- 6 and 7: still `full`; the command changed, not the state.
+- 8: `hospital-2` left `full`; no subscription asks for that. A DT
+  author who wants it adds `when: { state: open }` with its own event.
+- 9: the will holds `online: false`; the online notice that
+  `hospital-1` saw when it subscribed did not, so the record turns
+  from `false` to `true`.
+
+One event per change of interest, with a name that says what happened;
+the script of `open` needs no comparison logic.
+
+### What the event does
+
+The event takes the path of `POST /fsm/event` from an internal caller:
+`FsmService.event(event)` without a request key
+(`src/fsm/fsm.service.ts:165-185`, with `move`).
+
+- The current state's transition is taken, including `stop: true` and
+  self-transitions, as in the example.
+- No transition is logged at debug level and, with
+  `escalation.onNoTransition`, escalates once per entry and event
+  (D25), as a client's event does (`firstTime`,
+  `src/fsm/escalation.ts:98-109`). The escalation's `reason` is the
+  usual `no transition for neighbour-full in state closed`.
+- The request-key machinery is not involved, and nothing replies.
+- Before the first transition (state `null`) the event is refused with
+  `no transition`, as today, logged and not escalated. The record still
+  turns `true`, so the event is not raised again for that change: a
+  state that must know the neighbour's current state at entry reads
+  `GET $RUNNER_URL/peers` (this plan's call: no replay at the first
+  transition).
+- During shutdown the event is refused `stopping` and logged as a
+  warning, as `Requests.answer` does today
+  (`src/fsm/requests.ts:33-42`, `53-62`); no script starts.
+- An accepted event is logged at `log` level with the peer, the
+  condition and the event, so that `runner.log` shows why the machine
+  moved (this plan's call).
+
+### Disabled, signed and silent peers
+
+- A peer that a Manager disables with `PUT /peers` (13) makes its
+  subscriptions inert: 13 unfollows a disabled peer's topics, so no
+  notice of it arrives. The
+  records of its subscriptions are forgotten on disable (this plan's
+  call), so when it is enabled again, the first document counts as a
+  change, as at startup. A peer listed with `enabled: false` is inert
+  from the start.
+- Documents 13 drops, unsigned or invalid from a peer that has a
+  `publicKey` (15b), or unparsable, never reach 16, so a forged `full`
+  raises nothing. A peer without a key is taken as is; a DT author
+  whose subscriptions steer the machine asks the operator for the
+  peer's key.
+- A peer that sends nothing raises nothing; a subscription is a
+  reaction to documents, not a timeout. `online: false` covers a peer
+  that vanishes, through its will.
+
+### Demo
+
+The hospital demo becomes a network of two DTs:
+
+- `hospital-2`: port 5200, base topic `dtaas/hospital-2`, its own
+  configuration `runner-2.yaml` and state machine file
+  `hospital-2.fsm.yaml` next to the files of `hospital-1`, and the same
+  scripts in `scripts/` (this plan's call). Its file is `hospital-1`'s
+  without `subscriptions`, with `capacity` 1, so two admissions fill
+  it. Each hospital lists the other under `peers` with a `distance`
+  attribute in km.
+- The scripts keep their beds and log per DT, in `run/$DT_ID/`, so two
+  runners share `scripts/` (this plan's call).
+- `hospital-1`'s `open` reacts to `neighbour-full` and
+  `neighbour-down` with a `stop: true` self-transition. At entry,
+  `open` reads `GET $RUNNER_URL/peers` and logs where overflow goes:
+  the nearest peer online in state `open`, or none. `full` reads the
+  same list and succeeds when such a peer exists, else fails as today
+  (this plan's call), which gives row 6 of the example its `valid` and
+  keeps the `failure` escalation of `hospital-1`, whose neighbour is
+  then `full`.
+- The scripts send `Authorization: Bearer $RUNNER_TOKEN` (15a); each
+  runner signs its notifications with its `auth.key`, and each lists
+  the other's `publicKey` (15b). Keys are generated by `record.mjs`
+  into `run/` where 15b's form allows it, so no private key is
+  committed (this plan's call).
+- Shell twins of the PowerShell scripts, as `test/data/scripts` has:
+  `admit`, `closed`, `discharge`, `full` and `open`, executable
+  (`git update-index --chmod=+x`), and `ward.sh` for the helpers. The
+  factory runs `name` on Linux and `name.ps1` on Windows
+  (`src/runner-factory.service.ts:13-20`). They parse JSON with `node`,
+  which every runner host has, rather than `jq` (this plan's call).
+
+The recording becomes two synchronised windows. `record.mjs` writes two
+casts on one clock: on the left the Manager's terminal, typing to both
+runners (`dt1` and `dt2`, `mq1` and `mq2` in `tools/shell.sh`, with the
+Manager's `Authorization` header); on the right the notification stream
+of both DTs, one line per notification from a subscriber to
+`dtaas/+/notify/+`. A viewer sees `hospital-1` restart `open` when
+`hospital-2` goes `full`, and raise `neighbour-down` when `hospital-2`
+is killed. `to-mp4.sh` renders each cast with agg and joins them side
+by side with ffmpeg `hstack` into one video.
+
+It is recorded on Windows and on Linux: `demo-windows.mp4` and
+`demo-linux.mp4` replace `hospital.mp4`, with the casts
+`demo-windows-manager.cast`, `demo-windows-network.cast` and their
+`demo-linux-*` twins replacing `hospital.cast`. The root
+`.gitattributes` already stores `*.mp4` in Git LFS. The Linux recording
+runs in WSL or the `developer/devenv` container. The broker is aedes,
+in `tools/services.mjs`, so it runs wherever node runs; the Linux
+recording would be dropped only if the devenv could not run it, which
+is not expected. `api/API.md`'s examples are re-captured from the new
+recording, with the `Authorization` header of 15a and the signed
+notifications of 15b where they show.
+
+### Version
+
+A new optional section breaks no file and no route, so 16 needs no
+version bump of its own; the version is whatever 13 and 15 left. The
+internal signature of `loadDefinition` changes, which no consumer sees.
+
+### Considered and set aside
+
+The owner weighed two other designs against the example above:
+
+- **B, no `when`**: every document of the peer raises the event. The
+  sequence gives eight events for one change of interest; a
+  `stop: true` self-transition restarts the script of `open` on every
+  admission at the neighbour; and the script must fetch the documents
+  and compare them itself to know what changed.
+- **C, `on: state | presence` without `when`**: change-triggered on
+  one field. The sequence gives three events instead of one (rows 5, 8
+  and 9), and the file can not say "only when the neighbour becomes
+  full"; the script decides.
+
+Design A was chosen because policy expressed in the file keeps scripts
+quiet, and `when` can grow more fields later, such as a parameter
+value, without breaking a file.
+
+## Plan
+
+1. Review this plan against the merged 13 and 15b. 13's plan has a
+   plain class `Peers` (`src/peers/peers.ts`) owned by
+   `DescriptorService` and reached through `descriptor.peers()`, with
+   `observe(id, kind, data)` for each notice that `PeerWatch` accepted
+   and `onEnabled(listener)` for enable and disable, and
+   `config.getPeers()`. `Peers` has no listener for notices, so this
+   pull request adds `onNotice(listener)`, called from `observe` after
+   it stores the data (this plan's call). Use 13's names as merged.
+1. Add `src/fsm/subscriptions.ts`, the pattern of `parameters.ts`:
+   - `subscriptionsSchema`: a list of strict entries, `when` a union
+     of two strict objects (`{ state: nameSchema }`,
+     `{ online: z.boolean() }`), with `.default([])`;
+   - `Subscription` and `subscriptionProblems(definition, peers)`:
+     unknown peer, undeclared event, duplicates by a key of `peer`,
+     `when` and `event`;
+   - `known(config)`, which returns `{ commands, peers }` (the ids of
+     `config.getPeers()`) for `loadDefinition`, so that
+     `FsmService.load()` does not grow;
+   - a plain class `PeerEvents(raise)` with `declare(subscriptions)`,
+     `see(peer, kind, data)` and `forget(peer)`. The records are a
+     `Map` by subscription index; `holds(when, kind, data)` returns
+     `true`, `false` or `undefined` for the other kind, split by
+     kind to keep each function under complexity 5. The `null` data of
+     an empty payload (`readNotice` of 13) holds nothing.
+1. `src/fsm/definition.ts` (227 lines): add the section to
+   `fileSchema` (`:56-69`), `Definition` (`:29-38`) and `toDefinition`
+   (`:89-106`). `parseDefinition` would reach four parameters, so
+   `permitted` becomes `known: { commands, peers }` in
+   `parseDefinition(text, file, known)`, `loadDefinition(file, known)`
+   and `crossCheck` (`:134-152`), which adds `subscriptionProblems`.
+   About eight lines; `hasProtoKey` needs no change, as strict objects
+   refuse `__proto__` (a test checks it).
+1. `src/fsm/fsm.service.ts` (248 lines) does not grow: `load()`
+   (`:70-80`) passes `known(this.config)`, and `managerCommands()`
+   (`:125-128`) becomes `declared(): Definition | undefined`, read by
+   `DescriptorService` (`declared()?.managerCommands ?? []`) and by the
+   new service.
+   `StateMachine.managerCommands` (`src/fsm/state-machine.ts:27`) goes
+   if nothing else reads it.
+1. Add `src/fsm/peer-events.service.ts`: `PeerEventsService`, with
+   `FsmService` and `DescriptorService` (two constructor parameters),
+   which no other class receives. Its constructor registers `onNotice`
+   to `see` and `onEnabled` to `forget` a disabled peer, as `PeerWatch`
+   registers `onEnabled`, so the order of the `onModuleInit` hooks does
+   not matter. `onModuleInit` declares `PeerEvents` from
+   `declared()?.subscriptions` (`main.ts` loads the definition before
+   `listen`); no notice arrives before it, as a notice needs I/O and
+   the hooks only yield microtasks. It raises with
+   `logStay(logger, fsm.event(event), event)` from
+   `src/fsm/requests.ts`, logging an accepted event. Register it in
+   `src/app.module.ts`. Nothing changes in `src/mqtt/mqtt.service.ts`.
+1. Tests and test data: a state machine file with `subscriptions`
+   whose states are test scripts (`loop` with a `stop: true`
+   self-transition), and a configuration with two peers, one with a
+   key, or a spy on `getPeers` as 06 spied on `getMqtt`.
+   `test/unit/fsm.definition.spec.ts` is at 239 lines, so the section's
+   tests get their own file.
+1. Documents of the runner part: `README.md` (a Peer Events section
+   under State Machine, after Escalation), `STATE-MACHINE.md` (a
+   Subscriptions section under Write the State Machine File, the
+   refusals, and a paragraph under Run the Machine),
+   `docs/state-machine-design.md` (the file example list, Validation,
+   a new decision with the next free D number when the pull request is
+   opened, Components, and A4), `api/dev.mqtt.http` (publish a
+   retained peer state to try a subscription), `api/dev.api.http`
+   (`GET /fsm` after it), `DEVELOPER.md` (only if it names test data
+   or files that change) and `docs/issues/README.md` (16 leaves
+   Deferred and gets a row).
+1. The demo, last, once 13, 15b and the runner part are merged:
+   `demo/hospital/runner.yaml`, new `runner-2.yaml` and
+   `hospital-2.fsm.yaml`, `hospital.fsm.yaml` with the subscriptions,
+   `scripts/*.ps1` with `run/$DT_ID/`, peers and the token, their shell
+   twins, and in `tools/`: `settings.mjs` (both bases and URLs),
+   `shell.sh`, `mq.mjs`, `services.mjs` (`dtaas/+/notify/+`),
+   `steps.mjs`, a new `clock.mjs` shared by two `Cast`s (the gap cap
+   applied once on the shared clock), `record.mjs` (two runners, an
+   asynchronous `run`, as `spawnSync` blocks the subscriber, and a
+   `kill` step), `check-cast.mjs` (both casts, one end time) and
+   `to-mp4.sh` (an agg idle limit above any gap, so that agg does not
+   compress the casts differently; `hstack`). Then `api/API.md`,
+   `demo/hospital/README.md` and the hospital example of
+   `STATE-MACHINE.md`, which link `hospital.cast` and `hospital.mp4`.
+
+## Tasks
+
+Size L. The runner part is one pull request on `runner/16-peer-events`;
+the demo is the last task, a second pull request once 13, 15b and the
+runner part are merged (this plan's call).
+
+### Runner Feature
+
+- [ ] The section accepts the example and an empty list, and rejects
+      an unknown key, `__proto__` in an entry or in `when`, a `when`
+      with no key or both, a non-boolean `online`, an unlisted peer,
+      an undeclared event and a duplicate, each with a message; the
+      same `when` with two events loads. Check:
+      `test/unit/fsm.subscriptions.spec.ts` (new).
+- [ ] `parseDefinition` and `loadDefinition` take `known`, and every
+      existing refusal still names its problem. Check:
+      `test/unit/fsm.definition.spec.ts`,
+      `test/unit/fsm.parameters.spec.ts`,
+      `test/unit/fsm.declared-env.spec.ts`.
+- [ ] `PeerEvents` replays the worked example and raises exactly
+      `neighbour-full` at 5 and `neighbour-down` at 9; a first document
+      that holds raises; a duplicate does not; a presence notice leaves
+      a state record alone; a `null` machine holds nothing; two
+      subscriptions on one document raise in file order; after
+      `forget`, the next document counts as first. Check:
+      `test/unit/fsm.peer-events.spec.ts` (new).
+- [ ] Through `FsmService`: a peer event takes a `stop: true`
+      self-transition and restarts the script; without a transition it
+      escalates once per entry with `onNoTransition`; before the first
+      transition it is refused and not escalated; during shutdown it
+      is refused `stopping`. Check:
+      `test/unit/fsm.service.peer-events.spec.ts` (new).
+- [ ] `PeerEventsService` declares the subscriptions after `load()`,
+      forwards documents and disables, and logs each reply at its
+      level; `Peers.onNotice` fires after `observe` stores the data.
+      Check: `test/unit/peer-events.service.spec.ts` (new),
+      `test/unit/peers.spec.ts`, and
+      `test/unit/descriptor.service.spec.ts` for `declared()`.
+- [ ] End to end on the local aedes broker: a retained `full` of a
+      peer without a key, published before the runner starts, raises
+      the event at startup; a later `full` after `open` raises it once;
+      a will raises the `online: false` event; an unsigned document of
+      a peer with a key raises nothing; a disabled peer raises nothing
+      until enabled. Check: `test/e2e/peer-events.spec.ts` (new), with
+      `startBroker` of `test/e2e/mqtt.util.ts`.
+- [ ] `test/e2e/mqtt.broker.spec.ts` asserts no shape that 16 changes.
+      Check: grep it, and its CI run against Mosquitto.
+- [ ] README, `STATE-MACHINE.md`, the design document (the next free
+      D number when the pull request is opened; A4 amended: "Amended
+      by issue 16: the runner also raises an event by itself when the
+      condition of a subscription to a listed peer turns true; the
+      event takes the path of a client's event"), `api/dev.api.http`,
+      `api/dev.mqtt.http`, `DEVELOPER.md` and the index. Check: from
+      the repository root, `npx markdownlint-cli -c .markdownlint.yaml`
+      on them, and each request file run once against a runner.
+- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass;
+      no file passes 250 lines; no function reaches complexity 5, four
+      parameters or four returns. Check: their output, and
+      `qlty metrics --functions`.
+
+### Demo Recording
+
+- [ ] Both runners start from their configurations on Windows, list
+      each other on `GET /peers`, and `hospital-1` restarts `open` when
+      `hospital-2` goes `full`. Check: `node tools/record.mjs` on
+      Windows and the `runner.log` of each.
+- [ ] The shell twins run on Linux, and `git ls-files -s` shows them
+      at mode `100755`. Check: `node tools/record.mjs` in WSL or the
+      devenv container.
+- [ ] Two casts per platform on one clock, ending together. Check:
+      `node tools/check-cast.mjs`.
+- [ ] `demo-windows.mp4` and `demo-linux.mp4`, side by side, replace
+      `hospital.mp4`, stored in Git LFS. Check: `bash tools/to-mp4.sh`
+      and `git lfs ls-files`.
+- [ ] `api/API.md` re-captured from the new recording, with the
+      `Authorization` header and signed notifications where they show;
+      `demo/hospital/README.md` (scenario, sections, play, record and
+      convert) and the hospital example of `STATE-MACHINE.md`. Check:
+      `npx markdownlint-cli -c .markdownlint.yaml` on them, and
+      `npx prettier --check`.
+- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass.
+      Check: their output.
+
+## Learnings
+
+Written in the pull request that implements the issue.
