@@ -1,9 +1,11 @@
 // mq ROUTE [JSON]: publishes a request on <base>/<ROUTE> and prints the
-// response that the runner publishes on <base>/<ROUTE>/response.
+// response that the runner publishes on <base>/<ROUTE>/response. With
+// the keys of record.mjs, the request is signed (sign.mjs).
 // mq retained: prints the notifications that the broker retained, as a
 // Manager that subscribes late receives them.
 import { connectAsync } from 'mqtt';
 import format from './format.mjs';
+import { envelope } from './sign.mjs';
 import summary from './summary.mjs';
 import { BASE, BROKER_PORT } from './settings.mjs';
 
@@ -28,7 +30,9 @@ async function request(client, route, payload) {
   const topic = `${BASE}/${route}/response`;
   await client.subscribeAsync(topic, { qos: 1 });
   const response = nextMessage(client, topic);
-  await client.publishAsync(`${BASE}/${route}`, payload, { qos: 1 });
+  await client.publishAsync(`${BASE}/${route}`, envelope(route, payload), {
+    qos: 1,
+  });
   console.log(`\x1b[2m${topic}\x1b[0m`);
   console.log(format(JSON.parse(await response)));
 }

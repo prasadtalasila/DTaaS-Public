@@ -7,11 +7,13 @@ import {
   appendFileSync,
   mkdirSync,
   openSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Cast from './cast.mjs';
+import { keygen } from './keygen.mjs';
 import steps from './steps.mjs';
 import { healthy } from './waits.mjs';
 
@@ -37,6 +39,21 @@ function reset() {
     rmSync(`run/${file}`, { force: true });
   }
   writeFileSync('run/ward.json', '{"cardiology":[],"maternity":[]}\n');
+}
+
+// runner.yaml with access control: new keys of alice (client) and
+// manager-1 (manager) in run/keys/, with which sign.mjs signs
+function authConfig() {
+  const principals = [
+    ['alice', 'client'],
+    ['manager-1', 'manager'],
+  ].map(
+    ([name, role]) =>
+      `    - name: ${name}\n      role: ${role}\n` +
+      `      publicKey: '${keygen(name, 'run/keys')}'\n`,
+  );
+  const auth = `auth:\n  principals:\n${principals.join('')}`;
+  writeFileSync('runner.auth.yaml', readFileSync('runner.yaml', 'utf8') + auth);
 }
 
 async function poll(condition, deadline) {
@@ -83,7 +100,7 @@ async function startRunner() {
   const log = openSync('run/runner.log', 'w');
   processes.runner = spawn(
     process.execPath,
-    ['tools/runner.mjs', '-c', 'runner.yaml'],
+    ['tools/runner.mjs', '-c', 'runner.auth.yaml'],
     {
       stdio: ['ignore', log, log],
       env: { ...process.env, NO_COLOR: '1' },
@@ -132,6 +149,7 @@ function report() {
 }
 
 reset();
+authConfig();
 try {
   // one step after the other
   await steps.reduce(
