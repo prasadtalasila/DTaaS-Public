@@ -105,6 +105,11 @@ export default class FsmService implements BeforeApplicationShutdown {
     return this.machine?.describe(this.status);
   }
 
+  // The commands a Manager may submit, which nothing enforces yet
+  managerCommands(): string[] {
+    return this.machine?.managerCommands ?? [];
+  }
+
   parameters(): Parameters | undefined {
     return this.declared;
   }
@@ -117,7 +122,13 @@ export default class FsmService implements BeforeApplicationShutdown {
       this.queue.setParameters(changes),
     );
     this.changes.emit();
-    result?.events.forEach((event) => this.raise(event));
+    result?.events.forEach((event) =>
+      this.requests.raise(
+        event,
+        (machine) => this.move(machine, event),
+        this.logger,
+      ),
+    );
     return result?.problems ?? [];
   }
 
@@ -148,17 +159,6 @@ export default class FsmService implements BeforeApplicationShutdown {
     return next.stop
       ? this.enterStopping(machine, next.state)
       : this.enter(machine, next.state);
-  }
-
-  // A refused event is logged; an event a parameter raises never escalates
-  private raise(event: string): void {
-    const { status, state } = this.requests.answer((machine) =>
-      this.move(machine, event),
-    );
-    if (status !== 'accepted') {
-      const level = status === 'no transition' ? 'debug' : 'warn';
-      this.logger[level](`Stayed in state ${state} on ${event}: ${status}`);
-    }
   }
 
   private move(machine: StateMachine, event: string): FsmReplyDto {

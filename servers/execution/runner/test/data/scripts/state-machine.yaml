@@ -26,3 +26,7 @@ states:
       scope-changed:
         state: execute
         stop: true
+# the commands that a Manager may submit
+manager:
+  commands:
+    - create

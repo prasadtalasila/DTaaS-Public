@@ -50,7 +50,13 @@ describe('Check Configuration Service', () => {
     expect(config.getId()).toEqual('test-runner');
     expect(config.getAttributes()).toEqual({});
     expect(config.getPort()).toEqual(5002);
-    expect(config.permitCommands()).toEqual(['create', 'loop', 'ignore-term']);
+    expect(config.permitCommands()).toEqual([
+      'create',
+      'loop',
+      'ignore-term',
+      'echo-input',
+      'fail',
+    ]);
     expect(config.getLocation()).toEqual(resolveFile('script'));
     expect(config.getStateMachine()).toBeUndefined();
     expect(spyOnCLIOptions).toHaveBeenCalled();

@@ -20,10 +20,12 @@ import {
 } from './dto/escalation.dto.js';
 import { StateDocumentDto } from './dto/state.dto.js';
 import {
+  EXECUTE_STATUS_CODES,
   ExecuteCommandDto,
   executeCommandSchema,
-  executeResponse,
+  executeReply,
   REQUEST_KEY,
+  runOptions,
   StopDto,
   stopSchema,
   StopResponseDto,
@@ -63,14 +65,14 @@ export default class AppController {
     @Headers(REQUEST_KEY) requestKey?: string,
   ): Promise<void> {
     const { name } = executeCommandDto;
-    const [outcome] = await this.manager.newCommand(
-      name,
-      validRequestKey(requestKey),
-      { env: this.fsm.environment(name) },
+    const reply = await executeReply(
+      this.manager.newCommand(
+        name,
+        validRequestKey(requestKey),
+        runOptions(executeCommandDto, this.fsm.environment(name)),
+      ),
     );
-    res
-      .status(outcome === 'failed' ? HttpStatus.BAD_REQUEST : HttpStatus.OK)
-      .send(executeResponse(outcome));
+    res.status(EXECUTE_STATUS_CODES[reply.status]).send(reply);
   }
 
   // Answers once the stopped scripts have exited

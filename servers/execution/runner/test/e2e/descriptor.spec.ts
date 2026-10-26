@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { startRunner } from './util';
@@ -30,31 +30,42 @@ describe('Runner descriptor end-to-end tests', () => {
   it('Should describe a runner without attributes or a state machine', async () => {
     app = await startRunnerWith(dir, `id: dt-1\n${BASE}`);
 
-    await supertest(app.getHttpServer())
-      .get('/dt')
-      .expect(HttpStatus.OK, {
+    const { status, body } = await supertest(app.getHttpServer()).get('/dt');
+
+    expect([status, body]).toEqual([
+      HttpStatus.OK,
+      {
         id: 'dt-1',
         attributes: {},
         commands: ['create', 'execute'],
         stateMachine: false,
-      });
+        manager: { commands: [] },
+      },
+    ]);
   });
 
   it('Should describe a runner with attributes and a state machine', async () => {
-    writeFileSync(join(dir, 'dt.yaml'), 'states: {create: {}}');
+    writeFileSync(
+      join(dir, 'dt.yaml'),
+      'states:\n  create:\nmanager:\n  commands:\n    - execute\n',
+    );
     app = await startRunnerWith(
       dir,
       `id: hospital-1\n${BASE}stateMachine: dt.yaml\n` +
         'attributes: {city: Aarhus, beds: 120, open: true}\n',
     );
 
-    await supertest(app.getHttpServer())
-      .get('/dt')
-      .expect(HttpStatus.OK, {
+    const { status, body } = await supertest(app.getHttpServer()).get('/dt');
+
+    expect([status, body]).toEqual([
+      HttpStatus.OK,
+      {
         id: 'hospital-1',
         attributes: { city: 'Aarhus', beds: 120, open: true },
         commands: ['create', 'execute'],
         stateMachine: true,
-      });
+        manager: { commands: ['execute'] },
+      },
+    ]);
   });
 });

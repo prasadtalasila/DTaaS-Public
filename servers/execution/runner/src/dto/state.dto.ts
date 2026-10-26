@@ -3,7 +3,8 @@ import { FsmStateDto } from './fsm.dto.js';
 import { ParameterValue } from './parameters.dto.js';
 
 // running until the command finishes, then its stored status
-export type CommandStateStatus = 'running' | 'valid' | 'invalid' | 'stopped';
+export type CommandStateStatus =
+  'running' | 'valid' | 'failed' | 'invalid' | 'stopped';
 
 // The latest command, without its logs, which stay on GET /
 export type CommandState = {

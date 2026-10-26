@@ -34,7 +34,12 @@ describe('Execution manager options of a run', () => {
     const options = new Keyv();
     await options.set('configFile', configFilename);
     await module.get<Config>(Config).loadConfig(options);
-    const runner = { run, stop: jest.fn(), checkLogs: () => new Map() };
+    const runner = {
+      run,
+      stop: jest.fn(),
+      checkLogs: () => new Map(),
+      checkExitCode: () => 0,
+    };
     jest
       .spyOn(RunnerFactory, 'create')
       .mockReturnValue(runner as unknown as Runner);

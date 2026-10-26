@@ -4,7 +4,7 @@ import AppModule from 'src/app.module';
 import AppController from 'src/app.controller';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import { Response } from 'express';
-import { ExecuteCommandDto } from 'src/dto/command.dto';
+import { ExecuteCommandDto, runOptions } from 'src/dto/command.dto';
 import { Manager } from 'src/interfaces/command.interface';
 import ExecaManager from 'src/execa-manager.service';
 import Keyv from 'keyv';
@@ -13,6 +13,12 @@ import FsmService from 'src/fsm/fsm.service';
 
 type ResponseBody = {
   status: string;
+  result?: { exitCode: number | null; stdout: string; stderr: string };
+};
+
+const SUCCESS = {
+  status: 'success',
+  result: { exitCode: 0, stdout: 'hello world', stderr: '' },
 };
 
 let mockBlackhole: jest.Mock;
@@ -47,6 +53,7 @@ describe('Test AppController', () => {
     await controller.newCommand(executeCommandDto, res);
 
     expect(spyManager).toHaveBeenCalledWith(executeCommandDto.name, undefined, {
+      ...runOptions(executeCommandDto, {}),
       env: expect.objectContaining({ DT_ID: 'test-runner' }),
     });
     expect(resStatus).toHaveBeenCalledWith(httpStatus);
@@ -77,8 +84,13 @@ describe('Test AppController', () => {
   });
 
   it('should execute an available command', async () => {
-    await newCommandTest({ name: 'create' }, HttpStatus.OK, {
-      status: 'success',
+    await newCommandTest({ name: 'create' }, HttpStatus.OK, SUCCESS);
+  });
+
+  it('should answer a failing script with its result', async () => {
+    await newCommandTest({ name: 'fail' }, HttpStatus.OK, {
+      status: 'failed',
+      result: { exitCode: 3, stdout: '', stderr: 'no free bed' },
     });
   });
 
@@ -89,9 +101,7 @@ describe('Test AppController', () => {
   });
 
   it('Should have correct command history', async () => {
-    await newCommandTest({ name: 'create' }, HttpStatus.OK, {
-      status: 'success',
-    });
+    await newCommandTest({ name: 'create' }, HttpStatus.OK, SUCCESS);
     await newCommandTest({ name: 'test' }, HttpStatus.BAD_REQUEST, {
       status: 'invalid command',
     });
@@ -104,9 +114,7 @@ describe('Test AppController', () => {
   });
 
   it('Should return correct command status after valid command execution followed by invalid command execution', async () => {
-    await newCommandTest({ name: 'create' }, HttpStatus.OK, {
-      status: 'success',
-    });
+    await newCommandTest({ name: 'create' }, HttpStatus.OK, SUCCESS);
     const successStatus = await controller.cmdStatus();
 
     await newCommandTest({ name: 'test' }, HttpStatus.BAD_REQUEST, {
@@ -121,6 +129,7 @@ describe('Test AppController', () => {
         stdout: 'hello world',
         stderr: '',
       },
+      exitCode: 0,
     });
     expect(unsuccessStatus).toEqual({
       name: 'test',
@@ -129,6 +138,7 @@ describe('Test AppController', () => {
         stdout: '',
         stderr: '',
       },
+      exitCode: null,
     });
   });
 
@@ -142,6 +152,7 @@ describe('Test AppController', () => {
         stdout: '',
         stderr: '',
       },
+      exitCode: null,
     });
   });
 });

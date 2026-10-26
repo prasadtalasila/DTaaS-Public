@@ -24,6 +24,10 @@ export default class StateMachine {
     return [...this.definition.events].sort((a, b) => a.localeCompare(b));
   }
 
+  get managerCommands(): string[] {
+    return this.definition.managerCommands;
+  }
+
   hasState(state: string): boolean {
     return this.definition.states.has(state);
   }

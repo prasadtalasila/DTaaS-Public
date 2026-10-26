@@ -5,6 +5,7 @@ import { expect, jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
+import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 
@@ -52,10 +53,10 @@ function fakeManager() {
     isRunning: jest.fn((name: string) => finishers.has(name)),
     newCommand: jest.fn(
       (name: string, _key?: string, _options?: RunOptions) =>
-        new Promise<[RunOutcome, Map<string, string>]>((resolve) => {
+        new Promise<CommandResult>((resolve) => {
           finishers.set(name, (outcome) => {
             finishers.delete(name);
-            resolve([outcome, new Map()]);
+            resolve([outcome, new Map(), null]);
           });
         }),
     ),

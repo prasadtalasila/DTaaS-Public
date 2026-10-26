@@ -69,6 +69,7 @@ export const status = {
   name: 'create',
   status: 'valid',
   logs: { stdout: 'hello world', stderr: '' },
+  exitCode: 0,
 };
 
 // An ExecaManager whose commands all end with the outcome, for the
@@ -76,7 +77,7 @@ export const status = {
 export const fakeManager = (outcome: RunOutcome) => ({
   newCommand: jest.fn(
     (_name: string, _requestKey?: string, _options?: RunOptions) =>
-      Promise.resolve([outcome, new Map()]),
+      Promise.resolve([outcome, new Map(), null]),
   ),
   checkStatus: jest.fn(() => status),
   checkHistory: jest.fn(() => [{ name: 'create' }]),
@@ -89,6 +90,7 @@ export const dt = {
   attributes: { city: 'Aarhus' },
   commands: ['create'],
   stateMachine: true,
+  manager: { commands: [] },
 };
 
 export const stateDocument = {

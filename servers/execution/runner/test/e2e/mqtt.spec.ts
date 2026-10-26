@@ -106,6 +106,21 @@ describe('Runner MQTT end-to-end tests', () => {
     });
   });
 
+  it('replies to execute with the result of a script given input', () =>
+    expectReply(
+      client,
+      'execute',
+      { name: 'echo-input', input: { ward: 'B' } },
+      {
+        status: 'success',
+        result: {
+          exitCode: 0,
+          stdout: expect.stringContaining('{"ward":"B"}'),
+          stderr: '',
+        },
+      },
+    ));
+
   it('replies with the command history', async () => {
     await expectReply(client, 'history', {}, []);
     await request(client, 'execute', { name: 'create' });
@@ -123,8 +138,9 @@ describe('Runner MQTT end-to-end tests', () => {
     expect(body).toEqual({
       id: 'test-runner',
       attributes: {},
-      commands: ['create', 'loop', 'ignore-term'],
+      commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail'],
       stateMachine: false,
+      manager: { commands: [] },
     });
   });
 

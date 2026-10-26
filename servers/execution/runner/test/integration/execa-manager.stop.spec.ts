@@ -8,6 +8,7 @@ import {
   jest,
 } from '@jest/globals';
 import Keyv from 'keyv';
+import { CommandRefused } from 'src/dto/command.dto';
 import ExecaManager from 'src/execa-manager.service';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
@@ -70,10 +71,12 @@ describe('Stopping the runs of the execution manager', () => {
   });
 
   it('Should have nothing to stop for a command that is not permitted', async () => {
-    const run = manager.newCommand(nonExistingCommand);
+    const refused = expect(
+      manager.newCommand(nonExistingCommand),
+    ).rejects.toEqual(new CommandRefused('invalid command'));
 
     expect(await manager.stop()).toEqual([]);
-    expect((await run)[0]).toBe('failed');
+    await refused;
   });
 
   it('Should record a stopped run as stopped', async () => {
