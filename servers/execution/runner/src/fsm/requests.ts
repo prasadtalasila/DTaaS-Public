@@ -45,10 +45,19 @@ export default class Requests {
   // Answers an event that a parameter raises: the reply goes nowhere, so
   // a refused event is logged, and it never escalates
   raise(event: string, handle: Handle, logger: Logger): void {
-    const { status, state } = this.answer(handle);
-    if (status !== 'accepted') {
-      const level = status === 'no transition' ? 'debug' : 'warn';
-      logger[level](`Stayed in state ${state} on ${event}: ${status}`);
-    }
+    logStay(logger, this.answer(handle), event);
+  }
+}
+
+// Logs an event that left the machine where it was; an event without a
+// transition is common, so it is logged at debug level
+export function logStay(
+  logger: Logger,
+  { status, state }: FsmReplyDto,
+  event: string,
+): void {
+  if (status !== 'accepted') {
+    const level = status === 'no transition' ? 'debug' : 'warn';
+    logger[level](`Stayed in state ${state} on ${event}: ${status}`);
   }
 }

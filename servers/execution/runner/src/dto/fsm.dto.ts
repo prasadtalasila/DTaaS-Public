@@ -38,7 +38,17 @@ export const fsmReply = (
   state: string | undefined,
 ): FsmReplyDto => ({ status, state: state ?? null });
 
-export type ScriptStatus = 'none' | 'running' | 'valid' | 'invalid' | 'stopped';
+// interrupted: the script did not finish before the runner restarted
+export type ScriptStatus =
+  'none' | 'running' | 'valid' | 'invalid' | 'stopped' | 'interrupted';
+
+// The machine as the database keeps it; state is undefined before the
+// first transition
+export type StoredMachine = {
+  state: string | undefined;
+  entry: number;
+  status: ScriptStatus;
+};
 
 // The event that the outcome of a script raises, and the status it
 // leaves

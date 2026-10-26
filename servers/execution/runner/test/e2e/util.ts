@@ -5,19 +5,45 @@ import Keyv from 'keyv';
 import AppModule from 'src/app.module';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
+import Queue from 'src/queue.service';
 
-// Starts the runner as main.ts does, with the configuration file given
-export async function startRunner(
-  configFile: string,
-): Promise<INestApplication> {
+// Loads the configuration file given and the state machine it names
+async function configure(app: INestApplication, configFile: string) {
+  const options = new Keyv();
+  await options.set('configFile', configFile);
+  const config = app.get<Config>(Config);
+  await config.loadConfig(options);
+  app.get<FsmService>(FsmService).load();
+  return config;
+}
+
+async function createApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  const app = moduleFixture.createNestApplication({ logger: false });
-  const options = new Keyv();
-  await options.set('configFile', configFile);
-  await app.get<Config>(Config).loadConfig(options);
-  app.get<FsmService>(FsmService).load();
+  return moduleFixture.createNestApplication({ logger: false });
+}
+
+// Starts the runner with the configuration file given, without MQTT and
+// with its database in memory, whatever the file names
+export async function startRunner(
+  configFile: string,
+): Promise<INestApplication> {
+  const app = await createApp();
+  await configure(app, configFile);
+  await app.init();
+  return app;
+}
+
+// Starts the runner as main.ts does, with its database and the machine
+// stored there, but without MQTT
+export async function startStoredRunner(
+  configFile: string,
+): Promise<INestApplication> {
+  const app = await createApp();
+  const config = await configure(app, configFile);
+  app.get<Queue>(Queue).open(config.getDatabase());
+  app.get<FsmService>(FsmService).restore();
   await app.init();
   return app;
 }

@@ -188,6 +188,16 @@ describe('Check execution manager based on execa library', () => {
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
+    it('Should return failed for a command interrupted by a restart', async () => {
+      queue.enqueue('create', 'key-1');
+      queue.markInterrupted(new Date().toISOString());
+
+      const [status] = await dt.newCommand('create', 'key-1');
+
+      expect(status).toBe('failed');
+      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+    });
+
     it('Should treat an empty request key as no key', async () => {
       await expect(dt.newCommand(nonExistingCommand, '')).rejects.toEqual(
         new CommandRefused('invalid command'),
@@ -227,5 +237,18 @@ describe('Check execution manager based on execa library', () => {
 
     expect((await run)[0]).toBe('success');
     expect(() => queue.checkHistory()).toThrow();
+  });
+
+  it('Should close the database after a write that follows a run', async () => {
+    const stored = { state: 'create', entry: 1, status: 'valid' } as const;
+    const write = dt
+      .newCommand('create')
+      .then(() => undefined)
+      .then(() => undefined)
+      .then(() => queue.saveMachine(stored));
+    await (dt as ExecaManager).onApplicationShutdown();
+
+    await expect(write).resolves.toBeUndefined();
+    expect(() => queue.loadMachine()).toThrow();
   });
 });

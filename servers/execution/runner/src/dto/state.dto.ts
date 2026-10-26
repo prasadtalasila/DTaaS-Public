@@ -2,9 +2,10 @@ import { CommandRecord } from '../interfaces/command.interface.js';
 import { FsmStateDto } from './fsm.dto.js';
 import { ParameterValue } from './parameters.dto.js';
 
-// running until the command finishes, then its stored status
+// running until the command finishes, then its stored status;
+// interrupted when the runner restarted while it ran
 export type CommandStateStatus =
-  'running' | 'valid' | 'failed' | 'invalid' | 'stopped';
+  'running' | 'valid' | 'failed' | 'invalid' | 'stopped' | 'interrupted';
 
 // The latest command, without its logs, which stay on GET /
 export type CommandState = {
