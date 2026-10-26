@@ -5,6 +5,9 @@ import StateMachine from './state-machine.js';
 
 export type Handle = (machine: StateMachine) => FsmReplyDto;
 
+// Moves the machine on an event
+export type Move = (machine: StateMachine, event: string) => FsmReplyDto;
+
 // The machine of the service, if it has one, and whether shutdown began
 export type Current = { machine: StateMachine | undefined; stopping: boolean };
 
@@ -12,7 +15,10 @@ export type Current = { machine: StateMachine | undefined; stopping: boolean };
 export default class Requests {
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
-  constructor(private readonly current: () => Current) {}
+  constructor(
+    private readonly current: () => Current,
+    private readonly logger: Logger,
+  ) {}
 
   // A repeated request key gets the reply to its first request, if that
   // was accepted; a refused request changed nothing, so it is checked
@@ -41,10 +47,16 @@ export default class Requests {
     return handle(machine);
   }
 
-  // Answers an event that a parameter raises: the reply goes nowhere, so
-  // a refused event is logged, and it never escalates
-  raise(event: string, handle: Handle, logger: Logger): void {
-    logStay(logger, this.answer(handle), event);
+  // Answers the events that a parameter change raises: the replies go
+  // nowhere, so a refused event is logged, and none escalates
+  raiseAll(events: string[], move: Move): void {
+    events.forEach((event) =>
+      logStay(
+        this.logger,
+        this.answer((machine) => move(machine, event)),
+        event,
+      ),
+    );
   }
 }
 

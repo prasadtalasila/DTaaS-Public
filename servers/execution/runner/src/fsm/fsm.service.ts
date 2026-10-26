@@ -45,10 +45,10 @@ export default class FsmService implements BeforeApplicationShutdown {
   // Keeps the machine across restarts
   private readonly store: MachineStore;
 
-  private readonly requests = new Requests(() => ({
-    machine: this.machine,
-    stopping: this.stopping,
-  }));
+  private readonly requests = new Requests(
+    () => ({ machine: this.machine, stopping: this.stopping }),
+    this.logger,
+  );
 
   // Signals a new state, or a new status of its script
   private readonly changes = new Changes();
@@ -139,12 +139,8 @@ export default class FsmService implements BeforeApplicationShutdown {
       this.queue.setParameters(changes),
     );
     this.changes.emit();
-    result?.events.forEach((event) =>
-      this.requests.raise(
-        event,
-        (machine) => this.move(machine, event),
-        this.logger,
-      ),
+    this.requests.raiseAll(result?.events ?? [], (machine, event) =>
+      this.move(machine, event),
     );
     return result?.problems ?? [];
   }
