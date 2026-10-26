@@ -62,14 +62,19 @@ states: # each state runs the script of the same name
   and, if `controllable`, sets over the API (D21, D22). Each has a
   `type` (`string`, `number`, `boolean` or `enum` with `values`), a
   `default`, and an optional `event` raised when its value changes.
+- `escalation` declares which conditions the runner escalates to the
+  Manager by itself: `onFailure` and `onNoTransition`, both `false`
+  unless given (D25).
 
 ### Validation
 
 The runner refuses to start when the file is invalid, as it does for an
 invalid `mqtt` section. The file is valid when:
 
-- it holds only `events`, `states`, `parameters` and `env`, and each
-  state holds only `transitions` and `env`;
+- it holds only `events`, `states`, `parameters`, `env` and
+  `escalation`, each state holds only `transitions` and `env`, and
+  `escalation` holds only the booleans `onFailure` and
+  `onNoTransition`;
 - every state and event name matches `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
   property such as `__proto__` (zod skips a `__proto__` record key, so
@@ -111,6 +116,7 @@ key that names a missing file stops the runner.
 | `POST /stop`           | `<topic>/stop`       | `{"name": "execute"}` |
 | `GET /state`           | `<topic>/state`      | ignored               |
 | `GET /parameters`      | `<topic>/parameters` | ignored               |
+| `POST /escalate`       | `<topic>/escalate`   | `{"reason": "full"}`  |
 
 A transition or event request is answered once the script of the new
 state has started, without waiting for it to finish. The body names
@@ -198,6 +204,9 @@ document of `GET /parameters`. Both routes answer `404` with the
 | `fsm/script-outcome.ts`   | runs a state's script; failed if it can not start    |
 | `fsm/state-machine.ts`    | pure machine: current state, entry count, next state |
 | `fsm/recent-replies.ts`   | bounded store of replies to repeated requests        |
+| `fsm/requests.ts`         | transition and event requests, and their keys        |
+| `fsm/escalation.ts`       | escalation section, triggers and requests            |
+| `dto/escalation.dto.ts`   | escalation body schema and notification data         |
 | `fsm/fsm.service.ts`      | runs scripts, raises completion events, replies      |
 | `fsm/fsm.controller.ts`   | HTTP routes                                          |
 | `ParametersController`    | HTTP routes of the parameters                        |
@@ -260,6 +269,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D21 | Parameters are declared in the state machine file                         | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                     |
 | D22 | A parameter change raises only its declared event                         | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                               |
 | D23 | Scripts get the runner's context as environment variables                 | Added by issue 08. Every script language reads its environment, and nothing goes on the command line. Values are those at the script's start (S6). A declared `env` interpolates only runner variables, so a file means the same on every host. Events return over HTTP through `RUNNER_URL`, not stdout (open question 13).                                    |
+| D25 | Escalation triggers are opt-in; a request needs no machine                | Added by issue 06 (S4); D23 is 08's, D24 05's. Only the DT author knows when its adaptation is exhausted, so the runner escalates by itself only on the declared triggers, a repeated event once per entry. `POST /escalate` needs no machine, so a plain DT escalates too. An escalation is not retained, so a late Manager does not act on an old one.        |
 | D26 | Presence: an online notice per connect, an offline notice, a will         | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                      |
 
 ## Assumptions
@@ -280,6 +290,9 @@ proposal to derive the events from the transitions was declined (D4).
   a client; it raises events over HTTP through `RUNNER_URL` (D23).
   Amended by issue 07: the runner also announces itself unasked when it
   connects and when it leaves (D26).
+  Amended by issue 06: the runner also sends an escalation by itself
+  on the triggers that the DT author declares (D25); an escalation
+  raises no event either.
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.

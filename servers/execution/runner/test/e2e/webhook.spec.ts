@@ -1,12 +1,4 @@
-import { EventEmitter, once } from 'node:events';
 import { rmSync } from 'node:fs';
-import {
-  createServer,
-  IncomingHttpHeaders,
-  IncomingMessage,
-  Server,
-} from 'node:http';
-import { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import {
   afterEach,
@@ -19,76 +11,10 @@ import {
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import Config from 'src/config/configuration.service';
 import { digitalTwin, post, startRunner } from './fsm.util';
+import Webhook from './webhook.util';
 
 // PowerShell takes a second or more to start on a loaded Windows host
 const TIMEOUT = 30000;
-
-type Post = { headers: IncomingHttpHeaders; body: Record<string, unknown> };
-
-type Machine = { state: string | null; status: string };
-
-// A webhook that records each post and answers 204
-class Webhook extends EventEmitter {
-  readonly posts: Post[] = [];
-
-  readonly server: Server = createServer((request, response) => {
-    void Webhook.read(request).then((body) => {
-      response.writeHead(HttpStatus.NO_CONTENT).end();
-      const received = { headers: request.headers, body: JSON.parse(body) };
-      this.posts.push(received);
-      this.emit('post', received);
-    });
-  });
-
-  private static async read(request: IncomingMessage): Promise<string> {
-    const chunks: Buffer[] = [];
-    request.on('data', (chunk: Buffer) => chunks.push(chunk));
-    await once(request, 'end');
-    return Buffer.concat(chunks).toString();
-  }
-
-  async listen(): Promise<string> {
-    this.server.listen(0, '127.0.0.1');
-    await once(this.server, 'listening');
-    const { port } = this.server.address() as AddressInfo;
-    return `http://127.0.0.1:${port}/dt-events`;
-  }
-
-  // The first state post, received or to come, whose machine passes the
-  // check; a presence post has no machine
-  received(check: (machine: Machine | null) => boolean): Promise<Post> {
-    return this.first(
-      ({ body }) =>
-        body.kind === 'state' &&
-        check((body.data as { machine: Machine | null }).machine),
-    );
-  }
-
-  // The first presence post, received or to come, online or not
-  presence(online: boolean): Promise<Post> {
-    return this.first(
-      ({ body }) =>
-        body.kind === 'presence' &&
-        (body.data as { online: boolean }).online === online,
-    );
-  }
-
-  private first(passes: (received: Post) => boolean): Promise<Post> {
-    const earlier = this.posts.find(passes);
-    if (earlier !== undefined) {
-      return Promise.resolve(earlier);
-    }
-    return new Promise((resolve) => {
-      const listener = (received: Post) => {
-        if (passes(received)) {
-          this.off('post', listener);
-          resolve(received);
-        }
-      };
-      this.on('post', listener);
-    });
-  }
-}
 
 describe('Webhook notifications', () => {
   let dir: string;
@@ -107,8 +33,7 @@ describe('Webhook notifications', () => {
 
   afterEach(async () => {
     await app?.close();
-    webhook.server.close();
-    await once(webhook.server, 'close');
+    await webhook.close();
     rmSync(dir, { recursive: true, force: true });
     jest.restoreAllMocks();
   }, TIMEOUT);

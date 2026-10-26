@@ -13,6 +13,11 @@ import { CommandStatus } from './interfaces/command.interface.js';
 import ExecaManager from './execa-manager.service.js';
 import DescriptorService from './descriptor.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
+import {
+  EscalateBody,
+  EscalateReplyDto,
+  escalateSchema,
+} from './dto/escalation.dto.js';
 import { StateDocumentDto } from './dto/state.dto.js';
 import {
   ExecuteCommandDto,
@@ -75,6 +80,16 @@ export default class AppController {
     @Body(new ZodValidationPipe(stopSchema)) { name }: StopDto,
   ): Promise<StopResponseDto> {
     return { stopped: await this.manager.stop(name) };
+  }
+
+  // Accepted with or without a state machine
+  @Post('escalate')
+  @HttpCode(HttpStatus.ACCEPTED)
+  escalate(
+    @Body(new ZodValidationPipe(escalateSchema)) body: EscalateBody,
+    @Headers(REQUEST_KEY) requestKey?: string,
+  ): EscalateReplyDto {
+    return this.fsm.escalate(body, validRequestKey(requestKey));
   }
 
   @Get()

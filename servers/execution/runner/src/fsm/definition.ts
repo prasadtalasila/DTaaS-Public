@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import completionCycle from './completion-cycle.js';
+import { Escalation, escalationSchema } from './escalation.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
@@ -31,6 +32,7 @@ export type Definition = {
   env: Env;
   // the env of each state, apart from its transitions
   stateEnv: ReadonlyMap<string, Env>;
+  escalation: Escalation;
 };
 
 // A state name, or an object that stops the script first
@@ -59,6 +61,7 @@ const fileSchema = z
       }),
     parameters: parametersSchema,
     env: envSchema,
+    escalation: escalationSchema,
   })
   .strict();
 
@@ -80,7 +83,7 @@ const toTransitions = (
     ]),
   );
 
-function toDefinition({ events, states, parameters, env }: File): Definition {
+function toDefinition({ events, states, ...sections }: File): Definition {
   return {
     events: new Set(events),
     states: new Map(
@@ -89,11 +92,12 @@ function toDefinition({ events, states, parameters, env }: File): Definition {
         toTransitions(value?.transitions),
       ]),
     ),
-    parameters: new Map(Object.entries(parameters)),
-    env,
+    parameters: new Map(Object.entries(sections.parameters)),
+    env: sections.env,
     stateEnv: new Map(
       Object.entries(states).map(([state, value]) => [state, value?.env ?? {}]),
     ),
+    escalation: sections.escalation,
   };
 }
 

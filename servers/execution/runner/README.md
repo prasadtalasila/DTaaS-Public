@@ -232,7 +232,8 @@ stateMachine: 'scripts/state-machine.yaml'
 ```
 
 The file holds the events and the states, and may declare
-[parameters](#parameters) and an [environment](#declared-environment):
+[parameters](#parameters), an [environment](#declared-environment)
+and the conditions that [escalate](#escalation):
 
 ```yaml
 events: # the events that clients may send
@@ -485,6 +486,41 @@ A script reads the current parameter values with
 `GET ${RUNNER_URL}/parameters`; its `DT_PARAM_` variables keep the
 values it started with.
 
+### Escalation
+
+A digital twin escalates to its Manager when it can not adapt by
+itself any more, or wants a shared setting changed. The runner can not
+judge that, so the DT author declares which conditions the runner
+escalates by itself, and scripts or other clients can
+[ask for an escalation](#escalation-requests) at any time:
+
+```yaml
+escalation:
+  # the script of a state failed and the state has no $failure transition
+  onFailure: true
+  # a client event has no transition in the current state
+  onNoTransition: true
+```
+
+- The section is optional, and both flags are `false` unless given;
+  without them, only requests escalate. An unknown key or a value
+  that is not a boolean stops the runner at startup.
+- `onFailure`: the script of the current state ends `failed` and the
+  state has no `$failure` transition. A `$failure` transition that the
+  runner skips, as its state's script is still running, does not
+  escalate, nor does a stopped script or `$success`.
+- `onNoTransition`: a client event, over `POST /fsm/event` or MQTT,
+  from a script too, gets `409 no transition` after the first
+  transition. The runner escalates each event once per entry into a
+  state, so a client that repeats an event does not flood the
+  Manager. An invalid event, a request refused while the runner
+  stops, and an event that a [parameter](#parameters) raises do not
+  escalate.
+
+The runner sends each escalation as a
+[notification](#notifications) of kind `escalation`. An escalation
+raises no event and does not change the state.
+
 ## Use
 
 Display help.
@@ -520,16 +556,18 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 
 Four REST API methods run and stop commands, three more drive the
 [state machine](#state-machine-requests), one
-[describes the digital twin](#get-request-to-dt) and one returns
-[its state](#get-request-to-state). The routes for commands and their
-responses are:
+[describes the digital twin](#get-request-to-dt), one returns
+[its state](#get-request-to-state) and one
+[escalates to the Manager](#escalation-requests). The routes for
+commands and their responses are:
 
-| REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
-| :--------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
-| localhost:port         | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
-| localhost:port         | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
-| localhost:port/history | GET         | Returns the array of well-formed POST requests received so far.         |                                                                                                         |
-| localhost:port/stop    | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
+| REST API Route          | HTTP Method | Return Value                                                            | Comment                                                                                                 |
+| :---------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+| localhost:port          | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
+| localhost:port          | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
+| localhost:port/history  | GET         | Returns the array of well-formed POST requests received so far.         |                                                                                                         |
+| localhost:port/stop     | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
+| localhost:port/escalate | POST        | Returns `{"status": "accepted"}`                                        | Escalates to the Manager, as described in [escalation requests](#escalation-requests).                  |
 
 #### POST Request to /
 
@@ -896,6 +934,39 @@ curl http://localhost:5000/parameters
 curl -X PUT http://localhost:5000/parameters   -H 'Content-Type: application/json' -d '{"scope": "multi"}'
 ```
 
+#### Escalation Requests
+
+`POST /escalate` sends an [escalation](#escalation) to the Manager,
+for example from a script that finds that the digital twin can not
+cope:
+
+```json
+{ "reason": "capacity", "proposal": { "scope": "multi" } }
+```
+
+- `reason` is required: a non-empty string of up to 1 KiB.
+- `proposal` is optional: a JSON object of up to 4 KiB, by convention
+  the parameter values that the digital twin would like. The runner
+  passes it on as it was received and does not read it.
+- Each size is that of the value as JSON text, in bytes of UTF-8,
+  quotes included.
+
+The runner answers `202` with `{"status": "accepted"}`, with or without
+a state machine, so that a digital twin without one can escalate too.
+Any other body gets the validation error of `POST /`. Once the runner
+has begun to stop, it still answers `202` but sends nothing.
+
+A request may carry an `Idempotency-Key`, as in
+[repeated requests](#repeated-requests). The keys of escalations are
+apart from those of the other routes, and every escalation counts as
+the same request, so a repeated key gets the first reply and escalates
+nothing, even with another body. The runner keeps the last 256 keys in
+memory.
+
+```bash
+curl -X POST http://localhost:5000/escalate   -H 'Content-Type: application/json'   -H 'Idempotency-Key: 3f2b9c4e'   -d '{"reason": "capacity", "proposal": {"scope": "multi"}}'
+```
+
 #### Health
 
 `GET /health` tells whether the runner answers and whether its
@@ -946,6 +1017,7 @@ JSON as the matching HTTP request and response.
 | `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}` |
 | `<topic>/parameters`     | GET /parameters       | ignored                      |
 | `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`        |
+| `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`     |
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on
@@ -1021,14 +1093,46 @@ at startup. A document that differs from the last one sent only in its
 ```
 
 `data` is the whole state document, shortened here; `id` and `time` are
-those of the document. `kind` is `state` here, and `presence` for the
-notices of [presence](#presence); later versions add other kinds.
-Documents built within the same millisecond can share `time`.
+those of the document. Documents built within the same millisecond can
+share `time`.
+
+`kind` is `state` for a state document, `presence` for the notices of
+[presence](#presence), or `escalation` for an
+[escalation](#escalation):
+
+```json
+{
+  "kind": "escalation",
+  "id": "hospital-1",
+  "time": "2026-10-25T10:00:00.000Z",
+  "data": {
+    "trigger": "request",
+    "state": "execute",
+    "entry": 3,
+    "event": null,
+    "reason": "capacity",
+    "proposal": { "scope": "multi" }
+  }
+}
+```
+
+- `trigger` is `failure` (`onFailure`), `no-transition`
+  (`onNoTransition`) or `request` (`POST /escalate`).
+- `state` and `entry` are those of the machine when the escalation
+  happened; `null` and `0` without a machine or before its first
+  transition.
+- `event` names the client event of a `no-transition`, else `null`.
+- `reason` is that of the request, or the runner's own text, such as
+  `script of state execute failed` or
+  `no transition for restart in state execute`. `proposal` is that of
+  the request, else `null`.
 
 With MQTT enabled, the runner publishes each notification with QoS 1 on
-`<topic>/notify/<kind>`, for example `<topic>/notify/state`, retained,
-so that a Manager that subscribes later receives the current state at
-once. The notification topics are two levels under the base topic, so
+`<topic>/notify/<kind>`, for example `<topic>/notify/state`. A state
+notification is retained, so that a Manager that subscribes later
+receives the current state at once; an escalation is not, so that a
+Manager that subscribes later does not act on an old one. The
+notification topics are two levels under the base topic, so
 `<topic>/+/response` does not match them; subscribe to
 `<topic>/notify/+` instead. While the broker is unreachable, the runner
 queues the notifications in memory and publishes them in order when it

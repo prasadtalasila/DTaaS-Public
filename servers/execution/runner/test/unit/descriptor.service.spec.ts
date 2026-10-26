@@ -41,8 +41,8 @@ function createService(
   };
   const fsm = {
     check: () => state,
-    hasMachine: () => state !== undefined,
     parameters: () => values && { values: () => values },
+    onEscalation: jest.fn(),
   };
   const queue = { activeCommand: () => latest };
   return new DescriptorService(
@@ -127,5 +127,19 @@ describe('Descriptor service', () => {
     queueChanges.emit();
 
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('Should pass an escalation listener to the state machine', () => {
+    const onEscalation = jest.fn();
+    const service = new DescriptorService(
+      {} as Config,
+      { onEscalation } as unknown as FsmService,
+      {} as Queue,
+    );
+    const listener = jest.fn();
+
+    service.onEscalation(listener);
+
+    expect(onEscalation).toHaveBeenCalledWith(listener);
   });
 });

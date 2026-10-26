@@ -14,6 +14,7 @@ import {
   requestKeySchema,
   stopSchema,
 } from '../dto/command.dto.js';
+import { escalateSchema } from '../dto/escalation.dto.js';
 import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
 import { healthReport } from '../dto/health.dto.js';
 import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
@@ -76,6 +77,9 @@ export default class MqttRequestHandler {
     parameters: () => this.parameterDocument(),
     'set-parameters': this.whenValid(parametersBodySchema, (body) =>
       this.setParameters(body),
+    ),
+    escalate: this.whenValid(escalateSchema, (body, key) =>
+      this.fsm.escalate(body, key),
     ),
   };
 

@@ -181,6 +181,18 @@ QoS: 1
 
 ###
 
+# @name escalate
+MQTT {{broker}}
+Subscribe: {{topic}}/escalate/response
+Publish: {{topic}}/escalate
+QoS: 1
+
+{"reason": "capacity", "proposal": {"scope": "multi"}}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name notifications
 # Subscribes to the notifications of the runner and publishes nothing;
 # the broker hands over the retained state document and presence

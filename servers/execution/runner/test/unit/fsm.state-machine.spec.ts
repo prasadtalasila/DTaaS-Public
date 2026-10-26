@@ -42,6 +42,24 @@ describe('State machine', () => {
     expect(machine.state).toBe('create');
   });
 
+  it('Should describe the machine with the status of its script', () => {
+    const machine = new StateMachine(definition);
+    expect(machine.describe('none')).toEqual({
+      state: null,
+      status: 'none',
+      entry: 0,
+      events: ['start', 'stop'],
+    });
+
+    machine.enter('create');
+
+    expect(machine.describe('running')).toMatchObject({
+      state: 'create',
+      status: 'running',
+      entry: 1,
+    });
+  });
+
   it('Should find the next state of the current state', () => {
     const machine = new StateMachine(definition);
     machine.enter('create');

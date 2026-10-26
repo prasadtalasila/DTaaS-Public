@@ -17,9 +17,9 @@ deferred (see below) and have no file.
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done      | #79 |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
 | [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | planned   |     |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | in review | #82 |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | in review | #81 |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | in review | #83 |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done      | #82 |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done      | #81 |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
 | [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
@@ -54,7 +54,7 @@ the stop path to exist before recovery is designed around it. 07 needs
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.4.0` and nothing in this repository consumes its API.
+  `0.6.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
@@ -121,6 +121,8 @@ From implementing 01, 02, 03, 04, 10 and 12:
   Linux CI is the authority.
 - `test/e2e/dist.spec.ts` starts the built runner; ts-jest hides a
   relative import without its `.js` suffix, which breaks the build.
+- Jest runs test files that do not type-check (seen in 06), so the
+  `tsc` check above is the only gate for type errors in tests too.
 - Before merging, read every CI conclusion and the Qlty status's
   blocking count, not only the checks that pass; a PR retargeted after
   its first push needs a new run (close and reopen) so Qlty compares

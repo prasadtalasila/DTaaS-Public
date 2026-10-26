@@ -1,6 +1,6 @@
 # 07 Presence: Join and Leave
 
-- Status: in review
+- Status: done
 - Depends on: 01, 03
 - PR: [#82](https://github.com/prasadtalasila/DTaaS-Public/pull/82)
 - Research note:

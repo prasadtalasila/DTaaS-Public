@@ -1,8 +1,8 @@
 # 06 Escalation Signal
 
-- Status: planned
+- Status: in review
 - Depends on: 03
-- PR: none
+- PR: [#83](https://github.com/prasadtalasila/DTaaS-Public/pull/83)
 - Research note:
   [item 6](../dtn-research-notes.md#6-escalation-signal-r3-endogenous)
 
@@ -11,19 +11,38 @@
 P1's requirement R3: a DT signals the Manager when its local adaptation
 space is exhausted or it wants a shared-policy parameter changed. P1's
 prototype left this endogenous signal to future work. The runner cannot
-evaluate what "exhausted" means for a DT, so the DT author declares
-which observable conditions count, and scripts can escalate explicitly.
+judge what "exhausted" means for a DT, so the DT author declares which
+observable conditions count, and scripts can escalate explicitly.
 
 ### Declaration
 
 ```yaml
 escalation:
-  onFailure: true # a $failure the current state has no transition for
-  onNoTransition: true # a client event the current state has no transition for
+  onFailure: true # a $failure the state has no transition for
+  onNoTransition: true # a client event the state has no transition for
 ```
 
-Both default to `false`. Without the section, only explicit requests
-escalate. A `$stopped` completion (10) never escalates.
+The section is optional and both flags default to `false`; without it,
+only explicit requests escalate. It is a strict object of booleans, so
+an unknown key, `__proto__` included, or a non-boolean value is a
+startup error.
+
+### Automatic triggers
+
+- `failure`, with `onFailure`: the script of the current state ends
+  `failed` and the state has no `$failure` transition. A `$failure`
+  whose transition exists but is refused (`script running`) has a
+  transition, is logged as today, and does not escalate. `$stopped`
+  (10) and `$success` never escalate. Each entry completes once, so
+  `failure` needs no deduplication.
+- `no-transition`, with `onNoTransition`: a client event, over
+  `POST /fsm/event` or the `event` MQTT route, gets `no transition`
+  in a started machine. It escalates at most once per entry and event,
+  so a client that repeats an event does not flood the Manager; the
+  record resets when the machine enters a state. Nothing escalates
+  before the first transition (state `null`), for an `invalid event`,
+  for a request refused as `stopping`, or for an event that a
+  parameter change raises (04). The reply stays `409 no transition`.
 
 ### Explicit request
 
@@ -33,83 +52,164 @@ escalate. A `$stopped` completion (10) never escalates.
 { "reason": "capacity", "proposal": { "scope": "multi" } }
 ```
 
-- `reason` is a string of at most 1 KiB; `proposal` is an optional JSON
-  object of at most 4 KiB, by convention the parameter values the DT
-  would like (P1's `θ'`). The runner does not interpret it.
-- Reply `202 { "status": "accepted" }`. The route works with or
-  without a state machine, so a plain DT can escalate too. It takes an
-  optional `Idempotency-Key`, handled like the `fsm` routes
-  (`RecentReplies`), so a QoS 1 duplicate does not escalate twice.
+- `reason` is a required, non-empty string. `proposal` is an optional
+  JSON object, by convention the parameter values the DT would like
+  (P1's `θ'`); the runner forwards it as received and does not
+  interpret it. Each value is measured as
+  `Buffer.byteLength(JSON.stringify(value), 'utf8')`, the rule of 05:
+  `reason` up to 1 KiB (1024 bytes), `proposal` up to 4 KiB. Any other
+  body is `400 Validation Failed`; over MQTT, the same body.
+- Reply `202 { "status": "accepted" }`, with or without a state
+  machine, so a plain DT can escalate too. Without a machine, or before
+  its first transition, the notification has `state: null, entry: 0`.
+- An optional `Idempotency-Key` (MQTT 5: `idempotency-key`) is kept in
+  a `RecentReplies` of its own, apart from the keys of the `fsm`
+  routes (D13). Every escalation is the same request, `'escalate'`,
+  and every reply is kept, so a repeated key gets the stored reply and
+  escalates nothing, even with a different body; no reply is
+  `invalid request key`, and there is no new `400` variant.
 
 ### Notification
 
-Sent through the notifier of 03 with `kind: "escalation"`, on
-`<base>/notify/escalation`, QoS 1, not retained, and to the webhook:
-
-```json
-{
-  "kind": "escalation",
-  "id": "hospital-1",
-  "time": "2026-10-25T10:00:00.000Z",
-  "data": {
-    "trigger": "request",
-    "state": "execute",
-    "entry": 3,
-    "event": null,
-    "reason": "capacity",
-    "proposal": { "scope": "multi" }
-  }
-}
-```
-
-- `trigger` is `failure`, `no-transition` or `request`. `event` names
-  the client event for `no-transition`, else `null`. `reason` is the
-  request's reason, or the runner's text for the automatic triggers
-  (`script of state execute failed`, `no transition for restart`).
-- The automatic triggers fire at most once per trigger per state entry,
-  so a client that repeats an event does not flood the Manager.
-- The caller of an event with no transition still gets `409
-no transition`; escalation is a side effect, not a change of the
-  reply.
+Sent through the notifier of 03 as `kind: "escalation"` on
+`<base>/notify/escalation`, QoS 1, not retained, and to the webhook.
+`data` holds `trigger` (`failure`, `no-transition` or `request`),
+`state` and `entry` of the machine when the trigger fired, `event`
+(the client event of `no-transition`, else `null`), `reason` (the
+request's, or the runner's text such as
+`no transition for restart in state execute`) and `proposal` (the
+request's, else `null`). The README has a full example. Once shutdown
+has begun the notifier sends nothing; a request is still answered
+`202`.
 
 ## Plan
 
-1. Add the `escalation` section to `fileSchema` and `Definition` in
+1. Move the `replies` field and the private `request` and `reply` of
+   `src/fsm/fsm.service.ts` to a plain class `Requests` in
+   `src/fsm/requests.ts`, built with a getter of `{ machine, stopping }`:
+   `reply(request, requestKey, handle)` replays a repeated key, and
+   `answer(handle)` gives `no state machine`, `stopping` or the
+   handler's reply. Split the handler of `event` into a private
+   `move(machine, event)`. The behaviour does not change.
+1. Add `src/dto/escalation.dto.ts`: `escalateSchema`, whose `proposal`
+   is a refinement on `z.unknown()` for an object that is not an array
+   (`z.record` drops a `__proto__` key silently), a `fits(limit)`
+   helper for the byte rule (05 has the same rule; once both are
+   merged, one copy stays), `EscalateBody`, `EscalateReplyDto` and
+   `EscalationData`.
+1. Add `src/fsm/escalation.ts`: `escalationSchema` (strict, with
+   `.prefault({})`), `Escalation`, `EscalationListener`, and a plain
+   class `Escalations` with `on`, `declare(flags)` (called from
+   `FsmService.load()`, which may run after `app.init()`, so one object
+   keeps the notifier's listener), `failure(machine)`,
+   `noTransition(machine, event)` (a `firstTime` helper owns the record
+   per entry) and `request(body, requestKey, machine)` (resolves
+   `'escalate'` in its own `RecentReplies`, keeping every reply).
+1. Add the section to `fileSchema`, `Definition` and `toDefinition` of
    `src/fsm/definition.ts`.
-1. Add `src/dto/escalation.dto.ts` with the request schema and size
-   refinements, and the `EscalationData` type.
-1. Add `src/escalation.service.ts`: builds `data` from `FsmService`
-   state, tracks the (entry, trigger) pairs already sent, and calls
-   `Notifier.send('escalation', data)`.
-1. Hook the automatic triggers in `src/fsm/fsm.service.ts`: in `event`
-   where `no transition` is returned (line 78-81) and in `complete`
-   where `$failure` has no next state (line 155-158). Pass the decision
-   to `EscalationService` so the service, not `FsmService`, grows.
-1. Add `POST /escalate` to `src/app.controller.ts` with `RecentReplies`
-   handling, and the `escalate` MQTT route.
-1. Update `api/*.http`, `README.md`, the design document (amend A4: the
-   runner now raises escalations by itself; add a decision for the
-   opt-in triggers).
+1. In `FsmService`, without a new constructor parameter: an
+   `escalations` field declared in `load()`, `onEscalation`,
+   `escalate`; `event()` calls `noTransition` on `no transition`;
+   `raise` answers through `move`, so a parameter's event never
+   escalates; `complete()` calls `failure` for a `$failure` without a
+   transition.
+1. `DescriptorService.onEscalation` forwards to `FsmService`, and
+   `Notifier.onModuleInit` sends each escalation. Add `POST /escalate`
+   to `AppController` (202, zod pipe, `validRequestKey`) and the
+   `escalate` route to `mqttRoutes` and the MQTT request handler.
+1. Move `startBroker` and `stopBroker` to `test/e2e/mqtt.util.ts` and
+   the `Webhook` server to `test/e2e/webhook.util.ts`. The end-to-end
+   test spies on `Config.prototype.getMqtt` and `getNotify`, starts a
+   `digitalTwin` folder with `startRunner` of `test/e2e/util.ts`, then
+   starts `MqttService`, so MQTT, the webhook and the state machine run
+   in one runner. Retention is checked on the broker (aedes's retained
+   stream), as `lateSubscriber` resolves on the first message.
+1. Sweep `README.md`, `api/dev.api.http`, `api/dev.mqtt.http`,
+   `docs/state-machine-design.md` (Validation, A4, D25; D23 is 08's,
+   D24 05's), the comment of `src/dto/notify.dto.ts` (only presence is
+   left, for 07) and the 06 row of the index.
 
 ## Tasks
 
-- [ ] Schema accepts the section, defaults both flags to `false`, and
-      rejects an unknown key. Check: `test/unit/fsm.definition.spec.ts`.
-- [ ] Request schema rejects a missing `reason`, one over 1 KiB and a
-      `proposal` over 4 KiB. Check: `test/unit/escalation.dto.spec.ts`.
-- [ ] Service sends `failure` once for a `$failure` with no transition
-      when `onFailure` is set, nothing when it is not, `no-transition`
-      once per entry for repeated events, and never for `$stopped`.
-      Check: `test/unit/escalation.service.spec.ts`,
-      `test/unit/fsm.service.spec.ts`.
-- [ ] `POST /escalate` answers 202 with and without a machine and
-      replays for a repeated key. Check: `test/e2e/escalation.spec.ts`.
-- [ ] An escalation reaches `<base>/notify/escalation` unretained and
-      the webhook. Check: `test/e2e/mqtt.broker.spec.ts`,
-      `test/e2e/webhook.spec.ts`.
-- [ ] MQTT `escalate` route returns the same body. Check:
-      `test/unit/mqtt-request.handler.spec.ts`.
-- [ ] README, design document and request files updated. Check:
-      `npx markdownlint-cli README.md docs/*.md`.
-- [ ] `yarn syntax`, `yarn build` and `yarn test` pass. Check: their
-      output.
+- [x] After the move of step 1 the service answers as before, and
+      `StateMachine.describe(status)` returns the machine document.
+      Check: `test/unit/fsm.service.requests.spec.ts`,
+      `test/unit/fsm.service.spec.ts`,
+      `test/unit/fsm.state-machine.spec.ts`.
+- [x] The section defaults both flags to `false` when missing or
+      partial, and rejects an unknown key, `__proto__` and a
+      non-boolean; `parseDefinition` carries it. `Escalations` emits
+      nothing without flags, `failure` once per call, `no-transition`
+      once per entry and event and again after a new entry, nothing
+      before the first transition; `request` emits with `state: null`
+      and `entry: 0` without a machine, emits once per key, also for a
+      repeat with another body, and every time without a key. Check:
+      `test/unit/fsm.escalation.spec.ts`.
+- [x] `escalateSchema` accepts a 1024-byte `reason` and a 4096-byte
+      `proposal`, and rejects a missing or empty `reason`, one byte
+      more of either, and a `proposal` that is an array or `null`.
+      Check: `test/unit/escalation.dto.spec.ts`.
+- [x] Through `FsmService` with a `scriptFolder` definition that has
+      the section: a `$failure` without a transition escalates; one
+      whose target's script is running does not; `$stopped` does not;
+      a repeated client event escalates once per entry; an event that
+      a parameter raises does not; nothing escalates with the flags
+      off. Check: `test/unit/fsm.service.escalation.spec.ts`.
+- [x] `DescriptorService.onEscalation` forwards; the notifier sends an
+      escalation unretained. Check: `test/unit/descriptor.service.spec.ts`,
+      `test/unit/notifier.service.spec.ts`.
+- [x] The MQTT `escalate` route returns `{ "status": "accepted" }`,
+      the validation body for a bad payload or key, and passes the key.
+      Check: `test/unit/mqtt-request.escalate.spec.ts`,
+      `test/unit/mqtt.config.spec.ts` (route list).
+- [x] `POST /escalate` answers `202` with and without a machine, `400`
+      for a bad body, and replays a repeated key without a second
+      notification; the escalation reaches the webhook, and a client
+      that subscribes to `<base>/notify/+` on the local aedes broker
+      after the escalation receives the retained `state` notification;
+      the broker retains nothing on `<base>/notify/escalation`. Check:
+      `test/e2e/escalation.spec.ts`.
+- [x] README, request files, design document (Validation, A4, D25) and
+      the index updated. Check: from the repository root,
+      `npx markdownlint-cli -c .markdownlint.yaml` on them.
+- [x] `yarn build` and `yarn test` pass. eslint lints no `.ts` file,
+      so `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` must
+      be clean, no file passes 250 lines, and no function crosses the
+      Qlty thresholds. Check: their output, and
+      `qlty metrics --functions` (highest complexity 4).
+
+## Learnings
+
+- The plan's line numbers for the cycle search were stale (it named
+  256-291; the code was at 130-165). 08 merged first and moved it to
+  `src/fsm/completion-cycle.ts`, so `definition.ts` is 222 lines with
+  both the `env` and `escalation` sections.
+- 08 merged first with its own `request`, `reply`, `follow` and
+  `StateMachine.describe`. The rebase keeps 08's `follow` and
+  `describe`, replaces `request` and `reply` with `Requests`, and
+  drops `hasMachine()` for `check() !== undefined` in
+  `DescriptorService`. `fsm.service.ts` is then at 249 lines, with no
+  room left: 09 must move something out before it adds, for example
+  the script runs (`enter`, `enterStopping`, `run`, `complete`).
+- `startRunner` of `test/e2e/util.ts` does not start `MqttService`.
+  Starting it after `app.init()` misses the startup state notification,
+  so the end-to-end test makes a transition first to have a retained
+  state.
+- 07 merged before 06 and made the same moves of `startBroker`,
+  `stopBroker` and the `Webhook` server; the rebase keeps 07's
+  `mqtt.util.ts`, and `webhook.util.ts` holds 07's `received` and
+  `presence` with a public `first`. With 07, the broker retains the
+  presence and state topics, and still not the escalation one.
+- aedes 1.x does not declare `persistence` in its types; the
+  broker-side retained check casts to `{ createRetainedStream }` and
+  reads the stream with `Readable.toArray()`. Setting `escalation`
+  retained in `RETAINED` makes that test fail, so the check works.
+- A byte size by the JSON rule counts the quotes of a string, so a
+  1024-byte `reason` has 1022 ASCII characters; the README says so.
+- Jest passed a test file with a type error (a `kind: string` envelope
+  where `NotifyKind` was due); only the `tsc` check caught it.
+- No version bump: the change adds a section, a route and a
+  notification kind, and breaks no existing request.
+- `DEVELOPER.md` names no route or notification, so it needs no
+  change. `docs/developer/codebase/runner.md` documents the route set
+  and is stale; the pull request lists it for a separate change.
