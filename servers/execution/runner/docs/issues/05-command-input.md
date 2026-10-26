@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 01, 04
-- PR: none
+- PR: [#84](https://github.com/prasadtalasila/DTaaS-Public/pull/84)
 - Research note:
   [item 5](../dtn-research-notes.md#5-command-input-outcome-and-exposure-r2)
 

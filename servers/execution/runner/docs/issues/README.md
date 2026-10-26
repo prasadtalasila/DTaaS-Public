@@ -16,7 +16,7 @@ deferred (see below) and have no file.
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | done      | #77 |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done      | #79 |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | in review |     |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | in review | #84 |
 | [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | done      | #83 |
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done      | #82 |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done      | #81 |
