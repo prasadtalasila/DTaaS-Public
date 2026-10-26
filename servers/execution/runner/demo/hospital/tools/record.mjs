@@ -16,7 +16,7 @@ import steps from './steps.mjs';
 import { healthy } from './waits.mjs';
 
 process.chdir(fileURLToPath(new URL('..', import.meta.url)));
-const WINDOWS_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
+const WINDOWS_BASH = String.raw`C:\Program Files\Git\bin\bash.exe`;
 const BASH =
   process.env.DEMO_BASH ??
   (process.platform === 'win32' ? WINDOWS_BASH : 'bash');
@@ -39,14 +39,20 @@ function reset() {
   writeFileSync('run/ward.json', '{"cardiology":[],"maternity":[]}\n');
 }
 
+async function poll(condition, deadline) {
+  if (await condition()) {
+    return;
+  }
+  if (Date.now() > deadline) {
+    throw new Error(`timed out waiting for ${condition}`);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await poll(condition, deadline);
+}
+
 async function waitFor(condition, timeoutMs = 30000) {
   const started = Date.now();
-  while (!(await condition())) {
-    if (Date.now() - started > timeoutMs) {
-      throw new Error(`timed out waiting for ${condition}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
+  await poll(condition, started + timeoutMs);
   cast.since(started);
 }
 
@@ -122,13 +128,16 @@ function report() {
     console.log(`| ${time(seconds)} | ${chapter} |`);
   }
   console.log(`length ${time(cast.clock)}, ${cast.events.length} events`);
+  console.log('for the video, run tools/to-mp4.sh on Linux or in WSL');
 }
 
 reset();
 try {
-  for (const step of steps) {
-    await play(step);
-  }
+  // one step after the other
+  await steps.reduce(
+    (played, step) => played.then(() => play(step)),
+    Promise.resolve(),
+  );
   cast.save('hospital.cast', Math.floor(Date.now() / 1000));
   report();
 } finally {

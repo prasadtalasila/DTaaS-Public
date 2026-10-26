@@ -2,8 +2,16 @@
 // valid and replays its timings: a JSON header, then one JSON event per
 // line with a time that never goes back, a known type and a string
 import { readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const file = process.argv[2] ?? 'hospital.cast';
+// Only a .cast file of the demo folder, whatever path the argument has
+const DEMO = fileURLToPath(new URL('..', import.meta.url));
+const name = path.basename(process.argv[2] ?? 'hospital.cast');
+if (!name.endsWith('.cast')) {
+  throw new Error('expected the name of a .cast file');
+}
+const file = path.join(DEMO, name);
 const [first, ...lines] = readFileSync(file, 'utf8').trimEnd().split('\n');
 const header = JSON.parse(first);
 const problems = [];
@@ -28,7 +36,7 @@ lines.forEach((line, index) => {
 });
 
 console.log(
-  `${file}: ${statSync(file).size} bytes, ${header.width}x${header.height},` +
+  `${name}: ${statSync(file).size} bytes, ${header.width}x${header.height},` +
     ` ${clock.toFixed(1)} s, events ${JSON.stringify(counts)},` +
     ` longest gap ${longestGap.toFixed(2)} s`,
 );

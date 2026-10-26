@@ -50,9 +50,11 @@ const client = await connectAsync(`mqtt://127.0.0.1:${BROKER_PORT}`, {
   protocolVersion: 4,
 });
 try {
-  await (route === 'retained'
-    ? retained(client)
-    : request(client, route, payload));
+  if (route === 'retained') {
+    await retained(client);
+  } else {
+    await request(client, route, payload);
+  }
 } finally {
   await client.endAsync();
 }

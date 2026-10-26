@@ -9,10 +9,15 @@ the terminal plays the DT Manager of the network.
 
 The recording is [hospital.cast](hospital.cast), an
 [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) file of
-about 50 kB and three and a half minutes. It was recorded on Windows against runner
-version 0.7.0 (`feature/distributed-demo` at `f0f7f083`).
+about 50 kB and 3 min 23 s, with a video of it,
+[hospital.mp4](hospital.mp4) (H.264, 1078×738, about 4 MB, stored in
+Git LFS). It was recorded on Windows against runner version 0.7.0
+(`feature/distributed-demo` at `f0f7f083`).
 
 ## Play
+
+Open `hospital.mp4` in any video player, or play the cast in a
+terminal:
 
 ```bash
 asciinema play hospital.cast
@@ -66,20 +71,20 @@ declared but not controllable.
 | 0:00 | Setup                                         | `runner.yaml`, state machine file, demo shell helpers                            |
 | 0:15 | Presence: online                              | Retained online notice with the descriptor; first state document                 |
 | 0:31 | DT identity and descriptor                    | `GET /dt`, the MQTT `dt` route                                                   |
-| 0:38 | Health                                        | `GET /health`                                                                    |
-| 0:41 | One state document                            | `GET /state`                                                                     |
-| 0:44 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`                     |
-| 0:54 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command |
-| 1:21 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script                        |
-| 1:43 | Baseline: last command                        | `GET /` with the exit code                                                       |
-| 1:47 | Declared parameters                           | `GET`/`PUT /parameters`; refused non-controllable; event raised                  |
-| 2:05 | Script raises an event; escalation on failure | `full` raised over HTTP; `$failure` without a transition                         |
-| 2:27 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                    |
-| 2:41 | MQTT request/response with input              | MQTT `execute`; late subscriber gets retained state and presence                 |
-| 2:56 | Baseline: history                             | `GET /history`                                                                   |
-| 2:59 | Stop                                          | `POST /stop`; `$stopped` transition                                              |
-| 3:11 | Webhook                                       | Every notification also posted to the webhook                                    |
-| 3:15 | Presence: offline                             | Graceful shutdown leaves a retained offline notice                               |
+| 0:37 | Health                                        | `GET /health`                                                                    |
+| 0:40 | One state document                            | `GET /state`                                                                     |
+| 0:42 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`                     |
+| 0:53 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command |
+| 1:18 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script                        |
+| 1:39 | Baseline: last command                        | `GET /` with the exit code                                                       |
+| 1:43 | Declared parameters                           | `GET`/`PUT /parameters`; refused non-controllable; event raised                  |
+| 2:01 | Script raises an event; escalation on failure | `full` raised over HTTP; `$failure` without a transition                         |
+| 2:23 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                    |
+| 2:36 | MQTT request/response with input              | MQTT `execute`; late subscriber gets retained state and presence                 |
+| 2:51 | Baseline: history                             | `GET /history`                                                                   |
+| 2:54 | Stop                                          | `POST /stop`; `$stopped` transition                                              |
+| 3:05 | Webhook                                       | Every notification also posted to the webhook                                    |
+| 3:10 | Presence: offline                             | Graceful shutdown leaves a retained offline notice                               |
 
 ## Assumptions
 
@@ -111,3 +116,32 @@ the shell) with real output and simulated typing, and writes
 `hospital.cast`. Everything the run writes goes to `run/`, which git
 ignores. On Linux the runner starts the state scripts with `/bin/sh`, so
 it needs shell versions of the `.ps1` scripts in `scripts/`.
+
+## Convert to MP4
+
+asciinema has no video output, so [tools/to-mp4.sh](tools/to-mp4.sh)
+renders the cast as a GIF with [agg](https://github.com/asciinema/agg)
+and encodes the GIF with ffmpeg. It runs on Linux or in WSL. Install the
+tools once; the release binaries of asciinema and agg need no root:
+
+```bash
+mkdir -p ~/.local/bin && cd ~/.local/bin
+base=https://github.com/asciinema
+musl=x86_64-unknown-linux-musl
+curl -fsSL -o asciinema \
+  "$base/asciinema/releases/download/v3.2.1/asciinema-$musl"
+curl -fsSL -o agg "$base/agg/releases/download/v1.9.0/agg-$musl"
+chmod +x asciinema agg
+sudo apt-get install ffmpeg # or any ffmpeg build with libx264
+```
+
+Then, from this folder (in WSL, under `/mnt/c/...`):
+
+```bash
+bash tools/to-mp4.sh
+```
+
+It checks the cast with `asciinema convert`, writing the plain-text
+transcript to `run/hospital.txt`, renders `run/hospital.gif` at font
+size 16 with idle gaps capped at 2 s, and writes `hospital.mp4` with
+libx264 at CRF 32. The conversion takes about two minutes.

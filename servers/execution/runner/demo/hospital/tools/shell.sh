@@ -8,9 +8,11 @@ dt() {
   shift
   curl -s -w '\n%{http_code}' "$@" "http://localhost:5100$path" |
     node tools/pp.mjs
+  return $?
 }
 
 # mq ROUTE [JSON]: an MQTT request to the runner and its response
 mq() {
   node tools/mq.mjs "$@"
+  return $?
 }
