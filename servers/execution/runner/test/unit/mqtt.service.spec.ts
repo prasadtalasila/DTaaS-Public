@@ -68,7 +68,10 @@ describe('MQTT service', () => {
 
     await message(client, 'dtaas/runner/execute', payload, packet());
 
-    expect(handle).toHaveBeenCalledWith('execute', payload, undefined);
+    expect(handle).toHaveBeenCalledWith('execute', {
+      body: { name: 'create' },
+      requestKey: undefined,
+    });
     expect(client.publishAsync).toHaveBeenCalledWith(
       'dtaas/runner/execute/response',
       '{"status":"success"}',
@@ -130,7 +133,10 @@ describe('MQTT service', () => {
         packet({ userProperties: { 'idempotency-key': value } }),
       );
 
-      expect(handle).toHaveBeenCalledWith('execute', payload, 'key-1');
+      expect(handle).toHaveBeenCalledWith('execute', {
+        body: { name: 'create' },
+        requestKey: 'key-1',
+      });
     },
   );
 

@@ -117,6 +117,18 @@ the shell) with real output and simulated typing, and writes
 ignores. On Linux the runner starts the state scripts with `/bin/sh`, so
 it needs shell versions of the `.ps1` scripts in `scripts/`.
 
+The recording runs the runner with access control (runner 0.9.0 and
+later): `record.mjs` writes new key pairs of `alice` (role `client`)
+and `manager-1` (role `manager`) into `run/keys/` with
+[tools/keygen.mjs](tools/keygen.mjs), and a git-ignored
+`runner.auth.yaml`, which is `runner.yaml` with an `auth` section
+listing both. [tools/sign.mjs](tools/sign.mjs) signs each request: `dt`
+and the waits as `alice`, `mq` as `manager-1`; `DT_AS` names another
+principal. Without the keys the tools send unsigned requests, as the
+runner of `runner.yaml` expects. The present `hospital.cast` was
+recorded before access control, so its view of `tools/shell.sh` is the
+shorter one.
+
 ## Convert to MP4
 
 asciinema has no video output, so [tools/to-mp4.sh](tools/to-mp4.sh)

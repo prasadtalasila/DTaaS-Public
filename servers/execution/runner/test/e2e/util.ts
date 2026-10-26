@@ -21,7 +21,7 @@ async function createApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
-  return moduleFixture.createNestApplication({ logger: false });
+  return moduleFixture.createNestApplication({ logger: false, rawBody: true });
 }
 
 // Starts the runner with the configuration file given, without MQTT and

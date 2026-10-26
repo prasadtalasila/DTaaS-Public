@@ -92,6 +92,31 @@ To use another runner or broker, change the variables at the top of
 the request files. httpyac uses these file variables even when its
 `--var` option sets variables of the same name.
 
+## Access Control
+
+A runner with an `auth` section ([README](../README.md#access-control))
+answers the unsigned requests with `401`. Write a key pair, from the
+runner directory:
+
+```bash
+node demo/hospital/tools/keygen.mjs alice keys
+node demo/hospital/tools/keygen.mjs manager-1 keys
+```
+
+and list the printed public keys under `auth` in
+`config/runner.test.yaml`, `alice` as `client` and `manager-1` as
+`manager`. Then:
+
+- In `dev.api.http`, set `@keyFile` to `keys/alice.key`. httpYac signs
+  every request with the `{{@request}}` script at the top of the file;
+  REST Client does not run scripts, so it sends them unsigned.
+- In `dev.mqtt.http`, the `signedExecute` request publishes the
+  envelope that the demo's `tools/sign.mjs` makes with
+  `keys/manager-1.key`; `@keyDir` is relative to the directory httpyac
+  runs in. The other MQTT requests stay plain.
+
+A token is valid for 30 s and once only, so each send signs anew.
+
 ## MQTT Requests
 
 Each MQTT request subscribes to the response topic of its route,

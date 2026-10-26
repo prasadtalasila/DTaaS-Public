@@ -11,6 +11,7 @@ import {
 } from './config.interface.js';
 import { Attributes, configSchema } from './config.schema.js';
 import resolveFile from './util.js';
+import Access from '../auth/access.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
@@ -59,11 +60,20 @@ const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
 export default class Config {
   private configValues: ConfigValues = configDefault;
 
+  private accessControl: Access | undefined;
+
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
     const values = parseConfig(readConfig(file), file);
     this.configValues = resolvePaths(path.dirname(file), values);
+    this.accessControl =
+      values.auth && new Access(values.auth.principals, values.id);
+  }
+
+  // Verifies the callers; without an auth section every route is open
+  access(): Access | undefined {
+    return this.accessControl;
   }
 
   getId(): string {

@@ -10,6 +10,7 @@ import {
   fakeManager,
   stateDocument,
   status,
+  mqttRequest,
 } from './mqtt.fixture';
 
 function createHandler(outcome: RunOutcome) {
@@ -42,7 +43,7 @@ describe('MQTT request handler', () => {
   ])('Should stop the runs for %s', async (_, payload, name) => {
     const { handler, manager } = createHandler('success');
 
-    const body = await handler.handle('stop', payload);
+    const body = await handler.handle('stop', mqttRequest(payload));
 
     expect(manager.stop).toHaveBeenCalledWith(name);
     expect(body).toEqual({ stopped: ['create'] });
@@ -54,7 +55,7 @@ describe('MQTT request handler', () => {
   ])('Should refuse to stop for %s', async (_, payload) => {
     const { handler, manager } = createHandler('success');
 
-    const body = await handler.handle('stop', payload);
+    const body = await handler.handle('stop', mqttRequest(payload));
 
     expect(manager.stop).not.toHaveBeenCalled();
     expect(body).toEqual({
@@ -66,24 +67,28 @@ describe('MQTT request handler', () => {
 
   it('Should return the status of the last command', async () => {
     const { handler } = createHandler('success');
-    expect(await handler.handle('status', Buffer.alloc(0))).toEqual(status);
+    expect(
+      await handler.handle('status', mqttRequest(Buffer.alloc(0))),
+    ).toEqual(status);
   });
 
   it('Should return the command history', async () => {
     const { handler } = createHandler('success');
-    expect(await handler.handle('history', Buffer.alloc(0))).toEqual([
-      { name: 'create' },
-    ]);
+    expect(
+      await handler.handle('history', mqttRequest(Buffer.alloc(0))),
+    ).toEqual([{ name: 'create' }]);
   });
 
   it('Should return the descriptor of the digital twin', async () => {
     const { handler } = createHandler('success');
-    expect(await handler.handle('dt', Buffer.alloc(0))).toEqual(dt);
+    expect(await handler.handle('dt', mqttRequest(Buffer.alloc(0)))).toEqual(
+      dt,
+    );
   });
 
   it('Should return the state document of the digital twin', async () => {
     const { handler } = createHandler('success');
-    expect(await handler.handle('state', Buffer.alloc(0))).toEqual(
+    expect(await handler.handle('state', mqttRequest(Buffer.alloc(0)))).toEqual(
       stateDocument,
     );
   });
@@ -91,7 +96,9 @@ describe('MQTT request handler', () => {
   it('Should report the health with MQTT connected', async () => {
     const { handler } = createHandler('success');
 
-    expect(await handler.handle('health', Buffer.alloc(0))).toEqual({
+    expect(
+      await handler.handle('health', mqttRequest(Buffer.alloc(0))),
+    ).toEqual({
       status: 'ok',
       uptime: expect.any(Number),
       mqtt: 'connected',
@@ -104,7 +111,10 @@ describe('MQTT request handler', () => {
     manager.newCommand.mockRejectedValueOnce(new Error('spawn failed'));
     jest.spyOn(handler['logger'], 'error').mockImplementation(() => undefined);
 
-    const body = await handler.handle('execute', json({ name: 'create' }));
+    const body = await handler.handle(
+      'execute',
+      mqttRequest(json({ name: 'create' })),
+    );
 
     expect(body).toEqual({
       statusCode: 500,
@@ -124,8 +134,7 @@ describe('MQTT request handler', () => {
 
       const body = await handler.handle(
         'transition',
-        json({ state: 'create' }),
-        'key-1',
+        mqttRequest(json({ state: 'create' }), 'key-1'),
       );
 
       expect(fsm.transition).toHaveBeenCalledWith('create', 'key-1');
@@ -135,7 +144,7 @@ describe('MQTT request handler', () => {
     it('Should pass an event on', async () => {
       const { handler, fsm } = createHandler('success');
 
-      await handler.handle('event', json({ event: 'stop' }));
+      await handler.handle('event', mqttRequest(json({ event: 'stop' })));
 
       expect(fsm.event).toHaveBeenCalledWith('stop', undefined);
     });
@@ -149,7 +158,10 @@ describe('MQTT request handler', () => {
       async (route, payload, requestKey) => {
         const { handler, fsm } = createHandler('success');
 
-        const body = await handler.handle(route, payload, requestKey);
+        const body = await handler.handle(
+          route,
+          mqttRequest(payload, requestKey),
+        );
 
         expect(body).toEqual(validationError);
         expect(fsm.transition).not.toHaveBeenCalled();
@@ -162,16 +174,20 @@ describe('MQTT request handler', () => {
       const state = { state: null, status: 'none', entry: 0, events: [] };
       fsm.check.mockReturnValueOnce(state);
 
-      expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual(state);
+      expect(await handler.handle('fsm', mqttRequest(Buffer.alloc(0)))).toEqual(
+        state,
+      );
     });
 
     it('Should answer that there is no state machine', async () => {
       const { handler } = createHandler('success');
 
-      expect(await handler.handle('fsm', Buffer.alloc(0))).toEqual({
-        status: 'no state machine',
-        state: null,
-      });
+      expect(await handler.handle('fsm', mqttRequest(Buffer.alloc(0)))).toEqual(
+        {
+          status: 'no state machine',
+          state: null,
+        },
+      );
     });
   });
 });

@@ -1,8 +1,11 @@
 import { HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
 import { hasOwnProto } from '../fsm/definition.js';
-import type { CommandResult } from '../interfaces/command.interface.js';
-import { RunOptions, RunOutcome } from '../interfaces/runner.interface.js';
+import type {
+  CommandOptions,
+  CommandResult,
+} from '../interfaces/command.interface.js';
+import { RunOutcome } from '../interfaces/runner.interface.js';
 
 // The largest input, in bytes of its JSON
 export const MAX_INPUT_BYTES = 64 * 1024;
@@ -26,13 +29,17 @@ export const executeCommandSchema = z.object({
 
 export type ExecuteCommandDto = z.infer<typeof executeCommandSchema>;
 
-// The environment of the script, and its input, which it reads from
-// stdin as one line of JSON
+// The environment of the script, its input, which it reads from stdin
+// as one line of JSON, and the caller that submitted the command
 export const runOptions = (
   { input }: ExecuteCommandDto,
   env: Record<string, string>,
-): RunOptions =>
-  input === undefined ? { env } : { env, input: `${JSON.stringify(input)}\n` };
+  by?: string,
+): CommandOptions => ({
+  env,
+  ...(input === undefined ? {} : { input: `${JSON.stringify(input)}\n` }),
+  ...(by === undefined ? {} : { by }),
+});
 
 // The optional HTTP header, or MQTT 5 user property, with which a client
 // marks a request, so that the runner can recognise a repeat of it

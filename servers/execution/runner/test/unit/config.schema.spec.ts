@@ -87,6 +87,11 @@ describe('Runner configuration schema', () => {
       { ...valid, mqtt: { url: 'mqtt://localhost:1883', topic: 'dtaas/#' } },
       /wildcards[\s\S]*at mqtt.topic/,
     ],
+    [
+      'an auth section without principals',
+      { ...valid, auth: { principals: [] } },
+      /at least one principal[\s\S]*at auth.principals/,
+    ],
   ])('Should reject %s', (_, config, message) => {
     expect(problems(config)).toMatch(message);
   });

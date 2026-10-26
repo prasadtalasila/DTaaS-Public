@@ -217,6 +217,40 @@ QoS: 1
 
 ###
 
+# @name signedExecute
+# For a runner with access control, whose requests above get 401: the
+# payload is a signed envelope (API.md, "MQTT Access Control"), which
+# demo/hospital/tools/sign.mjs makes from the plain request, here as
+# @principal with the key @keyDir/<principal>.key for the DT @dtId
+@keyDir = keys
+@principal = manager-1
+@dtId = test-dt
+{{
+  const { execFileSync } = require('node:child_process');
+  const { join } = require('node:path');
+  const signer = join(__dirname, '../demo/hospital/tools/sign.mjs');
+  const plain = '{"name": "create"}';
+  const env = {
+    ...process.env,
+    DT_ID: dtId,
+    DT_BASE: topic,
+    DT_KEYS: keyDir,
+    DT_AS: principal,
+  };
+  const args = [signer, 'mqtt', 'execute', plain];
+  exports.envelope = execFileSync(process.execPath, args, { env }).toString();
+}}
+MQTT {{broker}}
+Subscribe: {{topic}}/execute/response
+Publish: {{topic}}/execute
+QoS: 1
+
+{{envelope}}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name notifications
 # Subscribes to the notifications of the runner and publishes nothing;
 # the broker hands over the retained state document and presence

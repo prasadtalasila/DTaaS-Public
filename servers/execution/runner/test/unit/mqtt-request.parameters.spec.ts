@@ -3,6 +3,7 @@ import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
+import { mqttRequest } from './mqtt.fixture';
 
 const document = {
   scope: {
@@ -38,9 +39,9 @@ describe('MQTT request handler parameters', () => {
   it('Should return the parameters', async () => {
     const { handler } = createHandler();
 
-    expect(await handler.handle('parameters', Buffer.alloc(0))).toEqual(
-      document,
-    );
+    expect(
+      await handler.handle('parameters', mqttRequest(Buffer.alloc(0))),
+    ).toEqual(document);
   });
 
   it('Should set the parameters and return them', async () => {
@@ -48,7 +49,7 @@ describe('MQTT request handler parameters', () => {
 
     const body = await handler.handle(
       'set-parameters',
-      json({ scope: 'multi' }),
+      mqttRequest(json({ scope: 'multi' })),
     );
 
     expect(fsm.setParameters).toHaveBeenCalledWith({ scope: 'multi' });
@@ -60,7 +61,9 @@ describe('MQTT request handler parameters', () => {
     const problems = ['parameter size is not declared'];
     fsm.setParameters.mockReturnValueOnce(problems);
 
-    expect(await handler.handle('set-parameters', json({ size: 1 }))).toEqual({
+    expect(
+      await handler.handle('set-parameters', mqttRequest(json({ size: 1 }))),
+    ).toEqual({
       message: problems,
       error: 'Bad Request',
       statusCode: 400,
@@ -73,7 +76,9 @@ describe('MQTT request handler parameters', () => {
   ])('Should return the validation error for %s', async (_, payload) => {
     const { handler, fsm } = createHandler();
 
-    expect(await handler.handle('set-parameters', payload)).toEqual({
+    expect(
+      await handler.handle('set-parameters', mqttRequest(payload)),
+    ).toEqual({
       message: 'Validation Failed',
       error: 'Bad Request',
       statusCode: 400,
@@ -86,7 +91,9 @@ describe('MQTT request handler parameters', () => {
     async (route) => {
       const { handler } = createHandler(false);
 
-      expect(await handler.handle(route, json({}))).toEqual(noMachine);
+      expect(await handler.handle(route, mqttRequest(json({})))).toEqual(
+        noMachine,
+      );
     },
   );
 });

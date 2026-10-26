@@ -4,14 +4,9 @@ import {
   Logger,
   BeforeApplicationShutdown,
 } from '@nestjs/common';
-import type {
-  IClientOptions,
-  IClientPublishOptions,
-  IPublishPacket,
-  MqttClient,
-} from 'mqtt';
+import type { IClientOptions, IPublishPacket, MqttClient } from 'mqtt';
+import { ROUTE_ROLES } from '../auth/roles.js';
 import Config from '../config/configuration.service.js';
-import { REQUEST_KEY } from '../dto/command.dto.js';
 import { MqttHealth } from '../dto/health.dto.js';
 import {
   NotificationDto,
@@ -20,6 +15,7 @@ import {
 } from '../dto/notify.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
+import { openRequest, publishOptions, refusalBody } from './mqtt-request.js';
 import settles from './settles.js';
 import {
   clientOptions,
@@ -169,18 +165,30 @@ export default class MqttService implements BeforeApplicationShutdown {
       return;
     }
     try {
-      const body = await this.handler.handle(
-        route,
-        payload,
-        MqttService.requestKey(packet),
-      );
+      const body = await this.answer(route, payload, packet);
       await client.publishAsync(
         this.responseTopic(topic, packet),
         JSON.stringify(body),
-        MqttService.publishOptions(packet.properties?.correlationData),
+        publishOptions(packet.properties?.correlationData),
       );
     } catch (error) {
       this.logger.error(`MQTT response on ${topic} failed: ${error}`);
+    }
+  }
+
+  // A public route takes a plain payload even with access control; a
+  // refused credential is answered with the body of its HTTP reply
+  private answer(
+    route: MqttRoute,
+    payload: Buffer,
+    packet: IPublishPacket,
+  ): unknown {
+    const open = ROUTE_ROLES[route] === 'public';
+    const access = open ? undefined : this.config.access();
+    try {
+      return this.handler.handle(route, openRequest(packet, payload, access));
+    } catch (error) {
+      return refusalBody(error);
     }
   }
 
@@ -220,20 +228,5 @@ export default class MqttService implements BeforeApplicationShutdown {
       return defaultResponseTopic(topic);
     }
     return responseTopic;
-  }
-
-  // MQTT 5 user properties may repeat, so the first value counts
-  private static requestKey(packet: IPublishPacket): string | undefined {
-    const value = packet.properties?.userProperties?.[REQUEST_KEY];
-    return Array.isArray(value) ? value[0] : value;
-  }
-
-  private static publishOptions(
-    correlationData: Buffer | undefined,
-  ): IClientPublishOptions {
-    if (correlationData === undefined) {
-      return { qos: 1 };
-    }
-    return { qos: 1, properties: { correlationData } };
   }
 }

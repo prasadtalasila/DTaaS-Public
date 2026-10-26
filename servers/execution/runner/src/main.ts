@@ -21,7 +21,8 @@ const [program, CLIOptions] = createCommand(PROGRAM_NAME);
 await CLI(program, CLIOptions); // function fills the CLIOptions
 
 async function bootstrap(options: Keyv) {
-  const app = await NestFactory.create(AppModule);
+  // the access guard hashes the raw body of a request
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get<Config>(Config);
   await config.loadConfig(options);
   app.get<FsmService>(FsmService).load();
@@ -35,6 +36,7 @@ async function bootstrap(options: Keyv) {
   app.get<MqttService>(MqttService).start();
   await app.listen(config.getPort());
   const fsm = app.get<FsmService>(FsmService);
-  fsm.setRunnerUrl(runnerUrl(app.getHttpServer()));
+  const token = config.access()?.scriptToken;
+  fsm.setRunnerApi(runnerUrl(app.getHttpServer()), token);
 }
 bootstrap(CLIOptions);

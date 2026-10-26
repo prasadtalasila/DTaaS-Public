@@ -16,6 +16,7 @@ import {
 } from './dto/parameters.dto.js';
 import FsmService from './fsm/fsm.service.js';
 import ZodValidationPipe from './validation.pipe.js';
+import { AccessRoute } from './auth/roles.js';
 
 @Controller('parameters')
 export default class ParametersController {
@@ -23,6 +24,7 @@ export default class ParametersController {
 
   // Without a state machine, the reply of GET /fsm
   @Get()
+  @AccessRoute('parameters')
   get(@Res({ passthrough: true }) res: Response): ParametersDto | FsmReplyDto {
     const document = this.fsm.parameters()?.document();
     if (document === undefined) {
@@ -34,6 +36,7 @@ export default class ParametersController {
 
   // The route is idempotent, so it takes no request key
   @Put()
+  @AccessRoute('set-parameters')
   set(
     @Body(new ZodValidationPipe(parametersBodySchema)) body: ParametersBody,
     @Res({ passthrough: true }) res: Response,

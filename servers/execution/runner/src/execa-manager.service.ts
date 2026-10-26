@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import {
+  CommandOptions,
   CommandRecord,
   CommandResult,
   CommandStatus,
@@ -38,7 +39,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   async newCommand(
     name: string,
     key?: string,
-    options?: RunOptions,
+    options?: CommandOptions,
   ): Promise<CommandResult> {
     // an empty key marks no request
     const requestKey = key === '' ? undefined : key;
@@ -98,9 +99,9 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   private start(
     name: string,
     requestKey?: string,
-    options?: RunOptions,
+    options?: CommandOptions,
   ): Promise<CommandResult> {
-    const id = this.commandQueue.enqueue(name, requestKey);
+    const id = this.commandQueue.enqueue(name, requestKey, options?.by);
     const runner = this.createRunner(name);
     const result = this.finish(name, this.execute(id, runner, options));
     this.running.set(name, { id, result, runner });

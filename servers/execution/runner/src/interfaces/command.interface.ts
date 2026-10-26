@@ -19,6 +19,10 @@ type CommandRecord = {
   finishedAt: string | null;
 };
 
+// What a command request passes on: the options of its script, and the
+// caller that submitted it, which the queue stores
+type CommandOptions = RunOptions & { by?: string };
+
 type CommandStatus = {
   name: string;
   status: string;
@@ -33,11 +37,11 @@ interface Manager {
   newCommand(
     name: string,
     requestKey?: string,
-    options?: RunOptions,
+    options?: CommandOptions,
   ): Promise<CommandResult>;
   checkHistory(): Array<ExecuteCommandDto>;
   checkStatus(): CommandStatus;
   stop(name?: string): Promise<string[]>;
 }
 
-export { CommandRecord, CommandResult, CommandStatus, Manager };
+export { CommandOptions, CommandRecord, CommandResult, CommandStatus, Manager };

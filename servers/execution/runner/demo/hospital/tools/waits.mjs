@@ -2,12 +2,15 @@
 // the wait
 import { readFileSync } from 'node:fs';
 import { RUNNER_URL } from './settings.mjs';
+import { authorization } from './sign.mjs';
 
 // The JSON reply of the runner, or undefined when the request fails: a
 // keep-alive socket that the runner closes can reset a poll
 async function get(path) {
   try {
-    return await (await fetch(`${RUNNER_URL}${path}`)).json();
+    const header = authorization('GET', path);
+    const headers = header === undefined ? {} : { Authorization: header };
+    return await (await fetch(`${RUNNER_URL}${path}`, { headers })).json();
   } catch {
     return undefined;
   }

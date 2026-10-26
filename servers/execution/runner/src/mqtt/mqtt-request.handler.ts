@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  HttpException,
   HttpStatus,
   Injectable,
   Logger,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { MESSAGES } from '@nestjs/core/constants.js';
+import { authorize, listedCommand } from '../auth/roles.js';
 import DescriptorService from '../descriptor.service.js';
 import ExecaManager from '../execa-manager.service.js';
 import {
@@ -22,19 +24,7 @@ import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
-
-// An empty payload is undefined, like an empty HTTP body, and a payload
-// that is not JSON is null, so that only the first gets a default
-function parseJson(payload: Buffer): unknown {
-  if (payload.length === 0) {
-    return undefined;
-  }
-  try {
-    return JSON.parse(payload.toString());
-  } catch {
-    return null;
-  }
-}
+import { MqttRequest } from './mqtt-request.js';
 
 // Answers an MQTT request with the JSON body that the matching
 // HTTP route returns, so that both protocols share one API.
@@ -50,14 +40,18 @@ export default class MqttRequestHandler {
 
   private readonly routes: Record<
     MqttRoute,
-    (payload: Buffer, requestKey?: string) => unknown
+    (request: MqttRequest) => unknown
   > = {
-    execute: this.whenValid(executeCommandSchema, (request, key) =>
+    execute: this.whenValid(executeCommandSchema, (command, request) =>
       executeReply(
         this.manager.newCommand(
-          request.name,
-          key,
-          runOptions(request, this.fsm.environment(request.name)),
+          command.name,
+          request.requestKey,
+          runOptions(
+            command,
+            this.fsm.environment(command.name),
+            request.principal?.name,
+          ),
         ),
       ),
     ),
@@ -66,11 +60,11 @@ export default class MqttRequestHandler {
     })),
     status: () => this.manager.checkStatus(),
     history: () => this.manager.checkHistory(),
-    transition: this.whenValid(transitionSchema, ({ state }, key) =>
-      this.fsm.transition(state, key),
+    transition: this.whenValid(transitionSchema, ({ state }, request) =>
+      this.fsm.transition(state, request.requestKey),
     ),
-    event: this.whenValid(eventSchema, ({ event }, key) =>
-      this.fsm.event(event, key),
+    event: this.whenValid(eventSchema, ({ event }, request) =>
+      this.fsm.event(event, request.requestKey),
     ),
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
     dt: () => this.descriptor.describe(),
@@ -81,40 +75,56 @@ export default class MqttRequestHandler {
     'set-parameters': this.whenValid(parametersBodySchema, (body) =>
       this.setParameters(body),
     ),
-    escalate: this.whenValid(escalateSchema, (body, key) =>
-      this.fsm.escalate(body, key),
+    escalate: this.whenValid(escalateSchema, (body, request) =>
+      this.fsm.escalate(body, request.requestKey),
     ),
   };
 
-  // An unexpected error gets the same body as an HTTP 500 response
-  async handle(
-    route: MqttRoute,
-    payload: Buffer,
-    requestKey?: string,
-  ): Promise<unknown> {
+  // The role comes before the body, as Nest runs guards before pipes. A
+  // refusal gets the body of its HTTP reply, and an unexpected error the
+  // body of an HTTP 500 response.
+  async handle(route: MqttRoute, request: MqttRequest): Promise<unknown> {
     try {
-      return await this.routes[route](payload, requestKey);
+      this.authorize(route, request);
+      return await this.routes[route](request);
     } catch (error) {
-      this.logger.error(`MQTT ${route} request failed: ${error}`);
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: MESSAGES.UNKNOWN_EXCEPTION_MESSAGE,
-      };
+      return this.failure(route, error);
     }
   }
 
-  // A route that answers a request whose payload or request key is
-  // invalid with the validation error of the HTTP API
+  // Only a request with a credential has a principal
+  private authorize(route: MqttRoute, { principal, body }: MqttRequest) {
+    if (principal !== undefined) {
+      const listed = listedCommand(this.fsm.managerCommands(), body);
+      authorize(principal, route, listed);
+      this.logger.debug(`${principal.name} calls ${route}`);
+    }
+  }
+
+  private failure(route: MqttRoute, error: unknown): unknown {
+    if (error instanceof HttpException) {
+      return error.getResponse();
+    }
+    this.logger.error(`MQTT ${route} request failed: ${error}`);
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: MESSAGES.UNKNOWN_EXCEPTION_MESSAGE,
+    };
+  }
+
+  // A route that answers a request whose body or request key is invalid
+  // with the validation error of the HTTP API
   private whenValid<T>(
     schema: z.ZodType<T>,
-    handle: (request: T, requestKey?: string) => unknown,
-  ): (payload: Buffer, requestKey?: string) => unknown {
-    return (payload, requestKey) => {
-      const request = schema.safeParse(parseJson(payload));
-      if (!request.success || !requestKeySchema.safeParse(requestKey).success) {
+    handle: (body: T, request: MqttRequest) => unknown,
+  ): (request: MqttRequest) => unknown {
+    return (request) => {
+      const body = schema.safeParse(request.body);
+      const key = requestKeySchema.safeParse(request.requestKey);
+      if (!body.success || !key.success) {
         return validationFailed().getResponse();
       }
-      return handle(request.data, requestKey);
+      return handle(body.data, request);
     };
   }
 

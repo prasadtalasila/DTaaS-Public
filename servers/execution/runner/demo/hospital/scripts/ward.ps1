@@ -50,10 +50,12 @@ function Remove-Patient($patient) {
 }
 
 # POSTs the body to the runner and returns the HTTP status, 0 when the
-# runner can not be reached; Windows PowerShell 5.1 throws on 4xx and 5xx
+# runner can not be reached; Windows PowerShell 5.1 throws on 4xx and 5xx.
+# RUNNER_TOKEN is unset without access control, and the header ignored.
 function Send-Runner($path, $body) {
+  $headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
   try {
-    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" `
+    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $headers `
       -ContentType 'application/json' -Body ($body | ConvertTo-Json -Compress) | Out-Null
     202
   } catch { [int]$_.Exception.Response.StatusCode }

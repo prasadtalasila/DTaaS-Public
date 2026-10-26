@@ -48,6 +48,12 @@ status. The examples below show the plain `curl` command instead.
 a PUT. `mq ROUTE [JSON]` publishes an MQTT request and prints the
 response, as described in [MQTT](#mqtt).
 
+The recording predates [access control](#access-control), so its
+requests carry no credential. A runner with an `auth` section wants an
+`Authorization` header on every HTTP request but `GET /health`, and a
+signed payload on every MQTT request but `health`; the examples leave
+both out.
+
 ## Routes
 
 Every HTTP route has an MQTT route of the same meaning. An MQTT request
@@ -69,6 +75,9 @@ of the configuration.
 | `GET /parameters`      | `parameters`     |                                     | 200     |
 | `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                | 200     |
 | `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}` | 202     |
+
+With access control, each route is open to some roles only; see
+[Roles](#roles).
 
 The runner also sends [notifications](#notifications): its state
 document whenever it changes, escalations to the Manager, and its
@@ -110,6 +119,11 @@ These rules hold for every route.
 - **Unexpected errors.** An unexpected failure gets HTTP status 500
   with `{"statusCode": 500, "message": "Internal server error"}`, over
   MQTT too.
+- **Credentials.** With an `auth` section in the configuration, a
+  request without a valid credential gets 401 and a caller whose role
+  may not call the route 403, before the body is validated; see
+  [Access Control](#access-control). Without it, the runner ignores any
+  `Authorization` header.
 
 ## Digital Twin
 
@@ -711,6 +725,158 @@ Without a key, a request for a command that is running joins that run
 and gets its result. With `input`, it is refused with `command running`
 instead, is not added to the history, and its key is not kept.
 
+## Access Control
+
+Without an `auth` section in the configuration, every route is open to
+anyone who reaches the port or the request topics. With one, the
+runner answers only the principals it lists, each in a role, and its
+own scripts:
+
+```yaml
+auth:
+  principals:
+    - name: manager-1
+      role: manager
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+    - name: alice
+      role: client
+      publicKey: 'o-YAagcjoyUxT2xcgULS22sCK6N_cJ-op8Jh7yukXMk'
+```
+
+`publicKey` is an Ed25519 public key as the base64url of its 32 raw
+bytes, the `x` of its JWK (RFC 8037); the caller keeps the private key.
+The demo's [tools/keygen.mjs](../demo/hospital/tools/keygen.mjs) writes
+a key pair, `NAME.key` in PKCS#8 PEM and `NAME.pub` in this encoding.
+`GET /health` and MQTT `health` stay open. The runner logs each
+accepted request with its principal at `debug` level, and stores the
+principal of each command in its history database: the name, `script`,
+or nothing without `auth`, also for the script of a state.
+
+### Token
+
+An HTTP request carries `Authorization: Bearer <token>`, a compact JWS
+(RFC 7515) that the caller signs for that one request:
+
+- Header: `{"alg":"Ed25519","kid":"<principal>"}`. `alg` is the fully
+  specified name of RFC 9864; any other, `EdDSA` and `none` included,
+  is refused.
+- `aud`: the DT's `id`. `iat` and `exp`: seconds, `exp` after `iat` by
+  60 s at most; the runner allows 30 s of clock skew either way.
+- `jti`: random, of 16 to 64 characters. The runner refuses a `jti` it
+  accepted before, until the token can no longer be valid, and forgets
+  them at a restart.
+- `htm`: the method. `htu`: the path, without host or query, as the
+  runner receives it, or behind a prefix that a gateway strips, such
+  as `/user1/runner/fsm/event` for `/fsm/event`.
+- `bh`: the base64url SHA-256 of the exact body bytes sent; of the
+  empty string without a body.
+
+`alice` raising `close` sends these claims:
+
+```json
+{
+  "aud": "hospital-1",
+  "iat": 1793005516,
+  "exp": 1793005546,
+  "jti": "4Yprdk_SIrCcAYAPD-gPtQ",
+  "htm": "POST",
+  "htu": "/fsm/event",
+  "bh": "vMxsLojiWijWYxqt3cB8LD75hzg-qHd9LKzoVarHsRg"
+}
+```
+
+`bh` hashes the bytes of the body, here `{"event":"close"}`:
+
+```bash
+printf '%s' '{"event":"close"}' | openssl dgst -sha256 -binary |
+  basenc --base64url | tr -d '='
+```
+
+In Node, with `node:crypto` alone:
+
+```js
+import { createHash, createPrivateKey, randomBytes, sign } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const key = createPrivateKey(readFileSync('alice.key'));
+const part = (value) =>
+  Buffer.from(JSON.stringify(value)).toString('base64url');
+
+export function authorization(method, path, body = '') {
+  const iat = Math.floor(Date.now() / 1000);
+  const claims = {
+    aud: 'hospital-1',
+    iat,
+    exp: iat + 30,
+    jti: randomBytes(16).toString('base64url'),
+    htm: method,
+    htu: path,
+    bh: createHash('sha256').update(body).digest('base64url'),
+  };
+  const input = `${part({ alg: 'Ed25519', kid: 'alice' })}.${part(claims)}`;
+  const signature = sign(null, Buffer.from(input), key).toString('base64url');
+  return `Bearer ${input}.${signature}`;
+}
+```
+
+The `Idempotency-Key` header is not signed, as `jti` already stops a
+replay. Over MQTT the token is the request payload itself; see
+[MQTT Access Control](#mqtt-access-control).
+
+### Roles
+
+A `client` may call every route, and a `manager` reads, sets
+parameters and runs the `manager.commands` of the state machine file.
+The runner's own scripts send `Authorization: Bearer $RUNNER_TOKEN`
+(see [Calls From Scripts](#calls-from-scripts)) and act in the role
+`script`. A principal's token is accepted from a script too, in the
+principal's role.
+
+| HTTP                   | MQTT route       | client | manager            | script |
+| :--------------------- | :--------------- | :----- | :----------------- | :----- |
+| `GET /health`          | `health`         | open   | open               | open   |
+| `GET /dt`              | `dt`             | yes    | yes                | yes    |
+| `GET /state`           | `state`          | yes    | yes                | yes    |
+| `GET /`                | `status`         | yes    | yes                | yes    |
+| `GET /history`         | `history`        | yes    | yes                | yes    |
+| `GET /fsm`             | `fsm`            | yes    | yes                | yes    |
+| `GET /parameters`      | `parameters`     | yes    | yes                | yes    |
+| `POST /`               | `execute`        | yes    | `manager.commands` | no     |
+| `POST /stop`           | `stop`           | yes    | no                 | no     |
+| `POST /fsm/transition` | `transition`     | yes    | no                 | no     |
+| `POST /fsm/event`      | `event`          | yes    | no                 | yes    |
+| `POST /escalate`       | `escalate`       | yes    | no                 | yes    |
+| `PUT /parameters`      | `set-parameters` | yes    | yes                | no     |
+
+### Errors
+
+A refusal has the body of a Nest error, over MQTT too. No message
+before the signature check tells whether a name is listed.
+
+| Case                                                    | Status | `message`                               |
+| :------------------------------------------------------ | :----- | :-------------------------------------- |
+| No header, or an MQTT payload that is no JWS            | 401    | `missing credential`                    |
+| Not `Bearer`, not three base64url parts, not JSON       | 401    | `malformed credential`                  |
+| `alg` not `Ed25519`, unknown `kid`, bad signature/token | 401    | `invalid credential`                    |
+| `aud` not this DT, claims missing or of the wrong type  | 401    | `invalid claims`                        |
+| Expired, issued in the future, or `exp - iat` over 60 s | 401    | `expired credential`                    |
+| `htm`, `htu`, `bh` or `topic` differs from the request  | 401    | `credential does not match the request` |
+| `jti` seen before                                       | 401    | `replayed credential`                   |
+| Role refused, or a manager command not listed           | 403    | `<role> may not call <route>`           |
+
+A manager that runs `open` of the demo gets:
+
+```json
+{
+  "message": "manager may not call execute",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+
+The 413 of an oversized body comes first; 401 and 403 come before the
+validation error.
+
 ## MQTT
 
 With an `mqtt` section in the configuration, the runner connects to the
@@ -837,13 +1003,40 @@ Requests published while the runner is disconnected are lost. The
 runner ignores retained requests, so that a command does not run again
 each time the runner connects.
 
-### Access Control
+### MQTT Access Control
 
-Anyone who can publish on the request topics can run the permitted
-commands. Use the access control of the broker to limit who publishes
-on them, and which topics the runner may publish on. Use `mqtts://` or
-`wss://` with a username and password when the broker is not on the
-same computer.
+With an `auth` section, the payload of every request but `health` is a
+compact JWS, signed as for HTTP (see [Token](#token)), whose claims are
+`aud`, `iat`, `exp`, `jti`, `topic`, the request topic, and `body`, the
+JSON of the plain request, absent for a route without one. The runner
+verifies the token, compares `topic` with the topic the request came
+on, and handles `body` as it handles a plain payload. This works over
+MQTT 3.1.1 and MQTT 5 alike. The Manager's `execute` of the demo, as
+claims:
+
+```json
+{
+  "aud": "hospital-1",
+  "iat": 1793005596,
+  "exp": 1793005626,
+  "jti": "Zq0m3Xb7c9WkLr2PfYt8sQ",
+  "topic": "dtaas/hospital-1/execute",
+  "body": { "name": "discharge", "input": { "patient": "p-1" } }
+}
+```
+
+A plain payload gets the `401` body `missing credential`, and a refused
+credential or role its [error](#errors) body, on the response topic as
+any response. The request key stays an MQTT 5 user property. The
+demo's [tools/sign.mjs](../demo/hospital/tools/sign.mjs) prints such a
+payload: `node tools/sign.mjs mqtt execute '<json>'`.
+
+The broker's access control remains the outer wall: `auth` decides who
+may act, the broker who may publish on the request topics and read the
+responses and notifications at all, and which topics the runner may
+publish on. Without `auth`, anyone who can publish on the request
+topics can run the permitted commands. Use `mqtts://` or `wss://` with
+a username and password when the broker is not on the same computer.
 
 ## Notifications
 
@@ -1094,6 +1287,7 @@ own address and the context of the DT in environment variables.
 | Variable          | Value in the demo, in state `open` at entry 1  |
 | :---------------- | :--------------------------------------------- |
 | `RUNNER_URL`      | `http://127.0.0.1:5100`                        |
+| `RUNNER_TOKEN`    | the scripts' bearer token, with `auth` only    |
 | `DT_ID`           | `hospital-1`                                   |
 | `DT_STATE`        | `open`; empty before the first transition      |
 | `DT_ENTRY`        | `1`                                            |
@@ -1112,14 +1306,19 @@ variables under `env` in the state machine file come too, such as
 ### Raise an Event or Escalate
 
 A script raises an event with `POST $RUNNER_URL/fsm/event` and
-escalates with `POST $RUNNER_URL/escalate`. The demo scripts use this
-PowerShell helper, from
-[scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
+escalates with `POST $RUNNER_URL/escalate`, with the header
+`Authorization: Bearer $RUNNER_TOKEN`. `RUNNER_TOKEN` is drawn at each
+start of the runner, and a script that sends it acts in the role
+`script` (see [Roles](#roles)). Without `auth` the variable is unset
+and the runner ignores the header, so a script may always send it. The
+token is for HTTP only. The demo scripts use this PowerShell helper,
+from [scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
 
 ```powershell
 function Send-Runner($path, $body) {
+  $headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
   try {
-    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" `
+    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $headers `
       -ContentType 'application/json' -Body ($body | ConvertTo-Json -Compress) | Out-Null
     202
   } catch { [int]$_.Exception.Response.StatusCode }
@@ -1138,8 +1337,10 @@ In a shell script on Linux, the same calls are:
 
 ```bash
 curl -s -X POST "$RUNNER_URL/fsm/event" \
+  -H "Authorization: Bearer $RUNNER_TOKEN" \
   -H 'Content-Type: application/json' -d '{"event": "full"}'
 curl -s -X POST "$RUNNER_URL/escalate" \
+  -H "Authorization: Bearer $RUNNER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"reason": "no cardiology bed for p-3", "proposal": {"scope": "multi"}}'
 ```
@@ -1173,7 +1374,8 @@ those of the markers in [hospital.cast](../demo/hospital/hospital.cast).
 
 ## Version
 
-This document describes runner version 0.8.0. The
+This document describes runner version 0.9.0, which added
+[access control](#access-control). The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.

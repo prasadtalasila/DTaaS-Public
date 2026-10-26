@@ -6,6 +6,7 @@ import FsmService from 'src/fsm/fsm.service';
 import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions } from 'src/interfaces/runner.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
+import { mqttRequest } from './mqtt.fixture';
 
 const LOGS = new Map([
   ['stdout', 'hello world'],
@@ -46,7 +47,10 @@ describe('MQTT execute requests', () => {
   it('Should reply with the result of a successful command', async () => {
     const { handler, manager } = ending(['success', LOGS, 0]);
 
-    const body = await handler.handle('execute', json({ name: 'create' }));
+    const body = await handler.handle(
+      'execute',
+      mqttRequest(json({ name: 'create' })),
+    );
 
     expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
       env: ENV,
@@ -61,7 +65,7 @@ describe('MQTT execute requests', () => {
     const { handler, manager } = ending(['success', LOGS, 0]);
     const request = { name: 'admit', input: { ward: 'B' } };
 
-    await handler.handle('execute', json(request), 'key-1');
+    await handler.handle('execute', mqttRequest(json(request), 'key-1'));
 
     expect(manager.newCommand).toHaveBeenCalledWith('admit', 'key-1', {
       env: ENV,
@@ -77,7 +81,10 @@ describe('MQTT execute requests', () => {
     async (outcome, exitCode) => {
       const { handler } = ending([outcome, new Map(), exitCode]);
 
-      const body = await handler.handle('execute', json({ name: 'create' }));
+      const body = await handler.handle(
+        'execute',
+        mqttRequest(json({ name: 'create' })),
+      );
 
       expect(body).toEqual({
         status: outcome,
@@ -93,7 +100,10 @@ describe('MQTT execute requests', () => {
         Promise.reject(new CommandRefused(status)),
       );
 
-      const body = await handler.handle('execute', json({ name: 'create' }));
+      const body = await handler.handle(
+        'execute',
+        mqttRequest(json({ name: 'create' })),
+      );
 
       expect(body).toEqual({ status });
     },
@@ -119,7 +129,10 @@ describe('MQTT execute requests', () => {
     async (_, payload, requestKey) => {
       const { handler, manager } = ending(['success', LOGS, 0]);
 
-      const body = await handler.handle('execute', payload, requestKey);
+      const body = await handler.handle(
+        'execute',
+        mqttRequest(payload, requestKey),
+      );
 
       expect(manager.newCommand).not.toHaveBeenCalled();
       expect(body).toEqual(validationError);

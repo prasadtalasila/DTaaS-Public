@@ -40,12 +40,13 @@ describe('State machine service environment of scripts', () => {
 
   it('Should pass the environment of the entry it starts', () => {
     const { service, manager } = setup();
-    service.setRunnerUrl('http://127.0.0.1:5000');
+    service.setRunnerApi('http://127.0.0.1:5000', 'token-1');
 
     service.transition('create');
 
     expect(lastEnv(manager.newCommand.mock.calls)).toMatchObject({
       RUNNER_URL: 'http://127.0.0.1:5000',
+      RUNNER_TOKEN: 'token-1',
       DT_ID: 'dt-1',
       DT_STATE: 'create',
       DT_ENTRY: '1',
@@ -100,9 +101,11 @@ describe('State machine service environment of scripts', () => {
 
   it('Should leave RUNNER_URL unset until the server listens', () => {
     const { service } = setup();
-    service.setRunnerUrl(undefined);
+    service.setRunnerApi(undefined, undefined);
 
-    expect(service.environment('create')).not.toHaveProperty('RUNNER_URL');
+    const env = service.environment('create');
+    expect(env).not.toHaveProperty('RUNNER_URL');
+    expect(env).not.toHaveProperty('RUNNER_TOKEN');
   });
 
   it('Should give only the identity without a state machine', () => {

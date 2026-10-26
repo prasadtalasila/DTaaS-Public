@@ -168,6 +168,7 @@ variables:
 | Variable          | Value                                                                   |
 | :---------------- | :---------------------------------------------------------------------- |
 | `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's HTTP API                        |
+| `RUNNER_TOKEN`    | the bearer token for that API, with access control only                 |
 | `DT_ID`           | the `id` of _runner.yaml_                                               |
 | `DT_STATE`        | the state whose script this is                                          |
 | `DT_ENTRY`        | the number of that entry into a state, counted from 1                   |
@@ -189,8 +190,8 @@ states:
   and may not start with `DT_` or `RUNNER_`.
 - Values are strings, numbers or booleans; a script reads them as
   strings.
-- A value may use `${NAME}` for `RUNNER_URL`, `DT_ID`, `DT_STATE`,
-  `DT_ENTRY` or a `DT_PARAM_` variable, and nothing else, so the file
+- A value may use `${NAME}` for `RUNNER_URL`, `RUNNER_TOKEN`, `DT_ID`,
+  `DT_STATE`, `DT_ENTRY` or a `DT_PARAM_` variable, and nothing else, so the file
   means the same on every host.
 - The `env` of a state wins over the `env` of the file, which wins over
   the runner's variables and environment.
@@ -225,8 +226,10 @@ manager:
 ```
 
 The commands that a Manager may submit with `POST /`. Each must be one
-of the `commands` of _runner.yaml_. `GET /dt` shows the list; the runner
-does not enforce it yet.
+of the `commands` of _runner.yaml_. `GET /dt` shows the list. With
+access control ([README](README.md#access-control)), a principal in the
+role `manager` may run only these commands; without it, the list is not
+enforced.
 
 ### When the Runner Refuses the File
 
@@ -312,11 +315,14 @@ log.
 
 ### Raise Events From Scripts
 
-A script raises an event as any client does, at `RUNNER_URL`:
+A script raises an event as any client does, at `RUNNER_URL`, with the
+token of `RUNNER_TOKEN`, which the runner ignores without access
+control:
 
 ```sh
 code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-  -H 'Content-Type: application/json' -d '{"event": "done"}' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $RUNNER_TOKEN" -d '{"event": "done"}' \
   "$RUNNER_URL/fsm/event")
 case "$code" in
   202 | 503) exit 0 ;;
@@ -337,9 +343,11 @@ esac
 throws on a `4xx` or `5xx` reply:
 
 ```powershell
+$headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
 try {
   Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/fsm/event" `
-    -ContentType 'application/json' -Body '{"event": "done"}' | Out-Null
+    -Headers $headers -ContentType 'application/json' `
+    -Body '{"event": "done"}' | Out-Null
   $code = 202
 } catch { $code = [int]$_.Exception.Response.StatusCode }
 ```

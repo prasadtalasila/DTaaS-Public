@@ -75,5 +75,14 @@ describe('Check UpdateCommandDto validation pipe', () => {
       );
       expect(runOptions({ name: 'create' }, env)).toEqual({ env });
     });
+
+    it('Should pass the caller on with the options of the script', () => {
+      const env = { DT_ID: 'dt-1' };
+
+      expect(runOptions({ name: 'create' }, env, 'alice')).toEqual({
+        env,
+        by: 'alice',
+      });
+    });
   });
 });

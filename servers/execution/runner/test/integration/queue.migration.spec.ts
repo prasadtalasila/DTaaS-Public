@@ -35,11 +35,20 @@ function oldDatabase(dir: string): string {
   return file;
 }
 
-const exitCodeColumns = (file: string): number => {
+// The number of columns of the commands table with the name
+const columnCount = (file: string, column: string): number => {
   const db = new DatabaseSync(file);
   const columns = db.prepare('PRAGMA table_info(commands)').all();
   db.close();
-  return columns.filter(({ name }) => name === 'exit_code').length;
+  return columns.filter(({ name }) => name === column).length;
+};
+
+// The caller stored with each command, by id
+const callers = (file: string): unknown[] => {
+  const db = new DatabaseSync(file);
+  const rows = db.prepare('SELECT by FROM commands ORDER BY id').all();
+  db.close();
+  return rows.map(({ by }) => by);
 };
 
 describe('Queue exit codes and statuses', () => {
@@ -68,7 +77,33 @@ describe('Queue exit codes and statuses', () => {
 
     expect(queue.activeCommand()).toMatchObject({ id, exitCode: 3 });
     queue.close();
-    expect(exitCodeColumns(file)).toBe(1);
+    expect(columnCount(file, 'exit_code')).toBe(1);
+  });
+
+  it('should add the by column to a database of 0.6.0 once', () => {
+    const file = oldDatabase(dir);
+
+    queue.open(file);
+    queue.enqueue('create', undefined, 'alice');
+    queue.close();
+    queue = new Queue();
+    queue.open(file);
+    queue.close();
+
+    expect(columnCount(file, 'by')).toBe(1);
+    expect(callers(file)).toEqual([null, 'alice']);
+  });
+
+  it('should store the caller of a command, NULL without one', () => {
+    const file = join(dir, 'runner.db');
+    queue.open(file);
+
+    queue.enqueue('create', 'key-1', 'manager-1');
+    queue.enqueue('create', undefined, 'script');
+    queue.enqueue('create');
+    queue.close();
+
+    expect(callers(file)).toEqual(['manager-1', 'script', null]);
   });
 
   it('should have no exit code for a command of 0.6.0', () => {

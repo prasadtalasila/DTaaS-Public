@@ -1,8 +1,8 @@
 # 15a Access Control: Verify Callers
 
-- Status: planned
+- Status: in review
 - Depends on: none
-- PR: none yet
+- PR: [#90](https://github.com/prasadtalasila/DTaaS-Public/pull/90)
 - Research note:
   [item 15](../dtn-research-notes.md#15-access-control-by-role)
 
@@ -283,59 +283,116 @@ format for MQTT under `auth`.
 
 ## Tasks
 
-- [ ] The schema accepts the example and refuses a duplicate name,
+- [x] The schema accepts the example and refuses a duplicate name,
       `script`, an unknown role or key, and a bad `publicKey`. Check:
       `test/unit/auth.schema.spec.ts`.
-- [ ] A valid JWS verifies; `alg` `none`, `EdDSA` or `HS256`, an
+- [x] A valid JWS verifies; `alg` `none`, `EdDSA` or `HS256`, an
       unknown `kid`, a bad signature and a malformed token give the
       table's messages.
       Check: `test/unit/auth.jws.spec.ts`.
-- [ ] `aud`, skew both ways, `exp - iat` over 60 s, `htm`, `htu` with a
+- [x] `aud`, skew both ways, `exp - iat` over 60 s, `htm`, `htu` with a
       prefix, `bh` of no body and of JSON, `topic`, and a `jti` refused
       until `exp` plus 30 s. Check: `test/unit/auth.claims.spec.ts` and
       `test/unit/auth.replay.spec.ts`, with a fake clock.
-- [ ] `Access` takes the script token and refuses another of its
+- [x] `Access` takes the script token and refuses another of its
       length; `authorize` follows every row of the role table. Check:
       `test/unit/auth.access.spec.ts`, `test/unit/auth.roles.spec.ts`.
-- [ ] Every handler has an `AccessRoute`; the guard allows all without
+- [x] Every handler has an `AccessRoute`; the guard allows all without
       `auth`. Check: `test/unit/auth.guard.spec.ts`.
-- [ ] Over HTTP, with `access()` spied as `getMqtt` is in
+- [x] Over HTTP, with `access()` spied as `getMqtt` is in
       `test/e2e/mqtt.util.ts`: the 401 cases, 403 for a manager's
       `open`, 200 for its `admit`, `/health` without a header. Check:
       `test/e2e/auth.spec.ts`. No test file name holds `.env`, which
       Qlty takes for a dotenv file; use `*-env.spec.ts`.
-- [ ] A state's script raises an event with `RUNNER_TOKEN`; without
+- [x] A state's script raises an event with `RUNNER_TOKEN`; without
       `auth` the variable is absent. Check:
       `test/e2e/auth.script.spec.ts` and
       `test/unit/script-context.spec.ts`.
-- [ ] Over aedes: an enveloped `execute` runs; a plain payload, a wrong
+- [x] Over aedes: an enveloped `execute` runs; a plain payload, a wrong
       `topic` and a manager's `stop` are refused; without `auth` a plain
       payload runs. Check: `test/e2e/auth.mqtt.spec.ts`; the handler
       specs and `test/unit/mqtt.fixture.ts` follow `handle`. Grep
       `test/e2e/mqtt.broker.spec.ts`, which runs only in CI, too.
-- [ ] `by` is stored, `NULL` without `auth`, and an old database gains
+- [x] `by` is stored, `NULL` without `auth`, and an old database gains
       the column. Check: `test/integration/queue.migration.spec.ts`.
-- [ ] Verification uses `node:crypto` alone. Check: no dependency in
+- [x] Verification uses `node:crypto` alone. Check: no dependency in
       `git diff package.json`.
-- [ ] The demo signs. Check: `node tools/record.mjs` completes and
+- [x] The demo signs. Check: `node tools/record.mjs` completes and
       `run/transcript.txt` holds no 401.
-- [ ] `README.md`: the warning, an Access Control section, Manager
+- [x] `README.md`: the warning, an Access Control section, Manager
       Commands and MQTT access control; `config/runner.yaml.sample`: a
       commented `auth`; `DEVELOPER.md`: the key tools and the spied
       access. Check: markdownlint and yamllint.
-- [ ] `api/API.md`: Conventions, Routes (roles), MQTT Access Control
+- [x] `api/API.md`: Conventions, Routes (roles), MQTT Access Control
       (envelope), Calls From Scripts (`RUNNER_TOKEN`); the examples
       note the header and are re-captured in 16. The request files as
       planned. Check: markdownlint; one request of each file by hand.
-- [ ] `docs/state-machine-design.md`: a decision with the next free D
+- [x] `docs/state-machine-design.md`: a decision with the next free D
       number when the PR is opened, A8 amended, D24 enforced.
       `docs/issues/README.md`: a 15a row; 15 leaves Deferred and
       Non-Goals. Check: markdownlint.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass;
       changed files stay under 250 lines, functions under 25. Check:
       their output and `wc -l`.
 
 ## Learnings
 
-Written in the pull request that implements the issue.
+- **Drift.** `mqttRoutes` sits at `src/mqtt/mqtt.config.ts:26-40`, not
+  `:161-175` (the file has 82 lines), and `setRunnerUrl` at
+  `src/fsm/fsm.service.ts:91-94`. The other line numbers held.
+- **`createPublicKey` takes any 32 bytes** as the `x` of an Ed25519
+  JWK: OpenSSL does not check that they are a point of the curve. The
+  schema thus refuses a key of the wrong alphabet or length, but not an
+  X25519 key or other 32 bytes; such a principal is listed and every
+  token of it fails as `invalid credential`. The plan's "a key that
+  `createPublicKey` rejects" is only the wrong length.
+- **`by` is an SQL keyword** (`ORDER BY`), yet SQLite takes it unquoted
+  as a column name in `CREATE`, `ALTER`, `INSERT` and `SELECT`, so the
+  queries need no quotes. `CommandRecord` and `toRecord` do not read it
+  yet; 11 adds it to the history.
+- **Qlty shaped two signatures.** `authorize(principal, route, listed)`
+  takes a boolean that `listedCommand(managerCommands, body)` computes,
+  rather than the list and the body, to stay at three parameters; the
+  guard and the MQTT handler share both. `MqttRequestHandler.handle`
+  splits into `authorize` and `failure`, and `MqttService.respond` into
+  `answer`, to keep each under complexity 5.
+- **"No JWS" over MQTT** became: an empty payload, or one that starts
+  with `{`, is `missing credential`; anything else is parsed as a JWS
+  and is `malformed credential` if it is not one. The script token sent
+  over MQTT is thus malformed, as it is for HTTP only. Over HTTP a
+  bearer without dots is taken for the script token (`invalid
+credential` if it differs); one with one dot, or more than two, is
+  malformed.
+- **A lifetime of 0 s or less** (`exp` not after `iat`) is `expired
+credential`, as the spec's "after `iat` by at most 60 s" implies.
+- **`@Caller()` throws inside the parameter factory** for a request key
+  over 255 characters; Nest turns that into the same 400 as before. The
+  guard reads `config.access()` on every request, so the e2e tests spy
+  it after the start, as `getMqtt` is spied.
+- **Git Bash converts a path argument.** `dt` of the demo calls
+  `node tools/sign.mjs http GET /dt`, and MSYS turned `/dt` into
+  `C:/Program Files/Git/dt`, so every signed request was refused with
+  `credential does not match the request`. `MSYS_NO_PATHCONV=1` on that
+  call fixes it.
+- **The recording rewrites `hospital.cast`.** The check of the demo ran
+  `record.mjs` (no 401 or 403 in `run/transcript.txt`), and the cast
+  was restored afterwards: 16 re-captures the examples.
+- **httpYac** runs a `{{@request}}` script of the global region before
+  every request, with `request.body` as the string sent and `require`
+  and `__dirname` available; a signed run of `dev.api.http` gave no
+  401, and an unsigned one 401 for all but `/health`. `httpyac` refuses
+  a file outside its working directory.
+- **Qlty locally.** `qlty smells --upstream` found no smell in the
+  changed files, and `qlty check --upstream` only shfmt's indentation of
+  `case` branches in the demo's `tools/shell.sh`. A full test run while
+  Qlty ran timed out once in `test/e2e/options.spec.ts`, which passed on
+  a run without other load.
+- **Version.** The recommended bump took the runner to 0.9.0, so 11,
+  which planned 0.9.0, goes to 0.10.0.
+- **For 13 and 15b.** `src/auth/auth.config.ts` exports
+  `publicKeySchema` and `publicKeyObject(x)`; `src/auth/jws.ts` exports
+  `ALG`, `encodeSegment`, `parseJws` and `verifyJws(jws, keyOf)`, which
+  13 calls with a `keyOf` that knows only the peer's `kid`;
+  `ROUTE_ROLES` in `src/auth/roles.ts` is a `Record<MqttRoute, …>`, so
+  13's new routes need their rows to compile.

@@ -1,5 +1,6 @@
 import { connect } from 'mqtt';
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import RunnerFactory from './runner-factory.service.js';
 import AppController from './app.controller.js';
 import ExecaManager from './execa-manager.service.js';
@@ -15,6 +16,7 @@ import HealthController from './health.controller.js';
 import ParametersController from './parameters.controller.js';
 import WebhookClient from './notify/webhook.client.js';
 import Notifier from './notify/notifier.service.js';
+import AccessGuard from './auth/access.guard.js';
 
 @Module({
   imports: [],
@@ -37,6 +39,7 @@ import Notifier from './notify/notifier.service.js';
     HealthService,
     WebhookClient,
     Notifier,
+    { provide: APP_GUARD, useClass: AccessGuard },
   ],
 })
 export default class AppModule {}

@@ -52,7 +52,8 @@ state machine.
    `onModuleInit` and `onApplicationBootstrap` hooks: the `Notifier`
    subscribes to changes and sends the startup state document, which is
    thus the restored one.
-1. `FsmService.setRunnerUrl` gives the scripts `RUNNER_URL`.
+1. `FsmService.setRunnerApi` gives the scripts `RUNNER_URL` and, with
+   access control, `RUNNER_TOKEN`.
 
 ## Components
 
@@ -212,7 +213,8 @@ states:
 - an `env` name does not match `^[A-Z][A-Z0-9_]*$` or starts with `DT_`
   or `RUNNER_`, a value is not a string, a finite number or a boolean,
   or a `${NAME}` in a value names neither a runner variable
-  (`RUNNER_URL`, `DT_ID`, `DT_STATE`, `DT_ENTRY`) nor the variable of a
+  (`RUNNER_URL`, `RUNNER_TOKEN`, `DT_ID`, `DT_STATE`, `DT_ENTRY`) nor
+  the variable of a
   declared parameter.
 
 `events` may be left out, and a state without transitions may be left
@@ -423,11 +425,12 @@ proposal to derive the events from the transitions was declined (D4).
 | D21 | Parameters are declared in the state machine file                                              | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                     |
 | D22 | A parameter change raises only its declared event                                              | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                               |
 | D23 | Scripts get the runner's context as environment variables                                      | Added by issue 08. Every script language reads its environment, and nothing goes on the command line. Values are those at the script's start (S6). A declared `env` interpolates only runner variables, so a file means the same on every host. Events return over HTTP through `RUNNER_URL`, not stdout (open question 13).                                    |
-| D24 | The commands a Manager may submit are listed in the state machine file                         | Added by issue 05 (S4). The DT author knows which scripts a Manager may run, as with parameters (D21). The list is shown on `GET /dt` and enforced only with access control by role (15).                                                                                                                                                                       |
+| D24 | The commands a Manager may submit are listed in the state machine file                         | Added by issue 05 (S4). The DT author knows which scripts a Manager may run, as with parameters (D21). The list is shown on `GET /dt`. Enforced by issue 15a (D29): with `auth`, a principal in the role `manager` gets 403 for any other command.                                                                                                              |
 | D25 | Escalation triggers are opt-in; a request needs no machine                                     | Added by issue 06 (S4); D23 is 08's, D24 05's. Only the DT author knows when its adaptation is exhausted, so the runner escalates by itself only on the declared triggers, a repeated event once per entry. `POST /escalate` needs no machine, so a plain DT escalates too. An escalation is not retained, so a late Manager does not act on an old one.        |
 | D26 | Presence: an online notice per connect, an offline notice, a will                              | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                      |
 | D27 | Command input goes to stdin, is not stored, and a failed script is told from a refused command | Added by issue 05. Stdin keeps input off the command line of a remote execution service. The input may hold personal data and nothing reads it back. A permitted script that fails is `failed` (200, with its result); `invalid command` (400) stays for a command that is not permitted. The machine's `ScriptStatus` keeps `invalid` for a failed script.     |
 | D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                               |
+| D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                       |
 
 ## Assumptions
 
@@ -460,7 +463,10 @@ proposal to derive the events from the transitions was declined (D4).
   machine.
 - A8: Anyone who can call the API can drive the machine, as anyone can
   call `POST /` today. Access control stays with the network and the
-  MQTT broker.
+  MQTT broker. Amended by issue 15a: with an `auth` section, only the
+  listed principals and the runner's own scripts can call the API, each
+  in its role (D29); the broker's access control remains the outer
+  wall. Without `auth`, A8 holds as written.
 
 ## Error Handling
 
