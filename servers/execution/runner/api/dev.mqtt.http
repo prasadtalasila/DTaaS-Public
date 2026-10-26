@@ -49,6 +49,30 @@ QoS: 1
 
 ###
 
+# @name executeWithInput
+MQTT {{broker}}
+Subscribe: {{topic}}/execute/response
+Publish: {{topic}}/execute
+QoS: 1
+
+{"name": "echo-input", "input": {"patient": "p-17", "ward": "B"}}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name failedCommand
+MQTT {{broker}}
+Subscribe: {{topic}}/execute/response
+Publish: {{topic}}/execute
+QoS: 1
+
+{"name": "fail"}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name invalidCommand
 MQTT {{broker}}
 Subscribe: {{topic}}/execute/response

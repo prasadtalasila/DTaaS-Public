@@ -193,6 +193,20 @@ The runner executes it with `powershell.exe -NoProfile -ExecutionPolicy Bypass -
 A directory can hold both versions of a script, so that the same
 commands work on Linux and Windows.
 
+A command request may carry an `input` object (see
+[POST /](#post-request-to-)). The script reads it from stdin as one
+line of JSON followed by a newline; nothing is passed on the command
+line. Without input, and for the scripts that the
+[state machine](#state-machine) starts, stdin is empty and closed, so a
+script that reads stdin never waits. For example, `cat` in a shell
+script or `[Console]::In.ReadToEnd()` in a PowerShell script reads the
+whole input. Windows PowerShell decodes stdin in the console code page,
+so a PowerShell script may garble input that is not ASCII.
+
+The runner does not store the input, as it may hold personal data. It
+does store the output of each script, so a script that prints its
+input puts it in the [command history](#command-history).
+
 ### Script Environment
 
 Each script inherits the environment of the runner, and the runner adds
@@ -521,6 +535,23 @@ The runner sends each escalation as a
 [notification](#notifications) of kind `escalation`. An escalation
 raises no event and does not change the state.
 
+### Manager Commands
+
+The state machine file may list the commands that a Manager of a
+network of digital twins may submit:
+
+```yaml
+manager:
+  commands:
+    - admit
+```
+
+Each must be one of the `commands` of _runner.yaml_, or the runner does
+not start. The list appears on [GET /dt](#get-request-to-dt); it is
+empty without a state machine, without a `manager` section, or for a
+bare `manager:` key. The runner does not enforce the list yet: any
+client may still run any permitted command.
+
 ## Use
 
 Display help.
@@ -572,46 +603,56 @@ commands and their responses are:
 #### POST Request to /
 
 Executes a command. The command name given here must exist
-in _location_ directory.
+in _location_ directory. The optional `input` is a JSON object that
+the script reads from stdin, as described in
+[create commands](#create-commands):
 
 ```http
 {
-  "name": "<command name>"
+  "name": "<command name>",
+  "input": { "patient": "p-17", "ward": "B" }
 }
 ```
 
-If the command is in the permitted list of commands specified
-in _runner.yaml_ and the matching command / script exists in _location_,
-a successful execution takes place. The API response will be
+`input` may be `{}` but not a list, a string or `null`, nor have a
+`__proto__` key, and its JSON may be at most 64 KiB (65 536 bytes); any
+other `input` gets the validation error below. A request body over
+100 kB is refused with HTTP status 413 before that check, by the JSON
+parser of the HTTP server.
+
+The response tells how the command ended, with its result:
 
 ```http
 {
-  "status": "success"
+  "status": "failed",
+  "result": { "exitCode": 3, "stdout": "", "stderr": "no free bed" }
 }
 ```
 
-If the command is neither permitted nor available, the response will be
+| Status            | HTTP Status | Meaning                                                                   |
+| :---------------- | :---------- | :------------------------------------------------------------------------ |
+| `success`         | 200         | the script exited with 0                                                  |
+| `failed`          | 200         | a permitted script exited with another code, was killed, or did not start |
+| `stopped`         | 200         | a [stop request](#post-request-to-stop) stopped the script                |
+| `invalid command` | 400         | the command is not permitted, or the request key is of another command    |
+| `command running` | 409         | the request has `input` and the command is already running                |
 
-```http
-{
-  "status": "invalid command"
-}
-```
+`result` comes with `success`, `failed` and `stopped`, and holds the
+logs of the script whatever its outcome. `exitCode` is `null` for a
+stopped script. On Linux it is also `null` for a script that could not
+start or was killed by a signal. On Windows, a missing script is
+reported with the exit code of `powershell.exe`, and a script killed
+from outside with 1.
 
-If a [stop request](#post-request-to-stop) stops the command, the
-response has the HTTP status 200 and is the one below. Versions before
-0.6.0 could not stop a command and had no such response.
-
-```http
-{
-  "status": "stopped"
-}
-```
+Version 0.7.0 added `input`, `result` and the `failed` status; before
+it, a script that failed was answered `invalid command` with HTTP
+status 400. Versions before 0.6.0 could not stop a command and had no
+`stopped` response.
 
 #### GET Request to /
 
-Shows the status of the command last executed. If the execution
-was successful, the status will be
+Shows the status of the command last executed, with its logs and exit
+code:
 
 ```http
 {
@@ -620,25 +661,16 @@ was successful, the status will be
   "logs": {
     "stdout": "<output log of command>",
     "stderr": "<error log of command>"
-  }
+  },
+  "exitCode": 0
 }
 ```
 
-If the execution is unsuccessful, the status will be
-
-```http
-{
-  "name": "<command-name>",
-  "status": "invalid",
-  "logs": {
-    "stdout": "",
-    "stderr": ""
-  }
-}
-```
-
-The status of a command that a stop request stopped is `stopped`, with
-empty logs.
+The status is `valid` for a script that succeeded, `failed` for one
+that failed, `stopped` for one that a stop request stopped, and
+`invalid` for a command that is not permitted, whose logs are empty and
+whose `exitCode` is `null`. Before the first command, the name is
+`none` and the status `invalid`.
 
 If an incorrectly formatted JSON is sent via POST request,
 a validation error is returned.
@@ -680,13 +712,15 @@ Describes the digital twin that the runner serves, from its
   "id": "hospital-1",
   "attributes": { "city": "Aarhus", "beds": 120 },
   "commands": ["create", "execute"],
-  "stateMachine": true
+  "stateMachine": true,
+  "manager": { "commands": ["execute"] }
 }
 ```
 
 `attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
-permitted commands, and `stateMachine` tells whether a state machine
-is loaded.
+permitted commands, `stateMachine` tells whether a state machine
+is loaded, and `manager` lists the
+[manager commands](#manager-commands).
 
 #### GET Request to /state
 
@@ -719,8 +753,9 @@ status 200 whether or not a state machine is loaded:
   `null` without a state machine.
 - `parameters` is `{}`, as the runner has no parameters yet.
 - `command` is the latest command, or `null` before the first one. Its
-  `status` is `running` until it finishes, and then `valid`, `invalid`
-  or `stopped` as in [GET /](#get-request-to-), with `finishedAt` set.
+  `status` is `running` until it finishes, and then `valid`, `failed`,
+  `invalid` or `stopped` as in [GET /](#get-request-to-), with
+  `finishedAt` set.
   The logs stay on `GET /`. The latest command may be one of `POST /`
   while the script of the state machine runs; `machine.status` tells
   the status of that script.
@@ -771,18 +806,21 @@ The runner does not run a command again for a repeated request:
   `idempotency-key` user property over MQTT 5, with a value of up to
   255 characters unique to that request. A later request with the same
   key gets the response of the first one, and the command does not
-  run again. A request whose key belongs to another command is refused
-  as an invalid command.
+  run again, whatever the `input` of the repeat. A request whose key
+  belongs to another command is refused as an invalid command.
 - A request for a command that is still running gets the result of
-  that run, and does not start the command a second time.
+  that run, and does not start the command a second time. A request
+  with `input` is refused instead with `command running` and HTTP
+  status 409, as the run in progress did not get that input; it is not
+  added to the history, and its key is not kept.
 
 A repeated request is not added to the history. The runner keeps the
 history, the logs and the request keys in its
 [database](#command-history) without a time limit. A command that was
-running when the runner stopped stays `invalid` in the history, and a
-repeat of its request gets that status. A repeat of a request whose
-command a stop request stopped gets `stopped`, as does a request
-that joined that run.
+running when the runner stopped stays `invalid` in the database, and a
+repeat of its request gets `failed` with `exitCode` `null`. A repeat
+of a request whose command a stop request stopped gets `stopped`, as
+does a request that joined that run.
 
 ```bash
 curl -X POST http://localhost:5000 \
@@ -1003,21 +1041,21 @@ With MQTT enabled, the runner subscribes to one request topic
 for each REST API route. A request and its response carry the same
 JSON as the matching HTTP request and response.
 
-| Request Topic            | Matching HTTP Request | Request Payload              |
-| :----------------------- | :-------------------- | :--------------------------- |
-| `<topic>/execute`        | POST /                | `{"name": "<command name>"}` |
-| `<topic>/status`         | GET /                 | ignored                      |
-| `<topic>/history`        | GET /history          | ignored                      |
-| `<topic>/transition`     | POST /fsm/transition  | `{"state": "<state>"}`       |
-| `<topic>/event`          | POST /fsm/event       | `{"event": "<event>"}`       |
-| `<topic>/fsm`            | GET /fsm              | ignored                      |
-| `<topic>/dt`             | GET /dt               | ignored                      |
-| `<topic>/state`          | GET /state            | ignored                      |
-| `<topic>/health`         | GET /health           | ignored                      |
-| `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}` |
-| `<topic>/parameters`     | GET /parameters       | ignored                      |
-| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`        |
-| `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`     |
+| Request Topic            | Matching HTTP Request | Request Payload                           |
+| :----------------------- | :-------------------- | :---------------------------------------- |
+| `<topic>/execute`        | POST /                | `{"name": "<command name>", "input": {}}` |
+| `<topic>/status`         | GET /                 | ignored                                   |
+| `<topic>/history`        | GET /history          | ignored                                   |
+| `<topic>/transition`     | POST /fsm/transition  | `{"state": "<state>"}`                    |
+| `<topic>/event`          | POST /fsm/event       | `{"event": "<event>"}`                    |
+| `<topic>/fsm`            | GET /fsm              | ignored                                   |
+| `<topic>/dt`             | GET /dt               | ignored                                   |
+| `<topic>/state`          | GET /state            | ignored                                   |
+| `<topic>/health`         | GET /health           | ignored                                   |
+| `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}`              |
+| `<topic>/parameters`     | GET /parameters       | ignored                                   |
+| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`                     |
+| `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                  |
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on
@@ -1039,10 +1077,12 @@ requested one is empty, holds a wildcard, starts with `$`,
 or is one of its request topics.
 
 MQTT has no status codes, so the response payload alone tells
-the outcome. A request payload that is not a JSON object with a `name`
-gets the validation error of the HTTP API, and an unexpected failure
-gets the body of an HTTP 500 response. A stop request may have an
-empty payload, or `{}`, to stop every running command.
+the outcome. An `execute` payload has no 100 kB limit, but its `input`
+has the 64 KiB limit of `POST /`. A request payload that is not a JSON
+object with a `name` gets the validation error of the HTTP API, and an
+unexpected failure gets the body of an HTTP 500 response. A stop
+request may have an empty payload, or `{}`, to stop every running
+command.
 
 The runner subscribes with QoS 1, so the broker may deliver a request
 twice. An MQTT 5 request with an `idempotency-key` user property runs

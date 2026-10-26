@@ -64,6 +64,11 @@ back to _create_, and the `stop` event is refused as an undeclared
 event. The parameters requests set `scope` to `multi`, which raises
 `scope-changed`: in _execute_, that restarts the _execute_ script.
 
+The command requests with input run _echo-input_, which writes its
+input back, so the reply carries it in `result.stdout`; _fail_ shows a
+`failed` reply with exit code 3. Both scripts are in
+`test/data/scripts`, and `config/runner.test.yaml` permits them.
+
 ## Send the Requests
 
 In VS Code, open a request file and select **Send Request** (REST

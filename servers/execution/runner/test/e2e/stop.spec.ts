@@ -56,13 +56,20 @@ describe('POST /stop', () => {
         .expect(HttpStatus.OK, { stopped: ['loop'] });
 
       const { status, body } = await run;
-      expect([status, body]).toEqual([HttpStatus.OK, { status: 'stopped' }]);
+      expect([status, body]).toEqual([
+        HttpStatus.OK,
+        {
+          status: 'stopped',
+          result: { exitCode: null, stdout: '', stderr: '' },
+        },
+      ]);
       await supertest(app.getHttpServer())
         .get('/')
         .expect(HttpStatus.OK, {
           name: 'loop',
           status: 'stopped',
           logs: { stdout: '', stderr: '' },
+          exitCode: null,
         });
     },
     TIMEOUT,

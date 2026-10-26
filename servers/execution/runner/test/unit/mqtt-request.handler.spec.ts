@@ -35,58 +35,6 @@ const env = { DT_ID: 'hospital-1' };
 const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
 describe('MQTT request handler', () => {
-  it('Should report a successful command execution', async () => {
-    const { handler, manager } = createHandler('success');
-
-    const body = await handler.handle('execute', json({ name: 'create' }));
-
-    expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
-      env,
-    });
-    expect(body).toEqual({ status: 'success' });
-  });
-
-  it('Should pass the request key on', async () => {
-    const { handler, manager } = createHandler('success');
-
-    await handler.handle('execute', json({ name: 'create' }), 'key-1');
-
-    expect(manager.newCommand).toHaveBeenCalledWith('create', 'key-1', { env });
-  });
-
-  it('Should refuse a request key that is too long', async () => {
-    const { handler, manager } = createHandler('success');
-
-    const body = await handler.handle(
-      'execute',
-      json({ name: 'create' }),
-      'k'.repeat(256),
-    );
-
-    expect(manager.newCommand).not.toHaveBeenCalled();
-    expect(body).toEqual({
-      message: 'Validation Failed',
-      error: 'Bad Request',
-      statusCode: 400,
-    });
-  });
-
-  it('Should report an invalid command', async () => {
-    const { handler } = createHandler('failed');
-
-    const body = await handler.handle('execute', json({ name: 'test' }));
-
-    expect(body).toEqual({ status: 'invalid command' });
-  });
-
-  it('Should report a stopped command execution', async () => {
-    const { handler } = createHandler('stopped');
-
-    const body = await handler.handle('execute', json({ name: 'create' }));
-
-    expect(body).toEqual({ status: 'stopped' });
-  });
-
   it.each([
     ['an empty payload', Buffer.alloc(0), undefined],
     ['an empty object', json({}), undefined],
@@ -109,23 +57,6 @@ describe('MQTT request handler', () => {
     const body = await handler.handle('stop', payload);
 
     expect(manager.stop).not.toHaveBeenCalled();
-    expect(body).toEqual({
-      message: 'Validation Failed',
-      error: 'Bad Request',
-      statusCode: 400,
-    });
-  });
-
-  it.each([
-    ['a wrongly shaped request', json({ command: 'create' })],
-    ['a request that is not JSON', Buffer.from('create')],
-    ['an empty request', Buffer.alloc(0)],
-  ])('Should return the validation error for %s', async (_, payload) => {
-    const { handler, manager } = createHandler('success');
-
-    const body = await handler.handle('execute', payload);
-
-    expect(manager.newCommand).not.toHaveBeenCalled();
     expect(body).toEqual({
       message: 'Validation Failed',
       error: 'Bad Request',

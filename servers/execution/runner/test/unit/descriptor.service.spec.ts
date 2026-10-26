@@ -22,6 +22,7 @@ const command = (finished: boolean, status = 'invalid'): CommandRecord => ({
   status,
   stdout: 'output',
   stderr: '',
+  exitCode: null,
   finished,
   receivedAt: '2026-10-25T09:59:58.000Z',
   finishedAt: finished ? '2026-10-25T09:59:59.000Z' : null,
@@ -41,6 +42,7 @@ function createService(
   };
   const fsm = {
     check: () => state,
+    managerCommands: () => ['execute'],
     parameters: () => values && { values: () => values },
     onEscalation: jest.fn(),
   };
@@ -63,6 +65,7 @@ describe('Descriptor service', () => {
       attributes: { city: 'Aarhus' },
       commands: ['create', 'execute'],
       stateMachine: true,
+      manager: { commands: ['execute'] },
     });
   });
 
@@ -98,7 +101,7 @@ describe('Descriptor service', () => {
     });
   });
 
-  it.each(['valid', 'invalid', 'stopped'])(
+  it.each(['valid', 'failed', 'invalid', 'stopped'])(
     'Should show a finished command as %s',
     (status) => {
       expect(

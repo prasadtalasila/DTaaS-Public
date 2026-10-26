@@ -49,6 +49,7 @@ describe('check Queue service', () => {
       status: 'invalid',
       stdout: '',
       stderr: '',
+      exitCode: null,
       finished: false,
       receivedAt: expect.stringMatching(ISO_TIME),
       finishedAt: null,
@@ -57,7 +58,7 @@ describe('check Queue service', () => {
 
   it('should store the result of a completed command', async () => {
     const id = queue.enqueue('hello');
-    queue.complete(id, ['success', logs('hello world', 'warning')]);
+    queue.complete(id, ['success', logs('hello world', 'warning'), 0]);
 
     expect(queue.activeCommand()).toEqual({
       id,
@@ -65,6 +66,7 @@ describe('check Queue service', () => {
       status: 'valid',
       stdout: 'hello world',
       stderr: 'warning',
+      exitCode: 0,
       finished: true,
       receivedAt: expect.stringMatching(ISO_TIME),
       finishedAt: expect.stringMatching(ISO_TIME),
@@ -85,21 +87,21 @@ describe('check Queue service', () => {
     });
   });
 
-  it('should store a failed command with empty logs', async () => {
+  it('should store a failed command with its exit code', async () => {
     const id = queue.enqueue('terminate');
-    queue.complete(id, ['failed', new Map()]);
+    queue.complete(id, ['failed', new Map(), 3]);
 
     expect(queue.activeCommand()).toMatchObject({
-      status: 'invalid',
+      status: 'failed',
       stdout: '',
-      stderr: '',
+      exitCode: 3,
       finished: true,
     });
   });
 
   it('should store a stopped command as stopped', async () => {
     const id = queue.enqueue('loop');
-    queue.complete(id, ['stopped', new Map()]);
+    queue.complete(id, ['stopped', new Map(), null]);
 
     expect(queue.activeCommand()).toMatchObject({
       status: 'stopped',
@@ -113,7 +115,7 @@ describe('check Queue service', () => {
 
     const id = queue.enqueue('hello', 'key-1');
     expect(changed).toHaveBeenCalledTimes(1);
-    queue.complete(id, ['success', logs('hello world')]);
+    queue.complete(id, ['success', logs('hello world'), 0]);
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
@@ -182,7 +184,7 @@ describe('check Queue service', () => {
     try {
       queue.open(file);
       const id = queue.enqueue('hello', 'key-1');
-      queue.complete(id, ['success', logs('hello world')]);
+      queue.complete(id, ['success', logs('hello world'), 0]);
       queue.close();
 
       const restarted = new Queue();

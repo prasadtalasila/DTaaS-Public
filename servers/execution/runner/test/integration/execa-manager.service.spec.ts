@@ -1,8 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { afterEach, describe, expect, it, beforeEach } from '@jest/globals';
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+  beforeEach,
+  jest,
+} from '@jest/globals';
 import ExecaManager from 'src/execa-manager.service';
 import { Manager, CommandStatus } from 'src/interfaces/command.interface';
-import { ExecuteCommandDto } from 'src/dto/command.dto';
+import { CommandRefused, ExecuteCommandDto } from 'src/dto/command.dto';
 import { RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
@@ -12,6 +19,10 @@ import {
   nonExistingCommand,
   permittedCommand,
 } from 'test/utils';
+
+// Each test runs scripts, and PowerShell takes a second or more to start
+// on a loaded Windows host
+jest.setTimeout(30000);
 
 describe('Check execution manager based on execa library', () => {
   let dt: Manager;
@@ -60,14 +71,13 @@ describe('Check execution manager based on execa library', () => {
   });
 
   it('Should not execute an invalid command', async () => {
-    let status: RunOutcome = 'success';
-    let logs: Map<string, string> = new Map<string, string>();
-
-    [status, logs] = await dt.newCommand(nonExistingCommand);
-
-    expect(status).toBe('failed');
-    expect(logs.get('stdout')).toBeUndefined();
-    expect(logs.get('stderr')).toBeUndefined();
+    await expect(dt.newCommand(nonExistingCommand)).rejects.toEqual(
+      new CommandRefused('invalid command'),
+    );
+    expect(queue.activeCommand()).toMatchObject({
+      status: 'invalid',
+      finished: true,
+    });
   });
 
   it('Should return correct command execution status if there has been no prior command execution calls', async () => {
@@ -78,6 +88,7 @@ describe('Check execution manager based on execa library', () => {
         stdout: '',
         stderr: '',
       },
+      exitCode: null,
     };
 
     const commandStatus: CommandStatus = dt.checkStatus();
@@ -96,8 +107,8 @@ describe('Check execution manager based on execa library', () => {
         name: 'execute',
       },
     ];
-    await Promise.all(
-      pastCommands.map(async (command) => dt.newCommand(command.name)),
+    await Promise.allSettled(
+      pastCommands.map((command) => dt.newCommand(command.name)),
     );
 
     const pastCommandsActual = dt.checkHistory();
@@ -107,14 +118,14 @@ describe('Check execution manager based on execa library', () => {
 
   it('Should return correct command execution status for a series of commands', async () => {
     const commands = ['non-existing-command', 'create'];
-    const commandStatus = await Promise.all(
-      commands.map(async (command) => {
-        const [status] = await dt.newCommand(command);
-        return status;
-      }),
+    const results = await Promise.allSettled(
+      commands.map((command) => dt.newCommand(command)),
     );
 
-    expect(commandStatus).toEqual(['failed', 'success']);
+    expect(results.map(({ status }) => status)).toEqual([
+      'rejected',
+      'fulfilled',
+    ]);
   });
 
   describe('repeated requests', () => {
@@ -139,9 +150,10 @@ describe('Check execution manager based on execa library', () => {
 
     it('Should refuse a request key of another command', async () => {
       await dt.newCommand('create', 'key-1');
-      const [status] = await dt.newCommand('execute', 'key-1');
 
-      expect(status).toBe('failed');
+      await expect(dt.newCommand('execute', 'key-1')).rejects.toEqual(
+        new CommandRefused('invalid command'),
+      );
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
@@ -169,14 +181,17 @@ describe('Check execution manager based on execa library', () => {
     it('Should return the stored result of a run that did not finish', async () => {
       queue.enqueue('create', 'key-1');
 
-      const [status] = await dt.newCommand('create', 'key-1');
+      const [status, , exitCode] = await dt.newCommand('create', 'key-1');
 
       expect(status).toBe('failed');
+      expect(exitCode).toBeNull();
       expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
     });
 
     it('Should treat an empty request key as no key', async () => {
-      await dt.newCommand(nonExistingCommand, '');
+      await expect(dt.newCommand(nonExistingCommand, '')).rejects.toEqual(
+        new CommandRefused('invalid command'),
+      );
       await dt.newCommand('create', '');
 
       expect(dt.checkHistory()).toStrictEqual([

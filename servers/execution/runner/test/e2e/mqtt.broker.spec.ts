@@ -129,13 +129,18 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
 
   it('replies on the response topic with the correlation data', async () => {
     const reply = await request('execute', { name: 'create' });
-    expect(reply.body).toEqual({ status: 'success' });
+    const logs = { stdout: 'hello world', stderr: '' };
+    expect(reply.body).toEqual({
+      status: 'success',
+      result: { exitCode: 0, ...logs },
+    });
 
     const status = await request('status', {});
     expect(status.body).toEqual({
       name: 'create',
       status: 'valid',
-      logs: { stdout: 'hello world', stderr: '' },
+      logs,
+      exitCode: 0,
     });
   });
 

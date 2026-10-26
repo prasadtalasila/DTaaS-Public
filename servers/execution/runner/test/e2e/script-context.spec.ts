@@ -70,7 +70,7 @@ describe('Runner context of scripts end-to-end tests', () => {
 
       const { body } = await post(app, '/', { name: 'print-context' });
 
-      expect(body).toEqual({ status: 'success' });
+      expect(body).toMatchObject({ status: 'success' });
       expect(await stdout(app)).toBe('dt-1  0 single dt-1-single');
     },
     SCRIPT_TIMEOUT,

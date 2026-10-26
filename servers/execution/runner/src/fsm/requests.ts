@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { fsmReply, FsmReplyDto } from '../dto/fsm.dto.js';
 import RecentReplies from './recent-replies.js';
 import StateMachine from './state-machine.js';
@@ -39,5 +40,15 @@ export default class Requests {
       return fsmReply('stopping', machine.state);
     }
     return handle(machine);
+  }
+
+  // Answers an event that a parameter raises: the reply goes nowhere, so
+  // a refused event is logged, and it never escalates
+  raise(event: string, handle: Handle, logger: Logger): void {
+    const { status, state } = this.answer(handle);
+    if (status !== 'accepted') {
+      const level = status === 'no transition' ? 'debug' : 'warn';
+      logger[level](`Stayed in state ${state} on ${event}: ${status}`);
+    }
   }
 }

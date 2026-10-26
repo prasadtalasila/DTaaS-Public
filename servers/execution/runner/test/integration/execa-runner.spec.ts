@@ -34,6 +34,50 @@ describe('check command Runner based on execa library', () => {
     const status: RunOutcome = await cmdrunner.run();
 
     expect(status).toBe('failed');
+    expect(cmdrunner.checkLogs().get('stdout')).toBe('');
+  });
+
+  // Windows reports exit code 1 for a missing executable
+  itOnPosix(
+    'should have no exit code for a command that could not start',
+    async () => {
+      const cmdrunner: Runner = new ExecaRunner(nonExistingCommand);
+      await cmdrunner.run();
+
+      expect(cmdrunner.checkExitCode()).toBeNull();
+    },
+  );
+
+  describe('input and exit code', () => {
+    it('should write the input to stdin', async () => {
+      const runner = looping('echo-input');
+
+      expect(await runner.run({ input: '{"ward":"B"}\n' })).toBe('success');
+      expect(JSON.parse(runner.stdout)).toEqual({ ward: 'B' });
+      expect(runner.checkExitCode()).toBe(0);
+    });
+
+    it('should close stdin without input', async () => {
+      const runner = looping('echo-input');
+
+      expect(await runner.run()).toBe('success');
+      expect(runner.stdout).toBe('');
+    });
+
+    it('should run a script that does not read a large input', async () => {
+      const runner = looping('create');
+      const input = `${JSON.stringify({ text: 'x'.repeat(65000) })}\n`;
+
+      expect(await runner.run({ input })).toBe('success');
+    });
+
+    it('should keep the exit code and logs of a failing script', async () => {
+      const runner = looping('fail');
+
+      expect(await runner.run()).toBe('failed');
+      expect(runner.checkExitCode()).toBe(3);
+      expect(runner.checkLogs().get('stderr')).toBe('no free bed');
+    });
   });
 
   it('should capture single line output log', async () => {
@@ -96,6 +140,7 @@ describe('check command Runner based on execa library', () => {
       await runner.stop();
 
       expect(await run).toBe('stopped');
+      expect(runner.checkExitCode()).toBeNull();
     });
 
     it('should stop only once when asked twice', async () => {
@@ -122,6 +167,10 @@ describe('check command Runner based on execa library', () => {
       process.kill(runner['subprocess']?.pid as number);
 
       expect(await run).toBe('failed');
+      // Windows ends the process with exit code 1, POSIX with a signal
+      expect(runner.checkExitCode()).toBe(
+        process.platform === 'win32' ? 1 : null,
+      );
     });
 
     itOnPosix(

@@ -3,6 +3,7 @@ import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import completionCycle from './completion-cycle.js';
 import { Escalation, escalationSchema } from './escalation.js';
+import { managerProblems, managerSchema } from './manager.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
@@ -33,6 +34,7 @@ export type Definition = {
   // the env of each state, apart from its transitions
   stateEnv: ReadonlyMap<string, Env>;
   escalation: Escalation;
+  managerCommands: string[];
 };
 
 // A state name, or an object that stops the script first
@@ -62,6 +64,7 @@ const fileSchema = z
     parameters: parametersSchema,
     env: envSchema,
     escalation: escalationSchema,
+    manager: managerSchema,
   })
   .strict();
 
@@ -98,6 +101,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
       Object.entries(states).map(([state, value]) => [state, value?.env ?? {}]),
     ),
     escalation: sections.escalation,
+    managerCommands: sections.manager?.commands ?? [],
   };
 }
 
@@ -143,6 +147,7 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
     ...problems,
     ...parameterProblems(definition),
     ...envProblems(definition),
+    ...managerProblems(definition.managerCommands, permitted),
   ];
 }
 

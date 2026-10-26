@@ -10,8 +10,9 @@ import DescriptorService from '../descriptor.service.js';
 import ExecaManager from '../execa-manager.service.js';
 import {
   executeCommandSchema,
-  executeResponse,
+  executeReply,
   requestKeySchema,
+  runOptions,
   stopSchema,
 } from '../dto/command.dto.js';
 import { escalateSchema } from '../dto/escalation.dto.js';
@@ -52,12 +53,15 @@ export default class MqttRequestHandler {
     MqttRoute,
     (payload: Buffer, requestKey?: string) => unknown
   > = {
-    execute: this.whenValid(executeCommandSchema, async ({ name }, key) => {
-      const [outcome] = await this.manager.newCommand(name, key, {
-        env: this.fsm.environment(name),
-      });
-      return executeResponse(outcome);
-    }),
+    execute: this.whenValid(executeCommandSchema, (request, key) =>
+      executeReply(
+        this.manager.newCommand(
+          request.name,
+          key,
+          runOptions(request, this.fsm.environment(request.name)),
+        ),
+      ),
+    ),
     stop: this.whenValid(stopSchema, async ({ name }) => ({
       stopped: await this.manager.stop(name),
     })),

@@ -6,29 +6,13 @@ import {
   CommandStatus,
   Manager,
 } from './interfaces/command.interface.js';
+import { refuseInput, storedResult } from './command-result.js';
 import Queue from './queue.service.js';
-import { ExecuteCommandDto } from './dto/command.dto.js';
+import { CommandRefused, ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
-import Runner, {
-  RunOptions,
-  RunOutcome,
-} from './interfaces/runner.interface.js';
-
-// The outcome of a stored command; an unfinished one counts as failed
-const OUTCOME: Record<string, RunOutcome> = {
-  valid: 'success',
-  stopped: 'stopped',
-};
-
-const storedResult = (command: CommandRecord): CommandResult => [
-  OUTCOME[command.status] ?? 'failed',
-  new Map([
-    ['stdout', command.stdout],
-    ['stderr', command.stderr],
-  ]),
-];
+import Runner, { RunOptions } from './interfaces/runner.interface.js';
 
 // A command run in progress, its row in the queue, and its runner; a
 // command that is not permitted has no runner
@@ -50,7 +34,8 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   ) {} // eslint-disable-line no-empty-function
 
   // A repeated request is not run again; it gets the result of the
-  // request it repeats, and neither passes its options to a script
+  // request it repeats, and neither passes its options to a script.
+  // A refused request rejects with CommandRefused.
   async newCommand(
     name: string,
     key?: string,
@@ -66,6 +51,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     if (current === undefined) {
       return this.start(name, requestKey, options);
     }
+    refuseInput(options);
     return this.join(name, current, requestKey);
   }
 
@@ -100,7 +86,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       this.logger.warn(
         `Refused ${JSON.stringify(name)}: its request key is of ${earlier.name}`,
       );
-      return ['failed', new Map<string, string>()];
+      throw new CommandRefused('invalid command');
     }
     this.logger.log(`Discarded a repeated request for ${JSON.stringify(name)}`);
     const current = this.running.get(name);
@@ -144,15 +130,23 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     }
   }
 
+  // A refused run rejects to the requests that await it, and stop and
+  // shutdown settle it
   private async execute(
     id: number,
     runner?: Runner,
     options?: RunOptions,
   ): Promise<CommandResult> {
-    let result: CommandResult = ['failed', new Map<string, string>()];
-    if (runner !== undefined) {
-      result = [await runner.run(options), runner.checkLogs()];
+    if (runner === undefined) {
+      this.commandQueue.refuse(id);
+      throw new CommandRefused('invalid command');
     }
+    const outcome = await runner.run(options);
+    const result: CommandResult = [
+      outcome,
+      runner.checkLogs(),
+      runner.checkExitCode(),
+    ];
     this.commandQueue.complete(id, result);
     return result;
   }
@@ -196,6 +190,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
         stdout: '',
         stderr: '',
       },
+      exitCode: null,
     };
   }
 
@@ -208,6 +203,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       name: command.name,
       status: command.status,
       logs: { stdout: command.stdout, stderr: command.stderr },
+      exitCode: command.exitCode,
     };
   }
 

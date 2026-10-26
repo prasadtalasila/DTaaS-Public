@@ -76,8 +76,9 @@ describe('Runner MQTT presence end-to-end tests', () => {
         descriptor: {
           id: 'test-runner',
           attributes: {},
-          commands: ['create', 'loop', 'ignore-term'],
+          commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail'],
           stateMachine: false,
+          manager: { commands: [] },
         },
       },
     });

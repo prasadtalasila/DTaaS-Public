@@ -34,6 +34,8 @@ type ResponseBody = {
   status?: string;
   name?: string;
   logs?: { stdout: string; stderr: string };
+  exitCode?: number | null;
+  result?: { exitCode: number | null; stdout: string; stderr: string };
 };
 
 type Query = {
@@ -77,6 +79,7 @@ const invalidQuery = (name: string) => ({
       name,
       status: 'invalid',
       logs: { stdout: '', stderr: '' },
+      exitCode: null,
     },
   },
 });
@@ -90,11 +93,13 @@ export const queriesJSON = {
     resBody: {
       POST: {
         status: 'success',
+        result: { exitCode: 0, stdout: 'hello world', stderr: '' },
       },
       GET: {
         name: 'create',
         status: 'valid',
         logs: { stdout: 'hello world', stderr: '' },
+        exitCode: 0,
       },
     },
   },
@@ -115,6 +120,7 @@ export const queriesJSON = {
         name: 'none',
         status: 'invalid',
         logs: { stdout: '', stderr: '' },
+        exitCode: null,
       },
     },
   },

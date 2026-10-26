@@ -19,6 +19,7 @@ const SCHEMA = `
     status TEXT NOT NULL DEFAULT 'invalid',
     stdout TEXT NOT NULL DEFAULT '',
     stderr TEXT NOT NULL DEFAULT '',
+    exit_code INTEGER,
     received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TEXT
   );
@@ -39,6 +40,7 @@ const SCHEMA = `
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
 // turns into ISO 8601 UTC; strftime of NULL is NULL
 const RECORD = `SELECT id, name, status, stdout, stderr,
+  exit_code AS exitCode,
   strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
   strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt,
   finished_at IS NOT NULL AS finished FROM commands`;
@@ -46,12 +48,21 @@ const RECORD = `SELECT id, name, status, stdout, stderr,
 const RECORD_BY_KEY = `${RECORD} WHERE id =
   (SELECT command_id FROM request_keys WHERE request_key = ?)`;
 
-// The status of a finished command in the commands table
+// The status of a finished command in the commands table; a command
+// that is not permitted keeps the default, invalid
 const STATUS: Record<RunOutcome, string> = {
   success: 'valid',
-  failed: 'invalid',
+  failed: 'failed',
   stopped: 'stopped',
 };
+
+// A database file of a version before 0.7.0 has no exit_code column
+function addExitCode(db: DatabaseSync): void {
+  const columns = db.prepare('PRAGMA table_info(commands)').all();
+  if (!columns.some(({ name }) => name === 'exit_code')) {
+    db.exec('ALTER TABLE commands ADD COLUMN exit_code INTEGER');
+  }
+}
 
 function toRecord(
   row: Record<string, unknown> | undefined,
@@ -65,6 +76,7 @@ function toRecord(
     status: String(row.status),
     stdout: String(row.stdout),
     stderr: String(row.stderr),
+    exitCode: row.exitCode as number | null,
     finished: Boolean(row.finished),
     receivedAt: String(row.receivedAt),
     finishedAt: row.finishedAt as string | null,
@@ -103,6 +115,7 @@ export default class Queue {
   private static connect(file: string): DatabaseSync {
     const db = new DatabaseSync(file, { timeout: 5000 });
     db.exec(SCHEMA);
+    addExitCode(db);
     return db;
   }
 
@@ -126,18 +139,29 @@ export default class Queue {
       .run(requestKey, commandId);
   }
 
-  complete(id: number, [outcome, logs]: CommandResult): void {
+  complete(id: number, [outcome, logs, exitCode]: CommandResult): void {
     this.db
       .prepare(
         `UPDATE commands SET status = ?, stdout = ?, stderr = ?,
-          finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          exit_code = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
       )
       .run(
         STATUS[outcome],
         logs.get('stdout') ?? '',
         logs.get('stderr') ?? '',
+        exitCode,
         id,
       );
+    this.changes.emit();
+  }
+
+  // Finishes a command that is not permitted, which stays invalid
+  refuse(id: number): void {
+    this.db
+      .prepare(
+        'UPDATE commands SET finished_at = CURRENT_TIMESTAMP WHERE id = ?',
+      )
+      .run(id);
     this.changes.emit();
   }
 

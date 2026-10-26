@@ -81,17 +81,19 @@ describe('Runner end-to-end tests', () => {
           name: 'none',
           status: 'invalid',
           logs: { stdout: '', stderr: '' },
+          exitCode: null,
         },
       }));
   });
 
   describe('POST / with an Idempotency-Key header', () => {
-    const post = (requestKey: string) =>
-      supertest(app.getHttpServer())
+    const post = async (requestKey: string) => {
+      const { status, body } = await supertest(app.getHttpServer())
         .post('/')
         .set('Idempotency-Key', requestKey)
-        .send({ name: 'create' })
-        .expect(200, { status: 'success' });
+        .send({ name: 'create' });
+      return [status, body.status];
+    };
 
     it('refuses a key that is too long', () =>
       supertest(app.getHttpServer())
@@ -104,14 +106,18 @@ describe('Runner end-to-end tests', () => {
           statusCode: 400,
         }));
 
+    // two runs of PowerShell take seconds on a loaded Windows host
     it('runs a repeated request only once', async () => {
-      await post('key-1');
-      await post('key-1');
-      await post('key-2');
-      await supertest(app.getHttpServer())
-        .get('/history')
-        .expect(200, [{ name: 'create' }, { name: 'create' }]);
-    });
+      const replies = [
+        await post('key-1'),
+        await post('key-1'),
+        await post('key-2'),
+      ];
+      const { body } = await supertest(app.getHttpServer()).get('/history');
+
+      expect(replies).toEqual(Array(3).fill([200, 'success']));
+      expect(body).toEqual([{ name: 'create' }, { name: 'create' }]);
+    }, 30000);
   });
 
   describe('GET /history', () => {

@@ -1,6 +1,6 @@
 # 06 Escalation Signal
 
-- Status: in review
+- Status: done
 - Depends on: 03
 - PR: [#83](https://github.com/prasadtalasila/DTaaS-Public/pull/83)
 - Research note:
