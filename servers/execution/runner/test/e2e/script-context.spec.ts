@@ -94,7 +94,7 @@ describe('Runner context of scripts end-to-end tests', () => {
       await start(DEFINITION);
       await app.listen(0);
       const url = runnerUrl(app.getHttpServer());
-      app.get<FsmService>(FsmService).setRunnerUrl(url);
+      app.get<FsmService>(FsmService).setRunnerApi(url, undefined);
 
       await post(app, '/fsm/transition', { state: 'raise-event' });
       await settled(app, 'create');

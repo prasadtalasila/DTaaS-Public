@@ -88,9 +88,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.machine = definition && new StateMachine(definition, state, entry);
   }
 
-  // The address of the HTTP API for scripts; undefined leaves it unset
-  setRunnerUrl(url: string | undefined): void {
-    this.context.setUrl(url);
+  // The HTTP API for scripts and its token; undefined leaves either unset
+  setRunnerApi(url: string | undefined, token: string | undefined): void {
+    this.context.setApi(url, token);
   }
 
   // The environment of a script of POST /: the machine as it is

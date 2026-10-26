@@ -49,6 +49,18 @@ describe('Script environment', () => {
     ).toEqual({ RUNNER_URL: 'http://h:1', DT_ID: 'dt-1' });
   });
 
+  it('Should give the script token with access control', () => {
+    const env = scriptEnvironment({
+      id: 'dt-1',
+      url: 'http://h:1',
+      token: 'token-1',
+      command: 'x',
+      inherited: { RUNNER_TOKEN: 'inherited' },
+    });
+
+    expect(env.RUNNER_TOKEN).toBe('token-1');
+  });
+
   it('Should leave RUNNER_URL unset, and empty where it is interpolated', () => {
     const env = scriptEnvironment({
       ...machine,
@@ -57,6 +69,7 @@ describe('Script environment', () => {
     });
 
     expect(env).not.toHaveProperty('RUNNER_URL');
+    expect(env).not.toHaveProperty('RUNNER_TOKEN');
     expect(env.WHERE).toBe('/fsm');
   });
 
@@ -175,10 +188,11 @@ describe('Runner context', () => {
   it('Should build the environment from what it holds', () => {
     const context = new RunnerContext();
     context.load('dt-1', definition, new Parameters(definition.parameters));
-    context.setUrl('http://127.0.0.1:5000');
+    context.setApi('http://127.0.0.1:5000', 'token-1');
 
     expect(context.environment('monitor', 'monitor', 1)).toMatchObject({
       RUNNER_URL: 'http://127.0.0.1:5000',
+      RUNNER_TOKEN: 'token-1',
       DT_STATE: 'monitor',
       DT_ENTRY: '1',
       DT_PARAM_SCOPE: 'single',

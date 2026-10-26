@@ -43,7 +43,13 @@ export const envSchema = z
 
 // The runner variables that a declared value may interpolate, besides
 // the parameter variables
-export const RUNNER_VARIABLES = ['RUNNER_URL', 'DT_ID', 'DT_STATE', 'DT_ENTRY'];
+export const RUNNER_VARIABLES = [
+  'RUNNER_URL',
+  'RUNNER_TOKEN',
+  'DT_ID',
+  'DT_STATE',
+  'DT_ENTRY',
+];
 
 export const knownNames = ({ parameters }: Definition): Set<string> =>
   new Set([...RUNNER_VARIABLES, ...[...parameters.keys()].map(variableName)]);
@@ -69,11 +75,13 @@ export function envProblems(definition: Definition): string[] {
 }
 
 // What the environment of one script is built from. Without a state
-// machine there is no entry, definition or parameter value. inherited
-// and platform default to those of the runner process.
+// machine there is no entry, definition or parameter value, and without
+// access control no token. inherited and platform default to those of
+// the runner process.
 export type ScriptContext = {
   id: string;
   url?: string;
+  token?: string;
   command: string;
   state?: string;
   entry?: number;
@@ -95,9 +103,11 @@ const parameterVariables = (values: ScriptContext['values'] = {}): Env =>
     ]),
   );
 
-function runnerVariables({ id, url, state, entry, values }: ScriptContext) {
+function runnerVariables(context: ScriptContext) {
+  const { id, url, token, state, entry, values } = context;
   return {
     ...(url === undefined ? {} : { RUNNER_URL: url }),
+    ...(token === undefined ? {} : { RUNNER_TOKEN: token }),
     DT_ID: id,
     ...machineVariables(state, entry),
     ...parameterVariables(values),
@@ -157,12 +167,15 @@ export function runnerUrl(server: Pick<Server, 'address'>): string | undefined {
     : undefined;
 }
 
-// What the scripts of a runner learn about it: its identity and the
-// address of its API, and the declared env and parameters of its DT
+// What the scripts of a runner learn about it: its identity, the
+// address of its API and the token for it, and the declared env and
+// parameters of its DT
 export class RunnerContext {
   private id = '';
 
   private url: string | undefined;
+
+  private token: string | undefined;
 
   private definition: Definition | undefined;
 
@@ -174,8 +187,9 @@ export class RunnerContext {
     this.parameters = parameters;
   }
 
-  setUrl(url: string | undefined): void {
+  setApi(url: string | undefined, token: string | undefined): void {
     this.url = url;
+    this.token = token;
   }
 
   // The environment of the command's script, for the entry of the state
@@ -183,6 +197,7 @@ export class RunnerContext {
     return scriptEnvironment({
       id: this.id,
       url: this.url,
+      token: this.token,
       command,
       state,
       entry,
