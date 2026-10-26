@@ -1,6 +1,6 @@
 # 05 Command Input, Outcome and Exposure
 
-- Status: in progress
+- Status: in review
 - Depends on: 01, 04
 - PR: none
 - Research note:
@@ -23,7 +23,7 @@ per-command schema (a non-goal).
 ```
 
 - `input` is optional and, when present, a JSON object; `{}` is valid,
-  an array, a string or `null` is not. Its serialised form,
+  an array, a string, `null` or an own `__proto__` key is not. Its serialised form,
   `Buffer.byteLength(JSON.stringify(input))`, is at most 64 KiB (65 536
   bytes). Any other `input` gets the existing `400 Validation Failed`.
   Over HTTP, Express refuses a body over its 100 kB `json` limit with
@@ -61,9 +61,10 @@ per-command schema (a non-goal).
 
 - `result` is present for `success`, `failed` and `stopped`, with the
   logs whatever the outcome (before, those of a failed or stopped run
-  were empty). `exitCode` is `null` when the script could not start,
-  was killed by a signal or was stopped, as execa gives `undefined`
-  then; a stopped script that exits with a code still gets `null`.
+  were empty). `exitCode` is `null` for a stopped script, even one
+  that exits with a code, and, on POSIX, for one that could not start
+  or was killed by a signal, as execa gives `undefined` then (Windows
+  reports codes for those; see Learnings).
 - MQTT `execute` answers the same bodies. A failing script was
   `400 invalid command`: the breaking change, at version `0.7.0`.
 
@@ -99,151 +100,141 @@ enforces the list until 15; the README says so.
 
 ## Plan
 
-1. `src/interfaces/runner.interface.ts` gains
-   `export type RunOptions = { input?: string }` (08 adds `env`);
-   `Runner` gets `run(options?: RunOptions): Promise<RunOutcome>` and
-   `checkExitCode(): number | null`. In `command.interface.ts`,
-   `CommandResult` becomes `[RunOutcome, Map<string, string>, number | null]`,
-   `CommandRecord` and `CommandStatus` gain `exitCode: number | null`,
-   and `Manager.newCommand` a third parameter, `options?: RunOptions`.
-   A tuple element, not a `run()` object, keeps
-   `const [outcome] = await manager.newCommand(state)` compiling
-   (`script-outcome.ts:13`): `scriptOutcome` and `RunnerFactory` stay.
-1. In `src/execa-runner.ts:31-44`, pass `input: options?.input ?? ''`
-   and `reject: false`, take the logs from the result whatever the
-   outcome, the outcome from `result.failed` and `stopped`, and keep
-   `stopped ? null : (result.exitCode ?? null)` for `checkExitCode()`.
-1. In `src/dto/command.dto.ts`:
-   - `executeCommandSchema` gains
-     `input: z.record(z.string(), z.unknown()).refine(fits).optional()`
-     (`MAX_INPUT_BYTES = 64 * 1024`) and loses `.required()`, which
-     would make `input` required;
-   - `runOptions(dto): RunOptions` serialises `input` with a newline;
-   - `CommandRefused`, an `Error` with
-     `status: 'invalid command' | 'command running'`, with which
-     `newCommand` rejects a request that runs nothing, as `RunOutcome`
-     has no value for one (the machine, whose states are permitted and
-     which sends no key or input, never meets one);
-   - `EXECUTE_STATUS_CODES` (the reply table, as `FSM_STATUS_CODES`),
-     `ExecuteResponseDto`, and `executeReply(run: Promise<CommandResult>)`,
-     which builds the body, turns a `CommandRefused` into `{ status }`
-     and lets other errors through (`500`), replacing `EXECUTE_STATUS`
-     and `executeResponse`; `CommandResult` is an `import type`.
-1. In `src/execa-manager.service.ts` (from 206 to about 222 lines):
-   - `newCommand` (line 51) takes `options`; after the repeat check, a
-     running command and `options?.input !== undefined` reject with
-     `command running`, before `join` (71-84); `start` passes
-     `options` to `execute`;
-   - `execute` (136-143): without a runner, `commandQueue.refuse(id)`,
-     then reject with `invalid command`; with one,
-     `[await runner.run(options), runner.checkLogs(), runner.checkExitCode()]`;
-   - `repeat` (88-104) rejects a key of another command with
-     `invalid command` instead of returning `['failed', new Map()]`;
-   - `storedResult` (16-28) rejects a finished `invalid` row with
-     `invalid command`, and otherwise returns
-     `[OUTCOME[status] ?? 'failed', logs, exitCode]`; an unfinished row
-     keeps the default `invalid`, so it falls through to `failed`;
-   - `checkStatus` and `createStatus` (176-197) add `exitCode`;
-   - a refused run's `result` rejects like any other: the caller of
-     `start` or `join` awaits it, and `stop` and shutdown await it with
-     `allSettled`; no `.catch` swallows it.
-1. In `src/queue.service.ts`, `SCHEMA` gains `exit_code INTEGER`.
-   `connect()` (103-107) runs `exec(SCHEMA)` first, then adds the
-   column to an older file: when `PRAGMA table_info(commands)` has no
-   `exit_code`, it runs `ALTER TABLE commands ADD COLUMN exit_code INTEGER`.
-   `STATUS` (50-54) maps `failed` to `failed`; `complete()` stores the
-   third element; the new `refuse(id)` sets only `finished_at`, keeping
-   the default `invalid`, and signals a change as `complete()` does
-   (03); `RECORD` and `toRecord` read `exit_code AS exitCode`.
-   `CommandStateStatus` (`state.dto.ts:6`) gains `failed`.
-1. `AppController.newCommand` (`src/app.controller.ts:51-65`) awaits
-   `executeReply(this.manager.newCommand(name, key, runOptions(dto)))`
-   and sends it with `EXECUTE_STATUS_CODES[reply.status]`; the MQTT
-   `execute` route (`src/mqtt/mqtt-request.handler.ts:54-57`) returns
-   the same `executeReply(...)`.
-1. Add `src/fsm/manager.ts`, as `parameters.ts`: `managerSchema`
-   (strict, `commands: z.array(z.string()).default([])`, `.nullish()`
-   as `stateSchema`) and `managerProblems(commands, permitted)`, one
-   `manager command <name> is not a permitted command` each.
-   `definition.ts` gains `manager` in `fileSchema`, `managerCommands`
-   in `Definition`, `manager?.commands ?? []` in `toDefinition` (a bare
-   `manager:` has none), and one call in `crossCheck`; at about 249
-   lines, its completion-cycle search (130-165) moves to
-   `src/fsm/completion-cycle.ts`.
-1. `FsmService.managerCommands()` returns `StateMachine`'s, or `[]`.
-   `FsmService` is at 249 lines after 03, so the body of `check()`
-   moves to `StateMachine.describe(status)`. `DescriptorService` and
-   `DescriptorDto` add `manager: { commands: ... }`.
-1. Add test scripts to `test/data/scripts/`: `echo-input` (`cat`),
-   `echo-input.ps1` (`[Console]::In.ReadToEnd()`), `fail`
-   (`echo 'no free bed' >&2; exit 3`) and `fail.ps1`
-   (`[Console]::Error.WriteLine('no free bed'); exit 3`, as
-   `Write-Error` prints an error record; `-File` passes the code on).
-   Shell scripts get mode 100755. Both join `runner.test.yaml` and the
-   lists of `test/e2e/mqtt.spec.ts:142` and `options.service.spec.ts:53`.
-   execa strips one final newline: `cat` gives back the exact line, but
-   PowerShell adds its own CRLF, so the input's newline stays; tests
-   compare `JSON.parse(stdout)` of ASCII input, as Windows PowerShell
-   decodes stdin in the console code page.
-1. Update `api/dev.api.http` and `api/dev.mqtt.http` (execute with
-   input); `README.md`: Create Commands (stdin; input not stored, logs
-   are), State Machine (`manager`, unenforced until 15), POST /
-   (request, reply table, `409`, `413`, and "Version 0.7.0 added
-   `input`, `result` and the `failed` status; before it, a script that
-   failed was answered `invalid command`."), GET /, GET /dt, GET /state,
-   Repeated Requests (input, `409`, an unfinished row) and MQTT API
-   (`execute` payload); `docs/state-machine-design.md` (Validation
-   gains `manager`; D23: `manager.commands` in the DT author's file,
-   S4; D24: input on stdin, not stored); `package.json` to `0.7.0`.
-   The pull request lists `docs/developer/codebase/runner.md` and the
-   user documentation copy of the README as stale.
+As implemented; deviations from the signed-off plan are marked _(changed)_.
+
+1. `RunOptions` of `runner.interface.ts` carries `input` next to 08's
+   `env`; `Runner` gets `run(options?: RunOptions)` and
+   `checkExitCode()`. `CommandResult` gains the exit code as a third
+   tuple element, so `const [outcome] = await manager.newCommand(state)`
+   in `scriptOutcome` keeps compiling; `CommandRecord`, `CommandStatus`
+   and `Manager.newCommand(name, requestKey?, options?)` follow.
+1. `ExecaRunner.run` passes `input: options?.input ?? ''` and
+   `reject: false`, keeps the logs whatever the outcome, and the exit
+   code unless stopped. `stop()` lost its `.catch`, as the subprocess no
+   longer rejects _(changed)_.
+1. `src/dto/command.dto.ts`: `input` in `executeCommandSchema` (no
+   `.required()`), `MAX_INPUT_BYTES`, `runOptions`, `CommandRefused`,
+   `EXECUTE_STATUS_CODES` and `executeReply`, which replace
+   `EXECUTE_STATUS` and `executeResponse`.
+1. `ExecaManager`: `newCommand` refuses input for a running command
+   before `join`; `execute` refuses a command that is not permitted
+   after `Queue.refuse(id)`; `repeat` rejects a key of another command;
+   `checkStatus` adds `exitCode`. A refused run's `result` rejects to
+   the requests that await it, and `stop` and shutdown settle it with
+   `allSettled`; nothing swallows it. The file would have reached 246
+   lines, so `storedResult` and `refuseInput` live in
+   `src/command-result.ts` _(changed)_.
+1. `Queue`: `exit_code` in `SCHEMA`; `connect()` runs `exec(SCHEMA)`,
+   then `ALTER TABLE` when `PRAGMA table_info(commands)` has no
+   `exit_code`; `failed` status; `refuse(id)` signals a change as
+   `complete()` does. `CommandStateStatus` gains `failed`.
+1. `AppController` and the MQTT `execute` route answer
+   `executeReply(newCommand(name, key, runOptions(dto, env)))`, where
+   `env` is 08's `FsmService.environment(name)`, the controller with
+   `EXECUTE_STATUS_CODES[reply.status]`.
+1. `src/fsm/manager.ts` holds `managerSchema`, nullish like
+   `stateSchema`, with a nullish `commands` too _(changed)_, and
+   `managerProblems`. `definition.ts` gains the key, `managerCommands`,
+   `manager?.commands ?? []` and one call in `crossCheck`; the
+   completion-cycle search moved to `src/fsm/completion-cycle.ts` as a
+   default export, as 08 has it.
+1. `StateMachine.describe(status)`, which 08 also added, holds the body
+   of `check()`, and `StateMachine.managerCommands` feeds
+   `FsmService.managerCommands()`. `DescriptorService` reads
+   `check() !== undefined` instead of `hasMachine()`, as 06 also does,
+   and adds `manager`, as does `DescriptorDto`. With 06 merged,
+   `FsmService` would have reached 254 lines, so `raise()` moved into
+   06's `Requests` as `requests.raise(event, handle, logger)`
+   _(changed)_ (249 lines).
+1. Test scripts `echo-input`, `fail` and their `.ps1` versions (shell
+   ones 100755) join `test/config/runner.test.yaml`, whose inline
+   comments moved to their own lines for prettier _(changed)_, and
+   `config/runner.test.yaml.sample`; `state-machine.yaml` lists
+   `create` under `manager` for the request files.
+1. README (Create Commands, Manager Commands, POST /, GET /, GET /dt,
+   GET /state, Repeated Requests, MQTT API, the 0.7.0 note),
+   `api/*.http` and `api/README.md`, the design document (Validation,
+   Components, D24 and D27, as 08 took D23 and 06 and 07 hold D25 and
+   D26) and `package.json` at `0.7.0`. The pull
+   request lists `docs/developer/codebase/runner.md` and the user
+   documentation copy of the README as stale.
 
 ## Tasks
 
-- [ ] `ExecaRunner` passes input on stdin, closes empty stdin (`cat`
-      ends without input), returns the exit code and logs of a failing
-      script, and `null` for one that could not start (the ENOENT test,
-      kept with `reject: false`), was killed from outside or was
-      stopped. Check: `test/integration/execa-runner.spec.ts`.
-- [ ] `Queue` opens a file made with the 0.6.0 `CREATE TABLE` (copied
-      into the test), adds `exit_code` once over two opens, returns
-      `null` for the old row and the code of a new one, stores
-      `failed`, and `refuse` leaves a finished `invalid` row. Check:
-      `test/integration/queue.migration.spec.ts` (new; the service spec
-      is at 247 lines).
-- [ ] The schema accepts `{}` and an input of 65 536 bytes with
-      multi-byte characters, and refuses one byte more, an array, a
-      string and `null` with `Validation Failed`. Check:
+- [x] `ExecaRunner` passes input on stdin, closes empty stdin, returns
+      the exit code and logs of a failing script, `null` for a stopped
+      one, and, on POSIX, for one that could not start (the ENOENT test
+      kept) or was killed. Check: `test/integration/execa-runner.spec.ts`.
+- [x] `Queue` adds `exit_code` once to a file of 0.6.0, returns `null`
+      for its old row and the code of a new one, stores `failed`, and
+      `refuse` leaves a finished `invalid` row. Check:
+      `test/integration/queue.migration.spec.ts` (new).
+- [x] The schema accepts `{}` and an input of exactly 65 536 bytes, and
+      refuses one byte more, a list, a string and `null`. Check:
       `test/unit/validation.pipe.spec.ts`.
-- [ ] `ExecaManager` gives `success`, `failed` and `invalid command`;
-      the echo script gets the input; input for a running command is
-      `command running`, not in the history; one without input joins;
-      a repeated key replays whatever its input, a stored `failed` and
-      an unfinished row as specified. Check:
-      `test/integration/execa-manager.input.spec.ts` (new; the service
-      spec, at 216 lines, expects the rejection for an invalid one).
-- [ ] `manager` is accepted, has no commands when left out or bare
-      (`manager:`), and an unknown key or a command not permitted stops
-      loading with the file name; the cycle check still works. Check:
+- [x] `ExecaManager` gives `success`, `failed` and `invalid command`,
+      passes input, refuses input for a running command without keeping
+      it, joins without input, and replays keys as specified. Check:
+      `test/integration/execa-manager.input.spec.ts` (new),
+      `execa-manager.service.spec.ts`, `execa-manager.stop.spec.ts`.
+- [x] `manager` is read, empty when left out or bare, and refused with
+      the file name for an unknown key or command. Check:
       `test/unit/fsm.manager.spec.ts` (new), `fsm.definition.spec.ts`.
-- [ ] `POST /` answers each row of the reply table with its code; the
-      echo script's stdout is the input; `GET /` has `exitCode`;
-      `GET /state` shows `failed`; `GET /dt` shows `manager`. Check:
-      `test/e2e/descriptor.spec.ts`, `descriptor.service.spec.ts`,
-      `test/integration/app.controller.spec.ts`, `test/e2e/util.ts`,
-      `test/e2e/commander.spec.ts`, `test/e2e/state.spec.ts`.
-- [ ] MQTT `execute` answers the same bodies, `status` has `exitCode`.
-      Check: `test/unit/mqtt-request.execute.spec.ts` (new; the execute
-      tests move there from the handler spec at 241 lines),
-      `test/unit/mqtt.fixture.ts`, `test/e2e/mqtt.spec.ts`.
-- [ ] The machine still moves on `$success` and `$failure`, with the
-      fake `newCommand` of `test/unit/fsm.fixture.ts` resolving
-      `[outcome, new Map(), null]`. Check: `test/e2e/fsm.spec.ts`,
-      `test/unit/fsm.service.spec.ts`, and no diff in `script-outcome.ts`
-      or in `fsm.service.ts` beyond `managerCommands` and `check()`.
-- [ ] README, design document and request files updated. Check:
-      `npx markdownlint-cli -c .markdownlint.yaml` from the root.
-- [ ] `yarn build` and `yarn test` pass; eslint lints no `.ts`, so
-      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
-      clean; no file over 250 lines, function over 25 or Qlty threshold
-      crossed. Check: their output, and `wc -l` on the changed files.
+- [x] `POST /` answers every row of the reply table, `413` above 100 kB,
+      `GET /` has `exitCode`, `GET /state` shows `failed`, `GET /dt`
+      shows `manager`. Check: `test/e2e/command-input.spec.ts` (new, in
+      place of `commander.spec.ts`, which tests the CLI _(changed)_),
+      `app.controller.spec.ts`, `test/e2e/descriptor.spec.ts`,
+      `options.spec.ts`, `stop.spec.ts`, `descriptor.service.spec.ts`.
+- [x] MQTT `execute` answers the same bodies, `status` has `exitCode`.
+      Check: `test/unit/mqtt-request.execute.spec.ts` (new),
+      `test/e2e/mqtt.spec.ts`.
+- [x] The machine still moves on `$success` and `$failure` with the new
+      fixture shape. Check: `test/unit/fsm.service*.spec.ts`,
+      `test/e2e/fsm*.spec.ts`; `script-outcome.ts` is unchanged.
+- [x] README, design document and request files updated. Check:
+      markdownlint-cli 0.37.0 and prettier 3.9.9 from the root.
+- [x] `yarn build` and `yarn test --maxWorkers=2` pass (525 passed, 9
+      skipped); `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
+      is clean; no file over 250 lines; Qlty counted by hand. Check:
+      their output.
+
+## Learnings
+
+- On Windows, execa reports exit code 1 for a missing executable and
+  for a process killed from outside, and `powershell.exe -File` with a
+  missing script exits with 4294770688. `exitCode: null` for those
+  cases holds on POSIX only; the tests assert it there.
+- With `reject: false` the subprocess promise never rejects, so the
+  `.catch` in `stop()` became dead code that coverage flagged.
+- A script that does not read stdin still succeeds with a 65 kB input:
+  execa ignores the broken pipe.
+- `CREATE TABLE IF NOT EXISTS` never adds a column to an existing
+  table; a new column needs `PRAGMA table_info` and `ALTER TABLE`
+  after it, the pattern for 09.
+- An unfinished row keeps the default status `invalid`, so
+  `storedResult` checks `finished` before reading `invalid` as a
+  refusal.
+- `{"text":""}` is 11 bytes; exact-size tests build the input from
+  two-byte characters. Express's 100 kB limit answers `413` before the
+  pipe runs.
+- `RunOutcome` has no value for a request that ran nothing, so
+  refusals reject with `CommandRefused`; a new caller of `newCommand`
+  (06) must turn that into a reply or let `scriptOutcome` count it as
+  failed.
+- A PowerShell start took 1.4 to 3.4 s on the loaded host whether
+  stdin was closed or not; tests that run two scripts in sequence need
+  the 30 s timeout of the other script specs.
+- `fsm.service.ts` is at 249 lines and `queue.service.spec.ts` at
+  249: 09 moves something out of the service before adding, and puts
+  new queue tests in new files.
+- zod 4's `z.record` copies an object and drops an own `__proto__`
+  key, so the script would get other input than the client sent and
+  the size check would measure the copy. `input` is checked as received
+  with `z.custom` and refuses that key (found in review).
+- supertest sends a request only when `then` is called on it, so a
+  test that starts a long request before polling must call it.
+- 08's tests fake a runner and assert the old reply body; a change to
+  `Runner` or to the reply updates them too.
+- 06 can tell a crash (`failed`, with `exitCode`) from a refusal
+  (`invalid`).

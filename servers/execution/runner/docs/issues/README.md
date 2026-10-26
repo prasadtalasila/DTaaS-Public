@@ -16,8 +16,8 @@ deferred (see below) and have no file.
 | [02-state-document.md](02-state-document.md)           | One state document         | M    | done      | #77 |
 | [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done      | #79 |
 | [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done      | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | planned   |     |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | in review | #83 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | in review |     |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | done      | #83 |
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done      | #82 |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done      | #81 |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | planned   |     |
@@ -54,7 +54,7 @@ the stop path to exist before recovery is designed around it. 07 needs
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.6.0` and nothing in this repository consumes its API.
+  `0.7.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
