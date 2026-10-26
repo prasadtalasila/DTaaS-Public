@@ -5,26 +5,36 @@ into a stateful manager of one digital twin (DT) that an external
 Manager can observe and steer. The features come from
 [dtn-research-notes.md](../dtn-research-notes.md); each file here is
 one feature, numbered by its item in the research notes so that the two
-documents cross-reference by one number. Items 11 and 13 to 17 are
-deferred (see below) and have no file.
+documents cross-reference by one number. Items 15 and 17 are split into
+sub-issues with a letter suffix. Item 14 is deferred (see below) and has
+no file.
 
 ## Status
 
-| File                                                   | Feature                    | Size | Status | PR  |
-| :----------------------------------------------------- | :------------------------- | :--- | :----- | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor | S    | done   | #74 |
-| [02-state-document.md](02-state-document.md)           | One state document         | M    | done   | #77 |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications | M    | done   | #79 |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters        | M    | done   | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome  | M    | done   | #84 |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | done   | #83 |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done   | #82 |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done   | #81 |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | done   | #86 |
-| [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done   | #76 |
-| [12-health.md](12-health.md)                           | Health endpoint            | S    | done   | #75 |
+| File                                                   | Feature                     | Size | Status  | PR  |
+| :----------------------------------------------------- | :-------------------------- | :--- | :------ | :-- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done    | #74 |
+| [02-state-document.md](02-state-document.md)           | One state document          | M    | done    | #77 |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done    | #79 |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done    | #78 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done    | #84 |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done    | #83 |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done    | #82 |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done    | #81 |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done    | #86 |
+| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done    | #76 |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned |     |
+| [12-health.md](12-health.md)                           | Health endpoint             | S    | done    | #75 |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned |     |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | planned |     |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned |     |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned |     |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned |     |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned |     |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned |     |
 
-Sizes: S is a day or less, M a few days with tests and documentation.
+Sizes: S is a day or less, M a few days with tests and documentation, L
+a week or more.
 
 ## Order
 
@@ -44,6 +54,22 @@ A feature starts when the features it depends on are merged.
 are first exposed; 10 before 09 because an `interrupted` script needs
 the stop path to exist before recovery is designed around it. 07 needs
 03's notifier for its webhook, so in practice it follows 03.
+
+The second round, planned on 2026-10-26, after all of the above:
+
+```text
+15a access-control ─┬─> 13 peers ─────────┬─> 16 peer-events
+                    └─> 15b signed-output ─┘
+
+11 history-metrics ─> 17a script-resources ─┬─> 17b process-tree
+                                            └─> 17c fidelity
+```
+
+15a and 11 start together. 11 shows the principal name that 15a
+stores with each command; whichever merges second adds the column. 13
+needs 15a because `PUT /peers` is a Manager route, and 16 needs 15b so
+that a peer's state documents can be verified. 17a extends the records
+and metrics of 11.
 
 ## Delivery
 
@@ -81,15 +107,23 @@ open) or `done`.
 
 ## Decisions Shared by All Features
 
-| #   | Decision                                                                                                                                                                                       |
-| :-- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1  | The runner is a managed DT only. It never acts as the Manager of a network.                                                                                                                    |
-| S2  | One runner serves one DT, as one process. A1 of the design document stands.                                                                                                                    |
-| S3  | Outbound notifications go over MQTT, under `<base>/notify/<kind>`, and over an optional HTTP webhook. Polling always works.                                                                    |
-| S4  | `runner.yaml` is the operator's file: identity, port, paths, broker, webhook. The state machine file is the DT author's: states, parameters, exposed commands, escalation, script environment. |
-| S5  | `runner.yaml` names the state machine file by path; the fixed name in `location` goes (amends D1).                                                                                             |
-| S6  | The runner never restarts a script on its own. A parameter change takes effect at the next script start, or through a declared event.                                                          |
-| S7  | Notification payloads share one envelope: `{ kind, id, time, data }`.                                                                                                                          |
+| #   | Decision                                                                                                                                                                                                   |
+| :-- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | The runner is a managed DT only. It never acts as the Manager of a network.                                                                                                                                |
+| S2  | One runner serves one DT, as one process. A1 of the design document stands.                                                                                                                                |
+| S3  | Outbound notifications go over MQTT, under `<base>/notify/<kind>`, and over an optional HTTP webhook. Polling always works.                                                                                |
+| S4  | `runner.yaml` is the operator's file: identity, port, paths, broker, webhook. The state machine file is the DT author's: states, parameters, exposed commands, escalation, script environment.             |
+| S5  | `runner.yaml` names the state machine file by path; the fixed name in `location` goes (amends D1).                                                                                                         |
+| S6  | The runner never restarts a script on its own. A parameter change takes effect at the next script start, or through a declared event.                                                                      |
+| S7  | Notification payloads share one envelope: `{ kind, id, time, data }`.                                                                                                                                      |
+| S8  | A DT positively lists the peers it is willing to interact with, in `runner.yaml`. There is no discovery; a peer's base topic is its address. A Manager may enable and disable listed peers, never add one. |
+| S9  | Callers are named principals with Ed25519 key pairs; `runner.yaml` holds public keys only. A request carries a short-lived JWS bound to that request; over MQTT the request payload is the JWS.            |
+| S10 | Three roles: `client` (everything), `manager` (reads, parameters, peers, `manager.commands`), `script` (reads, events, escalation). No `peer` role. `GET /health` is always open.                          |
+| S11 | Scripts authenticate with an opaque `RUNNER_TOKEN` minted per start; the runner creates both sides, so a key pair adds nothing there.                                                                      |
+| S12 | With `auth.key`, the runner signs its notifications and MQTT responses as a JWS over the same JSON; HTTP replies are not signed.                                                                           |
+| S13 | Peer subscriptions are global to the state machine file and edge-triggered: an event is raised when a `when` condition on a peer's `state` or `online` turns true, not on every document.                  |
+| S14 | Metrics are counters in memory since the runner started, served as JSON, and never part of the state document; durable analysis is the Manager's, from the history and the notifications.                  |
+| S15 | Verification and signing use `node:crypto`; `jose` is added only if the routine outgrows one file.                                                                                                         |
 
 ## Lessons for Every Issue
 
@@ -149,19 +183,13 @@ From implementing 01, 02, 03, 04, 10 and 12:
 
 From the research notes, with the decision that blocks each:
 
-- **11 Richer history and metrics**: format (Prometheus or JSON) and
-  which counters a Manager needs.
-- **13 Peer list and relationships**: a shared base topic convention
-  for discovering peers, and what a relationship attribute is.
-- **14 Machine-readable API description**: whether to generate OpenAPI
-  from the controllers or write it by hand.
-- **15 Access control by role**: whether the DTaaS gateway or the
-  runner authenticates a Manager; the `manager.commands` list of 05 is
-  declared but not enforced until then.
-- **16 React to peer state**: a mechanism for peer-to-peer coordination
-  that the papers do not give.
-- **17 Resource and fidelity reporting**: child process metrics need a
-  dependency or platform-specific reads.
+- **14 Machine-readable API description**: skipped by the owner on
+  2026-10-26. The API is documented in prose in `api/API.md`; whether
+  to generate OpenAPI from the controllers or write it by hand stays
+  open until a consumer needs the document.
+
+Items 11, 13, 15, 16 and 17 left this list on 2026-10-26, when the
+decisions that blocked them were taken (S8 to S15).
 
 ## Non-Goals
 
@@ -179,5 +207,7 @@ Out of scope for every file here, with what could reopen each:
   (item 2 of the research notes).
 - A declared `recover` state after a restart (open question 11).
 - Per-command input schemas (open question 10).
-- Enforcing `manager.commands` or any role (item 15).
+- Discovery of peers by wildcard subscription (S8).
+- A `peer` role, mutual TLS, or signed HTTP replies (S10, S12).
+- Prometheus text format for the metrics (S14).
 - Showing DTN state in the DTaaS client or library (open question 14).
