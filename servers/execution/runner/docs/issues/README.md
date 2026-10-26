@@ -11,27 +11,27 @@ no file.
 
 ## Status
 
-| File                                                   | Feature                     | Size | Status  | PR  |
-| :----------------------------------------------------- | :-------------------------- | :--- | :------ | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done    | #74 |
-| [02-state-document.md](02-state-document.md)           | One state document          | M    | done    | #77 |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done    | #79 |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done    | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done    | #84 |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done    | #83 |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done    | #82 |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done    | #81 |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done    | #86 |
-| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done    | #76 |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned |     |
-| [12-health.md](12-health.md)                           | Health endpoint             | S    | done    | #75 |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned |     |
-| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | planned |     |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned |     |
-| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned |     |
-| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned |     |
-| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned |     |
-| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned |     |
+| File                                                   | Feature                     | Size | Status      | PR  |
+| :----------------------------------------------------- | :-------------------------- | :--- | :---------- | :-- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done        | #74 |
+| [02-state-document.md](02-state-document.md)           | One state document          | M    | done        | #77 |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done        | #79 |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done        | #78 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done        | #84 |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done        | #83 |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done        | #82 |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done        | #81 |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done        | #86 |
+| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done        | #76 |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned     |     |
+| [12-health.md](12-health.md)                           | Health endpoint             | S    | done        | #75 |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned     |     |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in progress |     |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned     |     |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned     |     |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned     |     |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned     |     |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned     |     |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -80,7 +80,7 @@ and metrics of 11.
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.8.0` and nothing in this repository consumes its API.
+  `0.9.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
@@ -178,6 +178,17 @@ From implementing 01, 02, 03, 04, 10 and 12:
 - Render every Mermaid diagram with mermaid-cli and look at the image:
   a diagram that parses can still be wrong, and some syntax, such as
   `note below of` in a state diagram, fails only when rendered.
+
+From implementing 15a:
+
+- Git Bash rewrites an argument that starts with `/` into a Windows
+  path before a native program such as `node` sees it, so `/dt` becomes
+  `C:/Program Files/Git/dt`. Set `MSYS_NO_PATHCONV=1` on a call that
+  passes a URL path.
+- `record.mjs` of the demo rewrites `hospital.cast`; restore it with
+  `git checkout` unless the issue re-captures the recording.
+- `node:crypto` takes any 32 bytes as an Ed25519 public key; only a
+  verification shows that a key is no point of the curve.
 
 ## Deferred
 
