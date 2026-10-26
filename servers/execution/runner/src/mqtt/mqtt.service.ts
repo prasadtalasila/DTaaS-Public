@@ -51,12 +51,11 @@ export default class MqttService implements BeforeApplicationShutdown {
 
   private readonly connects = new Changes();
 
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly config: Config,
     private readonly handler: MqttRequestHandler,
     @Inject(MQTT_CONNECT) private readonly connect: MqttConnect,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   start(): void {
     const options = this.config.getMqtt();

@@ -6,8 +6,7 @@ import Queue from './queue.service.js';
 // the MQTT status that the caller passes
 @Injectable()
 export default class HealthService {
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly queue: Queue) {} // eslint-disable-line no-empty-function
+  constructor(private readonly queue: Queue) {}
 
   check(mqtt: MqttHealth): HealthDto {
     return healthReport(mqtt, this.queue.mode());

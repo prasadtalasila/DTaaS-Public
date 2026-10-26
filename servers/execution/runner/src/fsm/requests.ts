@@ -12,8 +12,7 @@ export type Current = { machine: StateMachine | undefined; stopping: boolean };
 export default class Requests {
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly current: () => Current) {} // eslint-disable-line no-empty-function
+  constructor(private readonly current: () => Current) {}
 
   // A repeated request key gets the reply to its first request, if that
   // was accepted; a refused request changed nothing, so it is checked

@@ -614,6 +614,10 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 
 ### Application Programming Interface (API)
 
+[API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
+the notifications, with examples from the
+[hospital demo](demo/hospital/README.md).
+
 Four REST API methods run and stop commands, three more drive the
 [state machine](#state-machine-requests), one
 [describes the digital twin](#get-request-to-dt), one returns

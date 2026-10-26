@@ -10,12 +10,11 @@ import Queue from './queue.service.js';
 // Describes the digital twin that this runner serves, and its state
 @Injectable()
 export default class DescriptorService {
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly config: Config,
     private readonly fsm: FsmService,
     private readonly queue: Queue,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   describe(): DescriptorDto {
     return {

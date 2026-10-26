@@ -15,8 +15,7 @@ export type Handlers<T> = {
 export default class RecentReplies<T> {
   private readonly replies = new Map<string, Stored<T>>();
 
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly limit = 256) {} // eslint-disable-line no-empty-function
+  constructor(private readonly limit = 256) {}
 
   get(key: string | undefined): Stored<T> | undefined {
     return key ? this.replies.get(key) : undefined;

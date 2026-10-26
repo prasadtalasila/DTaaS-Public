@@ -42,12 +42,11 @@ function parseJson(payload: Buffer): unknown {
 export default class MqttRequestHandler {
   private readonly logger = new Logger(MqttRequestHandler.name);
 
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly manager: ExecaManager,
     private readonly fsm: FsmService,
     private readonly descriptor: DescriptorService,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   private readonly routes: Record<
     MqttRoute,

@@ -33,12 +33,11 @@ export default class Notifier
 
   private stopped = false;
 
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly descriptor: DescriptorService,
     private readonly mqtt: MqttService,
     private readonly webhook: WebhookClient,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   // The broker keeps only the last presence notice, so the runner
   // announces itself on each connection; the webhook hears it once

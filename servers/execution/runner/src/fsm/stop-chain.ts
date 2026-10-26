@@ -5,8 +5,7 @@ import ExecaManager from '../execa-manager.service.js';
 export default class StopChain {
   private pending: Promise<unknown> = Promise.resolve();
 
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly manager: ExecaManager) {} // eslint-disable-line no-empty-function
+  constructor(private readonly manager: ExecaManager) {}
 
   // Runs run at once without a state left, so that it starts before the
   // caller returns, or else once the stopped script of the state left

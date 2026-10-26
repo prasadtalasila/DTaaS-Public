@@ -13,11 +13,10 @@ const UNSTARTED: Recovered = { state: undefined, entry: 0, status: 'none' };
 // Keeps the machine of the state machine service in the database of the
 // queue, so that a restarted runner resumes it
 export default class MachineStore {
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly queue: Queue,
     private readonly logger: Logger,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   // A failed write is logged, as no reply depends on it
   save({ state, entry }: Position, status: ScriptStatus): void {

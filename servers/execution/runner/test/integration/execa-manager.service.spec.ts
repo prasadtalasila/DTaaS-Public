@@ -10,7 +10,6 @@ import {
 import ExecaManager from 'src/execa-manager.service';
 import { Manager, CommandStatus } from 'src/interfaces/command.interface';
 import { CommandRefused, ExecuteCommandDto } from 'src/dto/command.dto';
-import { RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
 import Keyv from 'keyv';
@@ -51,19 +50,12 @@ describe('Check execution manager based on execa library', () => {
     expect((dt as ExecaManager).databaseMode()).toBe('memory');
   });
 
-  it('Should create object', async () => {
-    try {
-      expect(dt).toBeInstanceOf(ExecaManager);
-    } catch (error) {
-      expect(fail);
-    }
+  it('Should create object', () => {
+    expect(dt).toBeInstanceOf(ExecaManager);
   });
 
   it('Should execute a valid command', async () => {
-    let status: RunOutcome = 'failed';
-    let logs: Map<string, string> = new Map<string, string>();
-
-    [status, logs] = await dt.newCommand(permittedCommand(config));
+    const [status, logs] = await dt.newCommand(permittedCommand(config));
 
     expect(logs.get('stdout')).toEqual(expect.any(String));
     expect(logs.get('stderr')).toEqual('');

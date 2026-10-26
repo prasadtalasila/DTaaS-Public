@@ -1,7 +1,8 @@
 # Runner API Requests
 
 This directory has request files for trying out the HTTP and MQTT APIs
-of a runner on the developer computer.
+of a runner on the developer computer. [API.md](API.md) is the
+reference of both APIs, with examples from the hospital demo.
 
 | File            | Protocol | VS Code extension      |
 | :-------------- | :------- | :--------------------- |

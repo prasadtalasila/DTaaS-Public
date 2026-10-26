@@ -27,11 +27,10 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   // the runs in progress, by command name
   private readonly running = new Map<string, Run>();
 
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly commandQueue: Queue,
     private readonly config: Config,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   // A repeated request is not run again; it gets the result of the
   // request it repeats, and neither passes its options to a script.
