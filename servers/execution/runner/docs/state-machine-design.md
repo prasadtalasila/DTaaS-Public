@@ -4,7 +4,7 @@ This document is for developers of the runner: how the state machine
 is built, why, and where to change it. How a digital twin (DT) author
 writes and drives a state machine is in the user guide,
 [STATE-MACHINE.md](../STATE-MACHINE.md); the whole API is in
-[API.md](../API.md). The facts of the user-level contract that the
+[API.md](../api/API.md). The facts of the user-level contract that the
 code must keep are repeated here, so that this document can be read
 alone.
 

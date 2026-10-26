@@ -7,7 +7,7 @@ notifications that the runner sends on its own. It is the reference for
 a DT Manager, a script or any other client of the runner.
 
 The examples come from the
-[hospital bed-management demo](demo/hospital/README.md). Most are
+[hospital bed-management demo](../demo/hospital/README.md). Most are
 requests typed in that recording, with the replies that the runner
 gave, so the values fit together from one example to the next; the
 text says where an example comes from elsewhere. The
@@ -18,7 +18,7 @@ one story.
 
 The demo runner manages `hospital-1`, a hospital in Aarhus with two
 wards, cardiology and maternity, of two beds each. Its configuration,
-[demo/hospital/runner.yaml](demo/hospital/runner.yaml), gives the
+[demo/hospital/runner.yaml](../demo/hospital/runner.yaml), gives the
 addresses that the examples use:
 
 | Setting            | Value                                          |
@@ -31,7 +31,7 @@ addresses that the examples use:
 | Manager commands   | `admit`, `discharge`                           |
 
 The state machine,
-[demo/hospital/hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml), has
+[demo/hospital/hospital.fsm.yaml](../demo/hospital/hospital.fsm.yaml), has
 three states, `open`, `full` and `closed`, each running the script of
 the same name. It declares the events `full`, `beds-free`,
 `scope-changed`, `close` and `reopen`, and two parameters: `scope`, of
@@ -1114,7 +1114,7 @@ variables under `env` in the state machine file come too, such as
 A script raises an event with `POST $RUNNER_URL/fsm/event` and
 escalates with `POST $RUNNER_URL/escalate`. The demo scripts use this
 PowerShell helper, from
-[scripts/ward.ps1](demo/hospital/scripts/ward.ps1):
+[scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
 
 ```powershell
 function Send-Runner($path, $body) {
@@ -1151,7 +1151,7 @@ raised it still runs.
 ## Example Session
 
 The recording, in order, as requests and what they did. Times are
-those of the markers in [hospital.cast](demo/hospital/hospital.cast).
+those of the markers in [hospital.cast](../demo/hospital/hospital.cast).
 
 | Time | Request                                                                | Outcome                                                                                              |
 | ---: | :--------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
@@ -1174,6 +1174,6 @@ those of the markers in [hospital.cast](demo/hospital/hospital.cast).
 ## Version
 
 This document describes runner version 0.8.0. The
-[README](README.md#use) tells how to install, configure and start the
-runner, and the [state machine guide](STATE-MACHINE.md) how to write a
+[README](../README.md#use) tells how to install, configure and start the
+runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.

@@ -7,7 +7,7 @@ need no knowledge of the runner's code. The design and implementation
 are described for runner developers in
 [docs/state-machine-design.md](docs/state-machine-design.md), and the
 whole API, including the routes that only run commands, in
-[API.md](API.md).
+[API.md](api/API.md).
 
 ## What the State Machine Does
 
@@ -466,7 +466,7 @@ sends the state document whenever it changes, as a notification of kind
 Over MQTT the notifications go to `<topic>/notify/<kind>`, where `kind`
 is `state`, `escalation` or `presence`; the last state document is
 retained. A webhook gets each notification as a `POST`. See the
-[API reference](API.md#notifications) for the details.
+[API reference](api/API.md#notifications) for the details.
 
 #### Script Status
 

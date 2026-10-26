@@ -614,7 +614,7 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 
 ### Application Programming Interface (API)
 
-[API.md](API.md) is the full reference of the HTTP and MQTT APIs and of
+[API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
