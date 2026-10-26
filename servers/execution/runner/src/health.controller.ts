@@ -5,11 +5,10 @@ import MqttService from './mqtt/mqtt.service.js';
 
 @Controller('health')
 export default class HealthController {
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly health: HealthService,
     private readonly mqtt: MqttService,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   // 200 also when degraded, as this is a liveness check
   @Get()

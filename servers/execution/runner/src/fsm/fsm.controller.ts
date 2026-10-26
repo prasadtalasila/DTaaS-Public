@@ -24,8 +24,7 @@ import FsmService from './fsm.service.js';
 
 @Controller('fsm')
 export default class FsmController {
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly fsm: FsmService) {} // eslint-disable-line no-empty-function
+  constructor(private readonly fsm: FsmService) {}
 
   @Get()
   check(@Res({ passthrough: true }) res: Response): FsmStateDto | FsmReplyDto {

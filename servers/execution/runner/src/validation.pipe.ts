@@ -13,14 +13,13 @@ export function validRequestKey(requestKey?: string): string | undefined {
 }
 
 export default class ZodValidationPipe implements PipeTransform {
-  // eslint-disable-next-line no-empty-function, no-useless-constructor
   constructor(private schema: ZodSchema) {}
 
   transform(value: ExecuteCommandDto) {
     try {
       const parsedValue = this.schema.parse(value);
       return parsedValue;
-    } catch (error) {
+    } catch {
       throw validationFailed();
     }
   }

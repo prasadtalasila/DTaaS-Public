@@ -35,12 +35,11 @@ import FsmService from './fsm/fsm.service.js';
 
 @Controller()
 export default class AppController {
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly manager: ExecaManager,
     private readonly descriptor: DescriptorService,
     private readonly fsm: FsmService,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   @Get('dt')
   describe(): DescriptorDto {

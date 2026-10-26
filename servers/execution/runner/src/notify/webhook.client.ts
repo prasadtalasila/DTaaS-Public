@@ -32,8 +32,7 @@ export default class WebhookClient implements BeforeApplicationShutdown {
   // a failure is logged once, until a delivery succeeds
   private failing = false;
 
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly config: Config) {} // eslint-disable-line no-empty-function
+  constructor(private readonly config: Config) {}
 
   // Resolves once the notification is delivered or given up
   post(notification: NotificationDto): Promise<void> {

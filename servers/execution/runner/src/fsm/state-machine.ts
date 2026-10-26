@@ -6,12 +6,11 @@ import { Definition, Transition } from './definition.js';
 // script of an earlier entry can be told apart. A machine restored after
 // a restart starts in its stored state and entry.
 export default class StateMachine {
-  // eslint-disable-next-line no-useless-constructor
   constructor(
     private readonly definition: Definition,
     private current?: string,
     private entries = 0,
-  ) {} // eslint-disable-line no-empty-function
+  ) {}
 
   get state(): string | undefined {
     return this.current;

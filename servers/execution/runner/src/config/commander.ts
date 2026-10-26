@@ -31,13 +31,10 @@ export default async function CLI(
   if (options.config !== undefined) {
     const configFile: string = options.config;
     const resolvedFilename: string = resolveFile(configFile.toString());
-    console.log(resolvedFilename);
     try {
       readFileSync(resolvedFilename, 'utf8');
     } catch (err) {
-      // eslint-disable-next-line no-console
-      // console.log(chalk.bold.redBright('Config file can not be read. Exiting'));
-      throw new Error('Invalid configuration');
+      throw new Error('Invalid configuration', { cause: err });
     }
     await CLIOptions.set('configFile', resolvedFilename);
   }

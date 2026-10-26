@@ -19,8 +19,7 @@ import ZodValidationPipe from './validation.pipe.js';
 
 @Controller('parameters')
 export default class ParametersController {
-  // eslint-disable-next-line no-useless-constructor
-  constructor(private readonly fsm: FsmService) {} // eslint-disable-line no-empty-function
+  constructor(private readonly fsm: FsmService) {}
 
   // Without a state machine, the reply of GET /fsm
   @Get()
