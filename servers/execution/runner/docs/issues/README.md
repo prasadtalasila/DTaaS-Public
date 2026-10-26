@@ -54,7 +54,7 @@ the stop path to exist before recovery is designed around it. 07 needs
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.7.0` and nothing in this repository consumes its API.
+  `0.8.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
