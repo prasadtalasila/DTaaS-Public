@@ -30,8 +30,8 @@ export function toStoredMachine(
     return undefined;
   }
   return {
-    state: row.state === null ? undefined : String(row.state),
+    state: typeof row.state === 'string' ? row.state : undefined,
     entry: Number(row.entry),
-    status: String(row.status) as ScriptStatus,
+    status: row.status as ScriptStatus,
   };
 }
