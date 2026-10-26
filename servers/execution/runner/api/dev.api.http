@@ -4,7 +4,41 @@
 @port = 5000
 @ContentType = application/json
 
-### 
+// For a runner with access control, @keyFile names the PKCS#8 key of a
+// principal of its auth section (demo/hospital/tools/keygen.mjs writes
+// one) and @dtId its id. httpYac then signs every request as
+// @principal with the script below; REST Client does not run it. An
+// empty @keyFile sends the requests unsigned.
+@keyFile =
+@principal = alice
+@dtId = test-dt
+
+{{@request
+  if (keyFile) {
+    const crypto = require('node:crypto');
+    const part = (value) =>
+      Buffer.from(JSON.stringify(value)).toString('base64url');
+    const body = typeof request.body === 'string' ? request.body : '';
+    const iat = Math.floor(Date.now() / 1000);
+    const claims = {
+      aud: dtId,
+      iat,
+      exp: iat + 30,
+      jti: crypto.randomBytes(16).toString('base64url'),
+      htm: request.method,
+      htu: new URL(request.url).pathname,
+      bh: crypto.createHash('sha256').update(body).digest('base64url'),
+    };
+    const header = { alg: 'Ed25519', kid: principal };
+    const input = `${part(header)}.${part(claims)}`;
+    const key = crypto.createPrivateKey(require('node:fs').readFileSync(keyFile));
+    const signature = crypto.sign(null, Buffer.from(input), key);
+    request.headers.Authorization =
+      `Bearer ${input}.${signature.toString('base64url')}`;
+  }
+}}
+
+###
 GET http://{{hostname}}:{{port}} HTTP/1.1
 content-type: {{ContentType}}
 

@@ -20,3 +20,8 @@ commands:  # list of permitted scripts
 # notify:  # optional; the webhook that receives the notifications
 #   url: 'https://manager.example.org/dt-events'
 #   token: 'secret'  # optional; sent as a bearer token
+# auth:  # optional; without it every route is open to anyone
+#   principals:  # the callers, each with an Ed25519 public key
+#     - name: 'manager-1'
+#       role: 'manager'  # manager or client
+#       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'

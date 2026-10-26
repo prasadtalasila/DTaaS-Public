@@ -81,6 +81,30 @@ The tests use topics with a random part, so runs do not interfere on a
 shared broker. The GitHub Actions workflow runs them against a
 Mosquitto container.
 
+### Access Control Tests
+
+The tests of [access control](README.md#access-control) generate their
+Ed25519 keys at run time with `test/sign.util.ts`, which also signs
+HTTP tokens and MQTT envelopes; no key file is committed. The end-to-end
+tests start the runner from a configuration without `auth` and spy
+`Config.access()` to return an `Access` of the test's principals, as
+`test/e2e/mqtt.util.ts` spies `getMqtt`; the guard and the MQTT service
+read it on every request. `test/e2e/auth.script.spec.ts` checks that a
+state's script raises an event with `RUNNER_TOKEN`, so _raise-event_
+always sends `Authorization: Bearer $RUNNER_TOKEN`.
+
+To try a runner with access control by hand, write a key pair with the
+demo's tool and list its public key under `auth` in
+`config/runner.test.yaml`:
+
+```bash
+node demo/hospital/tools/keygen.mjs alice keys
+```
+
+It writes `keys/alice.key` (PKCS#8 PEM) and `keys/alice.pub`, and
+prints the public key. [api/README.md](api/README.md#access-control)
+tells how the request files sign with it.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files

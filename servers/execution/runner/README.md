@@ -55,6 +55,11 @@ needs to have _read:packages_ scope.
 
 ## Configure
 
+Warning: without an `auth` section, anyone who can reach the runner's
+port or its MQTT request topics can run its commands and drive its
+state machine. List the callers in an `auth` section
+([Access Control](#access-control)) on any network that others share.
+
 The utility requires config specified in YAML format.
 A sample configuration is given below. Copy it into a file named
 _runner.yaml_, and update the values for your setup:
@@ -179,6 +184,51 @@ The runner posts its [presence](#presence) at startup and, at
 shutdown, its offline notice once, with a 2 s timeout and no retry, so
 that a slow webhook does not hold the shutdown.
 
+### Access Control
+
+With an `auth` section, the runner answers only the callers it lists,
+each in a role:
+
+```yaml
+auth:
+  principals:
+    - name: manager-1
+      role: manager # manager or client
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+    - name: alice
+      role: client
+      publicKey: 'o-YAagcjoyUxT2xcgULS22sCK6N_cJ-op8Jh7yukXMk'
+```
+
+- `name` follows the pattern of `id`, is unique, and is not `script`.
+  The section needs one principal at least.
+- `publicKey` is an Ed25519 public key as the base64url of its 32 raw
+  bytes, the `x` of its JWK. The caller keeps the private key; the file
+  holds no secret, and deleting a principal revokes it at the next
+  start. The demo's
+  [tools/keygen.mjs](demo/hospital/tools/keygen.mjs) writes a key pair.
+- Each request carries `Authorization: Bearer <token>`, a token that
+  the caller signs for that one request and at most one minute; over
+  MQTT the request payload is the token. [API.md](api/API.md#access-control)
+  gives the token format and a signing example.
+- A `client` may call every route. A `manager` may read, set
+  parameters and run the [manager commands](#manager-commands). The
+  runner's own scripts call it in the role `script` with the token in
+  `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
+  may read, raise events and escalate.
+- `GET /health` and MQTT `health` stay open, for liveness probes.
+- A request without a valid token gets `401`, and a role that may not
+  call the route `403`. The runner logs each accepted request with its
+  principal at `debug` level, and stores the principal of each command
+  it runs.
+
+Without `auth` every route is open and the runner ignores any
+`Authorization` header.
+
+Version 0.9.0 added access control. It changes no route without
+`auth`; a database file of an earlier version gains a `by` column for
+the principal of each command at the first start.
+
 ## Create Commands
 
 The runner requires commands / scripts to be run.
@@ -218,6 +268,7 @@ its own variables:
 | Variable          | Value                                                             |
 | :---------------- | :---------------------------------------------------------------- |
 | `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's own HTTP API              |
+| `RUNNER_TOKEN`    | the bearer token of the scripts, with [auth](#access-control)     |
 | `DT_ID`           | `id` of _runner.yaml_                                             |
 | `DT_STATE`        | the state of the [state machine](#state-machine), as below        |
 | `DT_ENTRY`        | the entry number of that state, as below                          |
@@ -228,7 +279,8 @@ name the state it enters and the number of that entry. For a script of
 `POST /` they name the current state and entry, or are empty and `0`
 before the first transition. Without a state machine a script gets
 only `RUNNER_URL` and `DT_ID`. `RUNNER_URL` uses the port that the
-runner listens on. The state machine file may
+runner listens on. `RUNNER_TOKEN` is drawn anew at each start and is
+unset without an `auth` section. The state machine file may
 [declare more variables](#declared-environment).
 
 The `DOCKER.md` file in the
@@ -461,8 +513,8 @@ states:
 - Names have upper-case letters, digits and `_`, start with a letter,
   and may not start with `DT_` or `RUNNER_`. Values are strings,
   numbers or booleans; the script reads them as strings.
-- A value may use `${NAME}` for `RUNNER_URL`, `DT_ID`, `DT_STATE`,
-  `DT_ENTRY` or the `DT_PARAM_` variable of a declared parameter. Any
+- A value may use `${NAME}` for `RUNNER_URL`, `RUNNER_TOKEN`, `DT_ID`,
+  `DT_STATE`, `DT_ENTRY` or the `DT_PARAM_` variable of a declared parameter. Any
   other name, such as another declared variable or a variable of the
   runner's own environment, stops the runner at startup, so the file
   means the same on every host. There is no escape for a literal `${`.
@@ -476,8 +528,11 @@ states:
 ### Raising Events From Scripts
 
 A script raises a declared event as any client does, over HTTP:
-`POST ${RUNNER_URL}/fsm/event` with `{ "event": "<name>" }` and
-`Content-Type: application/json`. The reply tells the script:
+`POST ${RUNNER_URL}/fsm/event` with `{ "event": "<name>" }`,
+`Content-Type: application/json` and
+`Authorization: Bearer ${RUNNER_TOKEN}`. The runner ignores the header
+without [access control](#access-control), so a script may always send
+it. The reply tells the script:
 
 | Reply                                                                | For the script                                                                                                                                                        |
 | :------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -491,7 +546,8 @@ be reached:
 
 ```sh
 code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-  -H 'Content-Type: application/json' -d '{"event": "done"}' \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $RUNNER_TOKEN" -d '{"event": "done"}' \
   "$RUNNER_URL/fsm/event")
 case "$code" in
   202 | 503) exit 0 ;;
@@ -507,7 +563,10 @@ prints `0` when the runner can not be reached:
 ```sh
 code=$(node -e "fetch(process.env.RUNNER_URL + '/fsm/event', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + (process.env.RUNNER_TOKEN ?? ''),
+  },
   body: JSON.stringify({ event: 'done' }),
 }).then((reply) => console.log(reply.status), () => console.log(0))")
 ```
@@ -518,9 +577,11 @@ The runner starts a `.ps1` script with Windows PowerShell 5.1, whose
 `$code` is `0` when the runner can not be reached:
 
 ```powershell
+$headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
 try {
   Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/fsm/event" `
-    -ContentType 'application/json' -Body '{"event": "done"}' | Out-Null
+    -Headers $headers -ContentType 'application/json' `
+    -Body '{"event": "done"}' | Out-Null
   $code = 202
 } catch { $code = [int]$_.Exception.Response.StatusCode }
 ```
@@ -578,8 +639,10 @@ manager:
 Each must be one of the `commands` of _runner.yaml_, or the runner does
 not start. The list appears on [GET /dt](#get-request-to-dt); it is
 empty without a state machine, without a `manager` section, or for a
-bare `manager:` key. The runner does not enforce the list yet: any
-client may still run any permitted command.
+bare `manager:` key. With [access control](#access-control), a
+principal in the role `manager` may run only these commands and gets
+`403` for any other; a `client` may run every permitted command.
+Without access control the list is not enforced.
 
 ## Use
 
@@ -1145,11 +1208,19 @@ mosquitto_pub -h localhost -V mqttv5 -t 'dtaas/user1/runner/execute' \
   -m '{"name": "create"}'
 ```
 
-Anyone who can publish to the request topics can run the permitted
-commands. Use the access control of the broker to limit publishing
-on the request topics, and to limit the topics the runner may publish
-to. Use `mqtts://` or `wss://` with a username and password when the
-broker is not on the same computer.
+With an [auth section](#access-control), the payload of each request
+but `health` is a signed token that holds the request topic and the
+JSON above as its `body`; a plain payload gets the `401` body of the
+HTTP API, and a refused role the `403` body, on the response topic.
+[API.md](api/API.md#mqtt-access-control) describes the envelope.
+
+Without it, anyone who can publish to the request topics can run the
+permitted commands. Either way, use the access control of the broker
+as the outer wall: `auth` decides who may act, the broker who may
+publish on the request topics and read the responses and
+notifications at all, and which topics the runner may publish to. Use
+`mqtts://` or `wss://` with a username and password when the broker is
+not on the same computer.
 
 ### Notifications
 

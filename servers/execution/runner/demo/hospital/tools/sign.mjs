@@ -6,20 +6,26 @@
 //   node tools/sign.mjs mqtt ROUTE [JSON]        prints the payload
 //
 // HTTP requests sign as alice and MQTT requests as manager-1; DT_AS
-// names another principal.
+// names another principal. DT_ID, DT_BASE and DT_KEYS (a directory)
+// replace the demo's id, base topic and run/keys/ for another runner.
 import { createHash, createPrivateKey, randomBytes, sign } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BASE, ID } from './settings.mjs';
+import { BASE as DEMO_BASE, ID as DEMO_ID } from './settings.mjs';
 
-const KEYS = new URL('../run/keys/', import.meta.url);
+const ID = process.env.DT_ID ?? DEMO_ID;
+const BASE = process.env.DT_BASE ?? DEMO_BASE;
+const KEYS =
+  process.env.DT_KEYS ??
+  fileURLToPath(new URL('../run/keys/', import.meta.url));
 
 const segment = (value) =>
   Buffer.from(JSON.stringify(value)).toString('base64url');
 
 // A compact JWS of the claims, bound to the DT for 30 s
 function token(name, claims) {
-  const file = new URL(`${name}.key`, KEYS);
+  const file = join(KEYS, `${name}.key`);
   if (!existsSync(file)) {
     return undefined;
   }
