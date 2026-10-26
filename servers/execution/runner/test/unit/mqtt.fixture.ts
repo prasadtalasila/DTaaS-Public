@@ -1,11 +1,14 @@
 import { EventEmitter } from 'node:events';
 import { jest } from '@jest/globals';
 import type { IPublishPacket, MqttClient } from 'mqtt';
+import Access from 'src/auth/access';
 import Config from 'src/config/configuration.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
+import { MqttRequest, parseJson } from 'src/mqtt/mqtt-request';
 import MqttService, { MqttConnect } from 'src/mqtt/mqtt.service';
 import { MqttConfig } from 'src/mqtt/mqtt.config';
-import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
+import { CommandOptions } from 'src/interfaces/command.interface';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 
 // An MQTT client that records its calls, for the MQTT service tests
 export class FakeClient extends EventEmitter {
@@ -31,19 +34,19 @@ export const mqttConfig: MqttConfig = {
   protocolVersion: 5,
 };
 
-export function setup(options: MqttConfig | undefined) {
+// The service with a fake client and handler, and access control if
+// given
+export function setup(options: MqttConfig | undefined, access?: Access) {
   const client = new FakeClient();
   const connect = jest.fn<MqttConnect>(() => client as unknown as MqttClient);
   const config = {
     getMqtt: () => options,
     getId: () => 'hospital-1',
+    access: () => access,
   } as unknown as Config;
   const handle = jest.fn(
-    (
-      _route: string,
-      _payload: Buffer,
-      _requestKey?: string,
-    ): Promise<unknown> => Promise.resolve({ status: 'success' }),
+    (_route: string, _request: MqttRequest): Promise<unknown> =>
+      Promise.resolve({ status: 'success' }),
   );
   const handler = { handle } as unknown as MqttRequestHandler;
   const service = new MqttService(config, handler, connect);
@@ -52,6 +55,12 @@ export function setup(options: MqttConfig | undefined) {
 
 export const packet = (properties?: IPublishPacket['properties']) =>
   ({ properties }) as IPublishPacket;
+
+// The request that a plain payload makes without access control
+export const mqttRequest = (
+  payload: Buffer,
+  requestKey?: string,
+): MqttRequest => ({ body: parseJson(payload), requestKey });
 
 // The service answers asynchronously, so wait for the reply to go out.
 // A received packet carries its topic, as in mqtt.js.
@@ -76,7 +85,7 @@ export const status = {
 // MQTT request handler tests
 export const fakeManager = (outcome: RunOutcome) => ({
   newCommand: jest.fn(
-    (_name: string, _requestKey?: string, _options?: RunOptions) =>
+    (_name: string, _requestKey?: string, _options?: CommandOptions) =>
       Promise.resolve([outcome, new Map(), null]),
   ),
   checkStatus: jest.fn(() => status),
