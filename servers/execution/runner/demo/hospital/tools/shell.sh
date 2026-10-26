@@ -13,8 +13,8 @@ dt() {
     option=$1
     shift
     case $option in
-    -X) method=$1 ;;
-    --json) body=$1 && [ "$method" = GET ] && method=POST ;;
+      -X) method=$1 ;;
+      --json) body=$1 && [ "$method" = GET ] && method=POST ;;
     esac
   done
   # Git Bash would turn the path into a Windows path for node
