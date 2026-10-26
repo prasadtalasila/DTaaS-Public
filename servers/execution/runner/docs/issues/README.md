@@ -11,27 +11,27 @@ no file.
 
 ## Status
 
-| File                                                   | Feature                     | Size | Status      | PR  |
-| :----------------------------------------------------- | :-------------------------- | :--- | :---------- | :-- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done        | #74 |
-| [02-state-document.md](02-state-document.md)           | One state document          | M    | done        | #77 |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done        | #79 |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done        | #78 |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done        | #84 |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done        | #83 |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done        | #82 |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done        | #81 |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done        | #86 |
-| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done        | #76 |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned     |     |
-| [12-health.md](12-health.md)                           | Health endpoint             | S    | done        | #75 |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned     |     |
-| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in progress |     |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned     |     |
-| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned     |     |
-| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned     |     |
-| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned     |     |
-| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned     |     |
+| File                                                   | Feature                     | Size | Status    | PR  |
+| :----------------------------------------------------- | :-------------------------- | :--- | :-------- | :-- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done      | #74 |
+| [02-state-document.md](02-state-document.md)           | One state document          | M    | done      | #77 |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done      | #79 |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done      | #78 |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done      | #84 |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done      | #83 |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done      | #82 |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done      | #81 |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done      | #86 |
+| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned   |     |
+| [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned   |     |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned   |     |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned   |     |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned   |     |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
