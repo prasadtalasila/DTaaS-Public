@@ -20,7 +20,7 @@ deferred (see below) and have no file.
 | [06-escalation.md](06-escalation.md)                   | Escalation signal          | M    | done      | #83 |
 | [07-presence.md](07-presence.md)                       | Presence: join and leave   | S    | done      | #82 |
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts | S    | done      | #81 |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | in review |     |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine        | M    | in review | #86 |
 | [10-stop.md](10-stop.md)                               | Stop a running script      | M    | done      | #76 |
 | [12-health.md](12-health.md)                           | Health endpoint            | S    | done      | #75 |
 
