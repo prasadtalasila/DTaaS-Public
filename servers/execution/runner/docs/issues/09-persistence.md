@@ -161,8 +161,8 @@ unknown status so): `400 invalid command` before 05, `200 failed` after.
 - [x] A repeat of the key of an interrupted command gets `failed`;
       `onApplicationShutdown` closes the database only after a write
       three microtasks after a run's result (fails without the
-      `setImmediate`). Check:
-      `test/integration/execa-manager.service.spec.ts`.
+      `setImmediate`). Check (changed, as 05 left the planned file at
+      231 lines): `test/integration/execa-manager.restart.spec.ts`.
 - [x] `recover`: each rule and each kept status. Check:
       `test/unit/fsm.recovery.spec.ts`. A `StateMachine` built with a
       state and entry follows its transitions and numbers the next
