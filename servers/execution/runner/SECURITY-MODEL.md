@@ -6,14 +6,18 @@ scripts. It states what the runner protects, from whom, and what it
 leaves to the system that starts it. It records a design that the owner
 settled on 2026-10-27; apart from access control (issue 15a) and
 signed output (issue 15b), none of it is implemented yet. The issue
-that implements it is called issue 18 below; its number and its
+that implements it is issue 18
+([docs/issues/18-script-user.md](docs/issues/18-script-user.md)); its
 configuration keys are provisional.
 
 The research behind the design is in
-`docs/sandbox-runtime-research.md` and `docs/firecracker-research.md`,
-which a later pull request adds. Where this guide states how the runner
-works today, it names the source file. Statements that could not be
-checked against a source are marked _unverified_.
+[docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md)
+and [docs/firecracker-research.md](docs/firecracker-research.md). Where
+this guide states how the runner works today, it names the source file.
+The account switch was tried on WSL Ubuntu 26.04, kernel 6.18, on
+2026-10-27, after the design was settled; statements that rest on that
+experiment say so. Statements that could not be checked against a
+source or the experiment are marked _unverified_.
 
 ## Terms
 
@@ -157,7 +161,8 @@ Q1 (the threat), Q2 (the boundary between users) and Q6 (the runner
 reports, the deployment limits) hold for every form. Q7, whether the
 container may be loosened for an inner sandbox, was left open in the
 research; only A1 and, with Firecracker's jailer, A2 and A3 would need
-it.
+it. With those set aside, the answer is no: nothing is hosted inside
+the container, so it is not loosened.
 
 ### Why the Other Forms Were Set Aside
 
@@ -187,7 +192,8 @@ it.
 
 The orchestrator may wrap the whole runner in a microVM, in a
 container, or in nothing. Inside, the runner and its scripts run as two
-accounts. The decisions:
+accounts, and the runner starts each script through util-linux
+`setpriv`. The decisions:
 
 ### Opt-In
 
@@ -216,7 +222,15 @@ capabilities:
 | `CAP_SETGID` | setting its gid and dropping the runner's groups      |
 | `CAP_KILL`   | signalling the script, which another account now owns |
 
-With systemd:
+The runner itself switches no account. It spawns `setpriv` as its own
+account; the ambient capabilities pass to `setpriv` across the exec,
+and `setpriv` uses them to switch to the script account (see
+[Capabilities must not reach the script](#capabilities-must-not-reach-the-script)).
+
+With systemd, _unverified_ in practice: `systemd.exec(5)` documents
+`AmbientCapabilities=` for a service that runs as a non-privileged
+`User=`, and adds `keep-caps` to keep the capabilities across the
+change of user, but these lines have not been run:
 
 ```ini
 [Service]
@@ -228,18 +242,33 @@ NoNewPrivileges=yes
 ExecStart=/usr/bin/runner --config /etc/dt/hospital-1/runner.yaml
 ```
 
-From a shell script or a container entrypoint that runs as root, with
+From a shell script that runs as root, or through `sudo`, with
 util-linux `setpriv`, which needs the capabilities in the inheritable
 set before it can make them ambient:
 
 ```bash
-exec setpriv --reuid=dt-runner --regid=dt-runner --init-groups \
+exec setpriv --reset-env --reuid=dt-runner --regid=dt-runner --init-groups \
   --inh-caps=+setuid,+setgid,+kill --ambient-caps=+setuid,+setgid,+kill \
-  runner --config /etc/dt/hospital-1/runner.yaml
+  -- runner --config /etc/dt/hospital-1/runner.yaml
 ```
 
-_Unverified_: that `setpriv` keeps the capabilities across its own
-change of uid from root; issue 18's end-to-end test settles it.
+Verified in the experiment: started with
+`sudo setpriv --reset-env --reuid=1000 --regid=1000 --init-groups
+--inh-caps=+setuid,+setgid,+kill --ambient-caps=+setuid,+setgid,+kill
+-- …`, Node ran as uid 1000, and `capsh --print` showed
+`Current: cap_kill,cap_setgid,cap_setuid=eip` and the same three in its
+`Ambient set`. `setpriv` keeps the capabilities across its own change
+of uid from root. `--reset-env` is required: `sudo` keeps `HOME=/root`,
+which the runner would otherwise inherit; with it, `setpriv` sets
+`HOME`, `SHELL`, `USER` and `LOGNAME` from the runner account's
+`/etc/passwd` entry (`setpriv(1)`).
+
+The script account in the experiment was a system account without a
+home directory or a login shell:
+
+```bash
+useradd --system --no-create-home --shell /usr/sbin/nologin dt-scripts
+```
 
 At startup with the setting on, the runner checks that it can switch:
 that it is not uid 0 and that it holds the three capabilities. A runner
@@ -252,20 +281,41 @@ unchanged.
 
 Under the rules of `capabilities(7)`, a change of uid between two
 non-zero uids clears no capability, and `execve` passes the ambient set
-on to the new program. A script that Node spawns with its `uid` and
-`gid` options would thus hold `CAP_SETUID`, `CAP_SETGID` and
-`CAP_KILL` too, and could switch back to the runner's account and read
-the key. Node's `child_process`, and execa over it, can not clear
-capabilities between the fork and the exec. Issue 18 must therefore
-either start each script through a launcher that changes the account
-and clears the capabilities before it executes the script, such as
-`setpriv --reuid=<uid> --regid=<gid> --init-groups --inh-caps=-all
---ambient-caps=-all -- <script>`, which replaces itself with the script
-so that the runner still signals the script's own pid; or find another
-way with the same effect. Its tests must show that the script's
-`CapPrm`, `CapEff` and `CapAmb` in `/proc/self/status` are all zero.
-This point came up while writing this guide and was not part of the
-owner's discussion.
+on to the new program. Node's `child_process`, and execa over it, can
+not clear capabilities between the fork and the exec. The experiment
+confirmed it: a script that Node spawned with its `uid` and `gid`
+options showed `CapInh`, `CapPrm`, `CapEff` and `CapAmb` of
+`00000000000000e0` in `/proc/self/status`, that is `CAP_SETUID`,
+`CAP_SETGID` and `CAP_KILL`. Such a script could switch back to the
+runner's uid and read the key. Issue 18 therefore does not use those
+options. It starts each script through `setpriv`, with the script
+account's uid `U` and gid `G`:
+
+```bash
+setpriv --reuid U --regid G --init-groups \
+  --inh-caps=-all --ambient-caps=-all --no-new-privs -- <script>
+```
+
+`setpriv` replaces itself with the script, so the runner still
+signals the script's own pid. In the experiment, the script so started
+showed every `Cap*` line of `/proc/self/status` at zero and
+`NoNewPrivs: 1`. With the no-new-privs bit set, `execve` grants no new
+privileges (`setpriv(1)`), so neither a setuid binary nor a file
+capability can raise the script's privilege again.
+
+`--bounding-set=-all` must not be added: without `CAP_SETPCAP`, which
+the runner does not hold, it fails with "Operation not permitted".
+No-new-privs makes it unnecessary.
+
+The experiment ran the line above with `--reset-env` as well; the
+script launch leaves it out. `--reset-env` clears every variable but
+`TERM` (`setpriv(1)`), which would drop the script context. The runner
+builds the whole environment of the script itself (see
+[Environment](#environment)), and `setpriv` passes it on unchanged. The
+experiment verified the capabilities and the groups, not the
+environment, so issue 18's end-to-end test must also show that the
+script sees `RUNNER_URL`, `RUNNER_TOKEN`, and the `HOME` of the script
+account.
 
 ### Layout Verified, Never Imposed
 
@@ -296,15 +346,21 @@ in the runner's own working directory.
 
 ### Environment
 
-With the setting on, a script gets an allow-list of the runner's
-environment instead of the whole of it: `PATH`, `HOME`, `LANG`,
-`TMPDIR`, then the runner variables, the file's `env` and the state's
-`env`. `scriptEnvironment` in `src/fsm/script-context.ts` already
-builds the whole map and `src/execa-runner.ts` passes it with
-`extendEnv` off, so only the inherited base changes. With the setting
-off, nothing changes. `HOME` is that of the script account from
-`/etc/passwd`, not the runner's (this guide's reading; issue 18
-decides).
+With the setting on, a script gets an allow-list instead of the whole
+of the runner's environment:
+
+- `HOME`, `USER` and `LOGNAME` from the script account's entry in
+  `/etc/passwd`, not the runner's;
+- `PATH` set to a fixed default, `/usr/local/bin:/bin:/usr/bin`, the
+  value that `setpriv(1)` gives a regular user when `/etc/login.defs`
+  sets no `ENV_PATH`;
+- `TMPDIR` and `LANG` with the runner's values;
+- then the runner variables, the file's `env` and the state's `env`.
+
+`scriptEnvironment` in `src/fsm/script-context.ts` already builds the
+whole map and `src/execa-runner.ts` passes it with `extendEnv` off, so
+only the inherited base changes. With the setting off, nothing
+changes.
 
 ### Stop
 
@@ -320,10 +376,11 @@ any account may read, so they are unaffected by the second account.
 ### Supplementary Groups
 
 The script must not keep the runner's supplementary groups, or it may
-read what the runner's group can. libuv calls `setgroups(0, NULL)`
-before it changes the uid or gid of a child (_unverified_ for the
-libuv of the Node version in use; issue 18 must check). The `setpriv`
-launcher above sets the script account's own groups with
+read what the runner's group can. libuv resets the supplementary groups
+when Node changes the uid of a child: in the experiment, the script
+that Node spawned with its `uid` and `gid` options showed only its own
+group. The script launch does not rely on that, as it goes through
+`setpriv`, which sets the script account's own groups with
 `--init-groups`.
 
 ### RUNNER_TOKEN
@@ -339,22 +396,23 @@ the same limits as in the table under
   allow-listed environment.
 - An end-to-end test on Linux CI that creates a script account, starts
   the runner under `setpriv` with the three capabilities, and shows
-  that a script runs as that account, holds no capability, and can not
-  read the key.
+  that a script runs as that account with only its own group, holds no
+  capability, has `NoNewPrivs: 1`, sees `RUNNER_URL`, `RUNNER_TOKEN`
+  and the script account's `HOME`, and can not read the key.
 - The test is skipped on Windows through `process.platform`, and on a
   Linux host where the runner can not get the capabilities.
 
 ## Implementation Technologies
 
-| Need                     | Technology                                                                                                                                                                                                                          |
-| :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| spawn as another account | the `uid` and `gid` options of Node's `child_process.spawn`, which execa (`^9.6.1` in `package.json`, on Node `>=24`) passes through; or a launcher such as `setpriv` that also clears the capabilities, as above                   |
-| resolve the account      | read and parse `/etc/passwd` (`name:x:uid:gid:gecos:home:shell`) and `/etc/group` (`name:x:gid:members`); no dependency                                                                                                             |
-| grant the rights         | Linux ambient capabilities: systemd's `AmbientCapabilities=`, or util-linux `setpriv --inh-caps --ambient-caps`                                                                                                                     |
-| check the rights         | `/proc/self/status`: `CapEff` and `CapAmb` as bit masks; `CAP_KILL` is bit 5, `CAP_SETGID` bit 6, `CAP_SETUID` bit 7; `process.getuid()`                                                                                            |
-| check the layout         | `fs.stat` of each path: compare its `uid`, `gid` and `mode` with the script account's uid, gid and groups. The other-bits apply unless the account owns the file or is in its group. ACLs are not seen this way (_unverified_ need) |
-| tell the platform        | `process.platform`                                                                                                                                                                                                                  |
-| stop                     | the existing path: execa's `kill()` with `forceKillAfterDelay` (`src/execa-runner.ts`)                                                                                                                                              |
+| Need                     | Technology                                                                                                                                                                                                                                                                                              |
+| :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| spawn as another account | execa (`^9.6.1` in `package.json`, on Node `>=24`) spawns util-linux `setpriv` as the runner's account, and `setpriv` switches to the script account and clears the capabilities, as above; not the `uid` and `gid` options of Node's `child_process.spawn`, which leave the capabilities in the script |
+| resolve the account      | read and parse `/etc/passwd` (`name:x:uid:gid:gecos:home:shell`) and `/etc/group` (`name:x:gid:members`); no dependency                                                                                                                                                                                 |
+| grant the rights         | Linux ambient capabilities: util-linux `setpriv --reset-env --inh-caps --ambient-caps` (verified), or systemd's `AmbientCapabilities=` (_unverified_)                                                                                                                                                   |
+| check the rights         | `/proc/self/status`: `CapEff` and `CapAmb` as bit masks; `CAP_KILL` is bit 5, `CAP_SETGID` bit 6, `CAP_SETUID` bit 7; `process.getuid()`                                                                                                                                                                |
+| check the layout         | `fs.stat` of each path: compare its `uid`, `gid` and `mode` with the script account's uid, gid and groups. The other-bits apply unless the account owns the file or is in its group. ACLs are not seen this way (_unverified_ need)                                                                     |
+| tell the platform        | `process.platform`                                                                                                                                                                                                                                                                                      |
+| stop                     | the existing path: execa's `kill()` with `forceKillAfterDelay` (`src/execa-runner.ts`)                                                                                                                                                                                                                  |
 
 A check that a path is not readable by the script account must also
 consider its parent directories: without search permission on a
@@ -408,6 +466,7 @@ services:
       - --init-groups
       - --inh-caps=+setuid,+setgid,+kill
       - --ambient-caps=+setuid,+setgid,+kill
+      - --
       - node
       - dist/src/main.js
       - --config
@@ -418,9 +477,12 @@ Docker does not give ambient capabilities to a process that runs as a
 non-root `USER`, so `cap_add` alone does not reach a runner that the
 image starts as such a user. The container therefore starts as root,
 and `setpriv` drops to the runner account with the three capabilities
-ambient. `no-new-privileges`
-does not stop that, as `setpriv` is not a setuid binary (_unverified_
-together with the `setpriv` point above).
+ambient. `no-new-privileges` does not stop that, as `setpriv` is not a
+setuid binary. These lines are _unverified_: the experiment ran the
+`setpriv` line under `sudo` on WSL, not in a container. The entrypoint
+leaves out `--reset-env`, which would also drop the variables that
+compose sets; the runner then keeps root's `HOME`, which the deploy
+issue is to settle.
 
 What DTaaS has today: `compose.runner.yml` and `compose.runner.dev.yml`
 in `servers/execution/runner`, and the image of
@@ -429,15 +491,32 @@ with Docker's default capabilities and no entrypoint of their own. They
 will need the lines above, and the two accounts in the image, when
 issue 18 lands.
 
+## Decided Since the Design
+
+The owner settled these on 2026-10-27, after this guide was first
+written:
+
+- `GET /health` reports `scripts: { user }`, the script account, with
+  the setting on, and `scripts: null` without it.
+- Issue 18's decision is D35, and it does not bump the runner's
+  version.
+- The hospital demo gets a Linux shell variant, recorded in WSL with
+  the setting on, from a copy of the demo inside the WSL filesystem.
+- The deploy issue is one issue with three deliverables: the compose
+  files and image of today, a systemd unit for a bare host, and the
+  microVM (B3) contract that a future Execution Manager must provide.
+- An operator help document, `docs/privilege-setup.md`, is a task of
+  issue 18.
+- The spawn clears the capabilities through the `setpriv` launch of
+  [Capabilities must not reach the script](#capabilities-must-not-reach-the-script).
+
 ## Not Decided Yet
 
 - The final names of the configuration keys, `scripts.user` and
-  `scripts.runDirectory` above.
-- The version and the decision number of issue 18.
-- What `GET /health` reports about the separation.
-- Whether the Linux shell variant of the hospital demo uses the
-  setting.
-- The text of the deploy issue.
-- How the spawn clears the capabilities: the `setpriv` launcher above
-  or another way (see
-  [Capabilities must not reach the script](#capabilities-must-not-reach-the-script)).
+  `scripts.runDirectory` above, which issue 18 fixes.
+
+Further reading:
+[docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md),
+[docs/firecracker-research.md](docs/firecracker-research.md), and
+issue 18 in
+[docs/issues/18-script-user.md](docs/issues/18-script-user.md).
