@@ -9,7 +9,12 @@ import {
 } from './interfaces/command.interface.js';
 import { refuseInput, storedResult } from './command-result.js';
 import Queue from './queue.service.js';
-import { CommandRefused, ExecuteCommandDto } from './dto/command.dto.js';
+import { CommandRefused } from './dto/command.dto.js';
+import {
+  HistoryEntryDto,
+  HistoryQuery,
+  historyQuerySchema,
+} from './dto/history.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
@@ -211,8 +216,11 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     };
   }
 
-  checkHistory(): Array<ExecuteCommandDto> {
-    return this.commandQueue.checkHistory();
+  // Without a query, the defaults of GET /history
+  checkHistory(
+    query: HistoryQuery = historyQuerySchema.parse({}),
+  ): HistoryEntryDto[] {
+    return this.commandQueue.history(query);
   }
 
   databaseMode(): DatabaseMode {

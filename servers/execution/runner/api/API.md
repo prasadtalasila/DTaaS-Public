@@ -65,9 +65,10 @@ of the configuration.
 | `GET /dt`              | `dt`             |                                     | 200     |
 | `GET /state`           | `state`          |                                     | 200     |
 | `GET /health`          | `health`         |                                     | 200     |
+| `GET /metrics`         | `metrics`        |                                     | 200     |
 | `POST /`               | `execute`        | `{"name": "admit", "input": {...}}` | 200     |
 | `GET /`                | `status`         |                                     | 200     |
-| `GET /history`         | `history`        |                                     | 200     |
+| `GET /history`         | `history`        | none; query `since`, `limit`        | 200     |
 | `POST /stop`           | `stop`           | `{"name": "open"}` or none          | 200     |
 | `POST /fsm/transition` | `transition`     | `{"state": "open"}`                 | 202     |
 | `POST /fsm/event`      | `event`          | `{"event": "close"}`                | 202     |
@@ -127,8 +128,8 @@ These rules hold for every route.
 
 ## Digital Twin
 
-Three routes tell who the DT is, what state it is in, and whether the
-runner is alive.
+Four routes tell who the DT is, what state it is in, whether the
+runner is alive, and what it did since it started.
 
 ### GET /dt
 
@@ -256,6 +257,75 @@ after it starts, so the first replies may say `degraded`. Over MQTT the
 runner answers only while it is connected, so the reply always says
 `connected`; that a reply arrives at all tells that the runner is
 alive.
+
+### GET /metrics
+
+Counts what the runner did since it started. MQTT route: `metrics`.
+
+```bash
+curl -s http://localhost:5100/metrics
+```
+
+`200`, at the `GET /history` step of the demo (2:51 of the
+[Example Session](#example-session)); the values are worked out from
+the session, with the times of the re-run:
+
+```json
+{
+  "since": "2026-10-26T14:55:41.402Z",
+  "uptime": 42,
+  "commands": {
+    "valid": 6,
+    "failed": 2,
+    "stopped": 1,
+    "invalid": 0,
+    "interrupted": 0,
+    "running": 1
+  },
+  "machine": {
+    "entries": { "open": 3, "full": 1 },
+    "seconds": { "open": 34.4, "full": 4.6 },
+    "completions": { "$success": 0, "$failure": 1, "$stopped": 0 },
+    "transitions": { "requested": 1, "accepted": 1 },
+    "events": { "requested": 5, "accepted": 3, "noTransition": 2 }
+  },
+  "escalations": { "request": 1, "failure": 1, "no-transition": 1 }
+}
+```
+
+- `since` is when the runner process started, and `uptime` the whole
+  seconds since then, as on [GET /health](#get-health). A restart sets
+  every counter back to zero, which `since` shows.
+- `commands` counts the records of [GET /history](#get-history) that
+  arrived since the start, by status, with `running` for unfinished
+  ones; `interrupted` counts the commands that this start found
+  unfinished (see [Restarts](../README.md#restarts)). Every key is
+  always present.
+- `machine` is `null` without a state machine. `entries` and `seconds`
+  have a key for each state entered since the start, and for the state
+  that a restored machine starts in, which counts from `since` without
+  an entry. `seconds` counts the current state up to the request, to the
+  millisecond.
+- `completions` counts the scripts of the current entry that finished,
+  by the event that their outcome raises: the first two entries into
+  `open` were left before their scripts ended, so their ends count
+  nothing. A
+  [stop transition](../STATE-MACHINE.md#stop-transitions)
+  (`stop: true`) likewise enters its next state before the stopped
+  script ends, so that stop counts nothing; only a
+  [POST /stop](#post-stop), which keeps the entry, counts as
+  `$stopped`. A DT whose only stops are stop transitions keeps
+  `$stopped` at zero.
+- `transitions` and `events` count the requests that reached the
+  machine; a [repeated request](#repeated-requests) that gets its
+  stored reply counts once. `events` includes the events that a
+  parameter change raises, such as `scope-changed` above.
+- `escalations` counts the [escalations](#escalation) by trigger, with
+  or without a state machine.
+
+The counters live in memory and change no state document, so a change
+of a counter sends no notification. Analysis over a longer time is the
+Manager's, from the history and the notifications.
 
 ## Commands
 
@@ -397,38 +467,95 @@ those of `POST /`: `valid` here is `success` there.
 
 ### GET /history
 
-Lists the command requests received so far, oldest first: those of
-`POST /`, of MQTT `execute`, and the scripts that the state machine
-ran. Commands that are not permitted appear too. A repeated request
-and a request refused with `command running` do not. MQTT route:
-`history`.
+Lists the command requests received, oldest first: those of `POST /`,
+of MQTT `execute`, and the scripts that the state machine ran. Commands
+that are not permitted appear too. A repeated request and a request
+refused with `command running` do not. MQTT route: `history`.
 
 ```bash
 curl -s http://localhost:5100/history
 ```
 
-`200`, near the end of the demo:
+`200`, near the end of the demo, three of its ten records. They are
+illustrative: the recording predates the full records and printed names
+only, so the times are those of the re-run that the
+[notifications](#notifications) show. The demo has no `auth`, so `by` is
+`null`.
 
 ```json
 [
-  { "name": "open" },
-  { "name": "admit" },
-  { "name": "admit" },
-  { "name": "admit" },
-  { "name": "open" },
-  { "name": "admit" },
-  { "name": "admit" },
-  { "name": "full" },
-  { "name": "discharge" },
-  { "name": "open" }
+  {
+    "id": 2,
+    "name": "admit",
+    "status": "valid",
+    "exitCode": 0,
+    "receivedAt": "2026-10-26T14:55:51.000Z",
+    "finishedAt": "2026-10-26T14:55:52.000Z",
+    "by": null
+  },
+  {
+    "id": 4,
+    "name": "admit",
+    "status": "failed",
+    "exitCode": 3,
+    "receivedAt": "2026-10-26T14:55:59.000Z",
+    "finishedAt": "2026-10-26T14:56:00.000Z",
+    "by": null
+  },
+  {
+    "id": 10,
+    "name": "open",
+    "status": "running",
+    "exitCode": null,
+    "receivedAt": "2026-10-26T14:56:17.000Z",
+    "finishedAt": null,
+    "by": null
+  }
 ]
 ```
 
-The entries are the three entries into `open`, the five admissions
+| Field        | Value                                                                                                     |
+| :----------- | :-------------------------------------------------------------------------------------------------------- |
+| `id`         | the number of the request, which grows with each one                                                      |
+| `name`       | the command                                                                                               |
+| `status`     | `running` while unfinished, then as [GET /state](#get-state) reports it                                   |
+| `exitCode`   | as on [GET /](#get-); `null` while running                                                                |
+| `receivedAt` | when the request arrived                                                                                  |
+| `finishedAt` | when the command finished; `null` while running                                                           |
+| `by`         | the [principal](#access-control) that sent it, `script`, or `null` without `auth` or for a state's script |
+
+The ten records are the three entries into `open`, the five admissions
 (`p-1`, `p-2`, `p-3` refused, `p-3` again and `p-4`), the script of
 `full`, and the `discharge` sent over MQTT. The repeat of `p-1` and the
-refused input to `open` are missing. The input is not part of the
-history.
+refused input to `open` are missing. Neither the logs, which stay on
+[GET /](#get-), nor the input are part of the history. The duration of
+a command is `finishedAt - receivedAt`.
+
+Two query parameters, both optional, select the records; over MQTT they
+are the payload, as a JSON object such as `{"since": "...", "limit": 2}`,
+and an empty payload takes the defaults.
+
+| Parameter | Value                                                                                        |
+| :-------- | :------------------------------------------------------------------------------------------- |
+| `since`   | ISO 8601 with `Z` or an offset; the records received at that second or later                 |
+| `limit`   | an integer from 1 to 1000, by default 100; the newest records of the selection, oldest first |
+
+```bash
+curl -s 'http://localhost:5100/history?since=2026-10-26T14:56:00Z&limit=2'
+```
+
+returns records 9 (`discharge`) and 10 (`open`). As times are stored to
+the second, `since` is compared to the second too, and the records of
+that second come again: a Manager that polls with the last `receivedAt`
+it holds drops the repeats by `id`. A value that fails, such as
+`limit=0`, `limit=1001`, `limit=1.5`, a `since` that is not ISO 8601, a
+parameter given twice, or an MQTT payload that is not a JSON object,
+gets the validation error of the [Conventions](#conventions). Unknown
+parameters are ignored.
+
+In a URL, the `+` of an offset must be percent-encoded as `%2B`, as in
+`since=2026-10-26T16:56:00%2B02:00`: a plain `+` arrives as a space, and
+the request is refused with `400`.
 
 ### POST /stop
 
@@ -839,6 +966,7 @@ principal's role.
 | `GET /state`           | `state`          | yes    | yes                | yes    |
 | `GET /`                | `status`         | yes    | yes                | yes    |
 | `GET /history`         | `history`        | yes    | yes                | yes    |
+| `GET /metrics`         | `metrics`        | yes    | yes                | yes    |
 | `GET /fsm`             | `fsm`            | yes    | yes                | yes    |
 | `GET /parameters`      | `parameters`     | yes    | yes                | yes    |
 | `POST /`               | `execute`        | yes    | `manager.commands` | no     |
@@ -887,13 +1015,14 @@ publishes the [notifications](#notifications).
 
 A request is published on `<topic>/<route>`, with the JSON of the
 matching HTTP request body as payload. The routes that read take no
-payload; the runner ignores any.
+payload, and the runner ignores any, except `history`, whose payload is
+its query.
 
 | Request topic            | HTTP                   | Payload                               |
 | :----------------------- | :--------------------- | :------------------------------------ |
 | `<topic>/execute`        | `POST /`               | `{"name": "<command>", "input": {}}`  |
 | `<topic>/status`         | `GET /`                | none                                  |
-| `<topic>/history`        | `GET /history`         | none                                  |
+| `<topic>/history`        | `GET /history`         | `{"since": "<time>", "limit": 10}`    |
 | `<topic>/stop`           | `POST /stop`           | `{"name": "<command>"}`, `{}` or none |
 | `<topic>/transition`     | `POST /fsm/transition` | `{"state": "<state>"}`                |
 | `<topic>/event`          | `POST /fsm/event`      | `{"event": "<event>"}`                |
@@ -904,6 +1033,7 @@ payload; the runner ignores any.
 | `<topic>/parameters`     | `GET /parameters`      | none                                  |
 | `<topic>/set-parameters` | `PUT /parameters`      | `{"<name>": <value>}`                 |
 | `<topic>/escalate`       | `POST /escalate`       | `{"reason": "<reason>"}`              |
+| `<topic>/metrics`        | `GET /metrics`         | none                                  |
 
 ### Responses
 
@@ -1368,13 +1498,15 @@ those of the markers in [hospital.cast](../demo/hospital/hospital.cast).
 | 2:01 | `POST /` `admit` `p-3`, then `p-4`                                     | `success` in maternity; `open.ps1` raises `full`, the script of `full` fails, a `failure` escalation |
 | 2:23 | `POST /fsm/event` `close`, twice                                       | `409 no transition` twice, one `no-transition` escalation                                            |
 | 2:36 | MQTT `execute` `discharge` `p-1`; MQTT `fsm`                           | `success`; `beds-free` takes the machine to `open` at entry 4                                        |
-| 2:51 | `GET /history`                                                         | ten entries                                                                                          |
+| 2:51 | `GET /history`                                                         | ten records                                                                                          |
 | 2:54 | `POST /stop` `open`                                                    | `stopped: ["open"]`; `$stopped` leads to `closed` at entry 5                                         |
 | 3:10 | graceful shutdown                                                      | presence offline, retained                                                                           |
 
 ## Version
 
-This document describes runner version 0.9.0, which added
+This document describes runner version 0.10.0, which made
+[GET /history](#get-history) return full records and added
+[GET /metrics](#get-metrics); 0.9.0 added
 [access control](#access-control). The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a

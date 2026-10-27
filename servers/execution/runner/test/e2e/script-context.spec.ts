@@ -5,6 +5,7 @@ import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import FsmService from 'src/fsm/fsm.service';
 import { runnerUrl } from 'src/fsm/script-context';
+import { commandNames } from 'test/utils';
 import { digitalTwin, post, settled, startRunner } from './fsm.util';
 
 const DEFINITION = `
@@ -103,7 +104,7 @@ describe('Runner context of scripts end-to-end tests', () => {
       );
 
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-      expect(history).toEqual([{ name: 'raise-event' }, { name: 'create' }]);
+      expect(commandNames(history)).toEqual(['raise-event', 'create']);
     },
     SCRIPT_TIMEOUT,
   );

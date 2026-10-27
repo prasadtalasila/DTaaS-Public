@@ -17,6 +17,7 @@ import {
   configFilename,
   nonExistingCommand,
   permittedCommand,
+  commandNames,
 } from 'test/utils';
 
 // Each test runs scripts, and PowerShell takes a second or more to start
@@ -103,9 +104,9 @@ describe('Check execution manager based on execa library', () => {
       pastCommands.map((command) => dt.newCommand(command.name)),
     );
 
-    const pastCommandsActual = dt.checkHistory();
-
-    expect(pastCommandsActual).toStrictEqual(pastCommands);
+    expect(commandNames(dt.checkHistory())).toStrictEqual(
+      commandNames(pastCommands),
+    );
   });
 
   it('Should return correct command execution status for a series of commands', async () => {
@@ -128,7 +129,7 @@ describe('Check execution manager based on execa library', () => {
       ]);
 
       expect(results.map(([status]) => status)).toEqual(['success', 'success']);
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should not run a command again for a repeated request key', async () => {
@@ -137,7 +138,7 @@ describe('Check execution manager based on execa library', () => {
 
       expect(status).toBe('success');
       expect(logs.get('stdout')).toEqual(firstLogs.get('stdout'));
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should refuse a request key of another command', async () => {
@@ -146,7 +147,7 @@ describe('Check execution manager based on execa library', () => {
       await expect(dt.newCommand('execute', 'key-1')).rejects.toEqual(
         new CommandRefused('invalid command'),
       );
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should wait for the run of a repeated request key', async () => {
@@ -156,7 +157,7 @@ describe('Check execution manager based on execa library', () => {
       ]);
 
       expect(repeat).toEqual(first);
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should keep the key of a request that joined a running command', async () => {
@@ -167,7 +168,7 @@ describe('Check execution manager based on execa library', () => {
       const [status] = await dt.newCommand('create', 'key-2');
 
       expect(status).toBe('success');
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should return the stored result of a run that did not finish', async () => {
@@ -177,7 +178,7 @@ describe('Check execution manager based on execa library', () => {
 
       expect(status).toBe('failed');
       expect(exitCode).toBeNull();
-      expect(dt.checkHistory()).toStrictEqual([{ name: 'create' }]);
+      expect(commandNames(dt.checkHistory())).toStrictEqual(['create']);
     });
 
     it('Should treat an empty request key as no key', async () => {
@@ -186,9 +187,9 @@ describe('Check execution manager based on execa library', () => {
       );
       await dt.newCommand('create', '');
 
-      expect(dt.checkHistory()).toStrictEqual([
-        { name: nonExistingCommand },
-        { name: 'create' },
+      expect(commandNames(dt.checkHistory())).toStrictEqual([
+        nonExistingCommand,
+        'create',
       ]);
     });
 
@@ -196,9 +197,9 @@ describe('Check execution manager based on execa library', () => {
       await dt.newCommand('create', 'key-1');
       await dt.newCommand('create', 'key-2');
 
-      expect(dt.checkHistory()).toStrictEqual([
-        { name: 'create' },
-        { name: 'create' },
+      expect(commandNames(dt.checkHistory())).toStrictEqual([
+        'create',
+        'create',
       ]);
     });
   });
@@ -218,6 +219,6 @@ describe('Check execution manager based on execa library', () => {
     await (dt as ExecaManager).onApplicationShutdown();
 
     expect((await run)[0]).toBe('success');
-    expect(() => queue.checkHistory()).toThrow();
+    expect(() => queue.history({ limit: 100 })).toThrow();
   });
 });

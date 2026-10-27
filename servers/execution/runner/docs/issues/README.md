@@ -23,7 +23,7 @@ no file.
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done      | #81 |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done      | #86 |
 | [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | planned   |     |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | in review | #91 |
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
 | [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned   |     |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
@@ -80,7 +80,7 @@ and metrics of 11.
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.9.0` and nothing in this repository consumes its API.
+  `0.10.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.

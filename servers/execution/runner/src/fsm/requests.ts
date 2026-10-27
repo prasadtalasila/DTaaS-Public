@@ -5,6 +5,15 @@ import StateMachine from './state-machine.js';
 
 export type Handle = (machine: StateMachine) => FsmReplyDto;
 
+// Moves the machine on an event
+export type Move = (machine: StateMachine, event: string) => FsmReplyDto;
+
+// A transition or event request, such as { kind: 'event', name: 'stop' }
+export type FsmRequest = { kind: 'transition' | 'event'; name: string };
+
+// Hears each reply that a request computed, with the request
+export type AnswerListener = (request: FsmRequest, reply: FsmReplyDto) => void;
+
 // The machine of the service, if it has one, and whether shutdown began
 export type Current = { machine: StateMachine | undefined; stopping: boolean };
 
@@ -12,25 +21,59 @@ export type Current = { machine: StateMachine | undefined; stopping: boolean };
 export default class Requests {
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
-  constructor(private readonly current: () => Current) {}
+  private readonly listeners: AnswerListener[] = [];
 
-  // A repeated request key gets the reply to its first request, if that
-  // was accepted; a refused request changed nothing, so it is checked
-  // again
-  reply(
-    request: string,
+  constructor(
+    private readonly current: () => Current,
+    private readonly logger: Logger,
+  ) {}
+
+  onAnswer(listener: AnswerListener): void {
+    this.listeners.push(listener);
+  }
+
+  // A request to enter the state, answered by handle
+  transition(
+    state: string,
     requestKey: string | undefined,
     handle: Handle,
   ): FsmReplyDto {
-    return this.replies.resolve(requestKey, request, {
-      compute: () => this.answer(handle),
+    return this.reply({ kind: 'transition', name: state }, requestKey, handle);
+  }
+
+  // A request to raise the event, answered by handle
+  event(
+    event: string,
+    requestKey: string | undefined,
+    handle: Handle,
+  ): FsmReplyDto {
+    return this.reply({ kind: 'event', name: event }, requestKey, handle);
+  }
+
+  // A repeated request key gets the reply to its first request, if that
+  // was accepted; a refused request changed nothing, so it is checked
+  // again. Only a computed reply is signalled.
+  private reply(
+    request: FsmRequest,
+    requestKey: string | undefined,
+    handle: Handle,
+  ): FsmReplyDto {
+    const label = `${request.kind} ${request.name}`;
+    return this.replies.resolve(requestKey, label, {
+      compute: () => this.answer(request, handle),
       mismatch: () =>
         fsmReply('invalid request key', this.current().machine?.state),
       keep: ({ status }) => status === 'accepted',
     });
   }
 
-  answer(handle: Handle): FsmReplyDto {
+  private answer(request: FsmRequest, handle: Handle): FsmReplyDto {
+    const reply = this.compute(handle);
+    this.listeners.forEach((listener) => listener(request, reply));
+    return reply;
+  }
+
+  private compute(handle: Handle): FsmReplyDto {
     const { machine, stopping } = this.current();
     if (machine === undefined) {
       return fsmReply('no state machine', undefined);
@@ -41,10 +84,18 @@ export default class Requests {
     return handle(machine);
   }
 
-  // Answers an event that a parameter raises: the reply goes nowhere, so
-  // a refused event is logged, and it never escalates
-  raise(event: string, handle: Handle, logger: Logger): void {
-    logStay(logger, this.answer(handle), event);
+  // Answers the events that a parameter change raises: the replies go
+  // nowhere, so a refused event is logged, and none escalates
+  raiseAll(events: string[], move: Move): void {
+    events.forEach((event) =>
+      logStay(
+        this.logger,
+        this.answer({ kind: 'event', name: event }, (machine) =>
+          move(machine, event),
+        ),
+        event,
+      ),
+    );
   }
 }
 

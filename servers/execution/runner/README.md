@@ -138,6 +138,14 @@ was running when the runner stopped is `interrupted` after the restart.
 The runner creates the directory of the database file if needed. Give
 each runner a database file of its own.
 
+[GET /history](#get-request-to-history) returns the commands with their
+status, exit code, times and caller, and [GET /metrics](#metrics)
+counts them by status since the runner started.
+
+Version 0.10.0 made `GET /history` return these records instead of the
+names of the commands, with the `since` and `limit` parameters, and
+added `GET /metrics`.
+
 ### MQTT
 
 The runner serves the same API over MQTT when the configuration
@@ -684,17 +692,19 @@ the notifications, with examples from the
 Four REST API methods run and stop commands, three more drive the
 [state machine](#state-machine-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
-[its state](#get-request-to-state) and one
-[escalates to the Manager](#escalation-requests). The routes for
+[its state](#get-request-to-state), one
+[escalates to the Manager](#escalation-requests) and one returns
+[metrics](#metrics). The routes for
 commands and their responses are:
 
 | REST API Route          | HTTP Method | Return Value                                                            | Comment                                                                                                 |
 | :---------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
 | localhost:port          | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
 | localhost:port          | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
-| localhost:port/history  | GET         | Returns the array of well-formed POST requests received so far.         |                                                                                                         |
+| localhost:port/history  | GET         | Returns the commands received, with their status and times.             |                                                                                                         |
 | localhost:port/stop     | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
 | localhost:port/escalate | POST        | Returns `{"status": "accepted"}`                                        | Escalates to the Manager, as described in [escalation requests](#escalation-requests).                  |
+| localhost:port/metrics  | GET         | Returns counters since the runner started                               | Described in [metrics](#metrics).                                                                       |
 
 #### POST Request to /
 
@@ -782,22 +792,51 @@ a validation error is returned.
 
 #### GET Request to /history
 
-Returns the array of POST requests received so far.
-Both valid and invalid commands are recorded in the history.
+Returns the commands received, oldest first, both valid and invalid
+ones; a repeated request is not recorded again. Each record has the
+status, exit code and times of the command, and the principal that
+sent it (see [Access Control](#access-control)), or `null`:
 
 ```http
 [
   {
-    "name": "valid command"
+    "id": 1,
+    "name": "create",
+    "status": "valid",
+    "exitCode": 0,
+    "receivedAt": "2026-10-26T14:55:51.000Z",
+    "finishedAt": "2026-10-26T14:55:52.000Z",
+    "by": null
   },
   {
-    "name": "invalid command"
-  },
-  {
-    "name": "valid command"
+    "id": 2,
+    "name": "execute",
+    "status": "running",
+    "exitCode": null,
+    "receivedAt": "2026-10-26T14:55:59.000Z",
+    "finishedAt": null,
+    "by": "alice"
   }
 ]
 ```
+
+The status is `running` until the command finishes, then as
+[GET /](#get-request-to-), and the logs stay on `GET /`. Two optional
+query parameters select the records:
+
+- `since`, an ISO 8601 time with `Z` or an offset: the records received
+  at that second or later, as times are stored to the second. In a URL,
+  write the `+` of an offset as `%2B`, as in
+  `since=2026-10-26T16:56:00%2B02:00`; a plain `+` arrives as a space,
+  and the request is refused with `400`.
+- `limit`, from 1 to 1000, by default 100: the newest records of the
+  selection, still oldest first.
+
+```bash
+curl 'http://localhost:5000/history?since=2026-10-26T14:56:00Z&limit=2'
+```
+
+Any other value of either gets the validation error.
 
 #### GET Request to /dt
 
@@ -1134,27 +1173,71 @@ it starts, so the first replies may say `degraded`.
 curl http://localhost:5000/health
 ```
 
+#### Metrics
+
+`GET /metrics` counts what the runner did since it started: the
+commands by status, and with a state machine the entries into each
+state, the seconds spent there, the scripts that finished, and the
+transition and event requests; and the escalations by trigger.
+
+```http
+{
+  "since": "2026-10-26T14:55:41.402Z",
+  "uptime": 42,
+  "commands": {
+    "valid": 6,
+    "failed": 2,
+    "stopped": 1,
+    "invalid": 0,
+    "interrupted": 0,
+    "running": 1
+  },
+  "machine": {
+    "entries": { "open": 3, "full": 1 },
+    "seconds": { "open": 34.4, "full": 4.6 },
+    "completions": { "$success": 0, "$failure": 1, "$stopped": 0 },
+    "transitions": { "requested": 1, "accepted": 1 },
+    "events": { "requested": 5, "accepted": 3, "noTransition": 2 }
+  },
+  "escalations": { "request": 1, "failure": 1, "no-transition": 1 }
+}
+```
+
+`machine` is `null` without a state machine. `completions` counts the
+scripts that finished in the entry they started in: a transition with
+`stop: true` enters its next state before the stopped script ends, so
+it counts nothing, and only a [POST /stop](#post-request-to-stop),
+which keeps the entry, counts as `$stopped`. The counters live in
+memory, so a restart, which `since` shows, sets them back to zero; they
+are not part of the state document and send no notification.
+[API.md](api/API.md#get-metrics) describes each field.
+
+```bash
+curl http://localhost:5000/metrics
+```
+
 ### MQTT API
 
 With MQTT enabled, the runner subscribes to one request topic
 for each REST API route. A request and its response carry the same
 JSON as the matching HTTP request and response.
 
-| Request Topic            | Matching HTTP Request | Request Payload                           |
-| :----------------------- | :-------------------- | :---------------------------------------- |
-| `<topic>/execute`        | POST /                | `{"name": "<command name>", "input": {}}` |
-| `<topic>/status`         | GET /                 | ignored                                   |
-| `<topic>/history`        | GET /history          | ignored                                   |
-| `<topic>/transition`     | POST /fsm/transition  | `{"state": "<state>"}`                    |
-| `<topic>/event`          | POST /fsm/event       | `{"event": "<event>"}`                    |
-| `<topic>/fsm`            | GET /fsm              | ignored                                   |
-| `<topic>/dt`             | GET /dt               | ignored                                   |
-| `<topic>/state`          | GET /state            | ignored                                   |
-| `<topic>/health`         | GET /health           | ignored                                   |
-| `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}`              |
-| `<topic>/parameters`     | GET /parameters       | ignored                                   |
-| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`                     |
-| `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                  |
+| Request Topic            | Matching HTTP Request | Request Payload                            |
+| :----------------------- | :-------------------- | :----------------------------------------- |
+| `<topic>/execute`        | POST /                | `{"name": "<command name>", "input": {}}`  |
+| `<topic>/status`         | GET /                 | ignored                                    |
+| `<topic>/history`        | GET /history          | `{"since": "<time>", "limit": 10}` or none |
+| `<topic>/transition`     | POST /fsm/transition  | `{"state": "<state>"}`                     |
+| `<topic>/event`          | POST /fsm/event       | `{"event": "<event>"}`                     |
+| `<topic>/fsm`            | GET /fsm              | ignored                                    |
+| `<topic>/dt`             | GET /dt               | ignored                                    |
+| `<topic>/state`          | GET /state            | ignored                                    |
+| `<topic>/health`         | GET /health           | ignored                                    |
+| `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}`               |
+| `<topic>/parameters`     | GET /parameters       | ignored                                    |
+| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`                      |
+| `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                   |
+| `<topic>/metrics`        | GET /metrics          | ignored                                    |
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on

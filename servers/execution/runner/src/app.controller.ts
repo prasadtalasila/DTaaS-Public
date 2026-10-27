@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -18,6 +19,12 @@ import {
   EscalateReplyDto,
   escalateSchema,
 } from './dto/escalation.dto.js';
+import {
+  HistoryEntryDto,
+  HistoryQuery,
+  historyQuerySchema,
+} from './dto/history.dto.js';
+import { MetricsDto } from './dto/metrics.dto.js';
 import { StateDocumentDto } from './dto/state.dto.js';
 import {
   EXECUTE_STATUS_CODES,
@@ -55,10 +62,18 @@ export default class AppController {
     return this.descriptor.state();
   }
 
+  @Get('metrics')
+  @AccessRoute('metrics')
+  metrics(): MetricsDto {
+    return this.descriptor.metrics();
+  }
+
   @Get('history')
   @AccessRoute('history')
-  getHistory(): Array<ExecuteCommandDto> {
-    return this.manager.checkHistory();
+  getHistory(
+    @Query(new ZodValidationPipe(historyQuerySchema)) query: HistoryQuery,
+  ): HistoryEntryDto[] {
+    return this.manager.checkHistory(query);
   }
 
   @Post()

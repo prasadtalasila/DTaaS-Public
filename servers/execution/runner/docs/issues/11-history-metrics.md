@@ -1,8 +1,8 @@
 # 11 Richer History and Metrics
 
-- Status: planned
+- Status: in review
 - Depends on: 15a, for the `by` column only (see below)
-- PR: none yet
+- PR: [#91](https://github.com/prasadtalasila/DTaaS-Public/pull/91)
 - Research note:
   [item 11](../dtn-research-notes.md#11-richer-history-and-metrics)
 
@@ -146,8 +146,8 @@ publishes nothing.
 
 ### Version
 
-Both changes alter replies, so the runner goes to `0.9.0`, with a
-README line, per the delivery rules.
+Both changes alter replies, so the runner goes to `0.10.0` (15a took
+`0.9.0`), with a README line, per the delivery rules.
 
 ### Considered and Set Aside
 
@@ -239,48 +239,94 @@ README line, per the delivery rules.
 
 ## Tasks
 
-- [ ] Room made in `queue.service.ts` and `fsm.service.ts` with no
+- [x] Room made in `queue.service.ts` and `fsm.service.ts` with no
       change of behaviour. Check: the existing suite passes, and
       `wc -l` shows both under 250.
-- [ ] `by` column (unless 15a added it) on a new and an old file;
+- [x] `by` column (unless 15a added it) on a new and an old file;
       `history` returns every field, `running` while unfinished,
       `since` with `Z` and an offset at the second, `limit` newest yet
       oldest first; `commandCounts` above the watermark and the marked
       rows. Check: `test/integration/queue.history.spec.ts`.
-- [ ] `historyQuerySchema`: defaults, a coerced string, and each
+- [x] `historyQuerySchema`: defaults, a coerced string, and each
       refused value above. Check: `test/unit/history.dto.spec.ts`.
-- [ ] `Requests` signals computed replies and raised events, not a
+- [x] `Requests` signals computed replies and raised events, not a
       repeat. Check: `test/unit/fsm.service.requests.spec.ts`.
-- [ ] `Metrics`: entries, seconds with a fixed clock, a restored
+- [x] `Metrics`: entries, seconds with a fixed clock, a restored
       baseline, each completion, a stale completion not counted,
       answers and escalations. Check: `test/unit/fsm.metrics.spec.ts`.
-- [ ] `DescriptorService.metrics` with and without a machine, and its
+- [x] `DescriptorService.metrics` with and without a machine, and its
       subscriptions. Check: `test/unit/descriptor.metrics.spec.ts`.
-- [ ] `GET /history` with and without parameters, and `400` for bad
+- [x] `GET /history` with and without parameters, and `400` for bad
       ones; `GET /metrics` after a transition, an event without a
       transition and a command. Check: `test/e2e/history.spec.ts`,
       `test/e2e/metrics.spec.ts`.
-- [ ] MQTT `history` with a payload and `metrics`; the subscription
+- [x] MQTT `history` with a payload and `metrics`; the subscription
       list. Check: `test/unit/mqtt-request.handler.spec.ts`,
       `test/unit/mqtt.service.spec.ts`.
-- [ ] The existing tests on the new shape, including CI's
+- [x] The existing tests on the new shape, including CI's
       `test/e2e/mqtt.broker.spec.ts`. Check: `yarn test` locally, and
       the CI run for the broker test.
-- [ ] Documents: `README.md` (Command History, the route table, GET
-      `/history`, a `/metrics` section, the MQTT table, a 0.9.0 line),
+- [x] Documents: `README.md` (Command History, the route table, GET
+      `/history`, a `/metrics` section, the MQTT table, a 0.10.0 line),
       `api/API.md` (Routes, Request Topics, `GET /history`, a
       `GET /metrics` section, Version), `api/dev.api.http`,
       `api/dev.mqtt.http`, `STATE-MACHINE.md:448`, `DOCKER.md:98`,
       `DEVELOPER.md` if a command changes, and a decision in
       `docs/state-machine-design.md`, the next free D number when the
-      PR is opened; `package.json` to `0.9.0`; the index row. Check:
+      PR is opened; `package.json` to `0.10.0`; the index row. Check:
       `npx markdownlint-cli -c .markdownlint.yaml` from the repository
       root, and `npx prettier --check` on the changed files.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass, no
       file at 250 lines, no function over the Qlty thresholds. Check:
       their output.
 
 ## Learnings
 
-Written in the pull request that implements this issue.
+- **Drift.** 15a merged first, so step 1 fell away: `HISTORY` reads
+  its `by` column, and no migration was added. `queue.service.ts` had
+  211 lines, not 245, and went to 182 when the record SQL moved out,
+  204 at the end; `fsm.service.ts` went from 248 to 244 and is back at
+  248 with `onAnswer`. 15a took `0.9.0`, so this issue bumps to
+  `0.10.0`.
+- **SQLite's `datetime()` does the parsing of `since`.** It turns `Z`,
+  an offset and a fraction of a second into the stored
+  `YYYY-MM-DD HH:MM:SS` in UTC, so one statement compares to the second
+  without code in TypeScript. The plan's
+  `COALESCE(datetime(?), '')` failed open: a `since` that `datetime()`
+  turned into `NULL` would have returned every row. Review replaced it
+  with `:since IS NULL OR received_at >= datetime(:since)`, so such a
+  time matches no row; the schema refuses it before that anyway.
+- **The watermark is a separate query.** `run().changes` gives the
+  number of rows `markInterrupted` marked, not the highest `id`, so
+  `LAST_ID` reads it after the update. `markInterrupted` runs once, at
+  the start, which makes it the natural place for the baseline of
+  `commandCounts`.
+- **A parameter given twice** arrives from Express as an array, which
+  `z.coerce.number()` and `z.iso.datetime()` refuse, so the plan's
+  "given twice" needed no code; unknown parameters pass because the
+  object schema strips them.
+- **Signed requests and query strings.** The `htu` claim of 15a is
+  compared to the path without the query, so a JWS for `GET /history`
+  also authorizes `GET /history?limit=1`; `test/e2e/auth.spec.ts`
+  shows it, with `by` set to the manager's name.
+- **Times of the metrics** use `performance.timeOrigin +
+performance.now()`, a monotonic clock, so a change of the wall clock
+  does not make `seconds` negative; `uptime` comes from
+  `process.uptime()`, as on `GET /health`.
+- **Room in the tests.** The queue history tests went from
+  `test/integration/queue.service.spec.ts` to
+  `test/integration/queue.history.spec.ts`, and the expected machine of
+  `test/e2e/metrics.spec.ts` to a constant, to keep both files and the
+  test under the limits.
+- **Review of #91** also asked for an explicit request kind:
+  `AnswerListener` receives `{ kind, name }`, set by
+  `Requests.transition`, `Requests.event` and `raiseAll`, rather than a
+  label that `Metrics` parsed by its prefix. `COMPLETION_OF_STATUS` in
+  `dto/fsm.dto.ts` derives the completion of a status from `STATUS`
+  and `COMPLETION`. The documents now tell that the `+` of an offset is
+  `%2B` in a URL, and that a stop transition counts no `$stopped`, as
+  it leaves the entry before the stopped script ends.
+- **For 17a.** `HistoryEntryDto` and `toHistoryEntry` take the CPU
+  seconds and peak memory as two more fields, and `HISTORY` two more
+  columns; `Metrics.report` is where totals per state would go.

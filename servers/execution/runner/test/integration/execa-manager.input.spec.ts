@@ -12,7 +12,7 @@ import { CommandRefused } from 'src/dto/command.dto';
 import ExecaManager from 'src/execa-manager.service';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
-import { configFilename, nonExistingCommand } from 'test/utils';
+import { configFilename, nonExistingCommand, commandNames } from 'test/utils';
 
 // Each test runs scripts, and PowerShell takes a second or more to start
 // on a loaded Windows host
@@ -79,7 +79,7 @@ describe('Command input and outcome of the execution manager', () => {
 
     expect((await run)[0]).toBe('stopped');
     expect(queue.findByKey('key-1')).toBeUndefined();
-    expect(manager.checkHistory()).toStrictEqual([{ name: 'loop' }]);
+    expect(commandNames(manager.checkHistory())).toStrictEqual(['loop']);
   });
 
   it('Should join a running command without input', async () => {
@@ -104,7 +104,7 @@ describe('Command input and outcome of the execution manager', () => {
     );
 
     expect(repeat).toEqual(first);
-    expect(manager.checkHistory()).toStrictEqual([{ name: 'echo-input' }]);
+    expect(commandNames(manager.checkHistory())).toStrictEqual(['echo-input']);
   });
 
   it('Should replay a stored failure with its exit code', async () => {

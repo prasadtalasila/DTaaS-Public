@@ -11,6 +11,7 @@ import {
 } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
+import { commandNames } from 'test/utils';
 import { digitalTwin, post, settled, startRunner } from './fsm.util';
 
 const DEFINITION = `
@@ -65,13 +66,10 @@ describe('Runner state machine end-to-end tests', () => {
         { status: 'accepted', state: 'terminate' },
       );
       await settled(app, 'terminate');
-      await supertest(app.getHttpServer())
+      const { body } = await supertest(app.getHttpServer())
         .get('/history')
-        .expect(HttpStatus.OK, [
-          { name: 'create' },
-          { name: 'execute' },
-          { name: 'terminate' },
-        ]);
+        .expect(HttpStatus.OK);
+      expect(commandNames(body)).toEqual(['create', 'execute', 'terminate']);
     },
     SCRIPT_CHAIN_TIMEOUT,
   );
@@ -99,9 +97,10 @@ describe('Runner state machine end-to-end tests', () => {
     await request();
     await settled(app, 'terminate');
     await request();
-    await supertest(app.getHttpServer())
+    const { body } = await supertest(app.getHttpServer())
       .get('/history')
-      .expect(HttpStatus.OK, [{ name: 'terminate' }]);
+      .expect(HttpStatus.OK);
+    expect(commandNames(body)).toEqual(['terminate']);
   });
 
   it.each([

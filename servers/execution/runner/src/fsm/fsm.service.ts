@@ -17,7 +17,7 @@ import { CompletionEvent, Definition, loadDefinition } from './definition.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import MachineStore from './machine-store.js';
 import Parameters from './parameters.js';
-import Requests, { logStay } from './requests.js';
+import Requests, { AnswerListener, logStay } from './requests.js';
 import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
@@ -45,10 +45,10 @@ export default class FsmService implements BeforeApplicationShutdown {
   // Keeps the machine across restarts
   private readonly store: MachineStore;
 
-  private readonly requests = new Requests(() => ({
-    machine: this.machine,
-    stopping: this.stopping,
-  }));
+  private readonly requests = new Requests(
+    () => ({ machine: this.machine, stopping: this.stopping }),
+    this.logger,
+  );
 
   // Signals a new state, or a new status of its script
   private readonly changes = new Changes();
@@ -113,6 +113,10 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.escalations.on(listener);
   }
 
+  onAnswer(listener: AnswerListener): void {
+    this.requests.onAnswer(listener);
+  }
+
   // Needs no state machine, so that a plain DT escalates too
   escalate(body: EscalateBody, requestKey?: string): EscalateReplyDto {
     return this.escalations.request(body, requestKey, this.machine);
@@ -139,19 +143,15 @@ export default class FsmService implements BeforeApplicationShutdown {
       this.queue.setParameters(changes),
     );
     this.changes.emit();
-    result?.events.forEach((event) =>
-      this.requests.raise(
-        event,
-        (machine) => this.move(machine, event),
-        this.logger,
-      ),
+    this.requests.raiseAll(result?.events ?? [], (machine, event) =>
+      this.move(machine, event),
     );
     return result?.problems ?? [];
   }
 
   // Moves an idle machine to any of its states
   transition(state: string, requestKey?: string): FsmReplyDto {
-    return this.requests.reply(`transition ${state}`, requestKey, (machine) => {
+    return this.requests.transition(state, requestKey, (machine) => {
       if (!machine.hasState(state)) {
         return fsmReply('invalid state', machine.state);
       }
@@ -163,7 +163,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   event(event: string, requestKey?: string): FsmReplyDto {
-    return this.requests.reply(`event ${event}`, requestKey, (machine) => {
+    return this.requests.event(event, requestKey, (machine) => {
       const reply = this.move(machine, event);
       if (reply.status === 'no transition') {
         this.escalations.noTransition(machine, event);

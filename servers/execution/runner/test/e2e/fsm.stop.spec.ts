@@ -10,7 +10,9 @@ import {
   it,
 } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
+import { HistoryEntryDto } from 'src/dto/history.dto';
 import ExecaManager from 'src/execa-manager.service';
+import { commandNames } from 'test/utils';
 import { digitalTwin, poll, post, settled, startRunner } from './fsm.util';
 
 const DEFINITION = `
@@ -31,7 +33,8 @@ const history = (app: INestApplication, names: string[]) =>
     app,
     '/history',
     (body) =>
-      JSON.stringify(body) === JSON.stringify(names.map((name) => ({ name }))),
+      JSON.stringify(commandNames(body as unknown as HistoryEntryDto[])) ===
+      JSON.stringify(names),
   );
 
 describe('Runner state machine with stopped scripts', () => {
