@@ -431,6 +431,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D27 | Command input goes to stdin, is not stored, and a failed script is told from a refused command | Added by issue 05. Stdin keeps input off the command line of a remote execution service. The input may hold personal data and nothing reads it back. A permitted script that fails is `failed` (200, with its result); `invalid command` (400) stays for a command that is not permitted. The machine's `ScriptStatus` keeps `invalid` for a failed script.     |
 | D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                               |
 | D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                       |
+| D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                  |
 
 ## Assumptions
 
@@ -467,6 +468,10 @@ proposal to derive the events from the transitions was declined (D4).
   listed principals and the runner's own scripts can call the API, each
   in its role (D29); the broker's access control remains the outer
   wall. Without `auth`, A8 holds as written.
+  Amended by issue 15b: with `auth.key`, a receiver can also tell that
+  a notification or an MQTT response came from the DT unchanged (D32).
+  A signature does not show that a message is new, so the broker's
+  access control still limits who can replay one.
 
 ## Error Handling
 

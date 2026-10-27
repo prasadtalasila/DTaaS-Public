@@ -25,3 +25,7 @@ commands:  # list of permitted scripts
 #     - name: 'manager-1'
 #       role: 'manager'  # manager or client
 #       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+#   # optional; an Ed25519 private key, PEM PKCS#8, relative to this
+#   # file, with which the runner signs its notifications and MQTT
+#   # responses
+#   key: 'keys/my-dt.key'

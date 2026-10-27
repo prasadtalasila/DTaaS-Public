@@ -152,7 +152,8 @@ curl -s http://localhost:5100/dt
   },
   "commands": ["open", "full", "closed", "admit", "discharge"],
   "stateMachine": true,
-  "manager": { "commands": ["admit", "discharge"] }
+  "manager": { "commands": ["admit", "discharge"] },
+  "publicKey": null
 }
 ```
 
@@ -163,6 +164,7 @@ curl -s http://localhost:5100/dt
 | `commands`     | the permitted commands, which `POST /` may run                                                               |
 | `stateMachine` | whether a state machine file is loaded                                                                       |
 | `manager`      | the `manager.commands` of the state machine file; the commands meant for the Manager, a subset of `commands` |
+| `publicKey`    | the public key that verifies the runner's [signatures](#signatures); `null` without `auth.key`               |
 
 ### GET /state
 
@@ -752,6 +754,10 @@ accepted request with its principal at `debug` level, and stores the
 principal of each command in its history database: the name, `script`,
 or nothing without `auth`, also for the script of a state.
 
+The same section may hold a `key` instead of, or besides, the
+principals: the private key with which the runner signs its output
+(see [Signatures](#signatures)). The section needs one of the two.
+
 ### Token
 
 An HTTP request carries `Authorization: Bearer <token>`, a compact JWS
@@ -907,7 +913,8 @@ payload; the runner ignores any.
 
 ### Responses
 
-The response payload is the JSON body of the matching HTTP reply. MQTT
+The response payload is the JSON body of the matching HTTP reply, or
+with `auth.key` a JWS of it (see [Signatures](#signatures)). MQTT
 has no status codes, so the payload alone tells the outcome, through
 its `status` field or the `statusCode` of an error. The runner
 publishes each response with QoS 1:
@@ -932,16 +939,18 @@ limit, but its `input` has the 64 KiB limit of `POST /`.
 
 In the demo, `mq dt` subscribes to `dtaas/hospital-1/dt/response`,
 publishes an empty payload on `dtaas/hospital-1/dt`, and prints the
-response topic and payload:
+response topic, whether the payload is `verified`, `UNSIGNED` or
+`INVALID` (see [Signatures](#signatures)), and the payload:
 
 ```text
-dtaas/hospital-1/dt/response
+dtaas/hospital-1/dt/response (UNSIGNED)
 {
   "id": "hospital-1",
   "attributes": { "name": "Hospital 1", "city": "Aarhus", "latitude": 56.19, "longitude": 10.17, "wards": 2 },
   "commands": ["open", "full", "closed", "admit", "discharge"],
   "stateMachine": true,
-  "manager": { "commands": ["admit", "discharge"] }
+  "manager": { "commands": ["admit", "discharge"] },
+  "publicKey": null
 }
 ```
 
@@ -952,7 +961,7 @@ mq execute '{"name":"discharge","input":{"patient":"p-1"}}'
 ```
 
 ```text
-dtaas/hospital-1/execute/response
+dtaas/hospital-1/execute/response (UNSIGNED)
 {
   "status": "success",
   "result": {
@@ -967,7 +976,7 @@ dtaas/hospital-1/execute/response
 back to `open`, as `mq fsm` shows:
 
 ```text
-dtaas/hospital-1/fsm/response
+dtaas/hospital-1/fsm/response (UNSIGNED)
 {
   "state": "open",
   "status": "running",
@@ -1041,7 +1050,8 @@ a username and password when the broker is not on the same computer.
 ## Notifications
 
 The runner tells what happens without being asked. Each notification
-is one JSON object:
+is one JSON object, or with `auth.key` a JWS of it
+(see [Signatures](#signatures)):
 
 | Field  | Meaning                                                    |
 | :----- | :--------------------------------------------------------- |
@@ -1185,7 +1195,8 @@ carries the [descriptor](#get-dt):
       },
       "commands": ["open", "full", "closed", "admit", "discharge"],
       "stateMachine": true,
-      "manager": { "commands": ["admit", "discharge"] }
+      "manager": { "commands": ["admit", "discharge"] },
+      "publicKey": null
     }
   }
 }
@@ -1239,21 +1250,25 @@ In the demo, `mq retained` subscribes late. Halfway through it gets the
 retained state and presence, and no escalation:
 
 ```text
-notify/state (retained) 09:05:39 machine open#4 running | scope multi | command open:running
-notify/presence (retained) 09:05:11 online  hospital-1 in Aarhus
+UNSIGNED notify/state (retained) 09:05:39 machine open#4 running | scope multi | command open:running
+UNSIGNED notify/presence (retained) 09:05:11 online  hospital-1 in Aarhus
 ```
 
 After the shutdown, the retained presence says offline:
 
 ```text
-notify/state (retained) 09:05:45 machine closed#5 valid | scope multi | command closed:valid
-notify/presence (retained) 09:05:47 offline
+UNSIGNED notify/state (retained) 09:05:45 machine closed#5 valid | scope multi | command closed:valid
+UNSIGNED notify/presence (retained) 09:05:47 offline
 ```
 
 ### Over a Webhook
 
 With a `notify.url` in the configuration, the runner posts each
-notification to it as `application/json`, with a 5 s timeout. It
+notification to it as `application/json`, or with `auth.key` as
+`application/jose`, the media type of a compact JWS (RFC 7515), with a
+5 s timeout. The `notify.token` bearer authenticates the runner to the
+webhook; the signature lets the receiver check every body, including
+those it stores or forwards. It
 retries after 1 s, 2 s and 4 s on a network error, a timeout or a `5xx`
 reply, and not on any other reply. Posts are independent, so they may
 arrive out of order; a receiver that needs a strict order uses MQTT. A
@@ -1264,7 +1279,8 @@ The webhook gets the online notice once at startup, not on a
 reconnect, and the offline notice once at shutdown. At shutdown the
 runner abandons the posts still in progress or waiting for a retry. In
 the recording, the demo's receiver logged the notifications other than
-state documents as:
+state documents as below; it now marks each line `verified`,
+`UNSIGNED` or `INVALID` as well, as `mq retained` does above.
 
 ```text
 POST presence   09:05:11 online  hospital-1 in Aarhus
@@ -1273,6 +1289,108 @@ POST escalation 09:05:34 failure in full#3: script of state full failed
 POST escalation 09:05:36 no-transition in full#3 event close: no transition for close in state full
 POST presence   09:05:47 offline
 ```
+
+### Signatures
+
+With `key` in the `auth` section, the runner signs everything it sends
+on its own or in reply with a private key of the DT, so that a
+receiver that holds the public key can check origin and integrity:
+
+```yaml
+auth:
+  # an Ed25519 private key, PEM PKCS#8, relative to this file
+  key: 'keys/hospital-1.key'
+```
+
+The path is taken from the directory of the configuration file, and an
+absolute path works too. `keygen.mjs hospital-1 keys` writes the key
+and its public key, `keys/hospital-1.pub`. A file that cannot be read,
+an encrypted key, or a key that is not an Ed25519 private key stops
+the runner at startup with an error that names the file.
+
+| Output                        | Without `auth.key`      | With `auth.key`                |
+| :---------------------------- | :---------------------- | :----------------------------- |
+| Notifications, MQTT           | JSON envelope           | JWS of the envelope            |
+| Notifications, webhook        | `application/json` body | `application/jose` body, a JWS |
+| MQTT responses                | JSON body of the reply  | JWS of the body                |
+| MQTT will (`notify/presence`) | JSON, `time: null`      | JWS, `time: null`              |
+| HTTP replies                  | JSON                    | JSON, unsigned                 |
+
+Each is a compact JWS (RFC 7515) whose payload is exactly the JSON
+without a key. Its protected header is
+`{"alg":"Ed25519","kid":"<id>"}`: `alg` is the fully specified name of
+RFC 9864, as in a [token](#token), and `kid` the `id` of the DT. No
+claim is added: the `id` and `time` of the envelope bind it to the DT
+and the moment, and there is no `exp`, as a retained notification must
+stay verifiable for a Manager that connects hours later. The will
+keeps `time: null`; it is signed once, when the runner connects.
+Ed25519 is deterministic, so a notification gives the same JWS over
+MQTT and the webhook.
+
+The first state notification of
+[State Notifications](#state-notifications) is published on
+`dtaas/hospital-1/notify/state` as one line,
+`<header>.<payload>.<signature>`, here broken before each dot and with
+`[…]` for the omitted characters:
+
+```text
+eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiaG9zcGl0YWwtMSJ9
+.eyJraW5kIjoic3RhdGUiLCJpZCI6Imhvc3BpdGFs[…]Y29tbWFuZCI6bnVsbH19
+.XhfsOxaMejbhXXs4zTnf[…]
+```
+
+The header decodes to `{"alg":"Ed25519","kid":"hospital-1"}`, and the
+payload, 404 characters, to the envelope unchanged. The signature is
+86 base64url characters, the 64 bytes of Ed25519. The document grows
+from 303 to 540 bytes.
+
+A consumer verifies with the public key its operator gave it, as
+`publicKey` of [GET /dt](#get-dt) gives it: the base64url of the 32 raw
+bytes, the `x` of the JWK. In Node, `key` is
+`createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x }, format: 'jwk' })`:
+
+```js
+import { verify } from 'node:crypto';
+
+const decode = (part) => JSON.parse(Buffer.from(part, 'base64url'));
+
+export function unwrap(text, key, id) {
+  const [header, payload, signature, ...rest] = text.split('.');
+  const { alg, kid } = decode(header);
+  const signed = Buffer.from(`${header}.${payload}`);
+  const bytes = Buffer.from(signature ?? '', 'base64url');
+  const ok = verify(null, signed, key, bytes);
+  if (rest.length > 0 || alg !== 'Ed25519' || kid !== id || !ok) {
+    throw new Error('not verified');
+  }
+  return decode(payload);
+}
+```
+
+A payload that starts with `{` is plain JSON from a runner without a
+key; whether to accept it is the consumer's choice. The demo's
+[tools/jws.mjs](../demo/hospital/tools/jws.mjs) marks each message
+`verified`, `UNSIGNED`, or `INVALID` when the signature fails or no
+public key is at hand.
+
+Not signed, with the reason:
+
+- HTTP replies: the caller chose the endpoint, TLS and the DTaaS
+  gateway protect the reply, and [access control](#access-control)
+  authenticates the caller.
+- Freshness: a signature proves origin and integrity, not that a
+  message is new. Anyone who can publish on the notification topics
+  can replay an old signed document or will; the access control of the
+  broker limits that, and a receiver that must not go back in time
+  compares `time` with that of the last message it took.
+- More than one key: a new key is a restart, and a new public key for
+  every receiver.
+
+A plain notification retained from an earlier run without a key and a
+signed one share a topic. The runner publishes its online notice on
+every connect and its state document at startup, so both retained
+topics are replaced as soon as it connects; a receiver that requires
+signatures drops the plain one it may get first, and waits.
 
 Without MQTT and a webhook, [GET /state](#get-state) is the only way to
 observe the state, and nothing is announced.
@@ -1375,7 +1493,8 @@ those of the markers in [hospital.cast](../demo/hospital/hospital.cast).
 ## Version
 
 This document describes runner version 0.9.0, which added
-[access control](#access-control). The
+[access control](#access-control), with the optional
+[signatures](#signatures) that came after it without a version change. The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.
