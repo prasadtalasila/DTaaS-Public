@@ -514,3 +514,10 @@ transition` and as a warning otherwise, without the peer, as the
   the routes, the error table, the design document's components,
   tables and tests, a broken link of `DEVELOPER.md`, and a status
   column in the research notes.
+- **Security model.** Also on the owner's request, `SECURITY-MODEL.md`
+  records the threat model and the chosen separation of the runner
+  from its scripts (B3 and C1), which issue 18 is to implement. Writing
+  it showed that a script spawned with Node's `uid` and `gid` options
+  alone would keep the runner's ambient capabilities, as a change
+  between two non-zero uids clears none; the guide asks issue 18 to
+  clear them in the spawn, for example through `setpriv`.
