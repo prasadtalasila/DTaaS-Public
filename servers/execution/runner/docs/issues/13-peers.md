@@ -1,6 +1,6 @@
 # 13 Peer List and Relationships
 
-- Status: planned
+- Status: in review
 - Depends on: 15a (the roles of `PUT /peers`)
 - PR: none yet
 - Research note:
@@ -242,46 +242,46 @@ stays where 15a leaves it (the delivery rules bump only for a break).
 
 ## Tasks
 
-- [ ] The schema accepts the example and refuses a peer without `topic`
+- [x] The schema accepts the example and refuses a peer without `topic`
       and `url`, a duplicate id or topic, the own id or topic, an
       invalid topic or url, nested attributes and an unknown key, each
       with a message. Check: `test/unit/peers.schema.spec.ts`.
-- [ ] `Config` returns the peers and refuses a `__proto__` attribute of
+- [x] `Config` returns the peers and refuses a `__proto__` attribute of
       a peer. Check: `test/integration/options.service.spec.ts`.
-- [ ] `Queue` stores switches in one transaction and returns the
+- [x] `Queue` stores switches in one transaction and returns the
       latest per id, also within a second. Check:
       `test/integration/queue.peers.spec.ts`.
-- [ ] `Peers` lists every problem without applying any, stores before
+- [x] `Peers` lists every problem without applying any, stores before
       applying, ignores an equal value, signals each change, forgets a
       disabled peer, and lets a stored switch override the file. Check:
       `test/unit/peers.spec.ts`.
-- [ ] `readNotice` drops bad JSON, a wrong kind or id, an unsigned
+- [x] `readNotice` drops bad JSON, a wrong kind or id, an unsigned
       payload of a keyed peer, a signed payload of a keyless peer and a
       bad signature; unwraps a good one; maps an empty payload to
       `null`. Check: `test/unit/peer-notice.spec.ts`.
-- [ ] `follow` and `unfollow` subscribe and unsubscribe, a followed
+- [x] `follow` and `unfollow` subscribe and unsubscribe, a followed
       message never reaches the handler, `start` subscribes earlier
       follows, and nothing happens without MQTT. Check:
       `test/unit/mqtt.follow.spec.ts`, fakes of `mqtt.fixture.ts` gain
       `unsubscribe`.
-- [ ] `PeerWatch` follows enabled peers with a topic and unfollows on a
+- [x] `PeerWatch` follows enabled peers with a topic and unfollows on a
       signal. Check: `test/unit/peer-watch.spec.ts`.
-- [ ] The descriptor lists enabled peers; `GET /dt` and the presence
+- [x] The descriptor lists enabled peers; `GET /dt` and the presence
       notice carry it. Check: `test/unit/descriptor.service.spec.ts`,
       `test/e2e/descriptor.spec.ts`; grep `test/e2e/mqtt.broker.spec.ts`
       for descriptor shapes.
-- [ ] `GET` and `PUT /peers` as specified, including `{}`, `400` with
+- [x] `GET` and `PUT /peers` as specified, including `{}`, `400` with
       every problem, and a switch kept across a restart. Check:
       `test/e2e/peers.spec.ts`.
-- [ ] The MQTT routes give the same bodies and 15a's roles hold. Check:
+- [x] The MQTT routes give the same bodies and 15a's roles hold. Check:
       `test/unit/mqtt-request.peers.spec.ts`, the route list of
       `test/unit/mqtt.config.spec.ts`, 15a's role tests.
-- [ ] Against aedes, retained notices published before the start show
+- [x] Against aedes, retained notices published before the start show
       in `GET /peers`, a second runner started by `startRunner` (with
       its `getId` spied) is seen online with its state, and disabling
       then enabling forgets and refills the entry. Check:
       `test/e2e/mqtt.peers.spec.ts`.
-- [ ] Sweeps: `README.md` (Configure, Digital Twin, Peers requests,
+- [x] Sweeps: `README.md` (Configure, Digital Twin, Peers requests,
       MQTT API), `api/API.md` (Routes, GET /dt, a Peers section, Request
       Topics, Presence), `api/dev.api.http`, `api/dev.mqtt.http`,
       `config/runner.yaml.sample`, `DEVELOPER.md` (MQTT Tests), and
@@ -292,7 +292,7 @@ stays where 15a leaves it (the delivery rules bump only for a break).
       manages them), A4 amended (a peer notice raises no event). Check:
       `npx markdownlint-cli -c .markdownlint.yaml` on them from the
       repository root, and `npx prettier --check` from the runner.
-- [ ] `yarn syntax`, `yarn build` and `yarn test --maxWorkers=2` pass,
+- [x] `yarn syntax`, `yarn build` and `yarn test --maxWorkers=2` pass,
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean, and every changed file stays under 250 lines and every
       function under 25 and under Qlty's limits. Check: their output
@@ -300,4 +300,60 @@ stays where 15a leaves it (the delivery rules bump only for a break).
 
 ## Learnings
 
-Written in the pull request that implements this issue.
+- **Drift.** `nameSchema` lives in `src/fsm/name.ts` since 15a, so
+  `src/config/attributes.ts` imports it from there. `src/queue.service.ts`
+  had 211 lines, not 245: `RECORD`, `RECORD_BY_KEY` and `toRecord` stay
+  where they are, as 11 moves them to `src/queue.history.ts` and a
+  second move to `src/queue.record.ts` would only conflict, and
+  `inTransaction` is a function of `queue.service.ts`, which ends at 233
+  lines. `src/mqtt/mqtt.service.ts` had 232 lines; 13 moved
+  `responseTopic` to `src/mqtt/mqtt-request.ts`, where it takes a
+  predicate for the request topics, and the service ends at 246.
+  `mqttRoutes` sits at `src/mqtt/mqtt.config.ts:26-40`. The other line
+  numbers held.
+- **No `Follows` class.** A `Map<string, FollowListener>` field of
+  `MqttService` is the whole of it, so `src/mqtt/follows.ts` was not
+  written. `follow(topic, listener)` and `unfollow(topic)` take one
+  topic each rather than a list: `PeerWatch` calls them once per kind,
+  so each listener knows its kind without parsing the topic. `start`
+  subscribes the request topics and the followed ones in one call.
+- **Hook order.** `PeerWatch` registers `onEnabled` in its constructor
+  and `DescriptorService.onModuleInit` loads `Peers`, which signals each
+  enabled peer; Nest builds every provider before it runs any
+  `onModuleInit`, so the follows are in place whatever the order of the
+  hooks. In `main.ts` they run inside `listen`, after `start`, so
+  `follow` subscribes at once.
+- **Late notices.** `observe` ignores a peer that is not enabled: a
+  message in flight when `PUT /peers` unsubscribes would otherwise
+  refill an entry that the reply showed empty.
+- **Readings this plan left open.** An empty presence payload clears
+  both `online` and `descriptor`. A presence notice counts only with a
+  boolean `online`; the envelope is not strict, and its `time` may be
+  `null`, as in the will. `PUT /peers` stores and applies the changes
+  in file order, and stores before it applies, so a failing database
+  applies nothing and the reply is a 500.
+- **Switches are a `Map`.** `Queue.peerSwitches()` and the switches of
+  `Peers` are maps, so that a peer id such as `constructor`, which the
+  name pattern allows, never meets a property of `Object.prototype`.
+- **Tests.** `startRunner` of `test/e2e/mqtt.util.ts` gained a
+  `prepare` hook; two runners in one process, `hospital-1` and
+  `hospital-2`, follow each other on one aedes broker, and the retained
+  notices refill an entry after a disable and an enable. A test spies
+  `Logger.prototype.warn` rather than reading a private `logger`, which
+  SonarCloud reports.
+- **Tooling.** In this session's shell, a heredoc fed to Python lost
+  the backslash of `\n`, which put a raw line break into a template
+  literal; prettier did not object, and only the diff showed it. Edit
+  such strings with an editor rather than through a shell. The Qlty
+  CLI was not installed on the host, so the complexity of the new
+  functions was checked by hand against the limits of the lessons.
+- **Version and decision.** The version stays at 0.9.0, as the Spec
+  says: new routes, an optional key and a descriptor field break no
+  route. The decision is D30; 11 may take D30 as well, and whichever
+  merges second renumbers.
+- **Left for later.** `hospital.cast` was not recorded again, so its
+  `GET /dt` shows no `peers`; API.md shows `"peers": ["hospital-2"]`,
+  which the demo's `runner.yaml` now gives, and 16 re-captures the
+  examples. `docs/developer/codebase/runner.md`, whose class diagram
+  lacks `DescriptorService` already, does not show `Peers`,
+  `PeerWatch` or `PeersController`; that is for a separate change.
