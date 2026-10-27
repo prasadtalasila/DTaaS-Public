@@ -33,7 +33,9 @@ with Unix (LF) line endings. The container runs as the `node` user
 (uid 1000), so the scripts must be readable and executable by that user.
 
 The output of a script is available in the `logs` of the command status.
-A script that exits with a non-zero code is reported as an invalid command.
+A script that exits with a non-zero code is reported as `failed`, with
+its exit code and logs; `invalid command` is for a command that is not
+permitted.
 
 ### Configure
 
@@ -67,7 +69,10 @@ The `compose.runner.yml` file mounts `config/runner.yaml` as
 If you change the `port`, change the port mapping in `compose.runner.yml`
 as well. A `stateMachine` file, such as `scripts/state-machine.yaml`,
 must be in the mounted `scripts` directory, as only that directory and
-`runner.yaml` are in the container.
+`runner.yaml` are in the container. So must the private key of
+`auth.key`, or another volume must mount it: with the sample's
+`key: 'keys/my-dt.key'` and only these two mounts, the runner does not
+start.
 
 ### Run
 
@@ -99,8 +104,13 @@ docker compose -f compose.runner.dev.yml down
   status, exit code and times.
 - `GET /metrics` returns counters since the runner started.
 - `GET /dt` returns the `id`, `attributes` and `commands` of the
-  digital twin, and whether a state machine is loaded.
+  digital twin, whether a state machine is loaded, the commands of its
+  Manager, its enabled peers and the public key of its signatures.
 - `GET /health` returns whether the runner and its connections are up.
+
+The state machine, parameters, state document, peers, stop and
+escalation routes are in the [README](./README.md#use) and
+[API.md](./api/API.md).
 
 A sample request is:
 

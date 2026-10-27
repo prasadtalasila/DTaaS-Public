@@ -173,7 +173,7 @@ variables:
 | `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's HTTP API                        |
 | `RUNNER_TOKEN`    | the bearer token for that API, with access control only                 |
 | `DT_ID`           | the `id` of _runner.yaml_                                               |
-| `DT_STATE`        | the state whose script this is                                          |
+| `DT_STATE`        | the state whose script this is; for `POST /`, the current state         |
 | `DT_ENTRY`        | the number of that entry into a state, counted from 1                   |
 | `DT_PARAM_<NAME>` | the value of each parameter when the script starts, as `DT_PARAM_SCOPE` |
 
@@ -536,8 +536,9 @@ machine), the parameter values, and the latest command without its
 logs. `GET /` returns the latest command with its logs and exit code,
 and `GET /history` every command with its status, exit code and times,
 the state scripts included. `GET /metrics` counts the entries into each
-state, the seconds spent there, the scripts that finished, and the
-transition and event requests since the runner started.
+state, the seconds spent there, the scripts that finished, the
+transition and event requests, the commands by status and the
+escalations since the runner started.
 
 With a `notify` section in _runner.yaml_, or with MQTT, the runner
 sends the state document whenever it changes, as a notification of kind
@@ -555,9 +556,10 @@ sends the state document whenever it changes, as a notification of kind
 `data` is the whole state document of `GET /state`, shortened here.
 
 Over MQTT the notifications go to `<topic>/notify/<kind>`, where `kind`
-is `state`, `escalation` or `presence`; the last state document is
-retained. A webhook gets each notification as a `POST`. See the
-[API reference](api/API.md#notifications) for the details.
+is `state`, `escalation` or `presence`; the last state document and the
+last presence notice are retained, an escalation is not. A webhook gets
+each notification as a `POST`. See the [API
+reference](api/API.md#notifications) for the details.
 
 #### Script Status
 
@@ -608,8 +610,9 @@ and the latest parameter values at each change. When it starts again:
   `interrupted`. The runner does not run the script again, as it may
   have done part of its work; the machine is idle, so send a transition
   request or an event.
-- The commands that had not finished are `interrupted` in `GET /` and
-  `GET /state`; a repeat of such a request gets `failed`.
+- The commands that had not finished are `interrupted` in `GET /`,
+  `GET /state` and `GET /history`; a repeat of such a request gets
+  `failed`.
 - A stored state that the file no longer has is dropped with a warning
   in the log, and the machine starts without a state. The entry count
   is kept, so entry numbers never repeat.
@@ -653,6 +656,11 @@ topic of the request, or else to the request topic followed by
 
 MQTT has no status codes, so the `status` in the body is the outcome.
 Over MQTT 5, the request key is the `idempotency-key` user property.
+With access control, the payload of each request but `health` is a
+signed token instead of the JSON
+([API reference](api/API.md#mqtt-access-control)); with a signing key,
+each response and notification is a JWS of the JSON
+([README](README.md#signed-output)).
 
 ## Example: A Pipeline
 

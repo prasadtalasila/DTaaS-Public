@@ -38,13 +38,19 @@ and _raise-event_ raises the event `done` through `RUNNER_URL` and
 prints the status code of the reply, for the tests of the
 [script environment](README.md#script-environment). On Linux,
 _raise-event_ needs `curl`; on Windows it uses `Invoke-RestMethod`.
+_echo-input_ writes its stdin back, for the tests of command input, and
+_fail_ exits with code 3, for those of a failed command.
 
 The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names
 with its `stateMachine` key. A `config/runner.test.yaml` copied from
 an older sample stops the runner at startup, as it lacks the required
-`id` or permits only _create_; copy the sample again. The file also
-declares two parameters, for trying out the parameters requests. The
+`id`, permits only _create_ or lists no peer `hospital-2`, which the
+file's subscription names; copy the sample again. The file also
+declares two parameters, for trying out the parameters requests, and
+subscribes to the state `full` of the peer `hospital-2`, for trying out
+[peer events](README.md#peer-events) with the `peerFull` request of
+`api/dev.mqtt.http`. The
 [state machine design](docs/state-machine-design.md) explains the file
 and the decisions behind it.
 
@@ -57,12 +63,15 @@ yarn format     # Format .ts, .tsx, .css and .scss files with prettier
 yarn graph      # Generate dependency graphs in the code
 yarn build      # Compile TypeScript into the dist/ directory
 yarn test       # Run tests
+yarn test:unit  # Run only unit tests
+yarn test:int   # Run only integration tests
 yarn test:e2e   # Run only end-to-end tests
 yarn test:broker # Run the MQTT 5 tests against the broker in MQTT_BROKER_URL
 yarn test:nocov # Run the tests but do not report coverage
 yarn test:watchAll # Watch changes in test/ and run the tests
 yarn start      # Start the application
 yarn clean      # Deletes "build", "node_modules", "coverage", "dist" and graph files
+yarn check:final # Run syntax, format, graph, build and test together
 ```
 
 ### MQTT Tests
@@ -86,6 +95,14 @@ aedes with two runners in one process: `startRunner` of
 `test/e2e/mqtt.util.ts` takes a `prepare` hook that spies `getId` and
 `getPeers`, so `hospital-1` lists `hospital-2` and each runner has its
 own base topic on the same broker.
+
+`test/e2e/peer-events.spec.ts` checks [peer events](README.md#peer-events)
+on aedes with one runner, built from a state machine file by
+`digitalTwin` of `test/e2e/fsm.util.ts`, and a plain MQTT client that
+publishes the notices of the peer `hospital-2`, a will among them. The
+unit tests replay the worked example of issue 16 on `PeerEvents`
+(`test/unit/fsm.peer-events.spec.ts`), and `fsm.fixture.ts` lists
+`hospital-2` as the peer of its configuration.
 
 ### Access Control Tests
 
@@ -149,8 +166,8 @@ into
 
 ### Verdaccio - Local Package Registry
 
-Use the instructions in
-[publish npm package](../../../docs/developer/npm-packages.md) for help
+Use the instructions in [publish npm
+package](../../../docs/developer/contributions/npm-packages.md) for help
 with publishing **runner npm package**.
 
 Application of the advice given on that page for **runner** will require

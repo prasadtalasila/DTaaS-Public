@@ -103,9 +103,10 @@ the request files. httpyac uses these file variables even when its
 
 ## Access Control
 
-A runner with an `auth` section ([README](../README.md#access-control))
-answers the unsigned requests with `401`. Write a key pair, from the
-runner directory:
+A runner with `principals` in its `auth` section
+([README](../README.md#access-control)) answers the unsigned requests
+with `401`; an `auth` section with only a `key` leaves them open. Write
+a key pair, from the runner directory:
 
 ```bash
 node demo/hospital/tools/keygen.mjs alice keys
@@ -125,6 +126,11 @@ and list the printed public keys under `auth` in
   runs in. The other MQTT requests stay plain.
 
 A token is valid for 30 s and once only, so each send signs anew.
+
+With `auth.key` ([README](../README.md#signed-output)), the runner
+signs its MQTT responses and notifications, so httpYac shows each as
+the text of a compact JWS rather than as JSON; its middle part is the
+base64url of the JSON. The HTTP replies stay JSON.
 
 ## MQTT Requests
 

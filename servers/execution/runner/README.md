@@ -55,9 +55,9 @@ needs to have _read:packages_ scope.
 
 ## Configure
 
-Warning: without an `auth` section, anyone who can reach the runner's
-port or its MQTT request topics can run its commands and drive its
-state machine. List the callers in an `auth` section
+Warning: without `principals` in an `auth` section, anyone who can
+reach the runner's port or its MQTT request topics can run its commands
+and drive its state machine. List the callers under `auth.principals`
 ([Access Control](#access-control)) on any network that others share.
 
 The utility requires config specified in YAML format.
@@ -133,8 +133,9 @@ database: 'runner.db'
 
 With a database file, the history, the status of the last command,
 the request keys of [repeated requests](#repeated-requests), the
-[state machine](#restarts) and the [parameter values](#parameters)
-survive a restart of the runner. No script survives one: a command that
+[state machine](#restarts), the [parameter values](#parameters) and
+the switches of [PUT /peers](#peers-requests) survive a restart of the
+runner. No script survives one: a command that
 was running when the runner stopped is `interrupted` after the restart.
 The runner creates the directory of the database file if needed. Give
 each runner a database file of its own.
@@ -162,7 +163,8 @@ mqtt:
 ```
 
 The `topic` must be unique to each runner that shares a broker,
-and must not contain the `+` or `#` wildcards.
+must not contain the `+` or `#` wildcards, and must not start with `$`
+or end with `/`.
 The runner keeps reconnecting while the broker is unavailable or
 refuses the connection, and serves HTTP in the meantime. The runner does not start
 if the `mqtt` section is invalid.
@@ -203,8 +205,8 @@ including those it stores or forwards.
 
 ### Access Control
 
-With an `auth` section, the runner answers only the callers it lists,
-each in a role:
+With `principals` in an `auth` section, the runner answers only the
+callers it lists, each in a role:
 
 ```yaml
 auth:
@@ -241,8 +243,9 @@ auth:
   principal at `debug` level, and stores the principal of each command
   it runs.
 
-Without `auth` every route is open and the runner ignores any
-`Authorization` header.
+Without `auth.principals` every route is open and the runner ignores
+any `Authorization` header; so is an `auth` section with only a
+[key](#signed-output).
 
 Version 0.9.0 added access control. It changes no route without
 `auth`; a database file of an earlier version gains a `by` column for
@@ -330,7 +333,9 @@ the peers are listed but never followed.
 
 [GET /peers](#peers-requests) shows the peers and what they told, and
 [PUT /peers](#peers-requests) enables and disables them. A Manager can
-not add a peer: only the operator, in _runner.yaml_, lists them.
+not add a peer: only the operator, in _runner.yaml_, lists them. The
+peers, their subscriptions and the signed output were added at version
+0.10.0 without a version bump, as they change no route.
 
 ## Create Commands
 
@@ -377,14 +382,14 @@ its own variables:
 | `DT_ENTRY`        | the entry number of that state, as below                          |
 | `DT_PARAM_<NAME>` | the value of each [parameter](#parameters) when the script starts |
 
-For a script that the state machine runs, `DT_STATE` and `DT_ENTRY`
-name the state it enters and the number of that entry. For a script of
-`POST /` they name the current state and entry, or are empty and `0`
-before the first transition. Without a state machine a script gets
-only `RUNNER_URL` and `DT_ID`. `RUNNER_URL` uses the port that the
-runner listens on. `RUNNER_TOKEN` is drawn anew at each start and is
-unset without an `auth` section. The state machine file may
-[declare more variables](#declared-environment).
+For a script that the state machine runs, `DT_STATE` and `DT_ENTRY` name
+the state it enters and the number of that entry. For a script of `POST
+/` they name the current state and entry, or are empty and `0` before
+the first transition. Without a state machine a script gets only
+`RUNNER_URL`, `DT_ID` and, with access control, `RUNNER_TOKEN`.
+`RUNNER_URL` uses the port that the runner listens on. `RUNNER_TOKEN` is
+drawn anew at each start and is unset without `auth.principals`. The
+state machine file may [declare more variables](#declared-environment).
 
 The `DOCKER.md` file in the
 [runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
@@ -829,23 +834,22 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
-Four REST API methods run and stop commands, three more drive the
-[state machine](#state-machine-requests), one
+The runner serves sixteen routes. Four run and stop commands, three
+drive the [state machine](#state-machine-requests), two read and set
+its [parameters](#parameters-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
-[its state](#get-request-to-state), one
-[escalates to the Manager](#escalation-requests), one returns
-[metrics](#metrics) and two
-[read and switch its peers](#peers-requests). The routes for
-commands and their responses are:
+[its state](#get-request-to-state), one its [health](#health), one
+[metrics](#metrics), one
+[escalates to the Manager](#escalation-requests) and two
+[read and switch its peers](#peers-requests). The routes for commands
+and their responses are:
 
-| REST API Route          | HTTP Method | Return Value                                                            | Comment                                                                                                 |
-| :---------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
-| localhost:port          | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
-| localhost:port          | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
-| localhost:port/history  | GET         | Returns the commands received, with their status and times.             |                                                                                                         |
-| localhost:port/stop     | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
-| localhost:port/escalate | POST        | Returns `{"status": "accepted"}`                                        | Escalates to the Manager, as described in [escalation requests](#escalation-requests).                  |
-| localhost:port/metrics  | GET         | Returns counters since the runner started                               | Described in [metrics](#metrics).                                                                       |
+| REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
+| :--------------------- | :---------- | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+| localhost:port         | POST        | Returns the execution status of command                                 | Executes the command provided. All the commands sent in the right JSON format gets stored in _history_. |
+| localhost:port         | GET         | Returns the execution status of the last command sent via POST request. |                                                                                                         |
+| localhost:port/history | GET         | Returns the commands received, with their status and times.             |                                                                                                         |
+| localhost:port/stop    | POST        | Returns the names of the stopped commands                               | Stops one running command, or all of them.                                                              |
 
 #### POST Request to /
 
@@ -919,6 +923,9 @@ that failed, `stopped` for one that a stop request stopped,
 [Command History](#command-history)), and `invalid` for a command that
 is not permitted, whose logs are empty and whose `exitCode` is `null`.
 Before the first command, the name is `none` and the status `invalid`.
+While the latest command runs, its status is `invalid` too, with empty
+logs and `exitCode` `null`, until it finishes;
+[GET /state](#get-request-to-state) shows it as `running`.
 
 If an incorrectly formatted JSON is sent via POST request,
 a validation error is returned.
@@ -936,7 +943,9 @@ a validation error is returned.
 Returns the commands received, oldest first, both valid and invalid
 ones; a repeated request is not recorded again. Each record has the
 status, exit code and times of the command, and the principal that
-sent it (see [Access Control](#access-control)), or `null`:
+sent it (see [Access Control](#access-control)): a principal's name,
+`script` for the runner's own scripts, or `null` without access
+control:
 
 ```http
 [
@@ -1266,7 +1275,7 @@ Two routes read the [peers](#peers) and enable or disable them.
 | localhost:port/peers | PUT         | `{"hospital-2": false}` | Enables and disables peers of the list |
 
 `GET /peers` maps each peer's id to its entry, and is `{}` without
-peers:
+peers; here with the descriptor and the state document shortened:
 
 ```http
 {
@@ -1496,8 +1505,8 @@ mosquitto_pub -h localhost -V mqttv5 -t 'dtaas/user1/runner/execute' \
   -m '{"name": "create"}'
 ```
 
-With an [auth section](#access-control), the payload of each request
-but `health` is a signed token that holds the request topic and the
+With [principals](#access-control) in the `auth` section, the payload
+of each request but `health` is a signed token that holds the request topic and the
 JSON above as its `body`; a plain payload gets the `401` body of the
 HTTP API, and a refused role the `403` body, on the response topic.
 [API.md](api/API.md#mqtt-access-control) describes the envelope.
@@ -1514,9 +1523,10 @@ not on the same computer.
 
 The runner sends its [state document](#get-request-to-state) whenever
 the document changes: when the state machine enters a state, when the
-script of a state finishes, when a command starts or finishes, and once
-at startup. A document that differs from the last one sent only in its
-`time` is not sent again. Each notification is one JSON object:
+script of a state finishes, when a command starts or finishes, when a
+parameter changes, and once at startup. A document that differs from the
+last one sent only in its `time` is not sent again. Each notification is
+one JSON object:
 
 ```json
 {
@@ -1563,7 +1573,8 @@ requires signatures drops it and waits.
 - `state` and `entry` are those of the machine when the escalation
   happened; `null` and `0` without a machine or before its first
   transition.
-- `event` names the client event of a `no-transition`, else `null`.
+- `event` names the event of a `no-transition`, from a client or a
+  [peer subscription](#peer-events), else `null`.
 - `reason` is that of the request, or the runner's own text, such as
   `script of state execute failed` or
   `no transition for restart in state execute`. `proposal` is that of
