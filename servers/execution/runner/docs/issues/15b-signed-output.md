@@ -186,8 +186,8 @@ trusts that connection; `keygen.mjs` prints the same key.
   header stays at `alg` and `kid`.
 - An MQTT 5 `contentType` of `application/jose` on signed publishes
   (set aside in review): the demo's broker speaks MQTT 3.1.1, which has
-  no such property, and the rule that a payload starting with `{` is
-  plain JSON already tells the two apart.
+  no such property, and a payload that parses as JSON is plain, as a
+  JWS never does, which already tells the two apart.
 
 Signing is opt-in and breaks no route; the descriptor gains a field.
 The version stays as 15a leaves it, as for 07. The Notifications
@@ -414,6 +414,14 @@ so it does not count as a change (recommendation).
   `publicKey` of the signed online notice. The review left the will's
   `time: null` as it is, with a sentence on replay in "Not signed",
   and set aside an MQTT 5 `contentType`.
+- **Plain responses are not all objects.** The spec's rule that a
+  payload starting with `{` is plain JSON holds for notifications, but
+  an MQTT response may be an array: `history` replies `[]`. The e2e
+  `unwrap` took `[]` for a JWS and threw, which only
+  `mqtt.broker.spec.ts` in CI showed, as no local test reads a history
+  reply over MQTT. The test helpers and the demo's `jws.mjs` now take
+  any payload that parses as JSON as plain, since a JWS never does,
+  and API.md says so.
 - **Version.** The plan keeps the version as the earlier issues leave
   it. 11 merged first and took the runner to 0.10.0, so 15b stays at
   0.10.0, merged with `feature/distributed-demo` rather than rebased,

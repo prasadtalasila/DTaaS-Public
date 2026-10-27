@@ -1618,8 +1618,10 @@ export function unwrap(text, key, id) {
 }
 ```
 
-A payload that starts with `{` is plain JSON from a runner without a
-key; whether to accept it is the consumer's choice. The demo's
+A payload that parses as JSON is plain JSON from a runner without a
+key: a notification starts with `{`, and a response may also be an
+array, such as that of `history`. A JWS never parses as JSON. Whether
+to accept a plain payload is the consumer's choice. The demo's
 [tools/jws.mjs](../demo/hospital/tools/jws.mjs) marks each message
 `verified`, `UNSIGNED`, or `INVALID` with the reason: no key file, an
 unreadable key file, a malformed JWS, a wrong `alg` or `kid`, or a bad
