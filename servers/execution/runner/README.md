@@ -140,8 +140,9 @@ The runner creates the directory of the database file if needed. Give
 each runner a database file of its own.
 
 [GET /history](#get-request-to-history) returns the commands with their
-status, exit code, times and caller, and [GET /metrics](#metrics)
-counts them by status since the runner started.
+status, exit code, times, caller and [resources](#resources), and
+[GET /metrics](#metrics) counts them by status and totals their
+resources since the runner started.
 
 Version 0.10.0 made `GET /history` return these records instead of the
 names of the commands, with the `since` and `limit` parameters, and
@@ -388,6 +389,41 @@ unset without an `auth` section. The state machine file may
 The `DOCKER.md` file in the
 [runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
 describes running the runner in a docker container.
+
+### Resources
+
+The runner measures what each script run uses, the commands of
+`POST /` and the scripts of the state machine alike, and reports it
+as `resources` on [POST /](#post-request-to-), [GET /](#get-request-to-),
+[GET /history](#get-request-to-history) and [GET /metrics](#metrics):
+
+```http
+"resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+```
+
+`cpuSeconds` is user plus system CPU time, rounded to the millisecond,
+and `peakRssBytes` the peak resident memory. The runner reports the
+figures and decides nothing; a Manager reads them and acts.
+
+| Platform | `cpuSeconds`                                    | `peakRssBytes`                                            | Process measured                    |
+| :------- | :---------------------------------------------- | :-------------------------------------------------------- | :---------------------------------- |
+| Linux    | fields 14 and 15 of `/proc/<pid>/stat`          | `VmHWM` of `/proc/<pid>/status`                           | the script                          |
+| Windows  | `TotalProcessorTime` of `Get-Process -Id <pid>` | `PeakWorkingSet64`, or the largest `WorkingSet64` sampled | `powershell.exe` running the script |
+| other    | `null`                                          | `null`                                                    | none                                |
+
+On Windows the figures are those of `powershell.exe`, so they include
+PowerShell's own: an idle PowerShell loop peaks at about 110 MB.
+Processes that a script starts are not counted on either platform.
+
+A process that has exited can no longer be read, so the runner samples
+it while it runs: on Linux at the start and every 500 ms, on Windows
+through one `powershell.exe` per run, which needs a second or more to
+start. The figures are those of the last sample, so they are lower
+bounds that may miss up to half a second of use before the exit. A
+script that ends before its first sample, such as a short PowerShell
+script, reports `null`, as does a refused command, a command that is
+still running, and one recorded before the runner measured resources.
+Measuring never fails, delays or stops a script.
 
 ## State Machine
 
@@ -826,7 +862,12 @@ The response tells how the command ended, with its result:
 ```http
 {
   "status": "failed",
-  "result": { "exitCode": 3, "stdout": "", "stderr": "no free bed" }
+  "result": {
+    "exitCode": 3,
+    "stdout": "",
+    "stderr": "no free bed",
+    "resources": { "cpuSeconds": 0.002, "peakRssBytes": 1572864 }
+  }
 }
 ```
 
@@ -843,7 +884,8 @@ logs of the script whatever its outcome. `exitCode` is `null` for a
 stopped script. On Linux it is also `null` for a script that could not
 start or was killed by a signal. On Windows, a missing script is
 reported with the exit code of `powershell.exe`, and a script killed
-from outside with 1.
+from outside with 1. `resources` holds what the script used, as
+described in [Resources](#resources).
 
 Version 0.7.0 added `input`, `result` and the `failed` status; before
 it, a script that failed was answered `invalid command` with HTTP
@@ -863,7 +905,8 @@ code:
     "stdout": "<output log of command>",
     "stderr": "<error log of command>"
   },
-  "exitCode": 0
+  "exitCode": 0,
+  "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
 }
 ```
 
@@ -873,6 +916,8 @@ that failed, `stopped` for one that a stop request stopped,
 [Command History](#command-history)), and `invalid` for a command that
 is not permitted, whose logs are empty and whose `exitCode` is `null`.
 Before the first command, the name is `none` and the status `invalid`.
+The [resources](#resources) are `null` before the first command and
+while the latest one runs.
 
 If an incorrectly formatted JSON is sent via POST request,
 a validation error is returned.
@@ -889,8 +934,9 @@ a validation error is returned.
 
 Returns the commands received, oldest first, both valid and invalid
 ones; a repeated request is not recorded again. Each record has the
-status, exit code and times of the command, and the principal that
-sent it (see [Access Control](#access-control)), or `null`:
+status, exit code and times of the command, the principal that sent
+it (see [Access Control](#access-control)), or `null`, and the
+[resources](#resources) its script used:
 
 ```http
 [
@@ -901,7 +947,8 @@ sent it (see [Access Control](#access-control)), or `null`:
     "exitCode": 0,
     "receivedAt": "2026-10-26T14:55:51.000Z",
     "finishedAt": "2026-10-26T14:55:52.000Z",
-    "by": null
+    "by": null,
+    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
   },
   {
     "id": 2,
@@ -910,7 +957,8 @@ sent it (see [Access Control](#access-control)), or `null`:
     "exitCode": null,
     "receivedAt": "2026-10-26T14:55:59.000Z",
     "finishedAt": null,
-    "by": "alice"
+    "by": "alice",
+    "resources": { "cpuSeconds": null, "peakRssBytes": null }
   }
 ]
 ```
@@ -1330,7 +1378,8 @@ curl http://localhost:5000/health
 #### Metrics
 
 `GET /metrics` counts what the runner did since it started: the
-commands by status, and with a state machine the entries into each
+commands by status, the [resources](#resources) of each command, and
+with a state machine the entries into each
 state, the seconds spent there, the scripts that finished, and the
 transition and event requests; and the escalations by trigger.
 
@@ -1346,6 +1395,10 @@ transition and event requests; and the escalations by trigger.
     "interrupted": 0,
     "running": 1
   },
+  "resources": {
+    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512 },
+    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464 }
+  },
   "machine": {
     "entries": { "open": 3, "full": 1 },
     "seconds": { "open": 34.4, "full": 4.6 },
@@ -1357,6 +1410,8 @@ transition and event requests; and the escalations by trigger.
 }
 ```
 
+`resources` sums the CPU seconds of each command's runs and keeps the
+largest peak of one run; a command without a measured run is left out.
 `machine` is `null` without a state machine. `completions` counts the
 scripts that finished in the entry they started in: a transition with
 `stop: true` enters its next state before the stopped script ends, so
