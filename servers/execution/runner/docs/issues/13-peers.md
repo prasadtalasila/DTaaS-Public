@@ -347,6 +347,10 @@ stays where 15a leaves it (the delivery rules bump only for a break).
   such strings with an editor rather than through a shell. The Qlty
   CLI was not installed on the host, so the complexity of the new
   functions was checked by hand against the limits of the lessons.
+- **Qlty on the PR** found one smell that the hand count missed:
+  `refuseSelf` at complexity 5, as the two `if`s and the `&&` inside its
+  `forEach` callback count towards it. It now loops over the keys `id`
+  and `topic` with an `indexesOf` helper, like `repeats`.
 - **Version and decision.** The version stays where 11 left it, 0.10.0,
   as the Spec says: new routes, an optional key and a descriptor field
   break no route. 11 took D30, so the peer list is D31.

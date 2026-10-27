@@ -49,18 +49,27 @@ export type Own = { id: string; topic?: string };
 
 const SELF = 'is the runner itself';
 
+// The indexes of the values equal to the given one, if it is defined
+const indexesOf = (values: (string | undefined)[], value?: string) =>
+  values.flatMap((each, index) =>
+    value !== undefined && each === value ? [index] : [],
+  );
+
 export function refuseSelf(
   peers: PeerConfig[],
   own: Own,
   context: z.RefinementCtx,
 ): void {
-  peers.forEach(({ id, topic }, index) => {
-    const path = (key: string) => ['peers', index, key];
-    if (id === own.id) {
-      context.addIssue({ code: 'custom', message: SELF, path: path('id') });
-    }
-    if (topic !== undefined && topic === own.topic) {
-      context.addIssue({ code: 'custom', message: SELF, path: path('topic') });
-    }
-  });
+  (['id', 'topic'] as const).forEach((key) =>
+    indexesOf(
+      peers.map((peer) => peer[key]),
+      own[key],
+    ).forEach((index) =>
+      context.addIssue({
+        code: 'custom',
+        message: SELF,
+        path: ['peers', index, key],
+      }),
+    ),
+  );
 }
