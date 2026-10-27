@@ -1,5 +1,5 @@
-// Unwraps what the runner sends: plain JSON, or a compact JWS that the
-// runner signs with auth.key, verified with its public key in
+// Unwraps what a runner sends: plain JSON, or a compact JWS that the
+// runner signs with auth.key, verified with the public key of the DT in
 // run/keys/<id>.pub, which keygen.mjs writes beside the key. Gives
 // { mark, value } with mark verified or UNSIGNED, or { mark: 'INVALID',
 // reason, unverified }: the reason it failed, and the payload decoded
@@ -8,20 +8,21 @@
 import { createPublicKey, verify } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { ID } from './settings.mjs';
 
-const FILE = fileURLToPath(new URL(`../run/keys/${ID}.pub`, import.meta.url));
+const keyFile = (id) =>
+  fileURLToPath(new URL(`../run/keys/${id}.pub`, import.meta.url));
 
 const decode = (part) => JSON.parse(Buffer.from(part, 'base64url'));
 
 // Read on each call, as a recording may write the key after it starts;
 // a file that is missing or half written is no key
-function readKey() {
-  if (!existsSync(FILE)) {
+function readKey(id) {
+  const file = keyFile(id);
+  if (!existsSync(file)) {
     return { reason: 'no key file' };
   }
   try {
-    const x = readFileSync(FILE, 'utf8').trim();
+    const x = readFileSync(file, 'utf8').trim();
     const jwk = { kty: 'OKP', crv: 'Ed25519', x };
     return { key: createPublicKey({ key: jwk, format: 'jwk' }) };
   } catch {
@@ -50,14 +51,15 @@ function signedBy(segments, key) {
 }
 
 // Why the JWS fails, the first check that does, or undefined when the
-// key verifies it
-function failure(segments, { key, reason }) {
+// key of the DT verifies it
+function failure(segments, id) {
   const { alg, kid } = header(segments) ?? {};
+  const { key, reason } = readKey(id);
   const checks = [
     [() => alg === undefined, 'malformed'],
     [() => key === undefined, reason],
     [() => alg !== 'Ed25519', `wrong alg ${alg}`],
-    [() => kid !== ID, `wrong kid ${kid}`],
+    [() => kid !== id, `wrong kid ${kid}`],
     [() => !signedBy(segments, key), 'bad signature'],
   ];
   return checks.find(([fails]) => fails())?.[1];
@@ -82,25 +84,16 @@ function plain(text) {
   }
 }
 
-export default function unwrap(text) {
+// A message of the DT of the given id, or without one of the DT that
+// the payload names, such as a post to the webhook, which every DT sends
+export default function unwrap(text, id) {
   const unsigned = plain(text);
   if (unsigned !== undefined) {
     return unsigned;
   }
   const segments = text.split('.');
-  const reason = failure(segments, readKey());
+  const reason = failure(segments, id ?? peek(segments)?.id);
   return reason === undefined
     ? { mark: 'verified', value: decode(segments[1]) }
     : { mark: 'INVALID', reason, unverified: peek(segments) };
-}
-
-// One line of the logs: the mark and the summary, or for an INVALID
-// message the reason and the payload as it came, marked unverified
-export function marked(text, label, describe) {
-  const { mark, value, reason, unverified } = unwrap(text);
-  if (mark !== 'INVALID') {
-    return `${mark.padEnd(8)} ${label} ${describe(value)}`;
-  }
-  const shown = JSON.stringify(unverified ?? null);
-  return `INVALID  ${label} (${reason}) unverified ${shown}`;
 }
