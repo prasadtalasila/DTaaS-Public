@@ -27,7 +27,9 @@ script comes next. The owner asked for:
 Later issues added parameters (04), the state document and its
 notifications (02, 03), command input and outcome (05), escalation
 (06), presence (07), the script context (08), persistence across
-restarts (09) and stopping scripts (10). Their files are in
+restarts (09), stopping scripts (10), full history and metrics (11),
+the health route (12), peers (13), access control (15a), signed
+output (15b) and peer events (16). Their files are in
 [docs/issues](issues/README.md).
 
 ## Context
@@ -49,7 +51,10 @@ state machine.
    and resumes the stored machine (see [Persistence](#persistence)).
    It runs before any request can arrive.
 1. `MqttService.start()`, then `app.listen`, which runs the
-   `onModuleInit` and `onApplicationBootstrap` hooks: the `Notifier`
+   `onModuleInit` and `onApplicationBootstrap` hooks.
+   `DescriptorService` starts the metrics and loads `Peers`, which
+   signals each enabled peer, so that `PeerWatch` follows its notify
+   topics; the `Notifier`
    subscribes to changes and sends the startup state document, which is
    thus the restored one. `PeerEventsService` declares the subscriptions
    of the loaded file; the first notice of a peer needs I/O, so it
@@ -87,20 +92,35 @@ state machine.
 | `dto/metrics.dto.ts`         | the reply of `GET /metrics`                                          |
 | `dto/parameters.dto.ts`      | parameters body schema and document                                  |
 | `descriptor.service.ts`      | builds `GET /dt`, `GET /state`, `GET /metrics`; forwards signals     |
+| `peers/peers.ts`             | `Peers`: the listed peers, their switches and their last notices     |
+| `peers/peers.config.ts`      | the `peers` schema of `runner.yaml`, unique and not the runner       |
+| `peers/peer-watch.ts`        | `PeerWatch`: follows enabled peers' notices on the broker            |
+| `peers/peer-notice.ts`       | `readNotice`: checks a peer's envelope, and its JWS with a key       |
+| `peers/peers.controller.ts`  | HTTP routes `GET` and `PUT /peers`                                   |
+| `auth/auth.config.ts`        | the `auth` schema: principals, roles and the signing key             |
+| `auth/access.ts`             | `Access`: verifies HTTP tokens, MQTT envelopes and the script token  |
+| `auth/access.guard.ts`       | `AccessGuard`: the role check of every HTTP route                    |
+| `auth/roles.ts`              | `ROUTE_ROLES` of HTTP and MQTT; the manager command check            |
+| `auth/jws.ts`, `claims.ts`   | compact JWS parsing and verification, and the claims of a token      |
+| `auth/signer.ts`             | `Signer`: plain JSON, or a JWS with `auth.key`                       |
+| `notify/webhook.client.ts`   | posts notifications to `notify.url`, with retries                    |
+| `health.service.ts`          | the reply of `GET /health`                                           |
 | `notify/changes.ts`          | `Changes`: a plain signal of a possible change of the document       |
 | `notify/notifier.service.ts` | sends state, escalation and presence notifications                   |
 | `mqtt/*`                     | the request topics of the routes, and the notification topics        |
 | `execa-manager.service.ts`   | runs, joins and stops commands; closes the database at shutdown      |
-| `queue.service.ts`           | SQLite: commands, request keys, parameter changes, the machine row   |
+| `queue.service.ts`           | SQLite: commands, request keys, parameters, machine, peer switches   |
 | `queue.machine.ts`           | the SQL of the `machine` row and of marking commands interrupted     |
 | `queue.history.ts`           | the SQL of a command record, of the history and of command counts    |
+| `queue.peers.ts`             | the SQL of the switches of `PUT /peers`                              |
 
 `FsmService` owns plain objects rather than injected services:
 `Requests`, `Changes`, `RunnerContext`, `Escalations`, `StopChain` and
 `MachineStore`. Each was kept out of the Nest container so that no
 constructor reaches Qlty's limit of four parameters and no dependency
 cycle forms; `DescriptorService` forwards the signals of `FsmService`
-and `Queue` to the `Notifier`, and owns `Metrics` for the same reason.
+and `Queue` to the `Notifier`, and owns `Metrics` and `Peers` for the
+same reason.
 `PeerEventsService` is the one injectable that receives both
 `FsmService` and `DescriptorService`; it owns `PeerEvents` and
 registers with `Peers` in its constructor, as `PeerWatch` does.
@@ -287,8 +307,9 @@ longer the machine's is ignored.
 
 ## Requests
 
-The controllers and the MQTT handler call the same `FsmService` and
-`ParametersController` methods, so both protocols share one contract.
+The controllers and the MQTT handler call the same `FsmService`
+methods, `parameters()` and `setParameters` among them, so both
+protocols share one contract.
 A transition or event reply is `{ status, state }`, where `state` is the
 state after the request or `null`:
 
@@ -359,19 +380,21 @@ malformed body or request key gets the `Validation Failed` response of
 
 ## Persistence
 
-`Queue` keeps four tables in one SQLite database, in memory unless
+`Queue` keeps five tables in one SQLite database, in memory unless
 `runner.yaml` names a file:
 
 | Table          | Rows                                                                 |
 | :------------- | :------------------------------------------------------------------- |
-| `commands`     | each command: name, status, logs, exit code, received and finished   |
+| `commands`     | each command: name, status, logs, exit code, times and principal     |
 | `request_keys` | the `Idempotency-Key` of each `POST /` request, and its command      |
 | `parameters`   | each parameter change, with its value as JSON and its time           |
 | `machine`      | one row (`id` 1): the state (`NULL` unstarted), entry, script status |
+| `peers`        | each switch of `PUT /peers`; a peer's latest overrides the file      |
 
 `CREATE TABLE IF NOT EXISTS` never changes an existing file, so new
-columns come from a guarded `ALTER TABLE` (as 05's `exit_code`) and new
-tables from the schema itself (as 09's `machine`).
+columns come from a guarded `ALTER TABLE` (as 05's `exit_code` and
+15a's `by`) and new tables from the schema itself (as 09's `machine`
+and 13's `peers`).
 
 `MachineStore.save` writes the machine with `INSERT OR REPLACE` at each
 entry, with status `running`, and at each script exit. A failed write
@@ -451,7 +474,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D26 | Presence: an online notice per connect, an offline notice, a will                              | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                                                                                                                                                                                                                                                                                                |
 | D27 | Command input goes to stdin, is not stored, and a failed script is told from a refused command | Added by issue 05. Stdin keeps input off the command line of a remote execution service. The input may hold personal data and nothing reads it back. A permitted script that fails is `failed` (200, with its result); `invalid command` (400) stays for a command that is not permitted. The machine's `ScriptStatus` keeps `invalid` for a failed script.                                                                                                                                                                                                                                                                               |
 | D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                                                                                                                                                                                                                                                                                                         |
-| D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                                                                                                                                                                                                                                                                                                 |
+| D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth.principals` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                                                                                                                                                                                                                                                                                      |
 | D30 | Full history records, and metrics as counters in memory                                        | Added by issue 11 (S14). A Manager measures a DT network from the outcomes of commands with their times, so `GET /history` returns the stored records with `since` and `limit`; `since` is compared to the second, as times are stored. `GET /metrics` counts from the signals that `FsmService` already has (`onChange`, `onAnswer`, `onEscalation`) and from a query of the commands above the highest id of the start, so nothing new is stored and a restart resets the counters. Metrics stay out of the state document, so a counter sends no notification. `escalations` is top level, as `POST /escalate` needs no machine (D25). |
 | D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event of its own. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones. Amended by issue 16: a subscription turns a notice into an event (D34).                                                                                                                                                                                                             |
 | D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                            |
@@ -493,10 +516,10 @@ proposal to derive the events from the transitions was declined (D4).
   machine.
 - A8: Anyone who can call the API can drive the machine, as anyone can
   call `POST /` today. Access control stays with the network and the
-  MQTT broker. Amended by issue 15a: with an `auth` section, only the
+  MQTT broker. Amended by issue 15a: with `auth.principals`, only the
   listed principals and the runner's own scripts can call the API, each
   in its role (D29); the broker's access control remains the outer
-  wall. Without `auth`, A8 holds as written.
+  wall. Without `auth.principals`, A8 holds as written.
   Amended by issue 15b: with `auth.key`, a receiver can also tell that
   a notification or an MQTT response came from the DT unchanged (D32).
   A signature does not show that a message is new, so the broker's
@@ -547,13 +570,20 @@ tests of the state machine:
   and
   `restart.spec.ts`, which restarts a runner on
   its database file with `startStoredRunner`.
+- Around the machine: access control in `auth.*.spec.ts` (unit) and
+  `test/e2e/auth*.spec.ts`; peers in `peers*.spec.ts`,
+  `peer-notice*.spec.ts`, `peer-watch.spec.ts`, `queue.peers.spec.ts`
+  and `test/e2e/mqtt.peers*.spec.ts`; signed output in `signer.spec.ts`,
+  `mqtt.signed.spec.ts`, `webhook.signed.spec.ts`,
+  `config.key.spec.ts` and `test/e2e/signed.spec.ts`.
 - `mqtt.broker.spec.ts` runs only in CI, against Mosquitto with MQTT 5;
   a change to a reply shape must be checked there too.
 - `dist.spec.ts` starts the build, which catches an import without its
   `.js` suffix that ts-jest resolves.
 
-eslint lints no `.ts` file here, so type errors, also in tests, show
-only in `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`.
+eslint lints the `.ts` files (`yarn syntax`), but ts-jest runs tests
+that do not type-check, so run
+`npx tsc --noEmit --noUnusedLocals --noUnusedParameters` as well.
 
 ## Changing the Implementation
 
