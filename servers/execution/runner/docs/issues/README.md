@@ -29,7 +29,7 @@ no file.
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done      | #90 |
 | [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | in review | #93 |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
-| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | in review |     |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | in review | #94 |
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
 | [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned   |     |
 

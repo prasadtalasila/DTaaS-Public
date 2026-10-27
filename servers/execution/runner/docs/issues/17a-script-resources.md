@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 11
-- PR: none yet
+- PR: [#94](https://github.com/prasadtalasila/DTaaS-Public/pull/94)
 - Research note:
   [item 17](../dtn-research-notes.md#17-resource-and-fidelity-reporting)
 
