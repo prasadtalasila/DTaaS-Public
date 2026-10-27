@@ -1,10 +1,14 @@
 import type { EscalationData } from '../dto/escalation.dto.js';
-import type { FsmReplyDto, FsmStateDto, ScriptStatus } from '../dto/fsm.dto.js';
+import {
+  COMPLETION_OF_STATUS,
+  type FsmReplyDto,
+  type FsmStateDto,
+  type ScriptStatus,
+} from '../dto/fsm.dto.js';
 import type {
   EscalationCounts,
   MachineMetricsDto,
 } from '../dto/metrics.dto.js';
-import type { CompletionEvent } from './definition.js';
 
 // The machine as last observed, and when it entered its state, in
 // milliseconds since the epoch
@@ -13,13 +17,6 @@ type Observed = {
   entry: number;
   status: ScriptStatus;
   enteredAt: number;
-};
-
-// The completion event of a script that left running with the status
-const COMPLETED: Partial<Record<ScriptStatus, CompletionEvent>> = {
-  valid: '$success',
-  invalid: '$failure',
-  stopped: '$stopped',
 };
 
 const copy = <T extends object>(counts: T): T => ({ ...counts });
@@ -126,7 +123,7 @@ export default class Metrics {
   }
 
   private complete(before: ScriptStatus, after: ScriptStatus): void {
-    const event = COMPLETED[after];
+    const event = COMPLETION_OF_STATUS[after];
     if (before === 'running' && event !== undefined) {
       this.completions[event] += 1;
     }

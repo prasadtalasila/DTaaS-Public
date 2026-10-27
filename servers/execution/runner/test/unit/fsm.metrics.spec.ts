@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { EscalationData } from 'src/dto/escalation.dto';
-import { FsmStateDto, ScriptStatus } from 'src/dto/fsm.dto';
+import { COMPLETION, FsmStateDto, ScriptStatus, STATUS } from 'src/dto/fsm.dto';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 import Metrics from 'src/fsm/metrics';
 
 // The clock of the tests, in milliseconds since the runner started
@@ -122,6 +123,18 @@ describe('Metrics of the state machine', () => {
       noTransition: 1,
     });
   });
+
+  it.each(Object.keys(STATUS) as RunOutcome[])(
+    'counts a script that ends with %s by its completion event',
+    (outcome) => {
+      const metrics = twoEntries();
+      metrics.observe(machine('full', 2, STATUS[outcome]), at(5));
+
+      const { completions } = metrics.report(at(6)).machine ?? {};
+
+      expect(completions?.[COMPLETION[outcome]]).toBe(1);
+    },
+  );
 
   it('counts the escalations by trigger, with or without a machine', () => {
     const metrics = new Metrics();
