@@ -3,6 +3,7 @@ import {
   COMPLETION_OF_STATUS,
   type FsmReplyDto,
   type FsmStateDto,
+  type FsmStatus,
   type ScriptStatus,
 } from '../dto/fsm.dto.js';
 import type {
@@ -45,6 +46,12 @@ export default class Metrics {
 
   private readonly events = { requested: 0, accepted: 0, noTransition: 0 };
 
+  // The counters of each kind of request
+  private readonly requests = {
+    transition: this.transitions,
+    event: this.events,
+  };
+
   private readonly escalations: EscalationCounts = {
     request: 0,
     failure: 0,
@@ -74,14 +81,9 @@ export default class Metrics {
 
   // A transition request, or an event request or raised event
   answered({ kind }: FsmRequest, { status }: FsmReplyDto): void {
-    const counts = kind === 'transition' ? this.transitions : this.events;
+    const counts = this.requests[kind];
     counts.requested += 1;
-    if (status === 'accepted') {
-      counts.accepted += 1;
-    }
-    if (status === 'no transition') {
-      this.events.noTransition += 1;
-    }
+    this.countStatus(counts, status);
   }
 
   escalated({ trigger }: EscalationData): void {
@@ -119,6 +121,16 @@ export default class Metrics {
       transitions: copy(this.transitions),
       events: copy(this.events),
     };
+  }
+
+  // An accepted request, or an event without a transition
+  private countStatus(counts: { accepted: number }, status: FsmStatus): void {
+    if (status === 'accepted') {
+      counts.accepted += 1;
+    }
+    if (status === 'no transition') {
+      this.events.noTransition += 1;
+    }
   }
 
   private complete(before: ScriptStatus, after: ScriptStatus): void {
