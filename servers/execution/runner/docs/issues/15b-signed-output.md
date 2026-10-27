@@ -379,5 +379,7 @@ so it does not count as a change (recommendation).
   restored after each run; the recording stays as it is, so API.md's
   logged outputs gained the marks only where the tools print them
   today.
-- **Version.** The plan keeps the version as 15a left it, so the
-  runner stays at 0.9.0; 11 takes 0.10.0.
+- **Version.** The plan keeps the version as the earlier issues leave
+  it. 11 merged first and took the runner to 0.10.0, so 15b stays at
+  0.10.0, merged with `feature/distributed-demo` rather than rebased,
+  as the pull request was already open.
