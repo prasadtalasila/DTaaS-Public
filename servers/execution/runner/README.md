@@ -20,6 +20,18 @@ until the package reaches version 1.0.0.
 The runner works on Linux and Windows. On Windows, it runs
 the PowerShell version of each script (see [Create Commands](#create-commands)).
 
+Other documents of the runner:
+
+- [STATE-MACHINE.md](STATE-MACHINE.md): writing and running a state
+  machine.
+- [api/API.md](api/API.md): every route, topic and notification, with
+  examples.
+- [DOCKER.md](DOCKER.md): running the runner in a container.
+- [SECURITY-MODEL.md](SECURITY-MODEL.md): what the runner protects from
+  its scripts, and what it expects of the system that starts it.
+- [DEVELOPER.md](DEVELOPER.md) and the
+  [design document](docs/state-machine-design.md): for developers.
+
 ## Install
 
 The runner needs Node.js 24 or later.

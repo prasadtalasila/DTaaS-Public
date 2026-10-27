@@ -156,3 +156,9 @@ has an `mqtt` section. Inside the container, `localhost` refers to the
 container itself, so give the broker's hostname or IP address in its
 `url`. The [README](./README.md) describes the API responses and
 the MQTT topics in detail.
+
+The container is the boundary between the runner and the host, but the
+scripts in it run as the runner's own account and can read
+`runner.yaml` and the key. [SECURITY-MODEL.md](./SECURITY-MODEL.md)
+describes the threat model, the planned separation of the runner from
+its scripts, and the compose lines it will need.
