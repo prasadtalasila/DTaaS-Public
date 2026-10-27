@@ -396,7 +396,7 @@ runner part are merged (this plan's call).
       a peer with a key raises nothing; a disabled peer raises nothing
       until enabled. Check: `test/e2e/peer-events.spec.ts` (new), with
       `startBroker` of `test/e2e/mqtt.util.ts`.
-- [ ] `test/e2e/mqtt.broker.spec.ts` asserts no shape that 16 changes.
+- [x] `test/e2e/mqtt.broker.spec.ts` asserts no shape that 16 changes.
       Check: grep it, and its CI run against Mosquitto.
 - [x] README, `STATE-MACHINE.md`, the design document (the next free
       D number when the pull request is opened; A4 amended: "Amended
@@ -492,12 +492,15 @@ transition` and as a warning otherwise, without the peer, as the
   `{{@request}}` script of 15a throws `keyFile is not defined` while
   `@keyFile` is commented out, which predates this issue.
 - **Tests and checks.** The whole suite passed on Windows with
-  `--maxWorkers=2`: 105 suites, 953 tests, 9 skipped, 100 % of lines
-  covered. On the merge base, two suites had failed on the same host
-  with 5 s timeouts (`options.spec.ts`, `auth.mqtt.spec.ts`), which
-  passed on the run with this branch. The Qlty CLI is not installed
-  here, so the complexity of the new functions was counted by hand;
-  CI's Qlty is the check.
+  `--maxWorkers=2`: 105 suites and 953 tests (9 skipped) before the
+  merge with 17a, 110 suites and 997 tests (10 skipped) after it. On
+  the merge base, two suites had failed on the same host with 5 s
+  timeouts (`options.spec.ts`, `auth.mqtt.spec.ts`), which passed on
+  the runs with this branch. `mqtt.broker.spec.ts` passed in CI against
+  Mosquitto, and asserts no shape that 16 changes (grep). The Qlty CLI
+  is not installed here, so the complexity of the new functions was
+  counted by hand; CI's Qlty reported no blocking issue, SonarCloud no
+  new issue, and Codecov every changed line covered.
 - **Version and decision.** The version stays at 0.10.0, as the Spec
   says: an optional section breaks no file and no route. 17a, in
   progress at the same time, may bump it; whichever merges second
