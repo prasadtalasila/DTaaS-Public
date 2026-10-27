@@ -46,11 +46,11 @@ export function capGaps(casts) {
     (a, b) => a - b,
   );
   const capped = new Map();
-  times.reduce((last, time, index) => {
-    const gap = Math.min(time - (times[index - 1] ?? 0), MAX_GAP);
-    capped.set(time, last + gap);
-    return last + gap;
-  }, 0);
+  let last = 0;
+  times.forEach((time, index) => {
+    last += Math.min(time - (times[index - 1] ?? 0), MAX_GAP);
+    capped.set(time, last);
+  });
   events.forEach((event) => {
     event[0] = Number(capped.get(event[0]).toFixed(3));
   });
