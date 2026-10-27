@@ -16,6 +16,7 @@ export const ROUTE_ROLES: Record<MqttRoute, RouteRoles> = {
   state: EVERY_ROLE,
   status: EVERY_ROLE,
   history: EVERY_ROLE,
+  metrics: EVERY_ROLE,
   fsm: EVERY_ROLE,
   parameters: EVERY_ROLE,
   execute: ['client', 'manager'],

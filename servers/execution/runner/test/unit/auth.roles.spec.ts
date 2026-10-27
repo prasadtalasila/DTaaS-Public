@@ -11,6 +11,7 @@ const TABLE: Record<MqttRoute, [string, string, string]> = {
   state: ['yes', 'yes', 'yes'],
   status: ['yes', 'yes', 'yes'],
   history: ['yes', 'yes', 'yes'],
+  metrics: ['yes', 'yes', 'yes'],
   fsm: ['yes', 'yes', 'yes'],
   parameters: ['yes', 'yes', 'yes'],
   execute: ['yes', 'listed', 'no'],

@@ -1,20 +1,39 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
+import { MetricsDto } from './dto/metrics.dto.js';
 import { commandState, StateDocumentDto } from './dto/state.dto.js';
 import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
+import Metrics from './fsm/metrics.js';
 import { ChangeListener } from './notify/changes.js';
 import Queue from './queue.service.js';
 
-// Describes the digital twin that this runner serves, and its state
+// Milliseconds since the epoch, on the monotonic clock of the process
+const now = (): number => performance.timeOrigin + performance.now();
+
+// Describes the digital twin that this runner serves, its state, and
+// the metrics of what it did since the runner started
 @Injectable()
-export default class DescriptorService {
+export default class DescriptorService implements OnModuleInit {
+  private readonly counters = new Metrics();
+
   constructor(
     private readonly config: Config,
     private readonly fsm: FsmService,
     private readonly queue: Queue,
   ) {}
+
+  // Runs at init, after main.ts restored the machine, which is the
+  // baseline of the metrics
+  onModuleInit(): void {
+    this.counters.start(this.fsm.check(), performance.timeOrigin);
+    this.fsm.onChange(() => this.counters.observe(this.fsm.check(), now()));
+    this.fsm.onAnswer((request, reply) =>
+      this.counters.answered(request, reply),
+    );
+    this.fsm.onEscalation((data) => this.counters.escalated(data));
+  }
 
   describe(): DescriptorDto {
     return {
@@ -34,6 +53,15 @@ export default class DescriptorService {
       machine: this.fsm.check() ?? null,
       parameters: this.fsm.parameters()?.values() ?? {},
       command: commandState(this.queue.activeCommand()),
+    };
+  }
+
+  metrics(): MetricsDto {
+    return {
+      since: new Date(performance.timeOrigin).toISOString(),
+      uptime: Math.floor(process.uptime()),
+      commands: this.queue.commandCounts(),
+      ...this.counters.report(now()),
     };
   }
 

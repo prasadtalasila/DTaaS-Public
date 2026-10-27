@@ -13,6 +13,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, IClientPublishOptions, MqttClient } from 'mqtt';
+import { commandNames } from 'test/utils';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
 import {
@@ -159,7 +160,9 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
     const repeat = await request('execute', { name: 'create' }, key);
 
     expect(repeat.body).toEqual(first.body);
-    expect((await history().expect(200)).body).toEqual([{ name: 'create' }]);
+    expect(commandNames((await history().expect(200)).body)).toEqual([
+      'create',
+    ]);
   });
 
   it('replies to an MQTT 3.1.1 client on the default response topic', async () => {
@@ -189,7 +192,9 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
       // the broker hands over the retained request on subscription, so
       // before this request; only this one may run
       await request('execute', { name: 'create' });
-      expect((await history().expect(200)).body).toEqual([{ name: 'create' }]);
+      expect(commandNames((await history().expect(200)).body)).toEqual([
+        'create',
+      ]);
     } finally {
       // an empty retained message deletes the retained request
       await client.publishAsync(`${TOPIC}/execute`, '', retained);

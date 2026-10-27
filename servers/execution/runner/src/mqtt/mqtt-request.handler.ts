@@ -20,6 +20,7 @@ import {
 import { escalateSchema } from '../dto/escalation.dto.js';
 import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
 import { healthReport } from '../dto/health.dto.js';
+import { historyQuerySchema } from '../dto/history.dto.js';
 import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
@@ -59,7 +60,9 @@ export default class MqttRequestHandler {
       stopped: await this.manager.stop(name),
     })),
     status: () => this.manager.checkStatus(),
-    history: () => this.manager.checkHistory(),
+    history: this.whenValid(historyQuerySchema, (query) =>
+      this.manager.checkHistory(query),
+    ),
     transition: this.whenValid(transitionSchema, ({ state }, request) =>
       this.fsm.transition(state, request.requestKey),
     ),
@@ -69,6 +72,7 @@ export default class MqttRequestHandler {
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
     dt: () => this.descriptor.describe(),
     state: () => this.descriptor.state(),
+    metrics: () => this.descriptor.metrics(),
     // a request arrives only over a connected client
     health: () => healthReport('connected', this.manager.databaseMode()),
     parameters: () => this.parameterDocument(),

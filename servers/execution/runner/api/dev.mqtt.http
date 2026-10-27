@@ -37,6 +37,30 @@ QoS: 1
 
 ###
 
+# @name historySince
+MQTT {{broker}}
+Subscribe: {{topic}}/history/response
+Publish: {{topic}}/history
+QoS: 1
+
+{"since": "2026-10-26T14:56:00Z", "limit": 2}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name metrics
+MQTT {{broker}}
+Subscribe: {{topic}}/metrics/response
+Publish: {{topic}}/metrics
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name execute
 MQTT {{broker}}
 Subscribe: {{topic}}/execute/response

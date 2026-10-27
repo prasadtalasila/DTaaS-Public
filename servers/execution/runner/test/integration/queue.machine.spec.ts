@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { commandState } from 'src/dto/state.dto';
 import Queue from 'src/queue.service';
+import { commandNames } from 'test/utils';
 
 const STARTED = { state: 'execute', entry: 3, status: 'running' } as const;
 
@@ -60,7 +61,7 @@ describe('Queue machine store', () => {
 
     queue.open(file);
 
-    expect(queue.checkHistory()).toEqual([{ name: 'create' }]);
+    expect(commandNames(queue.history({ limit: 100 }))).toEqual(['create']);
     expect(queue.loadMachine()).toBeUndefined();
   });
 

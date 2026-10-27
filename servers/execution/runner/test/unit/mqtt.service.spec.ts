@@ -36,6 +36,7 @@ describe('MQTT service', () => {
         'dtaas/runner/parameters',
         'dtaas/runner/set-parameters',
         'dtaas/runner/escalate',
+        'dtaas/runner/metrics',
       ],
       { qos: 1 },
       expect.any(Function),

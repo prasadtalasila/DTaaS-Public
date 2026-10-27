@@ -12,7 +12,7 @@ import Keyv from 'keyv';
 import Config from 'src/config/configuration.service';
 import ExecaManager from 'src/execa-manager.service';
 import Queue from 'src/queue.service';
-import { configFilename } from 'test/utils';
+import { configFilename, commandNames } from 'test/utils';
 
 // Each test runs a script, and PowerShell takes a second or more to
 // start on a loaded Windows host
@@ -47,7 +47,7 @@ describe('Execution manager across restarts', () => {
 
     expect(status).toBe('failed');
     expect(exitCode).toBeNull();
-    expect(manager.checkHistory()).toStrictEqual([{ name: 'create' }]);
+    expect(commandNames(manager.checkHistory())).toStrictEqual(['create']);
   });
 
   // FsmService stores the status of a script a few microtasks after

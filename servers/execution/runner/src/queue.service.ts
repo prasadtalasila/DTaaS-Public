@@ -6,8 +6,9 @@ import {
   CommandRecord,
   CommandResult,
 } from './interfaces/command.interface.js';
-import { ExecuteCommandDto } from './dto/command.dto.js';
 import { DatabaseMode } from './dto/health.dto.js';
+import { HistoryEntryDto, HistoryQuery } from './dto/history.dto.js';
+import { CommandCounts } from './dto/metrics.dto.js';
 import { StoredMachine } from './dto/fsm.dto.js';
 import { RunOutcome } from './interfaces/runner.interface.js';
 import { ParameterValue } from './dto/parameters.dto.js';
@@ -19,17 +20,16 @@ import {
   toStoredMachine,
 } from './queue.machine.js';
 import { createSchema } from './queue.schema.js';
-
-// The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
-// turns into ISO 8601 UTC; strftime of NULL is NULL
-const RECORD = `SELECT id, name, status, stdout, stderr,
-  exit_code AS exitCode,
-  strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
-  strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt,
-  finished_at IS NOT NULL AS finished FROM commands`;
-
-const RECORD_BY_KEY = `${RECORD} WHERE id =
-  (SELECT command_id FROM request_keys WHERE request_key = ?)`;
+import {
+  COMMAND_COUNTS,
+  HISTORY,
+  LAST_ID,
+  RECORD,
+  RECORD_BY_KEY,
+  toCommandCounts,
+  toHistoryEntry,
+  toRecord,
+} from './queue.history.js';
 
 // The status of a finished command in the commands table; a command
 // that is not permitted keeps the default, invalid
@@ -39,25 +39,6 @@ const STATUS: Record<RunOutcome, string> = {
   stopped: 'stopped',
 };
 
-function toRecord(
-  row: Record<string, unknown> | undefined,
-): CommandRecord | undefined {
-  if (row === undefined) {
-    return undefined;
-  }
-  return {
-    id: Number(row.id),
-    name: String(row.name),
-    status: String(row.status),
-    stdout: String(row.stdout),
-    stderr: String(row.stderr),
-    exitCode: row.exitCode as number | null,
-    finished: Boolean(row.finished),
-    receivedAt: String(row.receivedAt),
-    finishedAt: row.finishedAt as string | null,
-  };
-}
-
 // Keeps the received commands and their results in SQLite, in memory
 // unless open() names a database file
 @Injectable({ scope: Scope.DEFAULT })
@@ -66,6 +47,9 @@ export default class Queue {
 
   // Signals a command that starts or finishes
   private readonly changes = new Changes();
+
+  // The highest id before this start, and the rows it marked interrupted
+  private start = { id: 0, interrupted: 0 };
 
   onChange(listener: ChangeListener): void {
     this.changes.on(listener);
@@ -140,11 +124,17 @@ export default class Queue {
     this.changes.emit();
   }
 
-  checkHistory(): Array<ExecuteCommandDto> {
+  history({ since, limit }: HistoryQuery): HistoryEntryDto[] {
     return this.db
-      .prepare('SELECT name FROM commands ORDER BY id')
-      .all()
-      .map(({ name }) => ({ name: String(name) }));
+      .prepare(HISTORY)
+      .all({ since: since ?? null, limit })
+      .map(toHistoryEntry);
+  }
+
+  // The commands received since the start, by status
+  commandCounts(): CommandCounts {
+    const rows = this.db.prepare(COMMAND_COUNTS).all(this.start.id);
+    return toCommandCounts(rows, this.start.interrupted);
   }
 
   activeCommand(): CommandRecord | undefined {
@@ -204,8 +194,11 @@ export default class Queue {
   }
 
   // Marks the commands that never finished, as no script survives a
-  // restart; time is an ISO 8601 time
+  // restart; time is an ISO 8601 time. Runs once, at the start, which
+  // the command counts begin from.
   markInterrupted(time: string): void {
-    this.db.prepare(MARK_INTERRUPTED).run(time);
+    const { changes } = this.db.prepare(MARK_INTERRUPTED).run(time);
+    const last = this.db.prepare(LAST_ID).get();
+    this.start = { id: Number(last?.id), interrupted: Number(changes) };
   }
 }

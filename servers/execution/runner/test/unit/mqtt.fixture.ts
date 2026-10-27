@@ -8,6 +8,7 @@ import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { MqttRequest, parseJson } from 'src/mqtt/mqtt-request';
 import MqttService, { MqttConnect } from 'src/mqtt/mqtt.service';
 import { MqttConfig } from 'src/mqtt/mqtt.config';
+import { HistoryQuery } from 'src/dto/history.dto';
 import { CommandOptions } from 'src/interfaces/command.interface';
 import { RunOutcome } from 'src/interfaces/runner.interface';
 
@@ -90,6 +91,16 @@ export const status = {
   exitCode: 0,
 };
 
+export const historyEntry = {
+  id: 1,
+  name: 'create',
+  status: 'valid',
+  exitCode: 0,
+  receivedAt: '2026-10-25T10:00:00.000Z',
+  finishedAt: '2026-10-25T10:00:01.000Z',
+  by: null,
+};
+
 // An ExecaManager whose commands all end with the outcome, for the
 // MQTT request handler tests
 export const fakeManager = (outcome: RunOutcome) => ({
@@ -98,7 +109,7 @@ export const fakeManager = (outcome: RunOutcome) => ({
       Promise.resolve([outcome, new Map(), null]),
   ),
   checkStatus: jest.fn(() => status),
-  checkHistory: jest.fn(() => [{ name: 'create' }]),
+  checkHistory: jest.fn((_query?: HistoryQuery) => [historyEntry]),
   databaseMode: jest.fn(() => 'file'),
   stop: jest.fn((_name?: string) => Promise.resolve(['create'])),
 });
@@ -120,8 +131,24 @@ export const stateDocument = {
   command: null,
 };
 
+export const metricsDocument = {
+  since: '2026-10-25T09:59:00.000Z',
+  uptime: 60,
+  commands: {
+    valid: 1,
+    failed: 0,
+    stopped: 0,
+    invalid: 0,
+    interrupted: 0,
+    running: 0,
+  },
+  machine: null,
+  escalations: { request: 0, failure: 0, 'no-transition': 0 },
+};
+
 // A DescriptorService, for the MQTT request handler tests
 export const fakeDescriptor = () => ({
   describe: jest.fn(() => dt),
   state: jest.fn(() => stateDocument),
+  metrics: jest.fn(() => metricsDocument),
 });
