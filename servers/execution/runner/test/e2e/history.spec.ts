@@ -70,6 +70,8 @@ describe('GET /history', () => {
     'limit=1001',
     'limit=1.5',
     'since=yesterday',
+    // a + that is not percent-encoded arrives as a space
+    'since=2026-10-26T16:56:00+02:00',
     'limit=1&limit=2',
   ])('refuses %s', async (query) => {
     const { body } = await history(`?${query}`).expect(HttpStatus.BAD_REQUEST);

@@ -825,7 +825,10 @@ The status is `running` until the command finishes, then as
 query parameters select the records:
 
 - `since`, an ISO 8601 time with `Z` or an offset: the records received
-  at that second or later, as times are stored to the second.
+  at that second or later, as times are stored to the second. In a URL,
+  write the `+` of an offset as `%2B`, as in
+  `since=2026-10-26T16:56:00%2B02:00`; a plain `+` arrives as a space,
+  and the request is refused with `400`.
 - `limit`, from 1 to 1000, by default 100: the newest records of the
   selection, still oldest first.
 

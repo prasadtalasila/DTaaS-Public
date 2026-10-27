@@ -547,6 +547,10 @@ parameter given twice, or an MQTT payload that is not a JSON object,
 gets the validation error of the [Conventions](#conventions). Unknown
 parameters are ignored.
 
+In a URL, the `+` of an offset must be percent-encoded as `%2B`, as in
+`since=2026-10-26T16:56:00%2B02:00`: a plain `+` arrives as a space, and
+the request is refused with `400`.
+
 ### POST /stop
 
 Stops the running command of the given name, or every running command
