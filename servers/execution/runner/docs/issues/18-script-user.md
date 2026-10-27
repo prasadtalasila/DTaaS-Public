@@ -1,8 +1,8 @@
 # 18 Script User
 
-- Status: planned
+- Status: in review
 - Depends on: 15b (the key it protects), 17a (the measurement it keeps)
-- PR: none yet
+- PR: [#97](https://github.com/prasadtalasila/DTaaS-Public/pull/97)
 - Research note: [SECURITY-MODEL.md](../../SECURITY-MODEL.md), from
   the research in `docs/sandbox-runtime-research.md` and
   `docs/firecracker-research.md`, which a separate pull request adds
@@ -344,6 +344,10 @@ metrics, signing or peers.
 
 ### Linux Demo
 
+Postponed to the recording of issue 16 (owner's decision, after this
+plan): once 17b, 17c and 18 are merged, 16's recording records both
+platforms with the setting on. The plan below stands for it.
+
 The owner's decision: a shell variant of the hospital scripts, recorded
 in WSL with the setting on as a second cast beside the Windows one,
 from a copy of the demo inside the WSL filesystem, as file modes on
@@ -610,6 +614,17 @@ The implementing pull request adds to `docs/state-machine-design.md`:
    - starts a second runner whose key is `644`, and expects it to exit
      with an error that names the key's path and does not contain
      `PRIVATE KEY`.
+1. `PRIVILEGE-SETUP.md` (new), as the Spec lists, tried on WSL for the
+   systemd and `setpriv` starts and on the host's Docker for the
+   compose lines, which SECURITY-MODEL.md marks _unverified_.
+1. Documents, as in Tasks.
+
+### Deferred to 16
+
+The owner postponed the Linux demo after this plan was written: it is
+recorded with issue 16's recording, after 17b, 17c and 18 are merged,
+for both platforms with the setting on. Its step, as planned:
+
 1. Demo, in `demo/hospital`: the five commands and `scripts/ward.sh` of
    the Spec; `tools/settings.mjs` gains the script suffix and the ward
    log's path by platform, which `tools/steps.mjs` uses where it names
@@ -620,68 +635,66 @@ The implementing pull request adds to `docs/state-machine-design.md`:
    prints the start line and waits in `startRunner` (`:99-110`). The
    second cast is `hospital-linux.cast`, with its MP4 from
    `tools/to-mp4.sh`.
-1. `PRIVILEGE-SETUP.md` (new), as the Spec lists, tried on WSL for the
-   systemd and `setpriv` starts and on the host's Docker for the
-   compose lines, which SECURITY-MODEL.md marks _unverified_.
-1. Documents, as in Tasks.
 
 ## Tasks
 
-- [ ] `scripts` is optional and strict; `user` is required in it and
+- [x] `scripts` is optional and strict; `user` is required in it and
       takes a name, an integer or a string of digits; `group` is
       optional; `runDirectory` is required and resolved with
       `path.resolve`, an absolute one kept. Check:
       `test/unit/scripts.schema.spec.ts`,
       `test/integration/config.scripts.spec.ts`.
-- [ ] Texts of `/etc/passwd` and `/etc/group` resolve a name, a uid, a
+- [x] Texts of `/etc/passwd` and `/etc/group` resolve a name, a uid, a
       group name and a gid; the groups include every group that lists
       the account; comments and malformed lines are skipped; an unknown
       name or uid is an error naming the key. Check:
       `test/unit/scripts.account.spec.ts`.
-- [ ] `missingCapabilities` gives none for `e0` in `CapEff` and
+- [x] `missingCapabilities` gives none for `e0` in `CapEff` and
       `CapAmb`, names `CAP_KILL` for `c0`, and all three for a missing
       `CapAmb` line and for file capabilities alone (`CapEff` `e0`,
       `CapAmb` 0). Check: `test/unit/scripts.capabilities.spec.ts`.
-- [ ] The layout check with fake stats: the owner, group and other
+- [x] The layout check with fake stats: the owner, group and other
       classes; an unreachable path is unreadable; a writable ancestor
       fails unless sticky and not owned; a symbolic link is judged by
       its target; a database directory with `x` fails; a missing
       database file is no problem; the scripts directory is walked
       recursively; the run directory must be writable; all problems
       come in one error, in the Spec's format, without file content.
-      Check: `test/unit/scripts.layout.spec.ts`.
-- [ ] `checkSeparation` with a fake host: nothing without the section;
+      Check: `test/unit/scripts.layout.spec.ts` and
+      `test/unit/scripts.layout.paths.spec.ts`.
+- [x] `checkSeparation` with a fake host: nothing without the section;
       `win32` and `darwin` refuse naming `scripts.user`; uid 0 refuses;
       a missing `/usr/bin/setpriv` refuses; missing capabilities are
       named; a root or same-uid account refuses; the layout runs last.
       Check: `test/unit/scripts.separation.spec.ts`.
-- [ ] `launchArgs` gives the Spec's line with numbers and without
+- [x] `launchArgs` gives the Spec's line with numbers and without
       `--reset-env` or `--bounding-set`; with a user the factory builds
       `/usr/bin/setpriv` with the run directory as `cwd`, and without
       one today's runners, on Linux and Windows. Check:
       `test/unit/scripts.launch.spec.ts`,
       `test/integration/runner-factory.service.spec.ts`.
-- [ ] With a user, the base has the account's `HOME`, `USER` and
+- [x] With a user, the base has the account's `HOME`, `USER` and
       `LOGNAME`, the fixed `PATH`, the runner's `TMPDIR` and `LANG`,
       and nothing else of `process.env`; the runner variables and both
       `env`s come on top; without a user the environment is today's.
       Check: `test/unit/script-context.base.spec.ts` (new, as
       `script-context.spec.ts` has 202 lines),
       `test/unit/fsm.service.script-env.spec.ts`.
-- [ ] With `separated`, `LD_PRELOAD`, `MALLOC_CHECK_`, `GCONV_PATH`,
+- [x] With `separated`, `LD_PRELOAD`, `MALLOC_CHECK_`, `GCONV_PATH`,
       `LANG` and `LC_ALL` in the file's or a state's `env` are refused,
       and `PATH` and `POLL_MS` are not; without it all are taken.
       Check: `test/unit/fsm.declared-env.spec.ts`.
-- [ ] `GET /health` and MQTT `health` carry `scripts`, `null` without
+- [x] `GET /health` and MQTT `health` carry `scripts`, `null` without
       the setting. Check: `test/unit/health.service.spec.ts`,
       `test/unit/mqtt-request.handler.spec.ts:129-137`,
       `test/e2e/health.spec.ts`, and `test/e2e/mqtt.broker.spec.ts`
       grepped for the health shape (CI only).
-- [ ] The privileged end-to-end test passes in CI and is skipped on
+- [x] The privileged end-to-end test passes in CI and is skipped on
       Windows and on Linux without `CI=true` and `sudo -n`. Check:
       `test/e2e/script-user.spec.ts` in the CI log, and its skip in a
       local run.
-- [ ] The Linux variant of the demo records in WSL from
+- [ ] Postponed to 16's recording. The Linux variant of the demo
+      records in WSL from
       `/srv/dtaas-demo` with the setting on; `hospital.cast` is
       unchanged; `hospital-linux.cast` and its MP4 are added. Check:
       `node tools/check-cast.mjs` on both casts, and `run/ward/ward.log`
@@ -690,31 +703,135 @@ The implementing pull request adds to `docs/state-machine-design.md`:
       `setpriv` and systemd starts on WSL, the compose lines on Docker.
       Check: the `capsh --print` and `/proc/<pid>/status` output of
       each, recorded in Learnings.
-- [ ] README.md: the document list (`:21-33`) links
+- [x] README.md: the document list (`:21-33`) links
       `PRIVILEGE-SETUP.md`; a "Script User" section under Configure,
       after Peers; Health (`:1415-1440`) and Script Environment
       (`:385`) mention `scripts`. Check: those sections.
-- [ ] `api/API.md`: `GET /health` (`:242-269`) gains the `scripts` row
+- [x] `api/API.md`: `GET /health` (`:242-269`) gains the `scripts` row
       and example. Check: that section.
-- [ ] DOCKER.md (`:161-165`) and SECURITY-MODEL.md link
+- [x] DOCKER.md (`:161-165`) and SECURITY-MODEL.md link
       `PRIVILEGE-SETUP.md`; SECURITY-MODEL.md's "Not Decided Yet", its
       _unverified_ notes on `setpriv` and libuv, and the "spawn as
       another account" row of Implementation Technologies, which still
       offers Node's `uid` and `gid`, are brought up to date. Check:
       those sections.
-- [ ] `docs/state-machine-design.md`: D35 as the Spec words it, and
+- [x] `docs/state-machine-design.md`: D35 as the Spec words it, and
       Components lists `src/scripts/`. Check: markdownlint-cli and the
       widths of the table (the lesson of 15b on prettier).
-- [ ] `config/runner.yaml.sample` has a commented `scripts` section;
+- [x] `config/runner.yaml.sample` has a commented `scripts` section;
       `DEVELOPER.md` describes `script-user.spec.ts` and how to run it
-      in WSL; the demo README describes both recordings and the
-      privileged commands. Check: yamllint, markdownlint-cli and
-      prettier.
-- [ ] `docs/issues/README.md`: the row of 18 moves to `in review` with
+      in WSL. Check: yamllint, markdownlint-cli and prettier.
+- [ ] Postponed to 16's recording. The demo README describes both
+      recordings and the privileged commands. Check: markdownlint-cli
+      and prettier.
+- [x] `docs/issues/README.md`: the row of 18 moves to `in review` with
       the pull request. Check: the table.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass; no
       file is over 250 lines and no function crosses Qlty's limits.
       Check: their output, with Linux CI as the authority.
 
 ## Learnings
+
+- **Drift.** The references held on the merge with
+  `feature/distributed-demo` at `92bb3e18`, and D35 was free. Two counts
+  were off: `fsm.service.ts` grows from 247 lines to 249, not 248, as
+  the call of `scriptBase` needs an import as well; `script-context.ts`
+  grows from 208 to 237 and `execa-manager.service.ts` from 233 to 241.
+  No body moved out of `FsmService.load`.
+- **Scope.** The owner postponed the Linux demo after this plan was
+  written: issue 16's recording, after 17b, 17c and 18 merge, records
+  both platforms with the setting on. Its step moved under
+  [Deferred to 16](#deferred-to-16), its two task boxes stay open, and
+  `demo/hospital` is unchanged.
+- **Readings this plan left open.**
+  - `Known.separated` is optional, so the eight test literals of
+    `Known` stay as they are; `known(config)` always sets it.
+  - A gid stands for itself, also without an entry in `/etc/group`; a
+    group name must be listed. A uid still needs its `/etc/passwd`
+    entry, for `--init-groups`.
+  - The layout's file system is `LayoutFs` of
+    `src/scripts/layout.access.ts`, whose `statSync` gives `undefined`
+    for a missing path, and `NODE_FS` adapts Node's. The rules of
+    access, reach and the sticky bit are a `LayoutView` there, and the
+    rules per path are in `layout.ts`, which keeps both files under
+    150 lines; the test is split the same way
+    (`scripts.layout.spec.ts`, `scripts.layout.paths.spec.ts`).
+  - A writable ancestor is judged by its own reach, not by the
+    protected path's: a writable directory above one that the account
+    can not search still lets it rename the branch away. Both the path
+    as given and its target are walked, so a link that sits in a
+    writable directory is found too. Each such ancestor is one line,
+    "is writable by dt-script, above a protected path", rather than one
+    line per file beneath it.
+  - A database directory of mode `711` gives two lines: the directory,
+    and the file, which the account can open by its name.
+  - A missing path: the access test is skipped and its ancestors are
+    still checked; a missing run directory is an error, a missing
+    scripts directory or database file is not. `checkSeparation` runs
+    last in `Config.loadConfig`, after `Signer.load`, so a missing or
+    bad key keeps its own error.
+  - `RunnerFactory.create` takes `RunnerSettings`, `{ stopGrace, user }`.
+    `HealthService` injects `Config` beside `Queue`.
+  - `config.scripts.spec.ts` replaces the members of the exported
+    `HOST` of `src/scripts/separation.ts` with `jest.spyOn` and
+    `jest.replaceProperty`, so `Config` needs no test hook.
+- **The runner enters the run directory.** libuv changes to the `cwd`
+  in the child before the `execve` of `setpriv`, as the runner's own
+  account, so the runner needs `x` on the run directory and its
+  ancestors. PRIVILEGE-SETUP.md gives the run directory to
+  `dt-script:dt-runner` with mode `770`; the startup does not check it,
+  and a run that can not enter it fails as a run.
+- **PRIVILEGE-SETUP.md** puts every file of a DT under one directory,
+  as `location` and `database` are joined to the directory of
+  `runner.yaml` even when absolute (`resolvePaths`); the Spec's
+  `/etc/dt` and `/var/lib/dt` example would need `../..` paths. Its
+  Docker entrypoint keeps `--reset-env`, as the Spec says, while
+  SECURITY-MODEL.md's compose lines leave it out; SECURITY-MODEL.md's
+  "Not Decided Yet" now names that for the deploy issue.
+- **What Linux CI proved.** `test/e2e/script-user.spec.ts` ran in the
+  `test-runner` job of both workflow runs of the first push (push and
+  pull request, `ubuntu-latest`, Node 26), and its four tests passed:
+  a script started as `dt-script-test` with only that account's
+  group, `CapInh`, `CapPrm`, `CapEff` and `CapAmb` of zero,
+  `NoNewPrivs` 1, the account's `HOME`, the run directory as `pwd`,
+  `RUNNER_URL` and `RUNNER_TOKEN` set, and `cat` of the key and of
+  `runner.yaml` and a `touch` into the scripts failing; `POST /stop`
+  stopped a looping script of the account in about a second, which
+  needs `CAP_KILL`; `GET /health` named the account; and a second
+  runner whose key was `644` in a `755` directory exited non-zero,
+  naming the key's path, without `PRIVATE KEY` in its output. The
+  runner is stopped with `pkill -TERM -u <uid> -f <runner.yaml>`: it
+  runs as the test's account, and `sudo`, as root, is left out by `-u`.
+- **What WSL could and could not verify.** Ubuntu 26.04 in WSL has
+  `/usr/bin/setpriv` of util-linux 2.41.3 and the account `dt-scripts`
+  (uid 999, gid 986). Unprivileged, against a layout under `/tmp`:
+  the build's layout check found no problem in a good layout and five
+  lines in a bad one (a readable `runner.yaml` and key, a database
+  directory of `711`, a `777` directory linked from the scripts, and a
+  run directory of `755`), and `checkSeparation` refused a plain
+  `node` for all three capabilities. `script-user.spec.ts` skips in
+  WSL, as `sudo -n` asks for a password; it skipped in a copy of the
+  runner at `~/r18-runner`. Jest does not start from `/mnt/c` in WSL
+  ("Preset ts-jest/presets/default-esm not found"), so the copy needs
+  its own `yarn install`. The privileged start, the systemd unit, the
+  compose lines and `capsh --print` were not run, so their task box
+  stays open.
+- **Tests and checks.** On the merge base, the whole suite on Windows
+  with `--maxWorkers=2` gave 111 suites and 1007 tests (10 skipped),
+  with one failure, the 5 s timeout of `options.spec.ts` that 16 also
+  saw. On this branch, before the last two tests were added, it gave
+  121 suites and 1140 tests: 119 suites passed and 2 were skipped
+  (`script-user.spec.ts` and `mqtt.broker.spec.ts`), 1126 tests passed
+  and 14 were skipped, with no failure; `options.spec.ts` passed. The
+  new sources are covered to 100% but for the real adapters of `HOST`
+  and `NODE_FS`, which `scripts.host.spec.ts` now tries on a temporary
+  directory. `yarn syntax`, `yarn build`, `npx tsc --noEmit
+--noUnusedLocals --noUnusedParameters`, prettier, markdownlint-cli
+  0.45.0 with `.markdownlint.yaml` and yamllint 1.38.0 pass.
+  DEVELOPER.md says that Jest can not find tests with _config_ in their
+  file names, but `jest --listTests` lists every `config.*.spec.ts`;
+  that note predates this issue and is left as it is.
+- **Version and decision.** The version stays 0.10.0: `scripts` is an
+  optional section, and `GET /health` gains a field. The decision is
+  D35, as the Spec words it.
