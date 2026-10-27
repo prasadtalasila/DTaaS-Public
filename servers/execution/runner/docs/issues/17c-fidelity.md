@@ -1,8 +1,8 @@
 # 17c Fidelity as a Declared Parameter
 
-- Status: planned
+- Status: in review
 - Depends on: 17a (so the guide can point at its CPU and memory figures)
-- PR: none yet
+- PR: [#99](https://github.com/prasadtalasila/DTaaS-Public/pull/99)
 - Research note:
   [item 17](../dtn-research-notes.md#17-resource-and-fidelity-reporting)
 
@@ -164,25 +164,70 @@ everything the convention needs.
 
 ## Tasks
 
-- [ ] `STATE-MACHINE.md` has `## Pattern: Fidelity` with the rules,
+- [x] `STATE-MACHINE.md` has `## Pattern: Fidelity` with the rules,
       YAML, shell and PowerShell fragments and the Manager's view, and
       `### Parameters` links it. Check: the section, read against 17a's
       field names.
-- [ ] `README.md` links the section from `### Parameters`. Check: the
+- [x] `README.md` links the section from `### Parameters`. Check: the
       sentence and the anchor `#pattern-fidelity`.
-- [ ] `api/API.md` says no parameter name is reserved. Check: the
+- [x] `api/API.md` says no parameter name is reserved. Check: the
       sentence in `## Parameters`.
-- [ ] The test state machine declares `fidelity`, and the loader
+- [x] The test state machine declares `fidelity`, and the loader
       accepts it with the declaration of the example. Check:
       `test/unit/fsm.definition.spec.ts`.
-- [ ] The design document carries one sentence under 17a's decision.
+- [x] The design document carries one sentence under 17a's decision.
       Check: the row in `docs/state-machine-design.md`.
-- [ ] Documents pass the linters. Check: from the repository root,
+- [x] Documents pass the linters. Check: from the repository root,
       `npx markdownlint-cli -c .markdownlint.yaml` on the changed
       Markdown files, and `npx prettier --check` on them and the YAML.
-- [ ] The suite passes with the changed test data. Check:
+- [x] The suite passes with the changed test data. Check:
       `yarn test --maxWorkers=2`.
 
 ## Learnings
 
-- Written in the pull request that implements this issue.
+- **Drift.** The references held: `### Parameters` of
+  `STATE-MACHINE.md` and of `README.md`, `## Parameters` of
+  `api/API.md`, and 17a's decision, D33. 17a's figures are as the plan
+  read them: `resources` with `cpuSeconds` and `peakRssBytes` on the
+  result of `POST /`, on `GET /`, on each record of `GET /history` and
+  by command name in `GET /metrics`. `test/unit/fsm.definition.spec.ts`
+  had 239 lines; the two checks took it to 250 as prettier splits the
+  check of the transition, so the transition is read into a `restart`
+  constant first, and the file has 248.
+- **When a Manager sees the effect.** 17a reports a run's figures when
+  it ends: `null` on `GET /` and in its record of `GET /history` while
+  it runs. `GET /` shows only the latest run, so the Spec's "in `GET /`
+  ... before and after the change" holds for the history only: the run
+  at the old fidelity ends `stopped` with its figures, and the run at
+  the new one shows its figures at the next change or stop. CPU time
+  grows with the length of a run, so the guide divides `cpuSeconds` by
+  the time from `receivedAt` to `finishedAt`. 11 is built, and its
+  `GET /metrics` sums the runs of a command whatever their fidelity, so
+  the guide names it for the load over time, not for one change.
+- **Independent of 17b.** The guide does not say which processes the
+  runner measures; it links the README's Resources section, which 17b
+  updates. `exec` is justified in terms that hold either way: the
+  model is then the script's own process, which a stop reaches and
+  which counts whether the runner measures the direct child or the
+  tree. The Windows note says only that PowerShell's own figures are
+  included, which holds for both.
+- **Checked in the code.** An event raised by `PUT /parameters` goes
+  through `raiseAll` of `src/fsm/requests.ts`, which logs a refused one
+  with `logStay` at debug level and does not call
+  `escalations.noTransition`, so the Spec's statements on logging and
+  `onNoTransition` hold. A run that a `stop: true` transition stops is
+  stored as `stopped` with `exitCode` `null` (`src/execa-runner.ts:67`).
+- **Sweep beyond the plan.** `DEVELOPER.md` said the test state
+  machine declares two parameters; it now names three, with a link to
+  the pattern. The status column of
+  [dtn-research-notes.md](../dtn-research-notes.md) is left to the
+  documentation sweep that has kept it, as widening its cell would
+  realign the whole table under 17b and 18. The user documentation
+  copy of the README, `docs/user/servers/execution/runner/readme.md`,
+  is left for a separate change, as the plan says.
+- **No decision number.** The plan appends one sentence to 17a's D33
+  rather than adding a decision: a convention adds no mechanism to
+  decide on, so 17c takes no D number. No version change.
+- **Linters.** markdownlint reports MD013 at `README.md:1584`, a line
+  of the MQTT section that is 83 characters at the merge base too; it
+  is left for a separate change.

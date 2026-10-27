@@ -31,7 +31,7 @@ no file.
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review | #95 |
 | [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done      | #94 |
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
-| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned   |     |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | in review | #99 |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.

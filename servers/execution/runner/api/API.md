@@ -737,6 +737,10 @@ restart of `open` when `scope` changes.
 
 Parameters are named values of the DT, declared in the state machine
 file. The scripts see them as `DT_PARAM_<NAME>` environment variables.
+No name has a meaning to the runner: a `fidelity` parameter, by which a
+Manager trades a DT's accuracy for computing power, is a convention
+between DT authors and Managers
+([Pattern: Fidelity](../STATE-MACHINE.md#pattern-fidelity)).
 Without a state machine, both routes answer `404` with
 `{"status": "no state machine", "state": null}`.
 
