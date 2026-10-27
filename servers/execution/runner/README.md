@@ -117,8 +117,9 @@ attributes: # optional; strings, numbers or booleans
 ```
 
 The attributes are a flat map: a value can not be a list or a map.
-Their names follow the pattern of `id`. The runner returns `id` and
-`attributes` on [GET /dt](#get-request-to-dt).
+Their names follow the pattern of `id`. The runner returns `id`,
+`attributes` and its enabled [peers](#peers) on
+[GET /dt](#get-request-to-dt).
 
 ### Command History
 
@@ -220,7 +221,8 @@ auth:
   MQTT the request payload is the token. [API.md](api/API.md#access-control)
   gives the token format and a signing example.
 - A `client` may call every route. A `manager` may read, set
-  parameters and run the [manager commands](#manager-commands). The
+  parameters, enable and disable [peers](#peers) and run the
+  [manager commands](#manager-commands). The
   runner's own scripts call it in the role `script` with the token in
   `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
   may read, raise events and escalate.
@@ -236,6 +238,49 @@ Without `auth` every route is open and the runner ignores any
 Version 0.9.0 added access control. It changes no route without
 `auth`; a database file of an earlier version gains a `by` column for
 the principal of each command at the first start.
+
+### Peers
+
+A digital twin lists the peers it is willing to interact with in an
+optional `peers` section; nothing else is a peer, and the runner
+discovers none:
+
+```yaml
+peers:
+  - id: 'hospital-2'
+    topic: 'dtaas/hospital-2' # its MQTT base topic, on this broker
+    url: 'http://localhost:5200' # its HTTP base URL
+    attributes: # optional; strings, numbers or booleans
+      distance: 12.4
+    enabled: true # optional; true by default
+    publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA' # optional
+```
+
+- `id` follows the pattern of the runner's `id`, is unique, and is not
+  the runner's own.
+- A peer has a `topic`, a `url` or both. `topic` follows the rules of
+  `mqtt.topic`; it is unique and not the runner's own.
+- `attributes` describe the relationship, such as a distance, with the
+  rules of the runner's own [attributes](#digital-twin). The runner
+  never reads them.
+- `publicKey` is the key with which the peer signs its notifications,
+  in the encoding of [access control](#access-control).
+
+With an [mqtt section](#mqtt), the runner subscribes to the
+[presence](#presence) and state [notifications](#notifications) of each
+enabled peer with a `topic`, on its own broker, and remembers whether
+the peer is online, its descriptor and its last state document. Both
+are retained, so they arrive as soon as the runner subscribes. A
+notification counts only if it is an envelope of its topic's kind and
+of the peer's `id`; for a peer with a `publicKey`, only if it is a JWS
+of the envelope that the key signed, with the peer's `id` as `kid`.
+The runner logs and drops any other. A peer's notification raises no
+event and sends nothing. Without MQTT, the peers are listed but never
+followed.
+
+[GET /peers](#peers-requests) shows the peers and what they told, and
+[PUT /peers](#peers-requests) enables and disables them. A Manager can
+not add a peer: only the operator, in _runner.yaml_, lists them.
 
 ## Create Commands
 
@@ -693,8 +738,9 @@ Four REST API methods run and stop commands, three more drive the
 [state machine](#state-machine-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
 [its state](#get-request-to-state), one
-[escalates to the Manager](#escalation-requests) and one returns
-[metrics](#metrics). The routes for
+[escalates to the Manager](#escalation-requests), one returns
+[metrics](#metrics) and two
+[read and switch its peers](#peers-requests). The routes for
 commands and their responses are:
 
 | REST API Route          | HTTP Method | Return Value                                                            | Comment                                                                                                 |
@@ -849,14 +895,17 @@ Describes the digital twin that the runner serves, from its
   "attributes": { "city": "Aarhus", "beds": 120 },
   "commands": ["create", "execute"],
   "stateMachine": true,
-  "manager": { "commands": ["execute"] }
+  "manager": { "commands": ["execute"] },
+  "peers": ["hospital-2"]
 }
 ```
 
 `attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
 permitted commands, `stateMachine` tells whether a state machine
-is loaded, and `manager` lists the
-[manager commands](#manager-commands).
+is loaded, `manager` lists the
+[manager commands](#manager-commands), and `peers` the ids of the
+enabled [peers](#peers) in the order of _runner.yaml_, `[]` without
+any.
 
 #### GET Request to /state
 
@@ -1110,6 +1159,60 @@ curl http://localhost:5000/parameters
 curl -X PUT http://localhost:5000/parameters   -H 'Content-Type: application/json' -d '{"scope": "multi"}'
 ```
 
+#### Peers Requests
+
+Two routes read the [peers](#peers) and enable or disable them.
+
+| REST API Route       | HTTP Method | Request Body            | Comment                                |
+| :------------------- | :---------- | :---------------------- | :------------------------------------- |
+| localhost:port/peers | GET         |                         | Returns the peers and what they told   |
+| localhost:port/peers | PUT         | `{"hospital-2": false}` | Enables and disables peers of the list |
+
+`GET /peers` maps each peer's id to its entry, and is `{}` without
+peers:
+
+```http
+{
+  "hospital-2": {
+    "topic": "dtaas/hospital-2",
+    "url": "http://localhost:5200",
+    "attributes": { "distance": 12.4 },
+    "enabled": true,
+    "online": true,
+    "descriptor": { "id": "hospital-2", "peers": ["hospital-1"] },
+    "state": { "id": "hospital-2", "machine": { "state": "full" } }
+  }
+}
+```
+
+`descriptor` and `state` are those of the peer's last
+[presence](#presence) and state notifications; an offline notice keeps
+the descriptor. `online`, `descriptor` and `state` are `null` until a
+notification tells them, and stay `null` without MQTT, for a disabled
+peer and for one without `topic`. An absent `topic` or `url` is `null`;
+`publicKey` is not shown.
+
+The body of `PUT /peers` maps peer ids to booleans. The runner checks
+the whole body first: an unknown id or a value that is not a boolean
+is refused with `400`, and `message` lists every problem, as for
+[PUT /parameters](#parameters-requests). Otherwise it stores the
+changes, all of them or none, and replies `200` with the body of
+`GET /peers`. A body that is not an object gets the validation error
+of `POST /`. A value equal to the current one changes nothing, so `{}`
+changes nothing.
+
+A stored change overrides the `enabled` of _runner.yaml_ at the next
+start, with a [database file](#command-history). Disabling a peer
+unsubscribes from it and forgets what it told; enabling it subscribes
+again, and its retained notifications fill the entry shortly after the
+reply. No notification is sent: the [presence](#presence) notice keeps
+the peers of the last connection, while `GET /dt` is current.
+
+```bash
+curl http://localhost:5000/peers
+curl -X PUT http://localhost:5000/peers   -H 'Content-Type: application/json' -d '{"hospital-2": false}'
+```
+
 #### Escalation Requests
 
 `POST /escalate` sends an [escalation](#escalation) to the Manager,
@@ -1238,10 +1341,14 @@ JSON as the matching HTTP request and response.
 | `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`                      |
 | `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                   |
 | `<topic>/metrics`        | GET /metrics          | ignored                                    |
+| `<topic>/peers`          | GET /peers            | ignored                                    |
+| `<topic>/set-peers`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on
 `<topic>/notify/presence`, which is also the topic of its MQTT will.
+It subscribes as well to the presence and state notifications of its
+[peers](#peers).
 
 The runner answers a `health` request only while it is connected, so
 the reply always says `"mqtt": "connected"`; that a reply arrives at

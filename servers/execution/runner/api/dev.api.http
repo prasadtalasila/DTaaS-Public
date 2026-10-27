@@ -205,6 +205,20 @@ content-type: {{ContentType}}
     "scope": "multi"
 }
 
+### Peers of runner.yaml, {} without a peers section
+
+GET http://{{hostname}}:{{port}}/peers HTTP/1.1
+content-type: {{ContentType}}
+
+### Disable a listed peer; an unknown id gets 400
+
+PUT http://{{hostname}}:{{port}}/peers HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "hospital-2": false
+}
+
 ### Escalate to the Manager, with or without a state machine
 
 POST http://{{hostname}}:{{port}}/escalate HTTP/1.1
