@@ -15,12 +15,15 @@ import {
 } from '../dto/notify.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
-import { openRequest, publishOptions, refusalBody } from './mqtt-request.js';
+import {
+  openRequest,
+  publishOptions,
+  refusalBody,
+  responseTopic,
+} from './mqtt-request.js';
 import settles from './settles.js';
 import {
   clientOptions,
-  defaultResponseTopic,
-  isPublishableTopic,
   MqttRoute,
   mqttRoutes,
   notifyTopic,
@@ -167,7 +170,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     try {
       const body = await this.answer(route, payload, packet);
       await client.publishAsync(
-        this.responseTopic(topic, packet),
+        responseTopic(topic, packet, (requested) => this.routes.has(requested)),
         JSON.stringify(body),
         publishOptions(packet.properties?.correlationData),
       );
@@ -214,19 +217,5 @@ export default class MqttService implements BeforeApplicationShutdown {
     } catch (error) {
       this.logger.error(`MQTT notification on ${topic} failed: ${error}`);
     }
-  }
-
-  // Fall back to the default response topic when the requested one can
-  // not be published to, or would turn the response into a new request
-  private responseTopic(topic: string, packet: IPublishPacket): string {
-    const responseTopic = packet.properties?.responseTopic;
-    if (
-      responseTopic === undefined ||
-      !isPublishableTopic(responseTopic) ||
-      this.routes.has(responseTopic)
-    ) {
-      return defaultResponseTopic(topic);
-    }
-    return responseTopic;
   }
 }
