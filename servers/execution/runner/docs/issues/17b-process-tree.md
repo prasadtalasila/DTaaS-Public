@@ -282,7 +282,7 @@ review them before starting.
   2.1 MB and 1 process; `spawn-busy` 0.98 s, 4.2 MB and 2; a `loop`
   stopped after 4 s 0.01 s, 10 MB and 2.
 - **Which path ran where.** On Windows: the whole suite (114 suites,
-  1025 tests passed, 10 skipped), with the Windows cases of
+  1026 tests passed, 10 skipped), with the Windows cases of
   `execa-runner.resources.spec.ts` and `resources.tree.spec.ts`
   against the real CIM query. In WSL: the resource unit tests and both
   integration specs, so `busy`, `spawn-busy` and a stopped `loop`
@@ -291,8 +291,14 @@ review them before starting.
   native binding is per platform, so the Windows `node_modules` does
   not run in WSL; a copy of the runner under the WSL home with its own
   `yarn install` did. The fallback scan runs against a fake `/proc` in
-  the unit tests everywhere. CI runs the Linux cases on GitHub's
-  runner, the authority for that path.
+  the unit tests everywhere. CI ran the Linux cases on GitHub's
+  runner, the authority for that path: 1028 tests passed and 8
+  skipped, `spawn-busy` and the stopped `loop` among them.
+- **SonarCloud on the PR** found an `await` inside the level loop of
+  `byChildren` (S9382), which now descends through each child at once,
+  and no tests in `resources.tree.spec.ts` (S2187), as it did not see
+  `it` behind an alias; the platform condition now skips the
+  `describe`. Qlty reported no smells.
 - **The stop.** No stop code changed, so a stop kills no more than
   before; `resources.tree.spec.ts` checks that a stopped `loop` reports
   all three figures and that the stop takes under two seconds.
