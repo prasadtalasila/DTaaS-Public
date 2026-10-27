@@ -1,8 +1,8 @@
 # 11 Richer History and Metrics
 
-- Status: planned
+- Status: in review
 - Depends on: 15a, for the `by` column only (see below)
-- PR: none yet
+- PR: [#91](https://github.com/prasadtalasila/DTaaS-Public/pull/91)
 - Research note:
   [item 11](../dtn-research-notes.md#11-richer-history-and-metrics)
 
