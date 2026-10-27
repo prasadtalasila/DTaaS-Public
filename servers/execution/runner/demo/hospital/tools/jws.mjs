@@ -51,10 +51,11 @@ function signedBy(segments, key) {
 
 // Why the JWS fails, the first check that does, or undefined when the
 // key verifies it
-function failure(segments, key) {
+function failure(segments, { key, reason }) {
   const { alg, kid } = header(segments) ?? {};
   const checks = [
     [() => alg === undefined, 'malformed'],
+    [() => key === undefined, reason],
     [() => alg !== 'Ed25519', `wrong alg ${alg}`],
     [() => kid !== ID, `wrong kid ${kid}`],
     [() => !signedBy(segments, key), 'bad signature'],
@@ -71,21 +72,23 @@ function peek(segments) {
   }
 }
 
+// Plain JSON, such as a notification or the array of a history reply,
+// or undefined; a JWS never parses as JSON
 function plain(text) {
   try {
     return { mark: 'UNSIGNED', value: JSON.parse(text) };
   } catch {
-    return { mark: 'INVALID', reason: 'malformed' };
+    return undefined;
   }
 }
 
 export default function unwrap(text) {
-  if (text.startsWith('{')) {
-    return plain(text);
+  const unsigned = plain(text);
+  if (unsigned !== undefined) {
+    return unsigned;
   }
   const segments = text.split('.');
-  const { key, reason: missing } = readKey();
-  const reason = missing ?? failure(segments, key);
+  const reason = failure(segments, readKey());
   return reason === undefined
     ? { mark: 'verified', value: decode(segments[1]) }
     : { mark: 'INVALID', reason, unverified: peek(segments) };
