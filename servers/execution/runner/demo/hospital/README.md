@@ -134,9 +134,12 @@ The recording stays unsigned. The subscriber and webhook receiver of
 with [tools/jws.mjs](tools/jws.mjs): `UNSIGNED` for plain JSON,
 `verified` for a JWS that the runner's public key in
 `run/keys/hospital-1.pub` checks, and `INVALID` for one that fails or
-that no public key can check, which is not summarised. To see signed
-output ([Signed Output](../../README.md#signed-output)), give the runner a key
-and add `auth.key` to the `runner.auth.yaml` of a recording, then
+that no public key can check. An `INVALID` line gives the reason (no
+key file, unreadable key file, malformed, wrong `alg` or `kid`, bad
+signature) and the payload as it came, marked unverified, instead of
+the summary. To see signed output
+([Signed Output](../../README.md#signed-output)), give the runner a
+key and add `auth.key` to the `runner.auth.yaml` of a recording, then
 start the services and the runner by hand from this folder:
 
 ```bash

@@ -4,10 +4,11 @@
 // mq retained: prints the notifications that the broker retained, as a
 // Manager that subscribes late receives them.
 // Each response and notification is marked verified, UNSIGNED or
-// INVALID (jws.mjs).
+// INVALID (jws.mjs); an INVALID one shows why, and its payload as it
+// came, unverified.
 import { connectAsync } from 'mqtt';
 import format from './format.mjs';
-import unwrap from './jws.mjs';
+import unwrap, { marked } from './jws.mjs';
 import { envelope } from './sign.mjs';
 import summary from './summary.mjs';
 import { BASE, BROKER_PORT } from './settings.mjs';
@@ -36,20 +37,20 @@ async function request(client, route, payload) {
   await client.publishAsync(`${BASE}/${route}`, envelope(route, payload), {
     qos: 1,
   });
-  const { mark, value } = unwrap(await response);
-  console.log(`\x1b[2m${topic} (${mark})\x1b[0m`);
-  if (value !== undefined) {
-    console.log(format(value));
+  const { mark, value, reason, unverified } = unwrap(await response);
+  const label = reason === undefined ? mark : `${mark}: ${reason}`;
+  console.log(`\x1b[2m${topic} (${label})\x1b[0m`);
+  const shown = value ?? unverified;
+  if (shown !== undefined) {
+    console.log(format(shown));
   }
 }
 
 async function retained(client) {
   client.on('message', (topic, payload, packet) => {
     const flag = packet.retain ? 'retained' : 'live';
-    const { mark, value } = unwrap(payload.toString());
-    const text = value === undefined ? '' : summary(value);
     const name = topic.slice(BASE.length + 1);
-    console.log(`${mark.padEnd(8)} ${name} (${flag}) ${text}`);
+    console.log(marked(payload.toString(), `${name} (${flag})`, summary));
   });
   await client.subscribeAsync(`${BASE}/notify/+`, { qos: 1 });
   await new Promise((resolve) => setTimeout(resolve, 1000));
