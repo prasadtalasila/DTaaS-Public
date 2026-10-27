@@ -1,167 +1,157 @@
 // The story of the demo: chapters, narration, commands typed at the
 // prompt, background processes and silent waits. record.mjs plays it.
-import { fsmIs, logHas } from './waits.mjs';
-
-const admit = (patient, ward) =>
-  `'{"name":"admit","input":{"patient":"${patient}","ward":"${ward}"}}'`;
+// dt1 and mq1 ask hospital-1, dt2 and mq2 hospital-2 (tools/shell.sh).
+// This file holds the setup and the features of one DT; steps-peers.mjs
+// the rest, from the first peer event on.
+import later, { H1, H2, admit, overflowLogged } from './steps-peers.mjs';
+import { logHas } from './waits.mjs';
 
 export default [
   { chapter: 'Setup' },
   {
-    say: 'A DT Manager watches hospital-1, one hospital of a network of hospital digital twins.',
+    say: 'A DT Manager steers a network of two hospital digital twins, hospital-1 and hospital-2.',
   },
   {
-    say: 'The runner serves the DT: runner.yaml names it, the state machine file gives its behaviour.',
+    say: 'A runner serves each DT; runner.yaml names hospital-1 and lists hospital-2 as its peer.',
   },
   { run: 'cat runner.yaml' },
-  { run: 'head -n 34 hospital.fsm.yaml' },
-  { run: 'tail -n +35 hospital.fsm.yaml' },
   {
-    say: 'dt is curl plus a pretty-printer; mq sends an MQTT request and prints the response.',
+    say: 'record.mjs made new keys: the peer key, the signing key, and the callers alice and manager-1.',
   },
-  { run: 'cat tools/shell.sh' },
+  { run: 'tail -n 11 runner.auth.yaml' },
+  { say: 'runner-2.yaml is the same for hospital-2, which lists hospital-1:' },
+  { run: `grep -E '^(id|port|stateMachine):|- id:' runner-2.yaml` },
+  {
+    say: 'The state machine file: events, and the parameters scope, capacity and fidelity.',
+  },
+  { run: 'head -n 39 hospital.fsm.yaml' },
+  {
+    say: 'Subscriptions turn a change at the peer hospital-2 into an event of hospital-1.',
+  },
+  { run: 'sed -n 40,58p hospital.fsm.yaml' },
+  { run: 'tail -n +59 hospital.fsm.yaml' },
+  { say: 'hospital-2 has one bed per ward and no subscriptions:' },
+  { run: 'diff hospital.fsm.yaml hospital-2.fsm.yaml' },
+  {
+    say: 'dt1 and dt2 are curl, signed as alice; mq1 and mq2 are MQTT requests, signed as manager-1.',
+  },
+  { run: 'tail -n 6 tools/shell.sh' },
 
   { chapter: 'Presence: online' },
   {
-    say: 'Start the Manager side: an MQTT broker, a subscriber and a webhook, each logging one line per notification.',
+    say: 'Start the Manager side: an MQTT broker, a subscriber (right) and a webhook receiver.',
   },
   { start: 'services', show: 'node tools/services.mjs &' },
   {
-    start: 'runner',
-    show: 'node tools/runner.mjs -c runner.yaml > run/runner.log &',
+    start: H1,
+    show: `node tools/runner.mjs -c runner.auth.yaml > run/${H1}/runner.log &`,
   },
   {
-    say: 'The runner joins: presence online with its descriptor, and its first state document.',
+    start: H2,
+    show: `node tools/runner.mjs -c runner-2.auth.yaml > run/${H2}/runner.log &`,
   },
-  { run: 'cat run/mqtt.log' },
-  { run: 'cat run/webhook.log' },
+  {
+    say: 'Each runner joins with a signed online notice and its first state document (right).',
+  },
 
-  { chapter: 'DT identity and descriptor' },
-  { run: 'dt /dt' },
-  { say: 'The same descriptor over the MQTT request/response API:' },
-  { run: 'mq dt' },
+  { chapter: 'Descriptor, health and access control' },
+  { run: 'dt1 /dt' },
+  {
+    say: 'Health is open to anyone; scripts is null, as Windows runs no script user.',
+  },
+  { run: 'dt1 /health' },
+  {
+    say: 'Intentional refusals: a request without a credential, and a manager starting a state script.',
+  },
+  { run: 'DT_AS=nobody dt1 /dt' },
+  { run: `DT_AS=manager-1 dt1 / --json '{"name":"open"}'` },
 
-  { chapter: 'Health' },
-  { run: 'dt /health' },
-
-  { chapter: 'One state document' },
-  { run: 'dt /state' },
+  { chapter: 'Signed output' },
+  {
+    say: 'The runner signs notifications and MQTT responses; the tools verify them with its publicKey.',
+  },
+  {
+    run: 'mq1 dt | grep -e response -e publicKey; cat run/keys/hospital-1.pub',
+  },
 
   { chapter: 'State machine and script context' },
   {
-    say: 'Open the hospital: a transition into state open, whose script watches the beds.',
+    say: 'Open both hospitals: a transition into state open, whose script watches the beds.',
   },
-  { run: `dt /fsm/transition --json '{"state":"open"}'` },
-  { wait: logHas('ward.log', 'RUNNER_URL') },
+  { run: `dt2 /fsm/transition --json '{"state":"open"}'` },
+  { wait: logHas(`${H2}/ward.log`, 'overflow to') },
+  { run: `dt1 /fsm/transition --json '{"state":"open"}'` },
+  { wait: overflowLogged(1) },
   {
-    say: 'The script of open logged its context: DT_* variables, the state env POLL_MS and HINT built with ${...}.',
+    say: 'open logged its context, its fidelity, and from GET /peers where overflow goes:',
   },
-  { run: 'cat run/ward.log' },
+  { run: `cat run/${H1}/ward.log` },
+  { run: 'dt1 /state' },
+
+  { chapter: 'Peers' },
+  {
+    say: 'hospital-1 keeps what the signed notices of hospital-2 told, verified with its key:',
+  },
+  { run: 'dt1 /peers' },
+  {
+    say: 'Intentional refusal: an unknown peer, and a value that is not a boolean.',
+  },
+  { run: `dt1 /peers -X PUT --json '{"hospital-9":false,"hospital-2":"off"}'` },
 
   { chapter: 'Command input and request keys' },
   {
-    say: 'The Manager admits patient p-1; the input reaches admit.ps1 on stdin. A request key makes it idempotent.',
+    say: 'The Manager admits p-1; the input reaches admit.ps1 on stdin. A request key makes it idempotent.',
   },
   {
-    run: `dt / -H 'Idempotency-Key: admit-p-1' --json ${admit('p-1', 'cardiology')}`,
+    run: `dt1 / -H 'Idempotency-Key: admit-p-1' --json ${admit('p-1', 'cardiology')}`,
   },
   {
     say: 'The same key again: the stored reply, and admit does not run a second time.',
   },
   {
-    run: `dt / -H 'Idempotency-Key: admit-p-1' --json ${admit('p-1', 'cardiology')}`,
+    run: `dt1 / -H 'Idempotency-Key: admit-p-1' --json ${admit('p-1', 'cardiology')}`,
   },
-  { run: `grep -o 'Discarded.*' run/runner.log` },
+  { run: `grep -o 'Discarded.*' run/${H1}/runner.log` },
   {
     say: 'Intentional refusal: input for a command that is running (open) gets 409 command running.',
   },
-  { run: `dt / --json '{"name":"open","input":{}}'` },
+  { run: `dt1 / --json '{"name":"open","input":{}}'` },
 
   { chapter: 'Failed command and explicit escalation' },
-  { run: `dt / --json ${admit('p-2', 'cardiology')}` },
+  { run: `dt1 / --json ${admit('p-2', 'cardiology')} | tail -n 1` },
   {
-    say: 'Cardiology has 2 beds and scope is single, so p-3 is refused: status failed, exit code 3.',
+    say: 'Cardiology is full and scope is single, so p-3 is refused: status failed, exit code 3.',
   },
-  { run: `dt / --json ${admit('p-3', 'cardiology')}` },
+  { run: `dt1 / --json ${admit('p-3', 'cardiology')}` },
   {
-    say: 'admit.ps1 also POSTed $RUNNER_URL/escalate with a reason and a proposal:',
+    say: 'admit.ps1 also POSTed $RUNNER_URL/escalate with a reason and a proposal (right):',
   },
   { run: 'grep -n -A2 "reason =" scripts/admit.ps1' },
-  { run: 'tail -n 2 run/mqtt.log' },
+  {
+    say: 'GET / shows the last command; a script that ends before the first sample has no resources.',
+  },
+  { run: 'dt1 /' },
 
-  { chapter: 'Baseline: last command' },
-  { say: 'GET / shows the last command, now with its exit code:' },
-  { run: 'dt /' },
-
-  { chapter: 'Declared parameters' },
-  { run: 'dt /parameters' },
+  { chapter: 'Parameters and fidelity' },
+  { run: 'dt1 /parameters' },
   { say: 'Intentional refusal: capacity is not controllable.' },
-  { run: `dt /parameters -X PUT --json '{"capacity":3}'` },
+  { run: `dt1 /parameters -X PUT --json '{"capacity":3}'` },
   {
     say: 'The Manager accepts the proposal: scope multi raises scope-changed, a stop: true self-transition.',
   },
-  { run: `dt /parameters -X PUT --json '{"scope":"multi"}' | tail -n 1` },
-  { wait: logHas('ward.log', 'open#2 scope') },
-  { run: 'tail -n 3 run/ward.log' },
-
-  { chapter: 'Script raises an event; escalation on failure' },
+  { run: `mq1 set-parameters '{"scope":"multi"}'` },
+  { wait: overflowLogged(2) },
   {
-    say: 'Under multi, p-3 gets a fallback bed in maternity; p-4 takes the last bed.',
+    say: 'fidelity follows the convention of STATE-MACHINE.md: high samples the beds five times as often.',
   },
-  { run: `dt / --json ${admit('p-3', 'cardiology')}` },
-  { run: `dt / --json ${admit('p-4', 'maternity')}` },
-  { wait: fsmIs('full', 'invalid') },
   {
-    say: 'open.ps1 raised the event full over HTTP; the script of full failed and full has no $failure transition.',
+    run: `dt1 /parameters -X PUT --json '{"fidelity":"high"}' | tail -n 1`,
   },
-  { run: 'tail -n 2 run/ward.log' },
-  { run: 'tail -n 4 run/mqtt.log' },
-
-  { chapter: 'Escalation on no transition' },
+  { wait: overflowLogged(3) },
+  { run: `grep -E 'DT_ENTRY|fidelity' run/${H1}/ward.log` },
   {
-    say: 'Intentional refusal: full has no transition for close. The runner escalates once per entry.',
+    say: 'The run at the old fidelity ended stopped with its figures; the new one shows them at its end.',
   },
-  { run: `dt /fsm/event --json '{"event":"close"}'` },
-  { run: `dt /fsm/event --json '{"event":"close"}' | tail -n 1` },
-  { run: 'grep -c no-transition run/mqtt.log' },
-
-  { chapter: 'MQTT request/response with input' },
-  {
-    say: 'The Manager discharges p-1 over MQTT; discharge.ps1 raises beds-free, which reopens the hospital.',
-  },
-  { run: `mq execute '{"name":"discharge","input":{"patient":"p-1"}}'` },
-  { wait: fsmIs('open', 'running', 4) },
-  { run: 'mq fsm' },
-  {
-    say: 'A Manager that subscribes late gets the retained state and presence, but no old escalation:',
-  },
-  { run: 'mq retained' },
-
-  { chapter: 'Baseline: history' },
-  { run: 'dt /history' },
-
-  { chapter: 'Stop' },
-  {
-    say: 'Stop the script of open: the runner raises $stopped, and open goes to closed.',
-  },
-  { run: `dt /stop --json '{"name":"open"}'` },
-  { wait: fsmIs('closed', 'valid') },
-  { run: 'dt /fsm' },
-  { run: 'tail -n 5 run/mqtt.log' },
-
-  { chapter: 'Webhook' },
-  {
-    say: 'The webhook received every notification too; here those that are not state documents:',
-  },
-  { run: "grep -v '^POST state' run/webhook.log" },
-
-  { chapter: 'Presence: offline' },
-  {
-    say: 'Graceful shutdown, as on Ctrl+C: the runner leaves with an offline notice.',
-  },
-  { run: 'touch run/shutdown' },
-  { stop: 'runner' },
-  { run: 'tail -n 1 run/mqtt.log; tail -n 1 run/webhook.log' },
-  { run: 'mq retained' },
-  { say: 'End of the demo.' },
+  { run: `dt1 '/history?limit=2'` },
+  ...later,
 ];

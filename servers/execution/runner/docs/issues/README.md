@@ -186,8 +186,10 @@ From implementing 15a:
   path before a native program such as `node` sees it, so `/dt` becomes
   `C:/Program Files/Git/dt`. Set `MSYS_NO_PATHCONV=1` on a call that
   passes a URL path.
-- `record.mjs` of the demo rewrites `hospital.cast`; restore it with
-  `git checkout` unless the issue re-captures the recording.
+- `record.mjs` of the demo rewrites its two casts,
+  `demo-<platform>-manager.cast` and `demo-<platform>-network.cast`;
+  restore them with `git checkout` unless the issue re-captures the
+  recording.
 - `node:crypto` takes any 32 bytes as an Ed25519 public key; only a
   verification shows that a key is no point of the curve.
 

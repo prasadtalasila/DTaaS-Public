@@ -1,20 +1,18 @@
-// Records the demo: plays steps.mjs against the real runner, broker and
-// webhook, and writes hospital.cast. Run it from anywhere with
-// `node tools/record.mjs` after `yarn build` in the runner directory.
+// Records the demo: plays steps.mjs against two real runners, the broker
+// and the webhook, and writes two casts on one clock: the Manager's
+// terminal, demo-windows-manager.cast, and the notifications of both
+// DTs, demo-windows-network.cast (or demo-linux-* on Linux). Run it from
+// anywhere with `node tools/record.mjs` after `yarn build` in the runner
+// directory.
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import {
-  appendFileSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { appendFileSync, openSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Cast from './cast.mjs';
-import { keygen } from './keygen.mjs';
+import Clock, { capGaps } from './clock.mjs';
+import { RUNNERS, reset, writeConfigs } from './configs.mjs';
 import steps from './steps.mjs';
+import notice from './summary.mjs';
 import { healthy } from './waits.mjs';
 
 process.chdir(fileURLToPath(new URL('..', import.meta.url)));
@@ -22,39 +20,13 @@ const WINDOWS_BASH = String.raw`C:\Program Files\Git\bin\bash.exe`;
 const BASH =
   process.env.DEMO_BASH ??
   (process.platform === 'win32' ? WINDOWS_BASH : 'bash');
-const RUN_FILES = [
-  'hospital.db',
-  'mqtt.log',
-  'webhook.log',
-  'ward.log',
-  'runner.log',
-];
-const cast = new Cast(110, 32, 'DTaaS runner: hospital bed management');
+const PLATFORM = process.platform === 'win32' ? 'windows' : 'linux';
+const NAME = `demo-${PLATFORM}`;
+const ROWS = 40;
+const clock = new Clock();
+const manager = new Cast(clock, 100, ROWS, 'DTaaS runner: the DT Manager');
+const network = new Cast(clock, 100, ROWS, 'DTaaS runner: notifications');
 const processes = {};
-const chapters = [];
-
-function reset() {
-  mkdirSync('run', { recursive: true });
-  for (const file of [...RUN_FILES, 'shutdown', 'transcript.txt']) {
-    rmSync(`run/${file}`, { force: true });
-  }
-  writeFileSync('run/ward.json', '{"cardiology":[],"maternity":[]}\n');
-}
-
-// runner.yaml with access control: new keys of alice (client) and
-// manager-1 (manager) in run/keys/, with which sign.mjs signs
-function authConfig() {
-  const principals = [
-    ['alice', 'client'],
-    ['manager-1', 'manager'],
-  ].map(
-    ([name, role]) =>
-      `    - name: ${name}\n      role: ${role}\n` +
-      `      publicKey: '${keygen(name, 'run/keys')}'\n`,
-  );
-  const auth = `auth:\n  principals:\n${principals.join('')}`;
-  writeFileSync('runner.auth.yaml', readFileSync('runner.yaml', 'utf8') + auth);
-}
 
 async function poll(condition, deadline) {
   if (await condition()) {
@@ -67,22 +39,17 @@ async function poll(condition, deadline) {
   await poll(condition, deadline);
 }
 
-async function waitFor(condition, timeoutMs = 30000) {
-  const started = Date.now();
-  await poll(condition, started + timeoutMs);
-  cast.since(started);
-}
+const waitFor = (condition, timeoutMs = 60000) =>
+  clock.real(() => poll(condition, Date.now() + timeoutMs));
 
-function run(command) {
-  cast.type(command);
-  const started = Date.now();
+async function run(command) {
+  manager.type(command);
   const script = `exec 2>&1; source tools/shell.sh; ${command}`;
-  const { stdout, status } = spawnSync(BASH, ['-c', script], {
-    encoding: 'utf8',
-  });
-  cast.since(started);
-  cast.output(stdout);
-  cast.pause(1);
+  const { stdout, status } = await clock.real(() =>
+    spawnSync(BASH, ['-c', script], { encoding: 'utf8' }),
+  );
+  manager.output(stdout);
+  clock.pause(1);
   appendFileSync(
     'run/transcript.txt',
     `$ ${command}  [exit ${status}]\n${stdout}\n`,
@@ -93,44 +60,50 @@ async function startServices() {
   const child = spawn(process.execPath, ['tools/services.mjs']);
   processes.services = child;
   const [ready] = await once(child.stdout, 'data');
-  cast.output(ready.toString());
+  manager.output(ready.toString());
 }
 
-async function startRunner() {
-  const log = openSync('run/runner.log', 'w');
-  processes.runner = spawn(
+async function startRunner(id) {
+  const log = openSync(`run/${id}/runner.log`, 'w');
+  processes[id] = spawn(
     process.execPath,
-    ['tools/runner.mjs', '-c', 'runner.auth.yaml'],
-    {
-      stdio: ['ignore', log, log],
-      env: { ...process.env, NO_COLOR: '1' },
-    },
+    ['tools/runner.mjs', '-c', RUNNERS[id].config],
+    { stdio: ['ignore', log, log], env: { ...process.env, NO_COLOR: '1' } },
   );
-  await waitFor(healthy);
+  await poll(healthy(id), Date.now() + 60000);
 }
 
 async function start({ start: name, show }) {
-  cast.type(show);
-  const started = Date.now();
-  await (name === 'services' ? startServices() : startRunner());
-  cast.since(started);
-  cast.pause(1);
+  manager.type(show);
+  await clock.real(() =>
+    name === 'services' ? startServices() : startRunner(name),
+  );
+  clock.pause(1);
 }
 
-const runnerExited = () =>
-  processes.runner.exitCode !== null || processes.runner.signalCode !== null;
+// Kills the runner at once, as a crash would: the broker publishes its will
+async function kill({ kill: id, show }) {
+  manager.type(show);
+  processes[id].kill('SIGKILL');
+  await waitFor(() => exited(id));
+  clock.pause(1);
+}
+
+const exited = (id) =>
+  processes[id].exitCode !== null || processes[id].signalCode !== null;
 
 // What each kind of step does, in the order a step is matched
 const actions = {
   chapter: ({ chapter }) => {
-    cast.marker(chapter);
-    chapters.push([chapter, cast.clock]);
+    manager.marker(chapter);
+    network.marker(chapter);
   },
-  say: ({ say }) => cast.say(say),
+  say: ({ say }) => manager.say(say),
   run: (step) => run(step.run),
   start: (step) => start(step),
+  kill: (step) => kill(step),
   wait: ({ wait }) => waitFor(wait),
-  stop: () => waitFor(runnerExited),
+  stop: ({ stop: id }) => waitFor(() => exited(id)),
 };
 
 async function play(step) {
@@ -138,25 +111,44 @@ async function play(step) {
   await actions[kind]?.(step);
 }
 
+// The network pane: each notification that the subscriber of
+// services.mjs received, at the time on the clock when it arrived
+function drawNetwork() {
+  network.output('\x1b[2mMQTT subscriber: dtaas/+/notify/+\x1b[0m\n\n', 0);
+  const lines = readFileSync('run/notify.jsonl', 'utf8').trim().split('\n');
+  for (const line of lines) {
+    const { at, topic, payload } = JSON.parse(line);
+    const text = notice(payload, topic.split('/')[1], true);
+    network.output(`${text}\n`, clock.at(at));
+  }
+}
+
 function report() {
   const time = (seconds) =>
     `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
-  for (const [chapter, seconds] of chapters) {
-    console.log(`| ${time(seconds)} | ${chapter} |`);
+  for (const [seconds, type, label] of manager.events) {
+    if (type === 'm') {
+      console.log(`| ${time(seconds)} | ${label} |`);
+    }
   }
-  console.log(`length ${time(cast.clock)}, ${cast.events.length} events`);
+  const end = manager.events.at(-1)[0];
+  console.log(`length ${time(end)}, ${manager.events.length} events`);
   console.log('for the video, run tools/to-mp4.sh on Linux or in WSL');
 }
 
 reset();
-authConfig();
+writeConfigs();
 try {
   // one step after the other
   await steps.reduce(
     (played, step) => played.then(() => play(step)),
     Promise.resolve(),
   );
-  cast.save('hospital.cast', Math.floor(Date.now() / 1000));
+  drawNetwork();
+  capGaps([manager, network]);
+  const timestamp = Math.floor(Date.now() / 1000);
+  manager.save(`${NAME}-manager.cast`, timestamp);
+  network.save(`${NAME}-network.cast`, timestamp);
   report();
 } finally {
   Object.values(processes).forEach((child) => child.kill());

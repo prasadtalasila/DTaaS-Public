@@ -8,55 +8,62 @@ a DT Manager, a script or any other client of the runner.
 
 The examples come from the
 [hospital bed-management demo](../demo/hospital/README.md). Most are
-requests typed in that recording, with the replies that the runner
-gave, so the values fit together from one example to the next; the
-text says where an example comes from elsewhere. The recording was
-made with version 0.7.0, so the replies of later features, such as the
-full history records, the metrics, the `resources` of the commands, the
-peers, the `publicKey` of the descriptor and the signature marks,
-follow the code and the tests of 0.10.0 rather than the recording. The
+requests typed in its recording on Windows against version 0.10.0,
+with the replies that the runner gave, so the values fit together from
+one example to the next; the notifications are those that its MQTT
+subscriber received in the same run, decoded. The text says where an
+example comes from elsewhere. The
 [Example Session](#example-session) at the end retells the recording as
 one story.
 
 ## The Demo Setup
 
-The demo runner manages `hospital-1`, a hospital in Aarhus with two
-wards, cardiology and maternity, of two beds each. Its configuration,
-[demo/hospital/runner.yaml](../demo/hospital/runner.yaml), gives the
-addresses that the examples use:
+The demo runs two runners, of the hospitals `hospital-1` and
+`hospital-2` in Aarhus, which are [peers](#peers) of each other. Each
+has two wards, cardiology and maternity, of two beds at `hospital-1`
+and one at `hospital-2`. Most examples ask `hospital-1`, whose
+configuration, [demo/hospital/runner.yaml](../demo/hospital/runner.yaml),
+gives the addresses that the examples use:
 
-| Setting            | Value                                          |
-| :----------------- | :--------------------------------------------- |
-| HTTP base URL      | `http://localhost:5100`                        |
-| MQTT broker        | `mqtt://127.0.0.1:18830`, MQTT 3.1.1           |
-| MQTT base topic    | `dtaas/hospital-1`                             |
-| Webhook            | `http://127.0.0.1:18080/dt-events`             |
-| Permitted commands | `open`, `full`, `closed`, `admit`, `discharge` |
-| Manager commands   | `admit`, `discharge`                           |
+| Setting            | `hospital-1`                                   | `hospital-2`               |
+| :----------------- | :--------------------------------------------- | :------------------------- |
+| HTTP base URL      | `http://localhost:5100`                        | `http://localhost:5200`    |
+| MQTT broker        | `mqtt://127.0.0.1:18830`, MQTT 3.1.1           | the same                   |
+| MQTT base topic    | `dtaas/hospital-1`                             | `dtaas/hospital-2`         |
+| Webhook            | `http://127.0.0.1:18080/dt-events`             | the same                   |
+| Permitted commands | `open`, `full`, `closed`, `admit`, `discharge` | the same                   |
+| Manager commands   | `admit`, `discharge`                           | the same                   |
+| Peers              | `hospital-2`, 12.4 km away                     | `hospital-1`, 12.4 km away |
 
 The state machine,
 [demo/hospital/hospital.fsm.yaml](../demo/hospital/hospital.fsm.yaml), has
 three states, `open`, `full` and `closed`, each running the script of
 the same name. It declares the events `full`, `beds-free`,
-`scope-changed`, `close` and `reopen`, and two parameters: `scope`, of
-values `single` and `multi`, which the Manager controls, and
-`capacity`, which the Manager may read only. The scripts run on
-Windows in PowerShell, so their output ends lines with `\r\n`.
+`scope-changed`, `fidelity-changed`, `close`, `reopen`,
+`neighbour-full` and `neighbour-down`, and three parameters: `scope`,
+of values `single` and `multi`, which the Manager controls; `capacity`,
+which the Manager may read only; and `fidelity`, of values `low`,
+`medium` and `high`, which sets how often `open` samples the beds. Its
+subscriptions raise `neighbour-full` when `hospital-2` is `full` and
+`neighbour-down` when it goes offline. The scripts run on Windows in
+PowerShell, so their output ends lines with `\r\n`.
 
-In the recording, `dt PATH [CURL OPTIONS]` is `curl -s` against
-`http://localhost:5100`, which prints the reply and then its HTTP
-status. The examples below show the plain `curl` command instead.
-`--json` (curl 7.82 or later) sends a POST with the given body as
-`application/json`; with an older curl, write
+The demo runs with [access control](#access-control) and
+[signatures](#signatures): each runner lists the principals `alice`
+(role `client`) and `manager-1` (role `manager`), signs its output with
+its own key, and lists the other's public key with the peer. In the
+recording, `dt1 PATH [CURL OPTIONS]` is `curl -s` against
+`http://localhost:5100`, signed as `alice`, which prints the reply and
+then its HTTP status; `dt2` is the same for `hospital-2`. The examples
+below show the plain `curl` command instead, with
+`-H "Authorization: Bearer $JWS"`, where `$JWS` is a token for that
+request, which the demo's
+[tools/sign.mjs](../demo/hospital/tools/sign.mjs) makes (see
+[Token](#token)). `--json` (curl 7.82 or later) sends a POST with the
+given body as `application/json`; with an older curl, write
 `-H 'Content-Type: application/json' -d '<body>'`, and add `-X PUT` for
-a PUT. `mq ROUTE [JSON]` publishes an MQTT request and prints the
-response, as described in [MQTT](#mqtt).
-
-The recording predates [access control](#access-control), so its
-requests carry no credential. A runner with `principals` in its `auth`
-section wants an `Authorization` header on every HTTP request but `GET
-/health`, and a signed payload on every MQTT request but `health`; the
-examples leave both out.
+a PUT. `mq1 ROUTE [JSON]` and `mq2` publish an MQTT request, signed as
+`manager-1`, and print the response, as described in [MQTT](#mqtt).
 
 ## Routes
 
@@ -121,7 +128,7 @@ These rules hold for every route.
   [Repeated Requests](#repeated-requests). A longer key gets the
   validation error.
 - **Times.** Times are ISO 8601 in UTC, such as
-  `2026-10-26T09:05:15.176Z`. The times of commands are stored to the
+  `2026-10-27T19:19:50.732Z`. The times of commands are stored to the
   second, so their milliseconds are `000`.
 - **Unexpected errors.** An unexpected failure gets HTTP status 500
   with `{"statusCode": 500, "message": "Internal server error"}`, over
@@ -142,7 +149,7 @@ runner is alive, and what it did since it started.
 Describes the DT from the configuration. MQTT route: `dt`.
 
 ```bash
-curl -s http://localhost:5100/dt
+curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
 ```
 
 `200`:
@@ -161,7 +168,7 @@ curl -s http://localhost:5100/dt
   "stateMachine": true,
   "manager": { "commands": ["admit", "discharge"] },
   "peers": ["hospital-2"],
-  "publicKey": null
+  "publicKey": "NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y"
 }
 ```
 
@@ -181,10 +188,10 @@ Returns the whole state of the DT in one document, with status 200
 whether or not a state machine is loaded. MQTT route: `state`. This is
 the document of the [state notifications](#state-notifications).
 
-Straight after the start of the demo, before the first transition:
+After the first transition of the demo, into `open`:
 
 ```bash
-curl -s http://localhost:5100/state
+curl -s http://localhost:5100/state -H "Authorization: Bearer $JWS"
 ```
 
 `200`:
@@ -192,17 +199,36 @@ curl -s http://localhost:5100/state
 ```json
 {
   "id": "hospital-1",
-  "time": "2026-10-26T09:05:15.176Z",
+  "time": "2026-10-27T19:19:50.732Z",
   "machine": {
-    "state": null,
-    "status": "none",
-    "entry": 0,
-    "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+    "state": "open",
+    "status": "running",
+    "entry": 1,
+    "events": [
+      "beds-free",
+      "close",
+      "fidelity-changed",
+      "full",
+      "neighbour-down",
+      "neighbour-full",
+      "reopen",
+      "scope-changed"
+    ]
   },
-  "parameters": { "scope": "single", "capacity": 2 },
-  "command": null
+  "parameters": { "scope": "single", "capacity": 2, "fidelity": "medium" },
+  "command": {
+    "name": "open",
+    "status": "running",
+    "receivedAt": "2026-10-27T19:19:44.000Z",
+    "finishedAt": null
+  }
 }
 ```
+
+Before the first transition, `machine` is
+`{"state": null, "status": "none", "entry": 0, "events": [...]}` and
+`command` is `null`, as in the first
+[state notification](#state-notifications).
 
 | Field        | Meaning                                                                  |
 | :----------- | :----------------------------------------------------------------------- |
@@ -220,16 +246,11 @@ runs in state `open`, for example, the document has:
 
 ```json
 {
-  "machine": {
-    "state": "open",
-    "status": "running",
-    "entry": 1,
-    "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
-  },
+  "machine": { "state": "open", "status": "running", "entry": 1 },
   "command": {
     "name": "admit",
     "status": "running",
-    "receivedAt": "2026-10-26T14:55:51.000Z",
+    "receivedAt": "2026-10-27T19:19:58.000Z",
     "finishedAt": null
   }
 }
@@ -254,12 +275,16 @@ curl -s http://localhost:5100/health
 ```json
 {
   "status": "ok",
-  "uptime": 4,
+  "uptime": 13,
   "mqtt": "connected",
   "database": "file",
-  "scripts": { "user": "dt-script" }
+  "scripts": null
 }
 ```
+
+The demo runs on Windows, where the runner refuses `scripts.user`, so
+`scripts` is `null`; a Linux runner with that setting answers
+`"scripts": { "user": "dt-script" }`.
 
 | Field      | Values                                                                                      |
 | :--------- | :------------------------------------------------------------------------------------------ |
@@ -280,39 +305,42 @@ alive.
 Counts what the runner did since it started. MQTT route: `metrics`.
 
 ```bash
-curl -s http://localhost:5100/metrics
+curl -s http://localhost:5100/metrics -H "Authorization: Bearer $JWS"
 ```
 
-`200`, at the `GET /history` step of the demo (2:51 of the
-[Example Session](#example-session)); the values are worked out from
-the session, with the times of the re-run:
+`200`, in the section History and Metrics of the demo, after
+`hospital-2` went offline (see the [Example Session](#example-session)):
 
 ```json
 {
-  "since": "2026-10-26T14:55:41.402Z",
-  "uptime": 42,
+  "since": "2026-10-27T19:19:12.448Z",
+  "uptime": 166,
   "commands": {
     "valid": 6,
     "failed": 2,
-    "stopped": 1,
+    "stopped": 5,
     "invalid": 0,
     "interrupted": 0,
     "running": 1
   },
   "resources": {
-    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512, "processes": 2 },
-    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464, "processes": 2 }
+    "open": { "cpuSeconds": 13.546, "peakRssBytes": 105103360, "processes": 2 }
   },
   "machine": {
-    "entries": { "open": 3, "full": 1 },
-    "seconds": { "open": 34.4, "full": 4.6 },
+    "entries": { "open": 7, "full": 1 },
+    "seconds": { "open": 118.519, "full": 15.093 },
     "completions": { "$success": 0, "$failure": 1, "$stopped": 0 },
     "transitions": { "requested": 1, "accepted": 1 },
-    "events": { "requested": 5, "accepted": 3, "noTransition": 2 }
+    "events": { "requested": 9, "accepted": 7, "noTransition": 2 }
   },
   "escalations": { "request": 1, "failure": 1, "no-transition": 1 }
 }
 ```
+
+The fourteen commands are seven runs of `open`, five of `admit`, one
+of `discharge` and one of `full`. Only the runs of `open` were
+measured: on Windows the other scripts ended before their first sample,
+as in [POST /](#post-).
 
 - `since` is when the runner process started, and `uptime` the whole
   seconds since then, as on [GET /health](#get-health). A restart sets
@@ -334,8 +362,8 @@ the session, with the times of the re-run:
   an entry. `seconds` counts the current state up to the request, to the
   millisecond.
 - `completions` counts the scripts of the current entry that finished,
-  by the event that their outcome raises: the first two entries into
-  `open` were left before their scripts ended, so their ends count
+  by the event that their outcome raises: six of the seven entries
+  into `open` were left before their scripts ended, so their ends count
   nothing. A
   [stop transition](../STATE-MACHINE.md#stop-transitions)
   (`stop: true`) likewise enters its next state before the stopped
@@ -346,7 +374,8 @@ the session, with the times of the re-run:
 - `transitions` and `events` count the requests that reached the
   machine; a [repeated request](#repeated-requests) that gets its
   stored reply counts once. `events` includes the events that a
-  parameter change raises, such as `scope-changed` above.
+  parameter change raises, such as `scope-changed` above, and those of
+  the [peer subscriptions](#peers), such as `neighbour-full`.
 - `escalations` counts the [escalations](#escalation) by trigger, with
   or without a state machine.
 
@@ -376,7 +405,8 @@ other `input` gets the [validation error](#conventions).
 The Manager admits patient `p-1` to cardiology, with a request key:
 
 ```bash
-curl -s http://localhost:5100/ -H 'Idempotency-Key: admit-p-1' \
+curl -s http://localhost:5100/ -H "Authorization: Bearer $JWS" \
+  -H 'Idempotency-Key: admit-p-1' \
   --json '{"name":"admit","input":{"patient":"p-1","ward":"cardiology"}}'
 ```
 
@@ -389,11 +419,7 @@ curl -s http://localhost:5100/ -H 'Idempotency-Key: admit-p-1' \
     "exitCode": 0,
     "stdout": "hospital-1 in state open#1, scope single\r\np-1 admitted to cardiology",
     "stderr": "",
-    "resources": {
-      "cpuSeconds": 0.469,
-      "peakRssBytes": 115646464,
-      "processes": 2
-    }
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
   }
 }
 ```
@@ -428,17 +454,21 @@ tree of the run: the process that the runner starts and every process
 below it, sampled every half second or so. The figures are lower
 bounds, and `null` when not measured: on a platform other than Linux
 and Windows, or for a script that ended before its first sample. On
-Windows the tree is `powershell.exe`, which ran `admit.ps1` above, its
-`conhost.exe` and what the script starts, so most of the 110 MB is
-PowerShell's own and `processes` is at least 2. The figures in the
-examples of this document are illustrative, as the recording of the
-demo predates them.
+Windows the sampler is a `powershell.exe` of its own, which needs a
+second or more to start, so a short script such as `admit.ps1` above
+ends unmeasured. A run of `open` in the demo, which lasted five
+seconds, reports its tree: `powershell.exe`, which ran `open.ps1`, and
+its `conhost.exe`, most of the 100 MB being PowerShell's own:
+
+```json
+{ "cpuSeconds": 1.656, "peakRssBytes": 103395328, "processes": 2 }
+```
 
 Both wards hold two beds and `scope` is `single`, so after `p-2`, a
 third cardiology patient fails with exit code 3:
 
 ```bash
-curl -s http://localhost:5100/ \
+curl -s http://localhost:5100/ -H "Authorization: Bearer $JWS" \
   --json '{"name":"admit","input":{"patient":"p-3","ward":"cardiology"}}'
 ```
 
@@ -451,11 +481,7 @@ curl -s http://localhost:5100/ \
     "exitCode": 3,
     "stdout": "hospital-1 in state open#1, scope single",
     "stderr": "no free bed for p-3; escalated: 202",
-    "resources": {
-      "cpuSeconds": 0.812,
-      "peakRssBytes": 117440512,
-      "processes": 2
-    }
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
   }
 }
 ```
@@ -468,7 +494,8 @@ progress did not get that input. `open` is the script of the current
 state, so it is running:
 
 ```bash
-curl -s http://localhost:5100/ --json '{"name":"open","input":{}}'
+curl -s http://localhost:5100/ -H "Authorization: Bearer $JWS" \
+  --json '{"name":"open","input":{}}'
 ```
 
 `409`:
@@ -486,7 +513,7 @@ Shows the latest command received, with its logs and exit code. MQTT
 route: `status`. After the failed admission of `p-3`:
 
 ```bash
-curl -s http://localhost:5100/
+curl -s http://localhost:5100/ -H "Authorization: Bearer $JWS"
 ```
 
 `200`:
@@ -500,11 +527,7 @@ curl -s http://localhost:5100/
     "stderr": "no free bed for p-3; escalated: 202"
   },
   "exitCode": 3,
-  "resources": {
-    "cpuSeconds": 0.812,
-    "peakRssBytes": 117440512,
-    "processes": 2
-  }
+  "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
 }
 ```
 
@@ -531,51 +554,34 @@ that are not permitted appear too. A repeated request and a request
 refused with `command running` do not. MQTT route: `history`.
 
 ```bash
-curl -s http://localhost:5100/history
+curl -s http://localhost:5100/history -H "Authorization: Bearer $JWS"
 ```
 
-`200`, near the end of the demo, three of its ten records. They are
-illustrative: the recording predates the full records and printed names
-only, so the times are those of the re-run that the
-[notifications](#notifications) show. The demo has no `auth`, so `by` is
-`null`.
+`200`, after the change of `fidelity` in the demo, the newest two of
+six records, with `limit=2` (see below):
 
 ```json
 [
   {
-    "id": 2,
-    "name": "admit",
-    "status": "valid",
-    "exitCode": 0,
-    "receivedAt": "2026-10-26T14:55:51.000Z",
-    "finishedAt": "2026-10-26T14:55:52.000Z",
+    "id": 5,
+    "name": "open",
+    "status": "stopped",
+    "exitCode": null,
+    "receivedAt": "2026-10-27T19:20:31.000Z",
+    "finishedAt": "2026-10-27T19:20:36.000Z",
     "by": null,
     "resources": {
-      "cpuSeconds": 0.469,
-      "peakRssBytes": 115646464,
+      "cpuSeconds": 1.656,
+      "peakRssBytes": 103395328,
       "processes": 2
     }
   },
   {
-    "id": 4,
-    "name": "admit",
-    "status": "failed",
-    "exitCode": 3,
-    "receivedAt": "2026-10-26T14:55:59.000Z",
-    "finishedAt": "2026-10-26T14:56:00.000Z",
-    "by": null,
-    "resources": {
-      "cpuSeconds": 0.812,
-      "peakRssBytes": 117440512,
-      "processes": 2
-    }
-  },
-  {
-    "id": 10,
+    "id": 6,
     "name": "open",
     "status": "running",
     "exitCode": null,
-    "receivedAt": "2026-10-26T14:56:17.000Z",
+    "receivedAt": "2026-10-27T19:20:36.000Z",
     "finishedAt": null,
     "by": null,
     "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
@@ -594,12 +600,19 @@ only, so the times are those of the re-run that the
 | `by`         | the [principal](#access-control) that sent it, or `null` without `auth` or for a state's script |
 | `resources`  | as on [POST /](#post-); `null` while running, and for refused, interrupted and older commands   |
 
-The ten records are the three entries into `open`, the five admissions
-(`p-1`, `p-2`, `p-3` refused, `p-3` again and `p-4`), the script of
-`full`, and the `discharge` sent over MQTT. The repeat of `p-1` and the
-refused input to `open` are missing. Neither the logs, which stay on
-[GET /](#get-), nor the input are part of the history. The duration of
-a command is `finishedAt - receivedAt`.
+Record 5 is the run of `open` at entry 2, which the change of
+`fidelity` stopped with its figures; record 6 is the run at entry 3,
+whose figures come when it ends. The six records are the first two
+entries into `open`, the admissions of `p-1`, `p-2` and `p-3`, which
+`alice` sent and which ended before their first sample, and this run.
+The repeat of `p-1` and the refused input to `open` are missing.
+Neither the logs, which stay on [GET /](#get-), nor the input are part
+of the history. The duration of a command is
+`finishedAt - receivedAt`.
+
+At the end of the demo, `GET /history` had fourteen records: five sent
+by `alice`, the `discharge` that `manager-1` sent over MQTT, and eight
+scripts of states, whose `by` is `null`.
 
 Two query parameters, both optional, select the records; over MQTT they
 are the payload, as a JSON object such as `{"since": "...", "limit": 2}`,
@@ -610,11 +623,17 @@ and an empty payload takes the defaults.
 | `since`   | ISO 8601 with `Z` or an offset; the records received at that second or later                 |
 | `limit`   | an integer from 1 to 1000, by default 100; the newest records of the selection, oldest first |
 
+The demo asked for the records of the last 90 seconds, at most two:
+
 ```bash
-curl -s 'http://localhost:5100/history?since=2026-10-26T14:56:00Z&limit=2'
+since=$(date -u -d '-90 sec' +%FT%TZ)
+curl -s "http://localhost:5100/history?since=$since&limit=2" \
+  -H "Authorization: Bearer $JWS"
 ```
 
-returns records 9 (`discharge`) and 10 (`open`). As times are stored to
+and got records 13 and 14, the runs of `open` that `neighbour-down`
+stopped and started. The signature covers the path without the query,
+so the token of `GET /history` serves any query. As times are stored to
 the second, `since` is compared to the second too, and the records of
 that second come again: a Manager that polls with the last `receivedAt`
 it holds drops the repeats by `id`. A value that fails, such as
@@ -643,7 +662,8 @@ of its tree up to the last sample before that process exited, and the
 processes that survive the stop are not measured:
 
 ```bash
-curl -s http://localhost:5100/stop --json '{"name":"open"}'
+curl -s http://localhost:5100/stop -H "Authorization: Bearer $JWS" \
+  --json '{"name":"open"}'
 ```
 
 `200`:
@@ -675,7 +695,8 @@ script has started.
 Moves an idle machine to a state. MQTT route: `transition`.
 
 ```bash
-curl -s http://localhost:5100/fsm/transition --json '{"state":"open"}'
+curl -s http://localhost:5100/fsm/transition -H "Authorization: Bearer $JWS" \
+  --json '{"state":"open"}'
 ```
 
 `202`:
@@ -699,7 +720,8 @@ events of [peer subscriptions](#peers) the same way.
 The state `full` has no transition for `close`:
 
 ```bash
-curl -s http://localhost:5100/fsm/event --json '{"event":"close"}'
+curl -s http://localhost:5100/fsm/event -H "Authorization: Bearer $JWS" \
+  --json '{"event":"close"}'
 ```
 
 `409`:
@@ -735,7 +757,7 @@ Returns the state of the machine. MQTT route: `fsm`. After the stop of
 `open`:
 
 ```bash
-curl -s http://localhost:5100/fsm
+curl -s http://localhost:5100/fsm -H "Authorization: Bearer $JWS"
 ```
 
 `200`:
@@ -744,8 +766,17 @@ curl -s http://localhost:5100/fsm
 {
   "state": "closed",
   "status": "valid",
-  "entry": 5,
-  "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+  "entry": 9,
+  "events": [
+    "beds-free",
+    "close",
+    "fidelity-changed",
+    "full",
+    "neighbour-down",
+    "neighbour-full",
+    "reopen",
+    "scope-changed"
+  ]
 }
 ```
 
@@ -785,7 +816,7 @@ Returns the value and the declaration of each parameter, without its
 `event`. MQTT route: `parameters`.
 
 ```bash
-curl -s http://localhost:5100/parameters
+curl -s http://localhost:5100/parameters -H "Authorization: Bearer $JWS"
 ```
 
 `200`:
@@ -804,6 +835,13 @@ curl -s http://localhost:5100/parameters
     "type": "number",
     "default": 2,
     "controllable": false
+  },
+  "fidelity": {
+    "value": "medium",
+    "type": "enum",
+    "values": ["low", "medium", "high"],
+    "default": "medium",
+    "controllable": true
   }
 }
 ```
@@ -828,7 +866,8 @@ The runner applies the whole body or none of it:
 `capacity` is not controllable:
 
 ```bash
-curl -s -X PUT http://localhost:5100/parameters --json '{"capacity":3}'
+curl -s -X PUT http://localhost:5100/parameters -H "Authorization: Bearer $JWS" \
+  --json '{"capacity":3}'
 ```
 
 `400`:
@@ -843,18 +882,26 @@ curl -s -X PUT http://localhost:5100/parameters --json '{"capacity":3}'
 
 The Manager sets `scope` to `multi`, which raises `scope-changed`. In
 `open` that is a `stop: true` self-transition, so the runner stops the
-script of `open` and starts it again, at entry 2:
+script of `open` and starts it again, at entry 2. The demo sent it over
+MQTT, as `manager-1` (see [MQTT](#mqtt)); over HTTP it is:
 
 ```bash
-curl -s -X PUT http://localhost:5100/parameters --json '{"scope":"multi"}'
+curl -s -X PUT http://localhost:5100/parameters -H "Authorization: Bearer $JWS" \
+  --json '{"scope":"multi"}'
 ```
 
-`200`, with the body of `GET /parameters`, now with `"value": "multi"`
+The reply is the body of `GET /parameters`, now with `"value": "multi"`
 for `scope`. The reply is the same whatever the events did; an event
 that the machine refuses is logged. `GET /state` tells where the
 machine went. A value equal to the current one changes nothing and
 raises no event, so a repeat of the request and `{}` change nothing.
 The route takes no request key for that reason.
+
+`{"fidelity": "high"}` then raised `fidelity-changed`, another
+`stop: true` self-transition of `open`, which started again at entry 3
+and samples the beds every 100 ms instead of 500 ms; the run at entry
+2 ended `stopped` with its figures, as [GET /history](#get-history)
+shows.
 
 ## Peers
 
@@ -872,7 +919,14 @@ through a `subscriptions` entry of the state machine file, when the
 entry's condition on the peer's `state` or `online` turns true; the
 event then takes the path of [POST /fsm/event](#post-fsmevent) without
 a request key, and nothing replies
-([README](../README.md#peer-events)).
+([README](../README.md#peer-events)). In the demo, `hospital-1`
+subscribes to the state `full` and to `online: false` of `hospital-2`,
+and the runner logs each event it raises:
+
+```text
+Raised neighbour-full on state full of peer hospital-2: entered open
+Raised neighbour-down on online false of peer hospital-2: entered open
+```
 
 ### GET /peers
 
@@ -880,10 +934,11 @@ Maps each peer's id to its entry; `{}` without peers. MQTT route:
 `peers`.
 
 ```bash
-curl -s http://localhost:5100/peers
+curl -s http://localhost:5100/peers -H "Authorization: Bearer $JWS"
 ```
 
-`200`, with `hospital-2` online in state `full`:
+`200`, with `hospital-2` online in state `open`, after the first
+transition of both hospitals:
 
 ```json
 {
@@ -895,24 +950,44 @@ curl -s http://localhost:5100/peers
     "online": true,
     "descriptor": {
       "id": "hospital-2",
-      "attributes": { "name": "Hospital 2", "city": "Aarhus" },
+      "attributes": {
+        "name": "Hospital 2",
+        "city": "Aarhus",
+        "latitude": 56.2,
+        "longitude": 10.18,
+        "wards": 2
+      },
       "commands": ["open", "full", "closed", "admit", "discharge"],
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
       "peers": ["hospital-1"],
-      "publicKey": null
+      "publicKey": "h484L5GHC1Fm1u-zlUFvxmaZy4me2A2mKuIoRFY57XU"
     },
     "state": {
       "id": "hospital-2",
-      "time": "2026-10-26T14:56:02.410Z",
+      "time": "2026-10-27T19:19:40.394Z",
       "machine": {
-        "state": "full",
+        "state": "open",
         "status": "running",
-        "entry": 3,
-        "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+        "entry": 1,
+        "events": [
+          "beds-free",
+          "close",
+          "fidelity-changed",
+          "full",
+          "neighbour-down",
+          "neighbour-full",
+          "reopen",
+          "scope-changed"
+        ]
       },
-      "parameters": { "scope": "single", "capacity": 2 },
-      "command": null
+      "parameters": { "scope": "single", "capacity": 1, "fidelity": "medium" },
+      "command": {
+        "name": "open",
+        "status": "running",
+        "receivedAt": "2026-10-27T19:19:40.000Z",
+        "finishedAt": null
+      }
     }
   }
 }
@@ -930,8 +1005,11 @@ curl -s http://localhost:5100/peers
 
 `online`, `descriptor` and `state` are `null` until a notification
 tells them, and stay `null` without MQTT, for a disabled peer and for
-one without `topic`. The demo runs one runner, so its `hospital-2`
-stays `"online": null`. `publicKey` is not shown.
+one without `topic`. When the runner of `hospital-2` was killed, its
+will set `online` to `false` and kept the descriptor and the last
+state, `full` at entry 2. `publicKey` of the configuration is not
+shown; the `publicKey` of the descriptor is the one that the peer
+announced.
 
 ### PUT /peers
 
@@ -943,7 +1021,7 @@ is not a boolean is refused with `400`, and `message` lists every
 problem:
 
 ```bash
-curl -s -X PUT http://localhost:5100/peers \
+curl -s -X PUT http://localhost:5100/peers -H "Authorization: Bearer $JWS" \
   --json '{"hospital-9":false,"hospital-2":"off"}'
 ```
 
@@ -958,9 +1036,26 @@ curl -s -X PUT http://localhost:5100/peers \
 ```
 
 A body that is not an object gets the [validation error](#conventions).
-`{"hospital-2": false}` is `200` with the body of `GET /peers`, where
-`hospital-2` has `"enabled": false` and `online`, `descriptor` and
-`state` `null`. The runner stores the changes of a body together, or
+`{"hospital-2": false}` is `200` with the body of `GET /peers`:
+
+```json
+{
+  "hospital-2": {
+    "topic": "dtaas/hospital-2",
+    "url": "http://localhost:5200",
+    "attributes": { "distance": 12.4 },
+    "enabled": false,
+    "online": null,
+    "descriptor": null,
+    "state": null
+  }
+}
+```
+
+In the demo, `{"hospital-2": true}` then brought back the retained
+state `full` of `hospital-2`, which counted as a change for the
+subscription of `hospital-1`, so `neighbour-full` restarted `open`
+once more. The runner stores the changes of a body together, or
 none of them; a stored change overrides the `enabled` of the
 configuration at the next start. Disabling a peer unsubscribes and
 forgets what it told; enabling it subscribes again, and the retained
@@ -995,7 +1090,7 @@ not read it. In the demo, `admit.ps1` escalates when it finds no bed,
 with this body:
 
 ```bash
-curl -s http://localhost:5100/escalate \
+curl -s http://localhost:5100/escalate -H "Authorization: Bearer $JWS" \
   --json '{"reason":"no cardiology bed for p-3","proposal":{"scope":"multi"}}'
 ```
 
@@ -1271,58 +1366,65 @@ limit, but its `input` has the 64 KiB limit of `POST /`.
 
 ### Example: Descriptor and Discharge
 
-In the demo, `mq dt` subscribes to `dtaas/hospital-1/dt/response`,
-publishes an empty payload on `dtaas/hospital-1/dt`, and prints the
+In the demo, `mq1 dt` subscribes to `dtaas/hospital-1/dt/response`,
+publishes a signed payload on `dtaas/hospital-1/dt`, and prints the
 response topic, whether the payload is `verified`, `UNSIGNED` or
-`INVALID` (see [Signatures](#signatures)), and the payload:
+`INVALID` (see [Signatures](#signatures)), and the payload, here the
+body of [GET /dt](#get-dt). The demo shows the line of its `publicKey`
+beside the key file with which the tools verified the response:
 
 ```text
-dtaas/hospital-1/dt/response (UNSIGNED)
-{
-  "id": "hospital-1",
-  "attributes": { "name": "Hospital 1", "city": "Aarhus", "latitude": 56.19, "longitude": 10.17, "wards": 2 },
-  "commands": ["open", "full", "closed", "admit", "discharge"],
-  "stateMachine": true,
-  "manager": { "commands": ["admit", "discharge"] },
-  "peers": ["hospital-2"],
-  "publicKey": null
-}
+dtaas/hospital-1/dt/response (verified)
+  "publicKey": "NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y"
+NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y
 ```
 
 The Manager discharges `p-1` over MQTT, with input:
 
 ```bash
-mq execute '{"name":"discharge","input":{"patient":"p-1"}}'
+mq1 execute '{"name":"discharge","input":{"patient":"p-1"}}'
 ```
 
 ```text
-dtaas/hospital-1/execute/response (UNSIGNED)
+dtaas/hospital-1/execute/response (verified)
 {
   "status": "success",
   "result": {
     "exitCode": 0,
     "stdout": "p-1 left cardiology\r\nraised event beds-free, reply 202",
     "stderr": "",
-    "resources": { "cpuSeconds": 0.641, "peakRssBytes": 116391936, "processes": 2 }
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
   }
 }
 ```
 
 `discharge.ps1` raised `beds-free`, which moved the machine from `full`
-back to `open`, as `mq fsm` shows:
+back to `open`, as `mq1 fsm` shows:
 
 ```text
-dtaas/hospital-1/fsm/response (UNSIGNED)
+dtaas/hospital-1/fsm/response (verified)
 {
   "state": "open",
   "status": "running",
-  "entry": 4,
-  "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+  "entry": 6,
+  "events": [
+    "beds-free",
+    "close",
+    "fidelity-changed",
+    "full",
+    "neighbour-down",
+    "neighbour-full",
+    "reopen",
+    "scope-changed"
+  ]
 }
 ```
 
 The same requests with the
-[Mosquitto clients](https://mosquitto.org/download/):
+[Mosquitto clients](https://mosquitto.org/download/), for a runner
+without `auth.principals`; with them, each payload is the JWS that
+`node tools/sign.mjs mqtt ROUTE JSON` prints (see
+[MQTT Access Control](#mqtt-access-control)):
 
 ```bash
 mosquitto_sub -h 127.0.0.1 -p 18830 -t 'dtaas/hospital-1/+/response' &
@@ -1396,10 +1498,10 @@ is one JSON object, or with `auth.key` a JWS of it
 | `time` | the time of the notification; `null` only in the MQTT will |
 | `data` | the content, which depends on `kind`                       |
 
-The payloads below were captured from a re-run of the demo, with a
-subscriber that logged every message unchanged, as the recording shows
-each notification as a one-line summary only. Their times are those of
-the re-run.
+The payloads below are those that the subscriber of the demo received
+in the recording, each a JWS that it verified with the public key of
+its DT, shown decoded. The recording's network pane shows each
+notification as a one-line summary only.
 
 ### State Notifications
 
@@ -1410,23 +1512,32 @@ changes, and once at startup. A document that differs from the last
 one sent only in its `time` is not sent again. `data` is the document,
 and `id` and `time` are its own.
 
-The first notification of the demo, at startup:
+The first notification of the demo, at the startup of `hospital-1`:
 
 ```json
 {
   "kind": "state",
   "id": "hospital-1",
-  "time": "2026-10-26T14:55:41.712Z",
+  "time": "2026-10-27T19:19:16.975Z",
   "data": {
     "id": "hospital-1",
-    "time": "2026-10-26T14:55:41.712Z",
+    "time": "2026-10-27T19:19:16.975Z",
     "machine": {
       "state": null,
       "status": "none",
       "entry": 0,
-      "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+      "events": [
+        "beds-free",
+        "close",
+        "fidelity-changed",
+        "full",
+        "neighbour-down",
+        "neighbour-full",
+        "reopen",
+        "scope-changed"
+      ]
     },
-    "parameters": { "scope": "single", "capacity": 2 },
+    "parameters": { "scope": "single", "capacity": 2, "fidelity": "medium" },
     "command": null
   }
 }
@@ -1437,11 +1548,11 @@ The stop of `open` gives this sequence of documents, shown here by
 
 | `machine`              | `command`           |
 | :--------------------- | :------------------ |
-| `open` #4, `running`   | `open`, `stopped`   |
-| `open` #4, `stopped`   | `open`, `stopped`   |
-| `closed` #5, `running` | `closed`, `running` |
-| `closed` #5, `running` | `closed`, `valid`   |
-| `closed` #5, `valid`   | `closed`, `valid`   |
+| `open` #8, `running`   | `open`, `stopped`   |
+| `open` #8, `stopped`   | `open`, `stopped`   |
+| `closed` #9, `running` | `closed`, `running` |
+| `closed` #9, `running` | `closed`, `valid`   |
+| `closed` #9, `valid`   | `closed`, `valid`   |
 
 ### Escalation Notifications
 
@@ -1454,13 +1565,13 @@ The stop of `open` gives this sequence of documents, shown here by
 | `reason`     | the reason of the request, or the runner's own text                                             |
 | `proposal`   | the proposal of the request, else `null`                                                        |
 
-The demo escalates three times. `admit.ps1` asks for scope `multi`:
+`hospital-1` escalates three times. `admit.ps1` asks for scope `multi`:
 
 ```json
 {
   "kind": "escalation",
   "id": "hospital-1",
-  "time": "2026-10-26T14:55:59.980Z",
+  "time": "2026-10-27T19:20:18.670Z",
   "data": {
     "trigger": "request",
     "state": "open",
@@ -1472,17 +1583,18 @@ The demo escalates three times. `admit.ps1` asks for scope `multi`:
 }
 ```
 
-The script of `full` fails, and `full` has no `$failure` transition:
+The script of `full` fails, as `hospital-2` is full too, and `full` has
+no `$failure` transition:
 
 ```json
 {
   "kind": "escalation",
   "id": "hospital-1",
-  "time": "2026-10-26T14:56:13.007Z",
+  "time": "2026-10-27T19:21:10.496Z",
   "data": {
     "trigger": "failure",
     "state": "full",
-    "entry": 3,
+    "entry": 5,
     "event": null,
     "reason": "script of state full failed",
     "proposal": null
@@ -1496,11 +1608,11 @@ The event `close` has no transition in `full`:
 {
   "kind": "escalation",
   "id": "hospital-1",
-  "time": "2026-10-26T14:56:14.962Z",
+  "time": "2026-10-27T19:21:14.605Z",
   "data": {
     "trigger": "no-transition",
     "state": "full",
-    "entry": 3,
+    "entry": 5,
     "event": "close",
     "reason": "no transition for close in state full",
     "proposal": null
@@ -1517,7 +1629,7 @@ carries the [descriptor](#get-dt):
 {
   "kind": "presence",
   "id": "hospital-1",
-  "time": "2026-10-26T14:55:41.780Z",
+  "time": "2026-10-27T19:19:17.081Z",
   "data": {
     "online": true,
     "descriptor": {
@@ -1533,7 +1645,7 @@ carries the [descriptor](#get-dt):
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
       "peers": ["hospital-2"],
-      "publicKey": null
+      "publicKey": "NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y"
     }
   }
 }
@@ -1545,7 +1657,7 @@ The offline notice, at a graceful shutdown:
 {
   "kind": "presence",
   "id": "hospital-1",
-  "time": "2026-10-26T14:56:29.685Z",
+  "time": "2026-10-27T19:22:09.109Z",
   "data": { "online": false }
 }
 ```
@@ -1553,7 +1665,18 @@ The offline notice, at a graceful shutdown:
 Over MQTT, the runner also connects with a will on the presence topic:
 the offline notice with `"time": null`, as the will is fixed when the
 runner connects. The broker publishes the will only when the runner
-disappears without leaving: a crash, a kill or a lost connection.
+disappears without leaving: a crash, a kill or a lost connection. The
+demo kills the runner of `hospital-2`, and the broker publishes its
+will, signed when the runner connected:
+
+```json
+{
+  "kind": "presence",
+  "id": "hospital-2",
+  "time": null,
+  "data": { "online": false }
+}
+```
 
 At shutdown, the runner publishes the offline notice and disconnects
 gracefully, so that the broker drops the will. Each step waits at most
@@ -1574,28 +1697,25 @@ The runner publishes each notification with QoS 1 on
 
 The online notice is published each time the runner connects, the first
 time and after each reconnect. The notification topics are two levels
-under the base topic, so `<topic>/+/response` does not match them:
+under the base topic, so `<topic>/+/response` does not match them; the
+demo's subscriber takes those of every DT with `dtaas/+/notify/+`:
 
 ```bash
-mosquitto_sub -h 127.0.0.1 -p 18830 -v -t 'dtaas/hospital-1/notify/+'
+mosquitto_sub -h 127.0.0.1 -p 18830 -v -t 'dtaas/+/notify/+'
 ```
 
 While the broker is unreachable, the runner queues the notifications in
 memory and publishes them in order when it connects again.
 
-In the demo, `mq retained` subscribes late. Halfway through it gets the
-retained state and presence, and no escalation:
+In the demo, `mq retained` subscribes after the shutdown of
+`hospital-1`. It gets the retained state and presence of both DTs, the
+will of `hospital-2` among them, and no escalation:
 
 ```text
-UNSIGNED notify/state (retained) 09:05:39 machine open#4 running | scope multi | command open:running
-UNSIGNED notify/presence (retained) 09:05:11 online  hospital-1 in Aarhus
-```
-
-After the shutdown, the retained presence says offline:
-
-```text
-UNSIGNED notify/state (retained) 09:05:45 machine closed#5 valid | scope multi | command closed:valid
-UNSIGNED notify/presence (retained) 09:05:47 offline
+retained 19:22:04 hospital-1 verified closed#9 valid | closed:valid | scope=multi fidelity=high
+retained 19:22:09 hospital-1 verified offline
+retained 19:20:54 hospital-2 verified full#2 valid | full:valid | scope=single fidelity=medium
+retained --:--:-- hospital-2 verified offline (the will)
 ```
 
 ### Over a Webhook
@@ -1613,18 +1733,19 @@ failure is logged once, with the host of the webhook only, until a post
 succeeds again.
 
 The webhook gets the online notice once at startup, not on a
-reconnect, and the offline notice once at shutdown. At shutdown the
-runner abandons the posts still in progress or waiting for a retry. In
-the recording, the demo's receiver logged the notifications other than
-state documents as below; it now marks each line `verified`,
-`UNSIGNED` or `INVALID` as well, as `mq retained` does above.
+reconnect, and the offline notice once at shutdown; the will goes over
+MQTT only. At shutdown the runner abandons the posts still in progress
+or waiting for a retry. Both runners of the demo post to one receiver,
+which logged the notifications other than state documents, before the
+shutdown, as below, each verified with the key of the DT that the
+payload names:
 
 ```text
-POST presence   09:05:11 online  hospital-1 in Aarhus
-POST escalation 09:05:24 request in open#1: no cardiology bed for p-3 proposal {"scope":"multi"}
-POST escalation 09:05:34 failure in full#3: script of state full failed
-POST escalation 09:05:36 no-transition in full#3 event close: no transition for close in state full
-POST presence   09:05:47 offline
+POST 19:19:16 hospital-1 verified online, peers hospital-2
+POST 19:19:21 hospital-2 verified online, peers hospital-1
+POST 19:20:18 hospital-1 verified escalation request open#1: no cardiology bed for p-3 {"scope":"multi"}
+POST 19:21:10 hospital-1 verified escalation failure full#5: script of state full failed
+POST 19:21:14 hospital-1 verified escalation no-transition full#5: no transition for close in state full
 ```
 
 ### Signatures
@@ -1672,14 +1793,14 @@ The first state notification of
 
 ```text
 eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiaG9zcGl0YWwtMSJ9
-.eyJraW5kIjoic3RhdGUiLCJpZCI6Imhvc3BpdGFs[…]Y29tbWFuZCI6bnVsbH19
-.XhfsOxaMejbhXXs4zTnf[…]
+.eyJraW5kIjoic3RhdGUiLCJpZCI6Imhvc3BpdGFs[…]NvbW1hbmQiOm51bGx9fQ
+.UufoNbhIlLc0ZHmzH1wb[…]
 ```
 
 The header decodes to `{"alg":"Ed25519","kid":"hospital-1"}`, and the
-payload, 404 characters, to the envelope unchanged. The signature is
+payload, 502 characters, to the envelope unchanged. The signature is
 86 base64url characters, the 64 bytes of Ed25519. The document grows
-from 303 to 540 bytes.
+from 376 to 638 bytes.
 
 A consumer verifies with the public key its operator gave it, as
 `publicKey` of [GET /dt](#get-dt) gives it: the base64url of the 32 raw
@@ -1746,24 +1867,30 @@ own address and the context of the DT in environment variables.
 
 ### Script Environment
 
-| Variable          | Value in the demo, in state `open` at entry 1  |
-| :---------------- | :--------------------------------------------- |
-| `RUNNER_URL`      | `http://127.0.0.1:5100`                        |
-| `RUNNER_TOKEN`    | the bearer token, with `auth.principals` only  |
-| `DT_ID`           | `hospital-1`                                   |
-| `DT_STATE`        | `open`; empty before the first transition      |
-| `DT_ENTRY`        | `1`                                            |
-| `DT_PARAM_<NAME>` | `DT_PARAM_SCOPE=single`, `DT_PARAM_CAPACITY=2` |
+| Variable          | Value in the demo, in state `open` at entry 1                              |
+| :---------------- | :------------------------------------------------------------------------- |
+| `RUNNER_URL`      | `http://127.0.0.1:5100`                                                    |
+| `RUNNER_TOKEN`    | the bearer token, with `auth.principals` only                              |
+| `DT_ID`           | `hospital-1`                                                               |
+| `DT_STATE`        | `open`; empty before the first transition                                  |
+| `DT_ENTRY`        | `1`                                                                        |
+| `DT_PARAM_<NAME>` | `DT_PARAM_SCOPE=single`, `DT_PARAM_CAPACITY=2`, `DT_PARAM_FIDELITY=medium` |
 
 Without a state machine, `DT_STATE` and `DT_ENTRY` are absent. The
 variables under `env` in the state machine file come too, such as
 `POLL_MS=500` of `open`. The script of `open` logged:
 
 ```text
-09:05:16 open   DT_ID=hospital-1 DT_STATE=open DT_ENTRY=1
-09:05:16 open   DT_PARAM_SCOPE=single DT_PARAM_CAPACITY=2 POLL_MS=500
-09:05:16 open   HINT=hospital-1/open#1 scope=single RUNNER_URL=http://127.0.0.1:5100
+19:19:46 open   DT_ID=hospital-1 DT_STATE=open DT_ENTRY=1
+19:19:46 open   DT_PARAM_SCOPE=single DT_PARAM_CAPACITY=2 POLL_MS=500
+19:19:46 open   HINT=hospital-1/open#1 scope=single RUNNER_URL=http://127.0.0.1:5100
+19:19:46 open   fidelity medium: beds sampled every 500 ms
+19:19:47 open   overflow to hospital-2 at 12.4 km
 ```
+
+The last line comes from a call of `GET $RUNNER_URL/peers`: a script
+may read the routes that the role `script` may call (see
+[Roles](#roles)).
 
 ### Raise an Event or Escalate
 
@@ -1777,10 +1904,12 @@ token is for HTTP only. The demo scripts use this PowerShell helper,
 from [scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
 
 ```powershell
+# RUNNER_TOKEN is unset without access control, and the header ignored
+$RunnerHeaders = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
+
 function Send-Runner($path, $body) {
-  $headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
   try {
-    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $headers `
+    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $RunnerHeaders `
       -ContentType 'application/json' -Body ($body | ConvertTo-Json -Compress) | Out-Null
     202
   } catch { [int]$_.Exception.Response.StatusCode }
@@ -1814,25 +1943,31 @@ raised it still runs.
 ## Example Session
 
 The recording, in order, as requests and what they did. Times are
-those of the markers in [hospital.cast](../demo/hospital/hospital.cast).
+those of the markers in
+[demo-windows-manager.cast](../demo/hospital/demo-windows-manager.cast),
+which [demo-windows-network.cast](../demo/hospital/demo-windows-network.cast)
+shares. `hospital-1` is asked unless the request names `hospital-2`.
 
-| Time | Request                                                                | Outcome                                                                                              |
-| ---: | :--------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-| 0:15 | runner starts                                                          | presence online and the first state document, over MQTT and the webhook                              |
-| 0:31 | `GET /dt`, MQTT `dt`                                                   | the descriptor, the same on both                                                                     |
-| 0:37 | `GET /health`                                                          | `ok`, MQTT `connected`, database `file`                                                              |
-| 0:40 | `GET /state`                                                           | no state yet, `scope` `single`                                                                       |
-| 0:42 | `POST /fsm/transition` to `open`                                       | `202 accepted`; `open.ps1` logs its environment                                                      |
-| 0:53 | `POST /` `admit` `p-1`, key `admit-p-1`, twice; then `open` with input | `success` both times, and `admit` ran once; `409 command running`                                    |
-| 1:18 | `POST /` `admit` `p-2`, then `p-3`                                     | `success`, then `failed` with exit code 3 and a `request` escalation                                 |
-| 1:39 | `GET /`                                                                | the failed `admit`, with exit code 3                                                                 |
-| 1:43 | `GET /parameters`; `PUT` `capacity`, then `scope`                      | the declarations; `400 not controllable`; `200`, and `open` restarts at entry 2                      |
-| 2:01 | `POST /` `admit` `p-3`, then `p-4`                                     | `success` in maternity; `open.ps1` raises `full`, the script of `full` fails, a `failure` escalation |
-| 2:23 | `POST /fsm/event` `close`, twice                                       | `409 no transition` twice, one `no-transition` escalation                                            |
-| 2:36 | MQTT `execute` `discharge` `p-1`; MQTT `fsm`                           | `success`; `beds-free` takes the machine to `open` at entry 4                                        |
-| 2:51 | `GET /history`                                                         | ten records                                                                                          |
-| 2:54 | `POST /stop` `open`                                                    | `stopped: ["open"]`; `$stopped` leads to `closed` at entry 5                                         |
-| 3:10 | graceful shutdown                                                      | presence offline, retained                                                                           |
+| Time | Request                                                                        | Outcome                                                                                                        |
+| ---: | :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
+| 0:37 | both runners start                                                             | presence online and the first state document of each, signed, over MQTT and the webhook                        |
+| 0:56 | `GET /dt`; `GET /health`; `GET /dt` unsigned; `POST /` `open` as `manager-1`   | the descriptor with `peers` and `publicKey`; `ok`, `scripts` `null`; `401 missing credential`; `403`           |
+| 1:16 | MQTT `dt`                                                                      | the descriptor, `verified` with the runner's public key                                                        |
+| 1:23 | `POST /fsm/transition` to `open`, `hospital-2` first; `GET /state`             | `202 accepted`; `open.ps1` logs its environment, its fidelity and overflow to `hospital-2`                     |
+| 1:46 | `GET /peers`; `PUT /peers` with an unknown peer and a string                   | `hospital-2` online in `open`, with its descriptor and state; `400` with two problems                          |
+| 1:59 | `POST /` `admit` `p-1`, key `admit-p-1`, twice; then `open` with input         | `success` both times, and `admit` ran once; `409 command running`                                              |
+| 2:29 | `POST /` `admit` `p-2`, then `p-3`; `GET /`                                    | `success`, then `failed` with exit code 3 and a `request` escalation; the failed `admit`                       |
+| 2:57 | `GET /parameters`; `PUT` `capacity`; MQTT `set-parameters` `scope`; `fidelity` | the declarations; `400 not controllable`; `open` restarts at entries 2 and 3; `GET /history` shows both runs   |
+| 3:36 | `hospital-2`: MQTT `execute` `admit` `p-5`, `POST /` `admit` `p-6`             | `hospital-2` goes `full` and its `full` succeeds; `neighbour-full` restarts `open` at entry 4                  |
+| 4:03 | `POST /` `admit` `p-3`, then `p-4`                                             | `success`; `open.ps1` raises `full`, the script of `full` finds no open peer and fails, a `failure` escalation |
+| 4:29 | `POST /fsm/event` `close`, twice                                               | `409 no transition` twice, one `no-transition` escalation                                                      |
+| 4:46 | MQTT `execute` `discharge` `p-1`; MQTT `fsm`                                   | `success`; `beds-free` takes the machine to `open` at entry 6                                                  |
+| 4:59 | `PUT /peers` `hospital-2` `false`, then `true`                                 | the entry empties; the retained `full` raises `neighbour-full` again, `open` at entry 7                        |
+| 5:20 | the runner of `hospital-2` is killed; `GET /peers`                             | the will, offline with `time` `null`; `neighbour-down` restarts `open` at entry 8                              |
+| 5:36 | `GET /history` with `since` and `limit`; `GET /history`; `GET /metrics`        | two records; fourteen, by `alice`, `manager-1` and none; the counters                                          |
+| 5:52 | `POST /stop` `open`                                                            | `stopped: ["open"]`; `$stopped` leads to `closed` at entry 9                                                   |
+| 6:08 | the webhook log                                                                | presence and escalations of both DTs, `verified`                                                               |
+| 6:13 | graceful shutdown of `hospital-1`; MQTT `retained`                             | presence offline; the retained state and presence of both DTs                                                  |
 
 ## Version
 

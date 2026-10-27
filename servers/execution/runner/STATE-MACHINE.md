@@ -800,22 +800,29 @@ again:
 
 ## Example: Hospital Bed Management
 
-The [hospital demo](demo/hospital/README.md) runs the DT of one
-hospital, with two wards, that a Manager of a network of hospitals
-steers. Its recording, [hospital.cast](demo/hospital/hospital.cast) and
-[hospital.mp4](demo/hospital/hospital.mp4), shows every request below.
-The state machine is [hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml):
+The [hospital demo](demo/hospital/README.md) runs the DTs of two
+hospitals, `hospital-1` and `hospital-2`, each with two wards, which
+are [peers](README.md#peers) of each other and which a Manager of a
+network of hospitals steers. Its recording,
+[demo-windows-manager.cast](demo/hospital/demo-windows-manager.cast)
+and [demo-windows-network.cast](demo/hospital/demo-windows-network.cast)
+side by side in [demo-windows.mp4](demo/hospital/demo-windows.mp4),
+shows every request below. The state machine of `hospital-1` is
+[hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml):
 
 ```yaml
 events:
   - full
   - beds-free
   - scope-changed
+  - fidelity-changed
   - close
   - reopen
+  - neighbour-full
+  - neighbour-down
 parameters:
-  # a patient goes to the requested ward only (single), or to any ward
-  # with a free bed (multi)
+  # the shared-policy parameter: a patient goes to the requested ward
+  # only (single), or to any ward with a free bed (multi)
   scope:
     type: enum
     values:
@@ -829,6 +836,17 @@ parameters:
     type: number
     default: 2
     controllable: false
+  # how often open samples the beds, from the cheapest to the most
+  # accurate (STATE-MACHINE.md, Pattern: Fidelity)
+  fidelity:
+    type: enum
+    values:
+      - low
+      - medium
+      - high
+    default: medium
+    controllable: true
+    event: fidelity-changed
 env:
   HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
 escalation:
@@ -838,6 +856,16 @@ manager:
   commands:
     - admit
     - discharge
+# events that the runner raises when a peer changes
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+  - peer: hospital-2
+    when:
+      online: false
+    event: neighbour-down
 states:
   open:
     env:
@@ -845,6 +873,15 @@ states:
     transitions:
       full: full
       scope-changed:
+        state: open
+        stop: true
+      fidelity-changed:
+        state: open
+        stop: true
+      neighbour-full:
+        state: open
+        stop: true
+      neighbour-down:
         state: open
         stop: true
       close:
@@ -859,6 +896,9 @@ states:
       reopen: open
 ```
 
+[hospital-2.fsm.yaml](demo/hospital/hospital-2.fsm.yaml) is the same
+with `capacity` 1 and without `subscriptions`.
+
 ```mermaid
 stateDiagram-v2
     direction LR
@@ -868,31 +908,44 @@ stateDiagram-v2
     open --> closed : close (stop)
     open --> closed : $stopped
     closed --> open : reopen
-    note right of full : fails and escalates
-    note left of open : scope-changed (stop) restarts open
+    note right of full : fails and escalates without an open peer
+    note left of open : four events (stop) restart open
 ```
 
 As above, `transition` starts the machine and `(stop)` marks
-`stop: true`.
+`stop: true`. The four events that restart _open_ are
+`scope-changed`, `fidelity-changed`, `neighbour-full` and
+`neighbour-down`.
 
-- _open_ watches the beds every `POLL_MS` milliseconds and raises
+- _open_ reads `GET $RUNNER_URL/peers` and logs where overflow goes:
+  the nearest peer that is online and in state `open`, or none. It then
+  samples the beds every `POLL_MS` milliseconds, times 4, 1 or 0.2 by
+  `fidelity` ([Pattern: Fidelity](#pattern-fidelity)), and raises
   `full` over `RUNNER_URL` once none is free.
-- _full_ looks for an early discharge, finds none and fails; with
-  `onFailure`, the runner escalates to the Manager.
+- _full_ reads the same list. With an open peer to take the overflow,
+  it succeeds; without one it fails, and with `onFailure` the runner
+  escalates to the Manager.
+- The [subscriptions](#subscriptions-to-peers) raise `neighbour-full` when
+  `hospital-2` enters `full` and `neighbour-down` when it goes offline,
+  so that _open_ starts again and finds the new place for overflow.
 - The Manager runs `admit` and `discharge` with `POST /` and an
   `input` object; `discharge` raises `beds-free`.
 
-The requests of the recording, with their replies:
+The requests of the recording to `hospital-1`, with their replies:
 
-| Request                                                             | Reply                                                                                                                                          |
-| :------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /fsm/transition` `{"state": "open"}`                          | `202` `{"status": "accepted", "state": "open"}`; _open_ logs `DT_ENTRY=1`, `POLL_MS=500`                                                       |
-| `PUT /parameters` `{"capacity": 3}`                                 | `400` `{"message": ["parameter capacity is not controllable"], ...}`                                                                           |
-| `PUT /parameters` `{"scope": "multi"}`                              | `200`; `scope-changed` restarts _open_ as entry 2 with `DT_PARAM_SCOPE=multi`                                                                  |
-| `POST /` admitting the last free beds                               | `200` `success`; _open_ raises `full`, _full_ fails: machine `full`, entry 3, `invalid`, and an `escalation` notification of trigger `failure` |
-| `POST /fsm/event` `{"event": "close"}`                              | `409` `{"status": "no transition", "state": "full"}`, escalated once for this entry                                                            |
-| MQTT `execute` `{"name": "discharge", "input": {"patient": "p-1"}}` | `success`; `discharge` raises `beds-free`: machine `open`, entry 4, `running`                                                                  |
-| `POST /stop` `{"name": "open"}`                                     | `200` `{"stopped": ["open"]}`; `$stopped` leads to `closed`, entry 5, then `valid`                                                             |
+| Request                                                             | Reply                                                                                                                                                    |
+| :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /fsm/transition` `{"state": "open"}`                          | `202` `{"status": "accepted", "state": "open"}`; _open_ logs `DT_ENTRY=1`, `POLL_MS=500`, fidelity `medium` and overflow to `hospital-2` at 12.4 km      |
+| `PUT /parameters` `{"capacity": 3}`                                 | `400` `{"message": ["parameter capacity is not controllable"], ...}`                                                                                     |
+| MQTT `set-parameters` `{"scope": "multi"}`                          | the parameters; `scope-changed` restarts _open_ as entry 2 with `DT_PARAM_SCOPE=multi`                                                                   |
+| `PUT /parameters` `{"fidelity": "high"}`                            | `200`; `fidelity-changed` restarts _open_ as entry 3, sampling every 100 ms; the run of entry 2 ends `stopped` with 1.656 CPU seconds                    |
+| `hospital-2` admits its last patient                                | `hospital-2` enters `full`, and its _full_ succeeds; `neighbour-full` restarts _open_ as entry 4, which logs overflow to none                            |
+| `POST /` admitting the last free beds                               | `200` `success`; _open_ raises `full`, _full_ finds no open peer and fails: machine `full`, entry 5, `invalid`, and an `escalation` of trigger `failure` |
+| `POST /fsm/event` `{"event": "close"}`                              | `409` `{"status": "no transition", "state": "full"}`, escalated once for this entry                                                                      |
+| MQTT `execute` `{"name": "discharge", "input": {"patient": "p-1"}}` | `success`; `discharge` raises `beds-free`: machine `open`, entry 6, `running`                                                                            |
+| `PUT /peers` `{"hospital-2": false}`, then `true`                   | the retained `full` of `hospital-2` counts as a change again: `neighbour-full` restarts _open_ as entry 7                                                |
+| the runner of `hospital-2` is killed                                | its will says offline: `neighbour-down` restarts _open_ as entry 8                                                                                       |
+| `POST /stop` `{"name": "open"}`                                     | `200` `{"stopped": ["open"]}`; `$stopped` leads to `closed`, entry 9, then `valid`                                                                       |
 
 The demo's [README](demo/hospital/README.md) tells how to record it
 again.
@@ -921,6 +974,11 @@ and the [resources](README.md#resources) that the runner reports.
    next starts.
 1. Scripts read `DT_PARAM_FIDELITY` and choose a model, a step size or a
    sample rate from it.
+
+The [hospital demo](#example-hospital-bed-management) follows it: its
+_open_ samples the beds every 2000, 500 or 100 ms at `low`, `medium`
+or `high`, and its recording shows a change and the figures of the run
+that it stopped.
 
 ```yaml
 events:

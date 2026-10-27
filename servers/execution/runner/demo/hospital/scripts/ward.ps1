@@ -1,8 +1,11 @@
-# Helpers of the hospital scripts: the beds in run/ward.json, the ward
-# log in run/ward.log, and requests to the runner. Not a command.
-$WardFile = Join-Path $PSScriptRoot '..\run\ward.json'
-$WardLog = Join-Path $PSScriptRoot '..\run\ward.log'
+# Helpers of the hospital scripts: the beds in run/<DT_ID>/ward.json, the
+# ward log in run/<DT_ID>/ward.log, and requests to the runner. Not a
+# command.
+$WardFile = Join-Path $PSScriptRoot "..\run\$env:DT_ID\ward.json"
+$WardLog = Join-Path $PSScriptRoot "..\run\$env:DT_ID\ward.log"
 $Capacity = [int]$env:DT_PARAM_CAPACITY
+# RUNNER_TOKEN is unset without access control, and the header ignored
+$RunnerHeaders = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
 
 function Read-Ward { Get-Content $WardFile -Raw | ConvertFrom-Json }
 
@@ -50,13 +53,24 @@ function Remove-Patient($patient) {
 }
 
 # POSTs the body to the runner and returns the HTTP status, 0 when the
-# runner can not be reached; Windows PowerShell 5.1 throws on 4xx and 5xx.
-# RUNNER_TOKEN is unset without access control, and the header ignored.
+# runner can not be reached; Windows PowerShell 5.1 throws on 4xx and 5xx
 function Send-Runner($path, $body) {
-  $headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
   try {
-    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $headers `
+    Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/$path" -Headers $RunnerHeaders `
       -ContentType 'application/json' -Body ($body | ConvertTo-Json -Compress) | Out-Null
     202
   } catch { [int]$_.Exception.Response.StatusCode }
+}
+
+# Where overflow goes: the nearest peer of GET /peers that is online and
+# open, as "<id> at <distance> km", or none
+function Get-Overflow {
+  try {
+    $peers = Invoke-RestMethod -Uri "$env:RUNNER_URL/peers" -Headers $RunnerHeaders
+  } catch { return 'none (no reply from the runner)' }
+  $open = $peers.PSObject.Properties |
+    Where-Object { $_.Value.online -and $_.Value.state.machine.state -eq 'open' } |
+    Sort-Object { $_.Value.attributes.distance } | Select-Object -First 1
+  if ($null -eq $open) { return 'none' }
+  "$($open.Name) at $($open.Value.attributes.distance) km"
 }

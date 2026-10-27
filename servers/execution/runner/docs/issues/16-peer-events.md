@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 13, 15b
-- PR: #95
+- PR: #95 (runner), #98 (demo)
 - Research note:
   [item 16](../dtn-research-notes.md#16-react-to-peer-state)
 
@@ -414,30 +414,43 @@ runner part are merged (this plan's call).
 
 ### Demo Recording
 
-- [ ] Both runners start from their configurations on Windows, list
+- [x] Both runners start from their configurations on Windows, list
       each other on `GET /peers`, and `hospital-1` restarts `open` when
       `hospital-2` goes `full`. Check: `node tools/record.mjs` on
       Windows and the `runner.log` of each.
 - [ ] The shell twins run on Linux, and `git ls-files -s` shows them
       at mode `100755`. Check: `node tools/record.mjs` in WSL or the
-      devenv container.
-- [ ] Two casts per platform on one clock, ending together. Check:
+      devenv container. Recorded from WSL later.
+- [x] Two casts on Windows on one clock, ending together. Check:
       `node tools/check-cast.mjs`.
-- [ ] `demo-windows.mp4` and `demo-linux.mp4`, side by side, replace
-      `hospital.mp4`, stored in Git LFS. Check: `bash tools/to-mp4.sh`
-      and `git lfs ls-files`.
-- [ ] `api/API.md` re-captured from the new recording, with the
+- [ ] Two casts on Linux on one clock, ending together. Check:
+      `node tools/check-cast.mjs`. Recorded from WSL later.
+- [x] `demo-windows.mp4`, side by side, replaces `hospital.mp4`, stored
+      in Git LFS. Check: `bash tools/to-mp4.sh` and `git lfs ls-files`.
+- [ ] `demo-linux.mp4`, side by side, stored in Git LFS. Check:
+      `bash tools/to-mp4.sh linux` and `git lfs ls-files`. Recorded
+      from WSL later.
+- [x] `api/API.md` re-captured from the new recording, with the
       `Authorization` header and signed notifications where they show;
       `demo/hospital/README.md` (scenario, sections, play, record and
       convert) and the hospital example of `STATE-MACHINE.md`. Check:
       `npx markdownlint-cli -c .markdownlint.yaml` on them, and
       `npx prettier --check`.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass.
       Check: their output.
 
 ## Learnings
 
+- **Recording in two sessions** (owner's decision, 2026-10-27). The
+  recording waits until 17b, 17c and 18 are merged, so that one capture
+  shows the `processes` figure, the fidelity convention and the script
+  account. The Windows pair is recorded first, from this checkout. The
+  Linux pair is recorded afterwards from a clone of the branch inside
+  the WSL filesystem, not under `/mnt/c`, where file modes are not real
+  and 18's layout check would refuse the key: the shell twins are
+  written there, each runner is started by hand under `setpriv` with
+  the script account on, and the casts and MP4s are pushed from there.
 - **Drift.** `FsmService.managerCommands()`
   (`src/fsm/fsm.service.ts:129-132`, not `:125-128`) had two more
   readers since 15a: `AccessGuard.check` (`src/auth/access.guard.ts:64`)
@@ -539,3 +552,89 @@ transition` and as a warning otherwise, without the peer, as the
   alone would keep the runner's ambient capabilities, as a change
   between two non-zero uids clears none; the guide asks issue 18 to
   clear them in the spawn, for example through `setpriv`.
+- **The Windows recording** (#98). The demo became the network of the
+  Spec: `runner-2.yaml` and `hospital-2.fsm.yaml` beside the files of
+  `hospital-1`, the subscriptions in `hospital.fsm.yaml`, the scripts
+  keeping their beds and log in `run/<id>/`, and `open` and `full`
+  reading `GET $RUNNER_URL/peers` for the nearest open peer. Beyond
+  the Plan's demo, so that one recording shows every feature:
+  - `fidelity` is declared on `hospital-1`'s machine as 17c's guide
+    has it, with a `stop: true` self-transition of `open`, whose script
+    samples the beds every `POLL_MS` times 4, 1 or 0.2; the Manager
+    sets `high` once, and `GET /history?limit=2` shows the run at the
+    old value `stopped` with its figures.
+  - Access control is on, as are signatures: `record.mjs` writes the
+    keys of `alice`, `manager-1` and both runners into `run/keys/` and
+    appends the peer's `publicKey` and an `auth` section to each
+    configuration (`tools/configs.mjs`), so no private key is
+    committed. `dt1` and `dt2` sign as `alice`, `mq1` and `mq2` as
+    `manager-1`; an unsigned request gets `401` and a manager starting
+    `open` `403`. `jws.mjs` verifies with the key of the `kid`'s DT.
+  - A chapter disables and enables `hospital-2` with `PUT /peers`: the
+    retained `full` counts as a change after the enable, as the Spec
+    says, and restarts `open` once more.
+  - `hospital-2` is opened before `hospital-1`, so that `open` of
+    `hospital-1` finds it open at its first entry; the first take, in
+    the other order, logged overflow to none, as `hospital-2` was
+    still before its first transition.
+- **The clock.** The subscriber runs in `services.mjs`, its own
+  process, and writes the real time at which each notification
+  arrived to `run/notify.jsonl`; `tools/clock.mjs` remembers each real
+  wait of the recorder and turns that time into a time on the clock,
+  so `run` keeps `spawnSync` and needs no asynchronous rewrite. After
+  the story, `capGaps` shortens every gap over 2 s of the merged events
+  of both casts and ends both with one event at the same time. A gap of
+  one cast alone may thus reach 4 s, where the other cast has an event
+  between; `to-mp4.sh` gives agg an idle limit of 60 s, so that agg
+  changes no gap.
+- **Timings.** A take ran for 3 min 10 s on this host; the casts last
+  6 min 23 s, 19 chapters, 88 kB for the Manager and 9 kB for the
+  network. agg and ffmpeg in WSL took 14 minutes under `/mnt/c`, for
+  GIFs of 15 MB and 1 MB, and the MP4 has 1966×918 and 5.1 MB. agg
+  drops the last event, which changes nothing on screen, so the GIFs
+  last 385.9 s and 380.2 s; `hstack` holds the last frame of the
+  shorter one, and the panes stay in step, as frames at 233 s and 380 s
+  showed.
+- **What does not show on Windows.** The stop grace: the runner ends
+  `powershell.exe` at once, so the Stop chapter only names `stopGrace`.
+  Resources of short scripts: `admit`, `discharge`, `full` and
+  `closed` end before the Windows sampler, a PowerShell of its own,
+  takes its first sample, so only the runs of `open` report figures,
+  1.7 to 2 CPU seconds for runs of four to six seconds, about 100 MB and
+  `processes` 2. `scripts` of `GET /health` is `null`, as 18 refuses
+  `scripts.user` on Windows; the Linux pair shows the account. No
+  feature needed a change of the runner's code.
+- **Smaller findings.** `format.mjs` compared the width of a value
+  without its key, so lines of the descriptor wrapped in the pane; it
+  now counts the key. The webhook lines of the Webhook chapter still
+  wrap by their `POST` prefix, which is cosmetic. `steps.mjs` passed
+  250 lines once prettier split the narration, so the second half
+  moved to `steps-peers.mjs`. A heredoc in this session's shell lost
+  the backslash of `\\`, as 13's Learnings say, so the scripts that
+  edited the documents were written with an editor. The state diagram
+  of `STATE-MACHINE.md` changed only in its notes and was not rendered,
+  as mermaid-cli is not installed here. Both runners watch the one
+  `run/shutdown`, and the first to see it removes it; the demo shuts
+  down `hospital-1` only, after `hospital-2` was killed.
+- **Re-captured documents.** `api/API.md`: the setup with two runners
+  and the `Authorization` header in every `curl` but `/health`, the
+  descriptor with its `publicKey`, `GET /state`, `GET /health` with
+  `scripts: null`, `GET /metrics`, `POST /`, `GET /`, `GET /history`
+  with `since` and `limit`, `GET /fsm`, the parameters with `fidelity`,
+  `GET /peers` and `PUT /peers`, the MQTT example with `verified`
+  responses, every notification decoded from the signed payload of the
+  run, the JWS figures (502 characters of payload, 638 bytes in all),
+  the will, `mq retained`, the webhook log, the script environment and
+  the Example Session. The claims of MQTT Access Control stay
+  illustrative, as the recorder keeps no request token. The README's
+  examples use `my-dt` and `create` rather than the demo, and none was
+  deferred to this recording, so it is unchanged.
+- **Checks of the Windows half.** On this host, `yarn syntax`,
+  `yarn build` and
+  `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` passed, and
+  `yarn test --maxWorkers=2` ran 126 suites, 124 passed and 2 skipped,
+  and 1173 tests, 1159 passed and 14 skipped, in 255 s. markdownlint
+  with `.markdownlint.yaml` and prettier pass on every changed document.
+  No stray `node` or `powershell` process outlived a take: the hospital
+  of the killed runner was `full` with its script finished, so no
+  script was orphaned.

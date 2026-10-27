@@ -1,4 +1,5 @@
 # Files that a recording writes: the database, logs and the beds
 run/
-# runner.yaml with the keys of a recording, which record.mjs writes
-runner.auth.yaml
+# runner.yaml and runner-2.yaml with the keys of a recording, which
+# record.mjs writes
+runner*.auth.yaml

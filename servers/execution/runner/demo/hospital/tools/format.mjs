@@ -25,14 +25,16 @@ function flat(value) {
   return `${open}${pad}${entries.join(', ')}${pad}${close}`;
 }
 
-export default function format(value, indent = '') {
+// lead is the width of what comes before the value on its line beyond
+// the indent, its key, and the comma after it
+export default function format(value, indent = '', lead = 0) {
   const line = flat(value);
-  if (!isObject(value) || line.length + indent.length <= WIDTH) {
+  if (!isObject(value) || indent.length + lead + line.length <= WIDTH) {
     return line;
   }
   const inner = `${indent}  `;
   const entries = pairs(value).map(
-    ([key, entry]) => inner + key + format(entry, inner),
+    ([key, entry]) => inner + key + format(entry, inner, key.length + 1),
   );
   const [open, close] = brackets(value);
   return `${open}\n${entries.join(',\n')}\n${indent}${close}`;
