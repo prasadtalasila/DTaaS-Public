@@ -61,7 +61,8 @@ export default class AccessGuard implements CanActivate {
     const { method, path, rawBody, headers } = request;
     const call = { method, path, body: rawBody };
     const principal = access.http(headers.authorization, call);
-    const listed = listedCommand(this.fsm.managerCommands(), request.body);
+    const commands = this.fsm.declared()?.managerCommands ?? [];
+    const listed = listedCommand(commands, request.body);
     authorize(principal, route, listed);
     request.principal = principal;
     this.logger.debug(`${principal.name} calls ${route}`);

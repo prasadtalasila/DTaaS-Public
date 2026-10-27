@@ -22,6 +22,7 @@ import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
 import StopChain from './stop-chain.js';
+import { known } from './subscriptions.js';
 
 // Moves the digital twin between the states of its state machine, and
 // runs the script of each state it enters. A transition request starts
@@ -34,7 +35,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   private machine: StateMachine | undefined;
 
-  private declared: Parameters | undefined;
+  private params: Parameters | undefined;
 
   private status: ScriptStatus = 'none';
 
@@ -68,22 +69,20 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   load(): void {
-    const definition = loadDefinition(
-      this.config.getStateMachine(),
-      this.config.permitCommands(),
-    );
+    const file = this.config.getStateMachine();
+    const definition = loadDefinition(file, known(this.config));
     this.definition = definition;
     this.machine = definition && new StateMachine(definition);
-    this.declared = definition && new Parameters(definition.parameters);
-    this.context.load(this.config.getId(), definition, this.declared);
+    this.params = definition && new Parameters(definition.parameters);
+    this.context.load(this.config.getId(), definition, this.params);
     this.escalations.declare(definition?.escalation);
   }
 
   // Resumes the stored machine; main.ts calls it once the database is
   // open, before any request
   restore(): void {
-    const { definition, declared } = this;
-    const { state, entry, status } = this.store.restore(definition, declared);
+    const { definition, params } = this;
+    const { state, entry, status } = this.store.restore(definition, params);
     this.status = status;
     this.machine = definition && new StateMachine(definition, state, entry);
   }
@@ -126,20 +125,20 @@ export default class FsmService implements BeforeApplicationShutdown {
     return this.machine?.describe(this.status);
   }
 
-  // The commands a Manager may submit, which nothing enforces yet
-  managerCommands(): string[] {
-    return this.machine?.managerCommands ?? [];
+  // The state machine file as loaded, if runner.yaml names one
+  declared(): Definition | undefined {
+    return this.definition;
   }
 
   parameters(): Parameters | undefined {
-    return this.declared;
+    return this.params;
   }
 
   // Applies the whole body or none of it, signals the new values before
   // their events move the machine, and returns the problems of a refused
   // body; the notifier skips a document that did not change
   setParameters(body: ParametersBody): string[] {
-    const result = this.declared?.apply(body, (changes) =>
+    const result = this.params?.apply(body, (changes) =>
       this.queue.setParameters(changes),
     );
     this.changes.emit();

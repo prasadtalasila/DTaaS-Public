@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { loadDefinition, parseDefinition } from 'src/fsm/definition';
 
-const permitted = ['create', 'execute', 'terminate'];
+const known = { commands: ['create', 'execute', 'terminate'], peers: [] };
 
 const FILE = 'dt.yaml';
 
@@ -22,14 +22,14 @@ states:
 `;
 
 const expectInvalid = (text: string, message: string) =>
-  expect(() => parseDefinition(text, permitted, FILE)).toThrow(message);
+  expect(() => parseDefinition(text, FILE, known)).toThrow(message);
 
 describe('State machine definition', () => {
   it('Should read the events and the transitions of each state', () => {
-    const definition = parseDefinition(valid, permitted, FILE);
+    const definition = parseDefinition(valid, FILE, known);
 
     expect([...definition.events]).toEqual(['start', 'stop']);
-    expect([...definition.states.keys()]).toEqual(permitted);
+    expect([...definition.states.keys()]).toEqual(known.commands);
     expect(definition.states.get('create')).toEqual(
       new Map([
         ['$success', { state: 'execute', stop: false }],
@@ -42,15 +42,15 @@ describe('State machine definition', () => {
   it('Should accept a state with an empty transition map', () => {
     const definition = parseDefinition(
       'states: {create: {transitions: }}',
-      permitted,
       FILE,
+      known,
     );
 
     expect(definition.states.get('create')).toEqual(new Map());
   });
 
   it('Should accept a file without events', () => {
-    const definition = parseDefinition('states: {create: {}}', permitted, FILE);
+    const definition = parseDefinition('states: {create: {}}', FILE, known);
 
     expect(definition.events.size).toBe(0);
   });
@@ -128,8 +128,8 @@ states:
       `
 events: [restart]
 states: {execute: {transitions: {restart: {state: execute, stop: true}}}}`,
-      permitted,
       FILE,
+      known,
     );
 
     expect(definition.states.get('execute')?.get('restart')).toEqual({
@@ -165,7 +165,7 @@ states: {execute: {transitions: {restart: {state: execute, stop: true}}}}`,
 states:
   create: {transitions: {$stopped: execute}}
   execute: {transitions: {$success: create, $stopped: execute}}`;
-    expect(() => parseDefinition(loop, permitted, FILE)).not.toThrow();
+    expect(() => parseDefinition(loop, FILE, known)).not.toThrow();
   });
 
   it('Should allow a cycle that waits for an event', () => {
@@ -174,7 +174,7 @@ events: [reset]
 states:
   create: {transitions: {$success: execute}}
   execute: {transitions: {reset: create}}`;
-    expect(() => parseDefinition(loop, permitted, FILE)).not.toThrow();
+    expect(() => parseDefinition(loop, FILE, known)).not.toThrow();
   });
 });
 
@@ -191,14 +191,14 @@ describe('State machine file', () => {
     dir = mkdtempSync(join(tmpdir(), 'fsm-'));
     writeFileSync(join(dir, FILE), valid);
 
-    expect(loadDefinition(join(dir, FILE), permitted)?.states.size).toBe(3);
+    expect(loadDefinition(join(dir, FILE), known)?.states.size).toBe(3);
   });
 
   it('Should read the state machine of the test scripts', () => {
-    const definition = loadDefinition('test/data/scripts/state-machine.yaml', [
-      'create',
-      'execute',
-    ]);
+    const definition = loadDefinition('test/data/scripts/state-machine.yaml', {
+      commands: ['create', 'execute'],
+      peers: [],
+    });
 
     expect([...(definition?.states.keys() ?? [])]).toEqual([
       'create',
@@ -207,14 +207,14 @@ describe('State machine file', () => {
   });
 
   it('Should have no state machine without a file', () => {
-    expect(loadDefinition(undefined, permitted)).toBeUndefined();
+    expect(loadDefinition(undefined, known)).toBeUndefined();
   });
 
   it('Should name a file that does not exist', () => {
     dir = mkdtempSync(join(tmpdir(), 'fsm-'));
     const file = join(dir, FILE);
 
-    expect(() => loadDefinition(file, permitted)).toThrow(
+    expect(() => loadDefinition(file, known)).toThrow(
       `State machine file ${file} does not exist or is not a file`,
     );
   });
@@ -222,7 +222,7 @@ describe('State machine file', () => {
   it('Should refuse a directory as the file', () => {
     dir = mkdtempSync(join(tmpdir(), 'fsm-'));
 
-    expect(() => loadDefinition(dir, permitted)).toThrow(
+    expect(() => loadDefinition(dir, known)).toThrow(
       `State machine file ${dir} does not exist or is not a file`,
     );
   });
@@ -232,7 +232,7 @@ describe('State machine file', () => {
     const file = join(dir, FILE);
     writeFileSync(file, 'states: {configure: {}}');
 
-    expect(() => loadDefinition(file, permitted)).toThrow(
+    expect(() => loadDefinition(file, known)).toThrow(
       `Invalid state machine in ${file}:`,
     );
   });

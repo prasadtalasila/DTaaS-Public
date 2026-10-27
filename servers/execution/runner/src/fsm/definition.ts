@@ -11,6 +11,12 @@ import {
   parametersSchema,
 } from './parameters.js';
 import { type Env, envProblems, envSchema } from './script-context.js';
+import {
+  Known,
+  Subscription,
+  subscriptionProblems,
+  subscriptionsSchema,
+} from './subscriptions.js';
 
 export { nameSchema } from './name.js';
 
@@ -35,6 +41,7 @@ export type Definition = {
   stateEnv: ReadonlyMap<string, Env>;
   escalation: Escalation;
   managerCommands: string[];
+  subscriptions: Subscription[];
 };
 
 // A state name, or an object that stops the script first
@@ -65,6 +72,7 @@ const fileSchema = z
     env: envSchema,
     escalation: escalationSchema,
     manager: managerSchema,
+    subscriptions: subscriptionsSchema,
   })
   .strict();
 
@@ -102,6 +110,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
     ),
     escalation: sections.escalation,
     managerCommands: sections.manager?.commands ?? [],
+    subscriptions: sections.subscriptions,
   };
 }
 
@@ -131,10 +140,10 @@ function transitionProblems(
 }
 
 // The problems of the states and transitions of a definition
-function crossCheck(definition: Definition, permitted: string[]): string[] {
+function crossCheck(definition: Definition, known: Known): string[] {
   const problems: string[] = [];
   definition.states.forEach((transitions, state) => {
-    if (!permitted.includes(state)) {
+    if (!known.commands.includes(state)) {
       problems.push(`state ${state} is not a permitted command`);
     }
     problems.push(...transitionProblems(definition, state, transitions));
@@ -147,7 +156,8 @@ function crossCheck(definition: Definition, permitted: string[]): string[] {
     ...problems,
     ...parameterProblems(definition),
     ...envProblems(definition),
-    ...managerProblems(definition.managerCommands, permitted),
+    ...managerProblems(definition.managerCommands, known.commands),
+    ...subscriptionProblems(definition, known.peers),
   ];
 }
 
@@ -194,15 +204,15 @@ function readYaml(text: string, file: string): unknown {
 // definition
 export function parseDefinition(
   text: string,
-  permitted: string[],
   file: string,
+  known: Known,
 ): Definition {
   const result = fileSchema.safeParse(readYaml(text, file));
   if (!result.success) {
     throw invalid(file, z.prettifyError(result.error));
   }
   const definition = toDefinition(result.data);
-  const problems = crossCheck(definition, permitted);
+  const problems = crossCheck(definition, known);
   if (problems.length > 0) {
     throw invalid(file, problems.map((problem) => `✖ ${problem}`).join('\n'));
   }
@@ -213,7 +223,7 @@ export function parseDefinition(
 // exist
 export function loadDefinition(
   file: string | undefined,
-  permitted: string[],
+  known: Known,
 ): Definition | undefined {
   if (file === undefined) {
     return undefined;
@@ -223,5 +233,5 @@ export function loadDefinition(
       `State machine file ${file} does not exist or is not a file`,
     );
   }
-  return parseDefinition(readFileSync(file, 'utf8'), permitted, file);
+  return parseDefinition(readFileSync(file, 'utf8'), file, known);
 }

@@ -1,13 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
 import { parseDefinition } from 'src/fsm/definition';
 
-const permitted = ['create', 'execute', 'admit'];
+const known = { commands: ['create', 'execute', 'admit'], peers: [] };
 
 const FILE = 'dt.yaml';
 
 const STATES = 'states:\n  create:\n';
 
-const parse = (text: string) => parseDefinition(text, permitted, FILE);
+const parse = (text: string) => parseDefinition(text, FILE, known);
 
 describe('Commands a Manager may submit', () => {
   it('Should read the commands of the manager section', () => {

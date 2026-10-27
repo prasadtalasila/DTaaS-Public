@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 import { parseDefinition } from 'src/fsm/definition';
 
-const permitted = ['monitor', 'idle'];
+const known = { commands: ['monitor', 'idle'], peers: [] };
 
-const parse = (text: string) => parseDefinition(text, permitted, 'dt.yaml');
+const parse = (text: string) => parseDefinition(text, 'dt.yaml', known);
 
 const expectInvalid = (text: string, message: string) =>
   expect(() => parse(text)).toThrow(message);

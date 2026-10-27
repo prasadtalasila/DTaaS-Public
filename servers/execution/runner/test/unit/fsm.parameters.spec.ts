@@ -28,7 +28,10 @@ const EXAMPLE = `
   enabled: {type: boolean, default: true, controllable: true, event: restart}`;
 
 const parse = (text: string) =>
-  parseDefinition(text, ['create', 'execute'], 'dt.yaml');
+  parseDefinition(text, 'dt.yaml', {
+    commands: ['create', 'execute'],
+    peers: [],
+  });
 
 const parameters = () => new Parameters(parse(machine(EXAMPLE)).parameters);
 

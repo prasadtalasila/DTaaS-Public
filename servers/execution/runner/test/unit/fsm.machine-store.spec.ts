@@ -14,8 +14,8 @@ parameters:
 states:
   create: {}
   execute: {}`,
-  ['create', 'execute'],
   'state-machine.yaml',
+  { commands: ['create', 'execute'], peers: [] },
 );
 
 // A queue with the stored row and parameter values given
