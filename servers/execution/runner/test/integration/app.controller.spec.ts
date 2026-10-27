@@ -80,7 +80,7 @@ describe('Test AppController', () => {
   afterEach(() => jest.resetAllMocks());
 
   it('Should start with empty command history', () => {
-    expect(controller.getHistory()).toEqual([]);
+    expect(controller.getHistory({ limit: 100 })).toEqual([]);
   });
 
   it('should execute an available command', async () => {
@@ -105,11 +105,9 @@ describe('Test AppController', () => {
     await newCommandTest({ name: 'test' }, HttpStatus.BAD_REQUEST, {
       status: 'invalid command',
     });
-    expect(controller.getHistory()).toEqual([
-      {
-        name: 'create',
-      },
-      { name: 'test' },
+    expect(controller.getHistory({ limit: 100 })).toEqual([
+      expect.objectContaining({ id: 1, name: 'create', status: 'valid' }),
+      expect.objectContaining({ id: 2, name: 'test', status: 'invalid' }),
     ]);
   });
 

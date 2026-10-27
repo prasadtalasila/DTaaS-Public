@@ -13,6 +13,7 @@ import {
 } from '@jest/globals';
 import { ParameterValue } from 'src/dto/parameters.dto';
 import Queue from 'src/queue.service';
+import { commandNames } from 'test/utils';
 
 // An ISO 8601 UTC time, as the queue returns its timestamps
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -127,13 +128,13 @@ describe('check Queue service', () => {
   });
 
   it('should return empty array when queue is empty', async () => {
-    expect(queue.checkHistory()).toStrictEqual([]);
+    expect(queue.history({ limit: 100 })).toStrictEqual([]);
   });
 
   it('should return correct command history when queue has more than one command', async () => {
     const names = ['hello', 'world', 'terminate'];
     names.forEach((name) => queue.enqueue(name));
-    expect(queue.checkHistory()).toStrictEqual(names.map((name) => ({ name })));
+    expect(commandNames(queue.history({ limit: 100 }))).toStrictEqual(names);
   });
 
   it('should find a command by its request key', async () => {
@@ -149,7 +150,9 @@ describe('check Queue service', () => {
     queue.addKey('key-2', id);
 
     expect(queue.findByKey('key-2')).toMatchObject({ id, name: 'world' });
-    expect(queue.checkHistory()).toStrictEqual([{ name: 'world' }]);
+    expect(commandNames(queue.history({ limit: 100 }))).toStrictEqual([
+      'world',
+    ]);
   });
 
   it('should create the directory of the database file', async () => {
@@ -157,7 +160,9 @@ describe('check Queue service', () => {
     try {
       queue.open(join(dir, 'data', 'runner.db'));
       queue.enqueue('hello');
-      expect(queue.checkHistory()).toStrictEqual([{ name: 'hello' }]);
+      expect(commandNames(queue.history({ limit: 100 }))).toStrictEqual([
+        'hello',
+      ]);
       expect(queue.mode()).toBe('file');
     } finally {
       queue.close();
@@ -174,7 +179,9 @@ describe('check Queue service', () => {
     queue.enqueue('hello');
     queue.open(undefined);
 
-    expect(queue.checkHistory()).toStrictEqual([{ name: 'hello' }]);
+    expect(commandNames(queue.history({ limit: 100 }))).toStrictEqual([
+      'hello',
+    ]);
     expect(queue.mode()).toBe('memory');
   });
 
@@ -189,7 +196,9 @@ describe('check Queue service', () => {
 
       const restarted = new Queue();
       restarted.open(file);
-      expect(restarted.checkHistory()).toStrictEqual([{ name: 'hello' }]);
+      expect(commandNames(restarted.history({ limit: 100 }))).toStrictEqual([
+        'hello',
+      ]);
       expect(restarted.findByKey('key-1')).toMatchObject({ finished: true });
       restarted.close();
       queue = new Queue();

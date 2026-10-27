@@ -1,4 +1,4 @@
-import { ExecuteCommandDto } from 'src/dto/command.dto.js';
+import type { HistoryEntryDto, HistoryQuery } from '../dto/history.dto.js';
 import { RunOptions, RunOutcome } from './runner.interface.js';
 
 // How a command ended, its stdout and stderr logs, and its exit code,
@@ -39,7 +39,7 @@ interface Manager {
     requestKey?: string,
     options?: CommandOptions,
   ): Promise<CommandResult>;
-  checkHistory(): Array<ExecuteCommandDto>;
+  checkHistory(query?: HistoryQuery): HistoryEntryDto[];
   checkStatus(): CommandStatus;
   stop(name?: string): Promise<string[]>;
 }

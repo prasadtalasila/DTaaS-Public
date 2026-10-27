@@ -8,6 +8,7 @@ import {
   dt,
   fakeDescriptor,
   fakeManager,
+  historyEntry,
   stateDocument,
   status,
   mqttRequest,
@@ -72,11 +73,33 @@ describe('MQTT request handler', () => {
     ).toEqual(status);
   });
 
-  it('Should return the command history', async () => {
-    const { handler } = createHandler('success');
-    expect(
-      await handler.handle('history', mqttRequest(Buffer.alloc(0))),
-    ).toEqual([{ name: 'create' }]);
+  it.each([
+    ['an empty payload', Buffer.alloc(0), { limit: 100 }],
+    [
+      'a query',
+      json({ since: '2026-10-26T14:56:00Z', limit: '2' }),
+      { since: '2026-10-26T14:56:00Z', limit: 2 },
+    ],
+  ])('Should return the command history for %s', async (_, payload, query) => {
+    const { handler, manager } = createHandler('success');
+
+    const body = await handler.handle('history', mqttRequest(payload));
+
+    expect(manager.checkHistory).toHaveBeenCalledWith(query);
+    expect(body).toEqual([historyEntry]);
+  });
+
+  it.each([
+    ['a payload that is not JSON', Buffer.from('limit=2')],
+    ['a payload that is no object', json([])],
+    ['a limit over 1000', json({ limit: 1001 })],
+  ])('Should refuse the history for %s', async (_, payload) => {
+    const { handler, manager } = createHandler('success');
+
+    const body = await handler.handle('history', mqttRequest(payload));
+
+    expect(manager.checkHistory).not.toHaveBeenCalled();
+    expect(body).toMatchObject({ statusCode: 400 });
   });
 
   it('Should return the descriptor of the digital twin', async () => {

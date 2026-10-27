@@ -11,6 +11,7 @@ import {
 } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
+import { commandNames } from 'test/utils';
 import { digitalTwin, post, settled, startRunner } from './fsm.util';
 
 const DEFINITION = `
@@ -147,7 +148,7 @@ describe('Runner parameters end-to-end tests', () => {
       await settled(app, 'execute');
 
       const { body } = await supertest(app.getHttpServer()).get('/history');
-      expect(body).toEqual([{ name: 'execute' }, { name: 'execute' }]);
+      expect(commandNames(body)).toEqual(['execute', 'execute']);
     },
     SCRIPT_CHAIN_TIMEOUT,
   );

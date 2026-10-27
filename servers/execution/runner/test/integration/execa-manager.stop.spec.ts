@@ -12,7 +12,7 @@ import { CommandRefused } from 'src/dto/command.dto';
 import ExecaManager from 'src/execa-manager.service';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
-import { configFilename, nonExistingCommand } from 'test/utils';
+import { configFilename, nonExistingCommand, commandNames } from 'test/utils';
 
 // Each test runs scripts, and PowerShell takes a second or more to start
 // on a loaded Windows host
@@ -99,7 +99,7 @@ describe('Stopping the runs of the execution manager', () => {
     const [outcome] = await manager.newCommand('loop', 'key-1');
 
     expect(outcome).toBe('stopped');
-    expect(manager.checkHistory()).toStrictEqual([{ name: 'loop' }]);
+    expect(commandNames(manager.checkHistory())).toStrictEqual(['loop']);
   });
 
   it('Should answer a request joined to a stopped run with stopped', async () => {
@@ -109,7 +109,7 @@ describe('Stopping the runs of the execution manager', () => {
 
     expect((await first)[0]).toBe('stopped');
     expect((await joined)[0]).toBe('stopped');
-    expect(manager.checkHistory()).toStrictEqual([{ name: 'loop' }]);
+    expect(commandNames(manager.checkHistory())).toStrictEqual(['loop']);
   });
 
   it('Should run the script again after a stop', async () => {
@@ -123,9 +123,9 @@ describe('Stopping the runs of the execution manager', () => {
       'stopped',
       'stopped',
     ]);
-    expect(manager.checkHistory()).toStrictEqual([
-      { name: 'loop' },
-      { name: 'loop' },
+    expect(commandNames(manager.checkHistory())).toStrictEqual([
+      'loop',
+      'loop',
     ]);
   });
 });

@@ -10,6 +10,7 @@ import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, MqttClient } from 'mqtt';
 import { MqttRoute } from 'src/mqtt/mqtt.config';
+import { commandNames } from 'test/utils';
 import { queriesJSON } from './util';
 import {
   lateSubscriber,
@@ -126,9 +127,24 @@ describe('Runner MQTT end-to-end tests', () => {
     await request(client, 'execute', { name: 'create' });
     await request(client, 'execute', { name: 'configure' });
     await expectReply(client, 'history', {}, [
-      { name: 'create' },
-      { name: 'configure' },
+      expect.objectContaining({ id: 1, name: 'create', status: 'valid' }),
+      expect.objectContaining({ id: 2, name: 'configure', status: 'invalid' }),
     ]);
+  });
+
+  it('replies with the history that the payload asks for', async () => {
+    await request(client, 'execute', { name: 'create' });
+    await request(client, 'execute', { name: 'configure' });
+
+    await expectReply(client, 'history', { limit: 1 }, [
+      expect.objectContaining({ id: 2, name: 'configure', by: null }),
+    ]);
+    await expectReply(
+      client,
+      'history',
+      { limit: 0 },
+      { message: 'Validation Failed', error: 'Bad Request', statusCode: 400 },
+    );
   });
 
   it('replies with the descriptor of the digital twin', async () => {
@@ -161,9 +177,10 @@ describe('Runner MQTT end-to-end tests', () => {
 
   it('serves HTTP and MQTT from the same command queue', async () => {
     await request(client, 'execute', { name: 'create' });
-    await supertest(app.getHttpServer())
+    const { body } = await supertest(app.getHttpServer())
       .get('/history')
-      .expect(200, [{ name: 'create' }]);
+      .expect(200);
+    expect(commandNames(body)).toEqual(['create']);
   });
 
   it('replies to the parameters routes as HTTP does', async () => {

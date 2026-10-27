@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import AppModule from 'src/app.module';
 import Keyv from 'keyv';
 import Config from 'src/config/configuration.service';
+import { commandNames } from 'test/utils';
 import { getRequest, postRequest, queriesJSON, RequestBody } from './util';
 
 const option = async (): Promise<Keyv> => {
@@ -116,7 +117,7 @@ describe('Runner end-to-end tests', () => {
       const { body } = await supertest(app.getHttpServer()).get('/history');
 
       expect(replies).toEqual(Array(3).fill([200, 'success']));
-      expect(body).toEqual([{ name: 'create' }, { name: 'create' }]);
+      expect(commandNames(body)).toEqual(['create', 'create']);
     }, 30000);
   });
 
@@ -143,17 +144,10 @@ describe('Runner end-to-end tests', () => {
           });
         }),
       );
-      return getRequest({
-        app,
-        route: '/history',
-        HttpStatus: 200,
-        reqBody: {},
-        resBody: [
-          { name: 'create' },
-          { name: 'execute' },
-          { name: 'configure' },
-        ],
-      });
+      const { body } = await supertest(app.getHttpServer())
+        .get('/history')
+        .expect(200);
+      expect(commandNames(body)).toEqual(['create', 'execute', 'configure']);
     });
   });
 });
