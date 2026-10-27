@@ -1,19 +1,18 @@
+import { type ProcessRow, TreeTotals } from './process-tree.js';
 import {
   debugOnce,
-  NO_RESOURCES,
   type ResourceWatch,
-  type Sample,
   type ScriptResources,
 } from './resources.js';
 
 // Milliseconds between two samples
 export const SAMPLE_MS = 500;
 
-// Reads a process at once and then every interval, and keeps the last
-// sample that succeeded. A read still pending when the timer fires skips
-// that tick; the timer does not hold the process open.
+// Reads the process tree of a run at once and then every interval, and
+// adds each tree read to the totals. A read still pending when the timer
+// fires skips that tick; the timer does not hold the process open.
 export default class PollingWatch implements ResourceWatch {
-  private latest: Sample | undefined;
+  private readonly totals = new TreeTotals();
 
   private reading = false;
 
@@ -22,7 +21,7 @@ export default class PollingWatch implements ResourceWatch {
   private readonly log = debugOnce();
 
   constructor(
-    private readonly read: () => Promise<Sample>,
+    private readonly read: () => Promise<ProcessRow[]>,
     intervalMs = SAMPLE_MS,
   ) {
     this.timer = setInterval(() => this.sample(), intervalMs);
@@ -32,7 +31,7 @@ export default class PollingWatch implements ResourceWatch {
 
   finish(): ScriptResources {
     clearInterval(this.timer);
-    return this.latest ?? NO_RESOURCES;
+    return this.totals.totals();
   }
 
   private sample(): void {
@@ -42,9 +41,7 @@ export default class PollingWatch implements ResourceWatch {
     this.reading = true;
     void this.read()
       .then(
-        (sample) => {
-          this.latest = sample;
-        },
+        (tree) => this.totals.add(tree),
         (error: unknown) => this.log(`A resource read failed: ${error}`),
       )
       .finally(() => {

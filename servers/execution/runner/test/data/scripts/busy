@@ -1,7 +1,7 @@
 #!/bin/sh
-# Spins for about a second of CPU time, for the resource tests. Only
-# the script's own process is measured, so it starts none: read is a
-# builtin, and /proc/uptime gives the time in hundredths of a second.
+# Spins for about a second of CPU time, for the resource tests. It
+# starts no process, so that its figures are its own: read is a builtin,
+# and /proc/uptime gives the time in hundredths of a second.
 read -r up _ </proc/uptime
 end=$((${up%.*}${up#*.} + 100))
 now=0

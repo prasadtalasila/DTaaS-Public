@@ -1,21 +1,19 @@
 import { Logger } from '@nestjs/common';
 
-// What a script run used: user plus system CPU time in seconds, rounded
-// to the millisecond, and peak resident memory in bytes; null when not
-// measured
+// What the process tree of a script run used: user plus system CPU time
+// in seconds, rounded to the millisecond, peak resident memory in bytes,
+// and the most processes seen at once; null when not measured
 export type ScriptResources = {
   readonly cpuSeconds: number | null;
   readonly peakRssBytes: number | null;
+  readonly processes: number | null;
 };
 
 export const NO_RESOURCES: ScriptResources = Object.freeze({
   cpuSeconds: null,
   peakRssBytes: null,
+  processes: null,
 });
-
-// One successful read of a running process: its CPU time so far and its
-// peak memory so far, which a platform may not know
-export type Sample = { cpuSeconds: number; peakRssBytes: number | null };
 
 // Watches one run from its start; finish gives the latest sample and
 // stops watching without waiting for anything

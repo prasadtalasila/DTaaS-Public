@@ -9,11 +9,18 @@ import {
 } from '@jest/globals';
 import { meterFor } from 'src/resources/meter';
 import PollingWatch from 'src/resources/polling-watch';
-import { NO_RESOURCES, NO_WATCH, Sample } from 'src/resources/resources';
+import type { ProcessRow } from 'src/resources/process-tree';
+import { NO_RESOURCES, NO_WATCH } from 'src/resources/resources';
 
-const sample = (cpuSeconds: number): Sample => ({
+// A tree of one process, the root, with the CPU time given
+const sample = (cpuSeconds: number): ProcessRow[] => [
+  { pid: 10, ppid: 1, start: 5, cpuSeconds, rssBytes: 1024, peakBytes: 0 },
+];
+
+const figures = (cpuSeconds: number) => ({
   cpuSeconds,
   peakRssBytes: 1024,
+  processes: 1,
 });
 
 const failing = () => Promise.reject(new Error('ENOENT'));
@@ -35,7 +42,7 @@ describe('PollingWatch', () => {
 
   it('Should read at once and keep the last sample', async () => {
     const read = jest
-      .fn<() => Promise<Sample>>()
+      .fn<() => Promise<ProcessRow[]>>()
       .mockResolvedValueOnce(sample(0.01))
       .mockResolvedValueOnce(sample(0.5));
     const watch = new PollingWatch(read, 500);
@@ -44,26 +51,26 @@ describe('PollingWatch', () => {
     expect(read).toHaveBeenCalledTimes(1);
     await jest.advanceTimersByTimeAsync(500);
 
-    expect(watch.finish()).toEqual(sample(0.5));
+    expect(watch.finish()).toEqual(figures(0.5));
   });
 
   it('Should keep the last sample after a failed read', async () => {
     const read = jest
-      .fn<() => Promise<Sample>>()
+      .fn<() => Promise<ProcessRow[]>>()
       .mockResolvedValueOnce(sample(0.25))
       .mockImplementation(failing);
     const watch = new PollingWatch(read, 500);
     await jest.advanceTimersByTimeAsync(1000);
 
     expect(read).toHaveBeenCalledTimes(3);
-    expect(watch.finish()).toEqual(sample(0.25));
+    expect(watch.finish()).toEqual(figures(0.25));
   });
 
   it('Should skip a tick while a read is pending', async () => {
-    let done: (value: Sample) => void = () => undefined;
+    let done: (value: ProcessRow[]) => void = () => undefined;
     const read = jest.fn(
       () =>
-        new Promise<Sample>((resolve) => {
+        new Promise<ProcessRow[]>((resolve) => {
           done = resolve;
         }),
     );
@@ -75,7 +82,7 @@ describe('PollingWatch', () => {
     await jest.advanceTimersByTimeAsync(500);
 
     expect(read).toHaveBeenCalledTimes(2);
-    expect(watch.finish()).toEqual(sample(1));
+    expect(watch.finish()).toEqual(figures(1));
   });
 
   it('Should log repeated failures once and measure nothing', async () => {

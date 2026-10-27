@@ -121,7 +121,7 @@ export default class Queue {
       .prepare(
         `UPDATE commands SET status = ?, stdout = ?, stderr = ?,
           exit_code = ?, cpu_seconds = ?, peak_rss_bytes = ?,
-          finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          processes = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
       )
       .run(
         STATUS[outcome],
@@ -130,6 +130,7 @@ export default class Queue {
         exitCode,
         resources.cpuSeconds,
         resources.peakRssBytes,
+        resources.processes,
         id,
       );
     this.changes.emit();

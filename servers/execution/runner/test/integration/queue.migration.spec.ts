@@ -43,6 +43,24 @@ const SCHEMA_0_10 = `
   INSERT INTO commands (name, status, exit_code, finished_at)
     VALUES ('create', 'valid', 0, CURRENT_TIMESTAMP);`;
 
+// The commands table of 0.10.0 after issue 17a, without processes
+const SCHEMA_17A = `
+  CREATE TABLE commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'invalid',
+    stdout TEXT NOT NULL DEFAULT '',
+    stderr TEXT NOT NULL DEFAULT '',
+    exit_code INTEGER,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT,
+    by TEXT,
+    cpu_seconds REAL,
+    peak_rss_bytes INTEGER
+  );
+  INSERT INTO commands (name, status, finished_at, cpu_seconds, peak_rss_bytes)
+    VALUES ('create', 'valid', CURRENT_TIMESTAMP, 0.469, 115646464);`;
+
 // A database file of 0.6.0, or of the schema given, with one finished
 // command
 function oldDatabase(dir: string, schema = OLD_SCHEMA): string {
@@ -114,7 +132,11 @@ describe('Queue exit codes and statuses', () => {
 
   it('should add the resource columns to a database of 0.10.0 once', () => {
     const file = oldDatabase(dir, SCHEMA_0_10);
-    const figures = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
+    const figures = {
+      cpuSeconds: 0.469,
+      peakRssBytes: 115646464,
+      processes: 2,
+    };
 
     queue.open(file);
     expect(queue.activeCommand()?.resources).toEqual(NO_RESOURCES);
@@ -131,6 +153,24 @@ describe('Queue exit codes and statuses', () => {
     queue.close();
     expect(columnCount(file, 'cpu_seconds')).toBe(1);
     expect(columnCount(file, 'peak_rss_bytes')).toBe(1);
+    expect(columnCount(file, 'processes')).toBe(1);
+  });
+
+  it('should add the processes column to a database of 17a once', () => {
+    const file = oldDatabase(dir, SCHEMA_17A);
+
+    queue.open(file);
+    queue.close();
+    queue = new Queue();
+    queue.open(file);
+
+    expect(queue.activeCommand()?.resources).toEqual({
+      cpuSeconds: 0.469,
+      peakRssBytes: 115646464,
+      processes: null,
+    });
+    queue.close();
+    expect(columnCount(file, 'processes')).toBe(1);
   });
 
   it('should store the caller of a command, NULL without one', () => {
