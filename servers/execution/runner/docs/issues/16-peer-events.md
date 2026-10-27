@@ -438,6 +438,15 @@ runner part are merged (this plan's call).
 
 ## Learnings
 
+- **Recording in two sessions** (owner's decision, 2026-10-27). The
+  recording waits until 17b, 17c and 18 are merged, so that one capture
+  shows the `processes` figure, the fidelity convention and the script
+  account. The Windows pair is recorded first, from this checkout. The
+  Linux pair is recorded afterwards from a clone of the branch inside
+  the WSL filesystem, not under `/mnt/c`, where file modes are not real
+  and 18's layout check would refuse the key: the shell twins are
+  written there, each runner is started by hand under `setpriv` with
+  the script account on, and the casts and MP4s are pushed from there.
 - **Drift.** `FsmService.managerCommands()`
   (`src/fsm/fsm.service.ts:129-132`, not `:125-128`) had two more
   readers since 15a: `AccessGuard.check` (`src/auth/access.guard.ts:64`)
