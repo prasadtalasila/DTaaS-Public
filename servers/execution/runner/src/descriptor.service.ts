@@ -71,6 +71,7 @@ export default class DescriptorService implements OnModuleInit {
       since: new Date(performance.timeOrigin).toISOString(),
       uptime: Math.floor(process.uptime()),
       commands: this.queue.commandCounts(),
+      resources: this.queue.resourceTotals(),
       ...this.counters.report(now()),
     };
   }

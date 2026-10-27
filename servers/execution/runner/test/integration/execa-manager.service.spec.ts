@@ -18,6 +18,7 @@ import {
   nonExistingCommand,
   permittedCommand,
   commandNames,
+  UNMEASURED,
 } from 'test/utils';
 
 // Each test runs scripts, and PowerShell takes a second or more to start
@@ -82,6 +83,7 @@ describe('Check execution manager based on execa library', () => {
         stderr: '',
       },
       exitCode: null,
+      resources: UNMEASURED,
     };
 
     const commandStatus: CommandStatus = dt.checkStatus();

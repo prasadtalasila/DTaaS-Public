@@ -16,6 +16,7 @@ import Runner, {
 } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import RunnerFactory from 'src/runner-factory.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { configFilename } from 'test/utils';
 
 describe('Execution manager options of a run', () => {
@@ -39,6 +40,7 @@ describe('Execution manager options of a run', () => {
       stop: jest.fn(),
       checkLogs: () => new Map(),
       checkExitCode: () => 0,
+      checkResources: () => NO_RESOURCES,
     };
     jest
       .spyOn(RunnerFactory, 'create')

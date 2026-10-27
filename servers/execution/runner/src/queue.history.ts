@@ -1,12 +1,15 @@
 import type { HistoryEntryDto } from './dto/history.dto.js';
-import type { CommandCounts } from './dto/metrics.dto.js';
+import type { CommandCounts, ResourceTotals } from './dto/metrics.dto.js';
 import type { CommandStateStatus } from './dto/state.dto.js';
 import type { CommandRecord } from './interfaces/command.interface.js';
+import type { ScriptResources } from './resources/resources.js';
+
+const RESOURCES = 'cpu_seconds AS cpuSeconds, peak_rss_bytes AS peakRssBytes';
 
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
 // turns into ISO 8601 UTC; strftime of NULL is NULL
 export const RECORD = `SELECT id, name, status, stdout, stderr,
-  exit_code AS exitCode,
+  exit_code AS exitCode, ${RESOURCES},
   strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
   strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt,
   finished_at IS NOT NULL AS finished FROM commands`;
@@ -24,7 +27,8 @@ const STATUS = `CASE WHEN finished_at IS NULL THEN 'running' ELSE status END`;
 export const HISTORY = `SELECT * FROM (
   SELECT id, name, ${STATUS} AS status, exit_code AS exitCode,
     strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
-    strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt, by
+    strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt, by,
+    ${RESOURCES}
   FROM commands
   WHERE :since IS NULL OR received_at >= datetime(:since)
   ORDER BY id DESC LIMIT :limit) ORDER BY id`;
@@ -34,6 +38,19 @@ export const COMMAND_COUNTS = `SELECT ${STATUS} AS status,
   COUNT(*) AS count FROM commands WHERE id > ? GROUP BY 1`;
 
 export const LAST_ID = 'SELECT COALESCE(MAX(id), 0) AS id FROM commands';
+
+// The rows above an id with a figure, by name: the sum of their CPU
+// seconds, to the millisecond, and the largest of their peaks
+export const RESOURCE_TOTALS = `SELECT name,
+  ROUND(SUM(cpu_seconds), 3) AS cpuSeconds,
+  MAX(peak_rss_bytes) AS peakRssBytes FROM commands
+  WHERE id > ? AND (cpu_seconds IS NOT NULL OR peak_rss_bytes IS NOT NULL)
+  GROUP BY name ORDER BY name`;
+
+const toResources = (row: Record<string, unknown>): ScriptResources => ({
+  cpuSeconds: row.cpuSeconds as number | null,
+  peakRssBytes: row.peakRssBytes as number | null,
+});
 
 export function toRecord(
   row: Record<string, unknown> | undefined,
@@ -48,6 +65,7 @@ export function toRecord(
     stdout: String(row.stdout),
     stderr: String(row.stderr),
     exitCode: row.exitCode as number | null,
+    resources: toResources(row),
     finished: Boolean(row.finished),
     receivedAt: String(row.receivedAt),
     finishedAt: row.finishedAt as string | null,
@@ -64,6 +82,7 @@ export const toHistoryEntry = (
   receivedAt: String(row.receivedAt),
   finishedAt: row.finishedAt as string | null,
   by: row.by as string | null,
+  resources: toResources(row),
 });
 
 // Every status, from the rows of COMMAND_COUNTS and the number of rows
@@ -85,3 +104,8 @@ export function toCommandCounts(
   });
   return counts;
 }
+
+export const toResourceTotals = (
+  rows: Record<string, unknown>[],
+): ResourceTotals =>
+  Object.fromEntries(rows.map((row) => [String(row.name), toResources(row)]));

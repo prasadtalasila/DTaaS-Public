@@ -13,7 +13,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, IClientPublishOptions, MqttClient } from 'mqtt';
-import { commandNames } from 'test/utils';
+import { commandNames, MEASURED } from 'test/utils';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
 import {
@@ -131,17 +131,16 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
   it('replies on the response topic with the correlation data', async () => {
     const reply = await request('execute', { name: 'create' });
     const logs = { stdout: 'hello world', stderr: '' };
-    expect(reply.body).toEqual({
-      status: 'success',
-      result: { exitCode: 0, ...logs },
-    });
+    const figures = { exitCode: 0, resources: MEASURED };
+    const success = { status: 'success', result: { ...figures, ...logs } };
+    expect(reply.body).toEqual(success);
 
     const status = await request('status', {});
     expect(status.body).toEqual({
       name: 'create',
       status: 'valid',
       logs,
-      exitCode: 0,
+      ...figures,
     });
   });
 

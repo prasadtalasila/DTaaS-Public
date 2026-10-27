@@ -19,6 +19,7 @@ import { DatabaseMode } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
 import Runner, { RunOptions } from './interfaces/runner.interface.js';
+import { NO_RESOURCES } from './resources/resources.js';
 
 // A command run in progress, its row in the queue, and its runner; a
 // command that is not permitted has no runner
@@ -151,6 +152,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       outcome,
       runner.checkLogs(),
       runner.checkExitCode(),
+      runner.checkResources(),
     ];
     this.commandQueue.complete(id, result);
     return result;
@@ -200,6 +202,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
         stderr: '',
       },
       exitCode: null,
+      resources: NO_RESOURCES,
     };
   }
 
@@ -213,6 +216,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       status: command.status,
       logs: { stdout: command.stdout, stderr: command.stderr },
       exitCode: command.exitCode,
+      resources: command.resources,
     };
   }
 

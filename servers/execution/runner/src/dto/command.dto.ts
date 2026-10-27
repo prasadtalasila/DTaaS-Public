@@ -6,6 +6,7 @@ import type {
   CommandResult,
 } from '../interfaces/command.interface.js';
 import { RunOutcome } from '../interfaces/runner.interface.js';
+import type { ScriptResources } from '../resources/resources.js';
 
 // The largest input, in bytes of its JSON
 export const MAX_INPUT_BYTES = 64 * 1024;
@@ -70,15 +71,22 @@ export type CommandResultDto = {
   exitCode: number | null;
   stdout: string;
   stderr: string;
+  resources: ScriptResources;
 };
 
 export type ExecuteResponseDto =
   { status: RunOutcome; result: CommandResultDto } | { status: Refusal };
 
-const resultDto = ([, logs, exitCode]: CommandResult): CommandResultDto => ({
+const resultDto = ([
+  ,
+  logs,
+  exitCode,
+  resources,
+]: CommandResult): CommandResultDto => ({
   exitCode,
   stdout: logs.get('stdout') ?? '',
   stderr: logs.get('stderr') ?? '',
+  resources,
 });
 
 // The reply to a command request; a refused one has no result, and any

@@ -11,6 +11,7 @@ import { connectAsync, MqttClient } from 'mqtt';
 import Access from 'src/auth/access';
 import Config from 'src/config/configuration.service';
 import { mqttPayload, newCaller } from 'test/sign.util';
+import { MEASURED } from 'test/utils';
 import { Broker, startBroker, startRunner, stopBroker } from './mqtt.util';
 
 const TOPIC = 'dtaas/test/auth';
@@ -20,7 +21,12 @@ const manager = newCaller('manager-1');
 
 const success = {
   status: 'success',
-  result: { exitCode: 0, stdout: 'hello world', stderr: '' },
+  result: {
+    exitCode: 0,
+    stdout: 'hello world',
+    stderr: '',
+    resources: MEASURED,
+  },
 };
 
 const unauthorized = (message: string) => ({

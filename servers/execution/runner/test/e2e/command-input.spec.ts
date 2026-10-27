@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { MAX_INPUT_BYTES } from 'src/dto/command.dto';
+import { MEASURED } from 'test/utils';
 import { digitalTwin, poll, post, startRunner } from './fsm.util';
 
 // PowerShell takes a second or more to start on a loaded Windows host
@@ -55,10 +56,17 @@ describe('POST / with input and outcome', () => {
         HttpStatus.OK,
         {
           status: 'failed',
-          result: { exitCode: 3, stdout: '', stderr: 'no free bed' },
+          result: {
+            exitCode: 3,
+            stdout: '',
+            stderr: 'no free bed',
+            resources: MEASURED,
+          },
         },
       ]);
-      expect(latest.body).toMatchObject({ status: 'failed', exitCode: 3 });
+      expect(latest.body).toEqual(
+        expect.objectContaining({ exitCode: 3, resources: MEASURED }),
+      );
       expect(state.body.command).toMatchObject({ status: 'failed' });
     },
     TIMEOUT,

@@ -64,6 +64,7 @@ describe('GET /metrics', () => {
         interrupted: 0,
         running: 0,
       },
+      resources: {},
       machine: null,
       escalations: NO_ESCALATIONS,
     });
