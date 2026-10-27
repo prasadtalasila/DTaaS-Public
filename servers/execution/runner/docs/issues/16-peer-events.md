@@ -502,7 +502,22 @@ transition` and as a warning otherwise, without the peer, as the
   says: an optional section breaks no file and no route. 17a, in
   progress at the same time, may bump it; whichever merges second
   keeps the other's version. 17a takes D33, so peer subscriptions are
-  D34, and the decision table skips D33 until 17a merges.
+  D34.
+- **Merging 17a.** 17a merged first (#94), with `resources` in the
+  execute, status and history replies, a `resources` total in
+  `GET /metrics`, two history columns and D33. This branch merged
+  `feature/distributed-demo` rather than rebasing, as its pull request
+  was open. Four files conflicted: the README (the `GET /` and history
+  paragraphs, which now say both the running status and the
+  resources), `api/API.md` (the version line names the resources, the
+  peers and the subscriptions), the design document (`queue.peers.ts`
+  and `resources/*`, the `commands` row with both resources and `by`,
+  D33 before D34) and the index (15b and 17a done). The sweep then
+  covered 17a: the summaries of `STATE-MACHINE.md` and `DOCKER.md`,
+  the version lines, the design document's list of issues and the
+  research notes. One claim of the sweep was wrong and is corrected:
+  `by` is never `script`, as the role `script` may not call
+  `POST /`.
 - **The demo is not in this pull request.** The Tasks make the demo a
   second pull request once the runner part is merged, so its boxes
   stay open; `hospital.cast` and the examples of `api/API.md` are not
