@@ -625,7 +625,8 @@ script of its state runs, with `busy`.
 Sends an event to the machine, which follows the transition of its
 current state for that event, even while the script of that state
 runs. MQTT route: `event`. Scripts raise events this way too, as in
-[Calls From Scripts](#calls-from-scripts).
+[Calls From Scripts](#calls-from-scripts), and the runner raises the
+events of [peer subscriptions](#peers) the same way.
 
 The state `full` has no transition for `close`:
 
@@ -794,7 +795,12 @@ topic's kind and of the peer's `id`; for a peer with a `publicKey`,
 only as a JWS of the envelope that the key signed, with the peer's `id`
 as `kid`. The runner logs and drops any other, and an empty payload,
 which clears a retained notification, sets its part back to `null`. A
-peer's notification raises no event and sends no notification.
+peer's notification sends no notification. It raises an event only
+through a `subscriptions` entry of the state machine file, when the
+entry's condition on the peer's `state` or `online` turns true; the
+event then takes the path of [POST /fsm/event](#post-fsmevent) without
+a request key, and nothing replies
+([README](../README.md#peer-events)).
 
 ### GET /peers
 
@@ -1754,7 +1760,8 @@ This document describes runner version 0.10.0, which made
 [GET /history](#get-history) return full records and added
 [GET /metrics](#get-metrics); 0.9.0 added
 [access control](#access-control). The optional
-[signatures](#signatures) came without a version change. The
+[signatures](#signatures), the [peers](#peers) and the subscriptions
+to them came without a version change. The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.
