@@ -23,6 +23,7 @@ export default class DescriptorService {
       commands: this.config.permitCommands(),
       stateMachine: this.fsm.check() !== undefined,
       manager: { commands: this.fsm.managerCommands() },
+      publicKey: this.config.getSigner().publicKey(),
     };
   }
 

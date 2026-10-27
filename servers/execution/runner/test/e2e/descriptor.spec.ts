@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,6 +41,7 @@ describe('Runner descriptor end-to-end tests', () => {
         commands: ['create', 'execute'],
         stateMachine: false,
         manager: { commands: [] },
+        publicKey: null,
       },
     ]);
   });
@@ -65,7 +67,25 @@ describe('Runner descriptor end-to-end tests', () => {
         commands: ['create', 'execute'],
         stateMachine: true,
         manager: { commands: ['execute'] },
+        publicKey: null,
       },
     ]);
+  });
+
+  it('Should give the public key of auth.key', async () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const pem = privateKey.export({ type: 'pkcs8', format: 'pem' });
+    writeFileSync(join(dir, 'dt.key'), pem);
+    app = await startRunnerWith(
+      dir,
+      `id: dt-1
+${BASE}auth:
+  key: dt.key
+`,
+    );
+
+    const { body } = await supertest(app.getHttpServer()).get('/dt');
+
+    expect(body.publicKey).toBe(publicKey.export({ format: 'jwk' }).x);
   });
 });

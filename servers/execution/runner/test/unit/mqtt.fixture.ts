@@ -109,6 +109,7 @@ export const dt = {
   commands: ['create'],
   stateMachine: true,
   manager: { commands: [] },
+  publicKey: null,
 };
 
 export const stateDocument = {
