@@ -162,6 +162,18 @@ describe('Queue history of an old or new database', () => {
     ]);
   });
 
+  it('lists the commands in the order received, all of them running', () => {
+    const commands = ['hello', 'world', 'terminate'];
+    commands.forEach((name) => queue.enqueue(name));
+
+    const history = queue.history({ limit: 100 });
+
+    expect(history.map(({ name }) => name)).toEqual(commands);
+    expect(history.map(({ status }) => status)).toEqual(
+      Array(3).fill('running'),
+    );
+  });
+
   it('is empty, and counts zero for each status, without commands', () => {
     queue.markInterrupted(new Date().toISOString());
 

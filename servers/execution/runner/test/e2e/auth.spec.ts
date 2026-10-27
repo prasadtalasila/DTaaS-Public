@@ -187,6 +187,24 @@ describe('Access control end-to-end tests', () => {
     expect(enqueue).toHaveBeenCalledWith('create', undefined, 'manager-1');
   });
 
+  // htu is the path without the query, as the runner receives it
+  it('Should show the caller in the history, and serve the metrics', async () => {
+    const body = JSON.stringify({ name: 'create' });
+    await send(manager, { method: 'POST', path: '/', body });
+    const get = { method: 'GET', path: '/history' } as const;
+    const header = httpAuthorization(manager, 'dt-1', get);
+
+    const history = await http()
+      .get('/history?limit=1')
+      .set('Authorization', header);
+    const metrics = await send(manager, { method: 'GET', path: '/metrics' });
+
+    expect(history.body).toEqual([
+      expect.objectContaining({ name: 'create', by: 'manager-1' }),
+    ]);
+    expect(metrics.status).toBe(200);
+  });
+
   it.each([
     ['POST /', '/', { name: 'execute' }, 'manager may not call execute'],
     ['POST /stop', '/stop', {}, 'manager may not call stop'],
