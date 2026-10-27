@@ -40,9 +40,12 @@ function createService(start: FsmStateDto | undefined) {
     onAnswer: jest.fn<(listener: AnswerListener) => void>(),
     onEscalation: jest.fn<(listener: EscalationListener) => void>(),
   };
-  const queue = { commandCounts: jest.fn(() => COUNTS) };
+  const queue = {
+    commandCounts: jest.fn(() => COUNTS),
+    peerSwitches: () => new Map(),
+  };
   const service = new DescriptorService(
-    {} as Config,
+    { getPeers: () => [] } as unknown as Config,
     fsm as unknown as FsmService,
     queue as unknown as Queue,
   );

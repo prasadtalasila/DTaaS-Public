@@ -23,7 +23,7 @@ no file.
 | [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done      | #81 |
 | [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done      | #86 |
 | [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | in review | #91 |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done      | #91 |
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
 | [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | in review | #92 |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |

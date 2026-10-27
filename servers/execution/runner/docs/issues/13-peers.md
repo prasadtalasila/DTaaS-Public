@@ -347,10 +347,21 @@ stays where 15a leaves it (the delivery rules bump only for a break).
   such strings with an editor rather than through a shell. The Qlty
   CLI was not installed on the host, so the complexity of the new
   functions was checked by hand against the limits of the lessons.
-- **Version and decision.** The version stays at 0.9.0, as the Spec
-  says: new routes, an optional key and a descriptor field break no
-  route. The decision is D30; 11 may take D30 as well, and whichever
-  merges second renumbers.
+- **Version and decision.** The version stays where 11 left it, 0.10.0,
+  as the Spec says: new routes, an optional key and a descriptor field
+  break no route. 11 took D30, so the peer list is D31.
+- **Rebase onto 11.** 11 merged first (#91), and the rebase conflicted
+  in five places. `queue.service.ts`: 11 had moved `RECORD` and
+  `toRecord` to `queue.history.ts`, so only `inTransaction` stays above
+  `Queue` and the file ends at 226 lines.
+  `DescriptorService.onModuleInit` now starts the metrics and then
+  loads the peers. `mqttRoutes` and the subscription list of
+  `mqtt.service.spec.ts` keep `metrics` before `peers` and `set-peers`.
+  In `README.md`, `api/API.md` and the design document, 11's text was
+  kept and 13's edits applied again on top, the decision renumbered
+  to D31. Both descriptor unit tests needed new fakes: 11's
+  `onModuleInit` calls `fsm.onChange` and `fsm.onAnswer`, and 13's
+  calls `config.getPeers` and `queue.peerSwitches`.
 - **Left for later.** `hospital.cast` was not recorded again, so its
   `GET /dt` shows no `peers`; API.md shows `"peers": ["hospital-2"]`,
   which the demo's `runner.yaml` now gives, and 16 re-captures the

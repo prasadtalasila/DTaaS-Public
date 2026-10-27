@@ -57,6 +57,8 @@ function createService(
     check: () => state,
     managerCommands: () => ['execute'],
     parameters: () => values && { values: () => values },
+    onChange: jest.fn(),
+    onAnswer: jest.fn(),
     onEscalation: jest.fn(),
   };
   const queue = {
