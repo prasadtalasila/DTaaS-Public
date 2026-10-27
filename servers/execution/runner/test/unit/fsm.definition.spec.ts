@@ -204,6 +204,15 @@ describe('State machine file', () => {
       'create',
       'execute',
     ]);
+    expect(definition?.parameters.get('fidelity')).toEqual({
+      type: 'enum',
+      values: ['low', 'medium', 'high'],
+      default: 'medium',
+      controllable: true,
+      event: 'fidelity-changed',
+    });
+    const restart = definition?.states.get('execute')?.get('fidelity-changed');
+    expect(restart).toEqual({ state: 'execute', stop: true });
   });
 
   it('Should have no state machine without a file', () => {

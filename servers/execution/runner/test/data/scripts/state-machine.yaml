@@ -5,6 +5,7 @@ events:
   - restart
   - scope-changed
   - neighbour-full
+  - fidelity-changed
 parameters:
   scope:
     type: enum
@@ -17,6 +18,17 @@ parameters:
     type: number
     default: 20
     controllable: false
+  # the fidelity pattern of STATE-MACHINE.md: values from the cheapest to
+  # the most accurate
+  fidelity:
+    type: enum
+    values:
+      - low
+      - medium
+      - high
+    default: medium
+    controllable: true
+    event: fidelity-changed
 states:
   create:
     transitions:
@@ -28,6 +40,9 @@ states:
         state: execute
         stop: true
       neighbour-full: create
+      fidelity-changed:
+        state: execute
+        stop: true
 # raises neighbour-full when the peer hospital-2 of runner.yaml enters
 # its state full
 subscriptions:
