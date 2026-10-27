@@ -652,6 +652,11 @@ or that no longer fits its declaration, such as a removed enum value,
 is dropped with a warning in the log, and the parameter starts at its
 default. A restored value raises no event.
 
+No parameter name has a meaning to the runner. A DT that lets its
+Manager trade accuracy for computing power declares a `fidelity`
+parameter by convention, as
+[STATE-MACHINE.md](STATE-MACHINE.md#pattern-fidelity) describes.
+
 ### Declared Environment
 
 The state machine file may add variables to the
