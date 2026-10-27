@@ -252,7 +252,13 @@ curl -s http://localhost:5100/health
 `200`:
 
 ```json
-{ "status": "ok", "uptime": 4, "mqtt": "connected", "database": "file" }
+{
+  "status": "ok",
+  "uptime": 4,
+  "mqtt": "connected",
+  "database": "file",
+  "scripts": { "user": "dt-script" }
+}
 ```
 
 | Field      | Values                                                                                      |
@@ -261,6 +267,7 @@ curl -s http://localhost:5100/health
 | `uptime`   | whole seconds since the runner started                                                      |
 | `mqtt`     | `connected`; `disconnected`, also while it reconnects; `disabled` without an `mqtt` section |
 | `database` | `file` with a `database` file in the configuration, else `memory`                           |
+| `scripts`  | `{ "user": <name> }` with `scripts.user`, the script account's name; else `null`            |
 
 The reply is `200` in both cases. The runner connects to the broker
 after it starts, so the first replies may say `degraded`. Over MQTT the

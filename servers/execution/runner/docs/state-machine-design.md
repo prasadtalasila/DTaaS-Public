@@ -29,8 +29,8 @@ notifications (02, 03), command input and outcome (05), escalation
 (06), presence (07), the script context (08), persistence across
 restarts (09), stopping scripts (10), full history and metrics (11),
 the health route (12), peers (13), access control (15a), signed
-output (15b), peer events (16), script resources (17a) and the
-process tree (17b). Their
+output (15b), peer events (16), script resources (17a), the
+process tree (17b) and scripts as a second account (18). Their
 files are in
 [docs/issues](issues/README.md).
 
@@ -116,6 +116,7 @@ state machine.
 | `queue.history.ts`           | the SQL of a command record, of the history and of command counts      |
 | `queue.peers.ts`             | the SQL of the switches of `PUT /peers`                                |
 | `resources/*`                | measures the CPU time, peak memory and processes of each script's tree |
+| `scripts/*`                  | the `scripts` section, its startup checks and the `setpriv` launch     |
 
 `FsmService` owns plain objects rather than injected services:
 `Requests`, `Changes`, `RunnerContext`, `Escalations`, `StopChain` and
@@ -483,6 +484,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | D33 | Script resources come from own reads of the direct child, as lower bounds                      | Added by issue 17a. A Manager adjusts fidelity to load, so each run reports its CPU seconds and peak memory and the runner decides nothing. Own reads rather than `pidusage`, which on Windows runs `wmic` or a PowerShell per poll and has no peak: `/proc` every 500 ms on Linux, one PowerShell sampler per run on Windows. Only the direct child counts (17b adds the tree). A figure is the last sample, a lower bound, or `null`; no version change, as no shape breaks. Fidelity is a DT author's convention on a declared parameter (17c), and the runner reserves no parameter name. Amended by issue 17b: the figures cover the whole process tree (D36).                                                                                                                                                                                                                                                                                                      |
 | D34 | Peer subscriptions raise events of the file when a condition on a peer turns true              | Added by issue 16 (S13). P2's peer-to-peer coordination needs a mechanism, and events are what moves a DT. A subscription names a listed peer, one condition on its `state` or `online`, and an event; the runner raises the event when the condition turns true, so a peer that keeps reporting `full` raises one event, which bounds the rate. The event takes a client's path without a request key, escalating as one (D25). A change seen before the first transition is not replayed; a state reads `GET /peers` at entry. Disabling a peer forgets its conditions.                                                                                                                                                                                                                                                                                                                                                                                                |
+| D35 | With `scripts.user`, scripts run as a second account through `setpriv`                         | Added by issue 18. A hostile DT author, or a caller who abuses a script through its input, must not reach `runner.yaml`, the key, the database or the runner's environment. On Linux the runner, started unprivileged with `CAP_SETUID`, `CAP_SETGID` and `CAP_KILL` ambient, starts each script through `setpriv`, which sets the account and clears every capability, in the run directory and with an allow-listed environment. It checks its rights and the layout at startup and refuses to start on any mismatch; it never changes a mode. Without the setting nothing changes.                                                                                                                                                                                                                                                                                                                                                                                    |
 | D36 | Script resources cover the process tree, found afresh at each sample                           | Added by issue 17b. A script that starts a simulator works below the direct child, and on Windows the direct child is always `powershell.exe`, so D33 under-reported. Each sample walks the tree down from the direct child: on Linux through `/proc/<pid>/task/*/children`, or a scan of every `stat` where the kernel lacks those files, chosen once per runner process; on Windows from one CIM query of `Win32_Process`, whose rows give the figures too, in the one sampler per run of D33. Only world-readable files are read, so a script of another account is measured alike. A process is named by its pid and start time; the CPU time is the sum of the last value of every process seen, the peak the largest sum of one sample and never below the kernel peak of one process, and `processes` the largest tree. The tree is measured, not managed: a stop still signals the direct child only (D18). No version change, as `processes` is an added field. |
 
 ## Assumptions
@@ -580,7 +582,10 @@ tests of the state machine:
   `peer-notice*.spec.ts`, `peer-watch.spec.ts`, `queue.peers.spec.ts`
   and `test/e2e/mqtt.peers*.spec.ts`; signed output in `signer.spec.ts`,
   `mqtt.signed.spec.ts`, `webhook.signed.spec.ts`,
-  `config.key.spec.ts` and `test/e2e/signed.spec.ts`.
+  `config.key.spec.ts` and `test/e2e/signed.spec.ts`; the script
+  account in `scripts.*.spec.ts`, `script-context.base.spec.ts`,
+  `config.scripts.spec.ts` and `test/e2e/script-user.spec.ts`, which
+  runs only in CI, as it needs a passwordless `sudo`.
 - `mqtt.broker.spec.ts` runs only in CI, against Mosquitto with MQTT 5;
   a change to a reply shape must be checked there too.
 - `dist.spec.ts` starts the build, which catches an import without its

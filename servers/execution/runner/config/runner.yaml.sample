@@ -37,3 +37,7 @@ commands:  # list of permitted scripts
 #       distance: 12.4
 #     enabled: true  # optional; PUT /peers overrides it
 #     publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'  # optional
+# scripts:  # optional, Linux only; runs the scripts as a second account
+#   user: 'dt-script'  # a name or a uid of /etc/passwd
+#   group: 'dt-script'  # optional; instead of the account's primary group
+#   runDirectory: '/var/lib/dt/my-dt/run'  # the scripts' working directory
