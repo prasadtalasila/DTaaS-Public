@@ -300,9 +300,16 @@ and children count; 17c documents a `fidelity` parameter convention.
   `execa-runner.resources.spec.ts` passed and the Linux case was
   skipped; the parsers of both platforms, the polling watch with fake
   timers and the sampler with a fake subprocess ran everywhere. The
-  Linux measurement itself, `busy` under `/proc`, ran only in CI.
-  Docker was not running on the host, so the Linux path was not tried
-  in a container first.
+  Linux measurement itself, `busy` under `/proc`, ran only in CI,
+  where it passed in about a second. Docker was not running on the
+  host, so the Linux path was not tried in a container first.
+- **SonarCloud on the PR** rated new code B for security: `getconf`
+  ran through `PATH` (S4036), so it runs as `/usr/bin/getconf`, its
+  place on Debian and Ubuntu; and the Windows watch started listening
+  in its constructor (S7059), so `windowsSampler` calls `listen()`.
+  Codecov missed the fallback to 100 ticks, which CI's `getconf`
+  never takes, so `readClockTicks` takes the program as a parameter
+  and a test names one that does not exist.
 - **Version and decision.** No shape breaks, so the version stays
   0.10.0, as the Spec says. 11, 13 and 15b took D30 to D32, so this
   decision is D33.

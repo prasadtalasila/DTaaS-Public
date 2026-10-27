@@ -6,6 +6,7 @@ import {
   clockTicks,
   parseStat,
   parseStatus,
+  readClockTicks,
   readLinux,
 } from 'src/resources/linux';
 
@@ -53,6 +54,10 @@ describe('Linux resource reads', () => {
 
   it('Should know a positive clock tick', () => {
     expect(clockTicks()).toBeGreaterThan(0);
+  });
+
+  it('Should take 100 ticks a second without getconf', () => {
+    expect(readClockTicks(join(tmpdir(), 'no-getconf'))).toBe(100);
   });
 
   describe('readLinux', () => {

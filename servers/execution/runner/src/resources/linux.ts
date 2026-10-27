@@ -31,10 +31,11 @@ export function parseStatus(text: string): number | undefined {
   return match === null ? undefined : Number(match[1]) * 1024;
 }
 
-function readClockTicks(): number {
+// The clock tick that the getconf given prints, or the default
+export function readClockTicks(getconf = GETCONF): number {
   try {
     const value = Number(
-      execFileSync(GETCONF, ['CLK_TCK'], { encoding: 'utf8', timeout: 1000 }),
+      execFileSync(getconf, ['CLK_TCK'], { encoding: 'utf8', timeout: 1000 }),
     );
     return value > 0 ? value : DEFAULT_TICKS;
   } catch {
