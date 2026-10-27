@@ -1,6 +1,6 @@
 # 11 Richer History and Metrics
 
-- Status: in review
+- Status: done
 - Depends on: 15a, for the `by` column only (see below)
 - PR: [#91](https://github.com/prasadtalasila/DTaaS-Public/pull/91)
 - Research note:

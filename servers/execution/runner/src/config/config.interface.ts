@@ -23,4 +23,5 @@ export const configDefault: ConfigValues = {
   port: 5000,
   location: 'script',
   commands: [],
+  peers: [],
 };

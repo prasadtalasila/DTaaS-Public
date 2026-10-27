@@ -27,8 +27,12 @@ describe('Runner configuration schema', () => {
     },
   );
 
-  it('Should default the attributes to an empty map', () => {
-    expect(configSchema.parse(valid)).toEqual({ ...valid, attributes: {} });
+  it('Should default the attributes and the peers to none', () => {
+    expect(configSchema.parse(valid)).toEqual({
+      ...valid,
+      attributes: {},
+      peers: [],
+    });
   });
 
   it('Should accept every key of the configuration', () => {
@@ -43,6 +47,7 @@ describe('Runner configuration schema', () => {
     expect(configSchema.parse(config)).toEqual({
       ...config,
       mqtt: { ...config.mqtt, protocolVersion: 5 },
+      peers: [],
     });
   });
 

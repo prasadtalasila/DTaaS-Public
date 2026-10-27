@@ -25,7 +25,7 @@ no file.
 | [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
 | [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done      | #91 |
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned   |     |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | in review | #92 |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
 | [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | in review | #93 |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
@@ -189,6 +189,16 @@ From implementing 15a:
   `git checkout` unless the issue re-captures the recording.
 - `node:crypto` takes any 32 bytes as an Ed25519 public key; only a
   verification shows that a key is no point of the curve.
+
+From implementing 13:
+
+- Nest builds every provider before it runs any `onModuleInit`, so a
+  listener that an injectable registers in its constructor hears what
+  another provider signals in its `onModuleInit`, whatever the order of
+  the hooks.
+- `test/e2e/mqtt.util.ts` runs two runners in one process against one
+  aedes broker, each with its own spied `getId` and base topic, which
+  tests one runner following another without Mosquitto.
 
 From implementing 15b:
 

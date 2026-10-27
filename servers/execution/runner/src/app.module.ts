@@ -17,6 +17,8 @@ import ParametersController from './parameters.controller.js';
 import WebhookClient from './notify/webhook.client.js';
 import Notifier from './notify/notifier.service.js';
 import AccessGuard from './auth/access.guard.js';
+import PeersController from './peers/peers.controller.js';
+import PeerWatch from './peers/peer-watch.js';
 
 @Module({
   imports: [],
@@ -25,6 +27,7 @@ import AccessGuard from './auth/access.guard.js';
     FsmController,
     HealthController,
     ParametersController,
+    PeersController,
   ],
   providers: [
     ExecaManager,
@@ -39,6 +42,7 @@ import AccessGuard from './auth/access.guard.js';
     HealthService,
     WebhookClient,
     Notifier,
+    PeerWatch,
     { provide: APP_GUARD, useClass: AccessGuard },
   ],
 })

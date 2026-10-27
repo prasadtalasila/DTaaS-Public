@@ -34,6 +34,8 @@ export type MqttConnect = (url: string, options: IClientOptions) => MqttClient;
 
 export const MQTT_CONNECT = Symbol('MQTT_CONNECT');
 
+export type FollowListener = (payload: Buffer) => void;
+
 // milliseconds that each step of leaving the broker may take
 const LEAVE_TIMEOUT = 2000;
 
@@ -49,6 +51,10 @@ export default class MqttService implements BeforeApplicationShutdown {
   private routes = new Map<string, MqttRoute>();
 
   private readonly connects = new Changes();
+
+  // Topics other than the request topics, such as the notify topics of
+  // peers, and the listener of each
+  private readonly follows = new Map<string, FollowListener>();
 
   constructor(
     private readonly config: Config,
@@ -71,11 +77,27 @@ export default class MqttService implements BeforeApplicationShutdown {
     this.client = client;
     // the url may hold credentials, so log only its host
     this.listen(client, new URL(options.url).host);
-    client.subscribe([...this.routes.keys()], { qos: 1 }, (error) => {
-      if (error) {
-        this.logger.error(`MQTT subscription failed: ${error.message}`);
-      }
-    });
+    const topics = [...this.routes.keys(), ...this.follows.keys()];
+    client.subscribe(topics, { qos: 1 }, this.subscribed);
+  }
+
+  private readonly subscribed = (error?: Error | null) => {
+    if (error) {
+      this.logger.error(`MQTT subscription failed: ${error.message}`);
+    }
+  };
+
+  // Hands each message on the topic to the listener, retained or not,
+  // instead of answering it. Without a client, start subscribes it;
+  // mqtt.js subscribes again on reconnect.
+  follow(topic: string, listener: FollowListener): void {
+    this.follows.set(topic, listener);
+    this.client?.subscribe(topic, { qos: 1 }, this.subscribed);
+  }
+
+  unfollow(topic: string): void {
+    this.follows.delete(topic);
+    this.client?.unsubscribe(topic);
   }
 
   private listen(client: MqttClient, host: string): void {
@@ -93,9 +115,12 @@ export default class MqttService implements BeforeApplicationShutdown {
       }
       lastError = message;
     });
-    client.on('message', (_topic, payload, packet) =>
-      this.respond(client, payload, packet),
-    );
+    client.on('message', (topic, payload, packet) => {
+      const listener = this.follows.get(topic);
+      return listener === undefined
+        ? this.respond(client, payload, packet)
+        : listener(payload);
+    });
   }
 
   // Calls the listener on each connection to the broker, and at once if

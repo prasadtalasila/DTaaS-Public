@@ -7,6 +7,7 @@ import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
 import Metrics from './fsm/metrics.js';
 import { ChangeListener } from './notify/changes.js';
+import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
@@ -18,6 +19,9 @@ const now = (): number => performance.timeOrigin + performance.now();
 export default class DescriptorService implements OnModuleInit {
   private readonly counters = new Metrics();
 
+  // The peers of runner.yaml, which PeerWatch follows
+  private readonly peerList = new Peers();
+
   constructor(
     private readonly config: Config,
     private readonly fsm: FsmService,
@@ -25,7 +29,7 @@ export default class DescriptorService implements OnModuleInit {
   ) {}
 
   // Runs at init, after main.ts restored the machine, which is the
-  // baseline of the metrics
+  // baseline of the metrics, and opened the database of the queue
   onModuleInit(): void {
     this.counters.start(this.fsm.check(), performance.timeOrigin);
     this.fsm.onChange(() => this.counters.observe(this.fsm.check(), now()));
@@ -33,6 +37,11 @@ export default class DescriptorService implements OnModuleInit {
       this.counters.answered(request, reply),
     );
     this.fsm.onEscalation((data) => this.counters.escalated(data));
+    this.peerList.load(this.config.getPeers(), this.queue);
+  }
+
+  peers(): Peers {
+    return this.peerList;
   }
 
   describe(): DescriptorDto {
@@ -42,6 +51,7 @@ export default class DescriptorService implements OnModuleInit {
       commands: this.config.permitCommands(),
       stateMachine: this.fsm.check() !== undefined,
       manager: { commands: this.fsm.managerCommands() },
+      peers: this.peerList.enabledIds(),
       publicKey: this.config.getSigner().publicKey(),
     };
   }

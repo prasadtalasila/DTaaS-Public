@@ -18,6 +18,8 @@ export class FakeClient extends EventEmitter {
 
   subscribe = jest.fn();
 
+  unsubscribe = jest.fn();
+
   publishAsync = jest.fn(
     (_topic: string, _message: string, _options: unknown) =>
       Promise.resolve(undefined),

@@ -3,15 +3,8 @@ import { authSchema } from '../auth/auth.config.js';
 import { nameSchema } from '../fsm/definition.js';
 import { mqttConfigSchema } from '../mqtt/mqtt.config.js';
 import { notifyConfigSchema } from '../notify/notify.config.js';
-
-// Facts about the digital twin for a Manager; a flat map, so that a
-// Manager can filter runners by any of them
-const attributesSchema = z.record(
-  nameSchema,
-  z.union([z.string(), z.number(), z.boolean()]),
-);
-
-export type Attributes = z.infer<typeof attributesSchema>;
+import { peersSchema, refuseSelf } from '../peers/peers.config.js';
+import { attributesSchema } from './attributes.js';
 
 // The whole of runner.yaml; the paths are relative to that file
 export const configSchema = z
@@ -34,5 +27,10 @@ export const configSchema = z
     notify: notifyConfigSchema.optional(),
     // optional; the principals that may call the runner, and their roles
     auth: authSchema.optional(),
+    // optional; the peers that the DT is willing to interact with
+    peers: peersSchema.default([]),
   })
-  .strict();
+  .strict()
+  .superRefine(({ id, mqtt, peers }, context) =>
+    refuseSelf(peers, { id, topic: mqtt?.topic }, context),
+  );

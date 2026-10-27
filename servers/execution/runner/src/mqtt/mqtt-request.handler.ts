@@ -22,6 +22,7 @@ import { eventSchema, fsmReply, transitionSchema } from '../dto/fsm.dto.js';
 import { healthReport } from '../dto/health.dto.js';
 import { historyQuerySchema } from '../dto/history.dto.js';
 import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
+import { PeersBody, peersBodySchema } from '../dto/peers.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
@@ -82,6 +83,8 @@ export default class MqttRequestHandler {
     escalate: this.whenValid(escalateSchema, (body, request) =>
       this.fsm.escalate(body, request.requestKey),
     ),
+    peers: () => this.descriptor.peers().document(),
+    'set-peers': this.whenValid(peersBodySchema, (body) => this.setPeers(body)),
   };
 
   // The role comes before the body, as Nest runs guards before pipes. A
@@ -145,5 +148,12 @@ export default class MqttRequestHandler {
     return problems.length > 0
       ? new BadRequestException(problems).getResponse()
       : this.parameterDocument();
+  }
+
+  private setPeers(body: PeersBody): unknown {
+    const problems = this.descriptor.peers().set(body);
+    return problems.length > 0
+      ? new BadRequestException(problems).getResponse()
+      : this.descriptor.peers().document();
   }
 }

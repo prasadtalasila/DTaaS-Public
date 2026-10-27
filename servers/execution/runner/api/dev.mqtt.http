@@ -229,6 +229,30 @@ QoS: 1
 
 ###
 
+# @name peers
+MQTT {{broker}}
+Subscribe: {{topic}}/peers/response
+Publish: {{topic}}/peers
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name set-peers
+MQTT {{broker}}
+Subscribe: {{topic}}/set-peers/response
+Publish: {{topic}}/set-peers
+QoS: 1
+
+{"hospital-2": false}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name escalate
 MQTT {{broker}}
 Subscribe: {{topic}}/escalate/response

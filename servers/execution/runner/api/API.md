@@ -76,6 +76,8 @@ of the configuration.
 | `GET /parameters`      | `parameters`     |                                     | 200     |
 | `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                | 200     |
 | `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}` | 202     |
+| `GET /peers`           | `peers`          |                                     | 200     |
+| `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`             | 200     |
 
 With access control, each route is open to some roles only; see
 [Roles](#roles).
@@ -154,6 +156,7 @@ curl -s http://localhost:5100/dt
   "commands": ["open", "full", "closed", "admit", "discharge"],
   "stateMachine": true,
   "manager": { "commands": ["admit", "discharge"] },
+  "peers": ["hospital-2"],
   "publicKey": null
 }
 ```
@@ -165,6 +168,7 @@ curl -s http://localhost:5100/dt
 | `commands`     | the permitted commands, which `POST /` may run                                                               |
 | `stateMachine` | whether a state machine file is loaded                                                                       |
 | `manager`      | the `manager.commands` of the state machine file; the commands meant for the Manager, a subset of `commands` |
+| `peers`        | the ids of the enabled [peers](#peers), in the order of the configuration; `[]` without any                  |
 | `publicKey`    | the public key that verifies the runner's [signatures](#signatures); `null` without `auth.key`               |
 
 ### GET /state
@@ -779,6 +783,115 @@ machine went. A value equal to the current one changes nothing and
 raises no event, so a repeat of the request and `{}` change nothing.
 The route takes no request key for that reason.
 
+## Peers
+
+The configuration's `peers` section lists the DTs that this one is
+willing to interact with; nothing else is a peer. With MQTT, the runner
+subscribes to the presence and state notifications of each enabled
+peer with a `topic`, on its own broker, and remembers what they told.
+A notification counts only as an [envelope](#notifications) of its
+topic's kind and of the peer's `id`; for a peer with a `publicKey`,
+only as a JWS of the envelope that the key signed, with the peer's `id`
+as `kid`. The runner logs and drops any other, and an empty payload,
+which clears a retained notification, sets its part back to `null`. A
+peer's notification raises no event and sends no notification.
+
+### GET /peers
+
+Maps each peer's id to its entry; `{}` without peers. MQTT route:
+`peers`.
+
+```bash
+curl -s http://localhost:5100/peers
+```
+
+`200`, with `hospital-2` online in state `full`:
+
+```json
+{
+  "hospital-2": {
+    "topic": "dtaas/hospital-2",
+    "url": "http://localhost:5200",
+    "attributes": { "distance": 12.4 },
+    "enabled": true,
+    "online": true,
+    "descriptor": {
+      "id": "hospital-2",
+      "attributes": { "name": "Hospital 2", "city": "Aarhus" },
+      "commands": ["open", "full", "closed", "admit", "discharge"],
+      "stateMachine": true,
+      "manager": { "commands": ["admit", "discharge"] },
+      "peers": ["hospital-1"]
+    },
+    "state": {
+      "id": "hospital-2",
+      "time": "2026-10-26T14:56:02.410Z",
+      "machine": {
+        "state": "full",
+        "status": "running",
+        "entry": 3,
+        "events": ["beds-free", "close", "full", "reopen", "scope-changed"]
+      },
+      "parameters": { "scope": "single", "capacity": 2 },
+      "command": null
+    }
+  }
+}
+```
+
+| Field        | Meaning                                                                            |
+| :----------- | :--------------------------------------------------------------------------------- |
+| `topic`      | the peer's MQTT base topic; `null` without one                                     |
+| `url`        | the peer's HTTP base URL; `null` without one                                       |
+| `attributes` | the peer's `attributes` in the configuration, such as a distance; `{}` without any |
+| `enabled`    | whether the runner follows the peer and lists it in [GET /dt](#get-dt)             |
+| `online`     | the `online` of the peer's last presence notice                                    |
+| `descriptor` | the descriptor of the peer's last online notice; an offline notice keeps it        |
+| `state`      | the `data` of the peer's last state notification                                   |
+
+`online`, `descriptor` and `state` are `null` until a notification
+tells them, and stay `null` without MQTT, for a disabled peer and for
+one without `topic`. The demo runs one runner, so its `hospital-2`
+stays `"online": null`. `publicKey` is not shown.
+
+### PUT /peers
+
+Enables and disables peers of the configuration. The body maps peer ids
+to booleans. MQTT route: `set-peers`.
+
+The runner checks the whole body first. An unknown id or a value that
+is not a boolean is refused with `400`, and `message` lists every
+problem:
+
+```bash
+curl -s -X PUT http://localhost:5100/peers \
+  --json '{"hospital-9":false,"hospital-2":"off"}'
+```
+
+`400`:
+
+```json
+{
+  "message": ["unknown peer hospital-9", "peer hospital-2 takes a boolean"],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+A body that is not an object gets the [validation error](#conventions).
+`{"hospital-2": false}` is `200` with the body of `GET /peers`, where
+`hospital-2` has `"enabled": false` and `online`, `descriptor` and
+`state` `null`. The runner stores the changes of a body together, or
+none of them; a stored change overrides the `enabled` of the
+configuration at the next start. Disabling a peer unsubscribes and
+forgets what it told; enabling it subscribes again, and the retained
+notifications fill the entry shortly after the reply. A value equal to
+the current one changes nothing, so `{}` changes nothing and the route
+takes no request key. No notification is sent: the retained presence
+notice keeps the peers of the last connection, while `GET /dt` is
+current. The Manager can enable and disable only the peers that the
+operator listed, never add one.
+
 ## Escalation
 
 An escalation tells the Manager that the DT can not cope on its own.
@@ -959,7 +1072,8 @@ replay. Over MQTT the token is the request payload itself; see
 ### Roles
 
 A `client` may call every route, and a `manager` reads, sets
-parameters and runs the `manager.commands` of the state machine file.
+parameters, enables and disables peers and runs the `manager.commands`
+of the state machine file.
 The runner's own scripts send `Authorization: Bearer $RUNNER_TOKEN`
 (see [Calls From Scripts](#calls-from-scripts)) and act in the role
 `script`. A principal's token is accepted from a script too, in the
@@ -981,6 +1095,8 @@ principal's role.
 | `POST /fsm/event`      | `event`          | yes    | no                 | yes    |
 | `POST /escalate`       | `escalate`       | yes    | no                 | yes    |
 | `PUT /parameters`      | `set-parameters` | yes    | yes                | no     |
+| `GET /peers`           | `peers`          | yes    | yes                | yes    |
+| `PUT /peers`           | `set-peers`      | yes    | yes                | no     |
 
 ### Errors
 
@@ -1014,8 +1130,9 @@ validation error.
 ## MQTT
 
 With an `mqtt` section in the configuration, the runner connects to the
-broker, subscribes with QoS 1 to one request topic per route, and
-publishes the [notifications](#notifications).
+broker, subscribes with QoS 1 to one request topic per route and to
+the notifications of its [peers](#peers), and publishes the
+[notifications](#notifications).
 
 ### Request Topics
 
@@ -1039,6 +1156,8 @@ its query.
 | `<topic>/parameters`     | `GET /parameters`      | none                                  |
 | `<topic>/set-parameters` | `PUT /parameters`      | `{"<name>": <value>}`                 |
 | `<topic>/escalate`       | `POST /escalate`       | `{"reason": "<reason>"}`              |
+| `<topic>/peers`          | `GET /peers`           | none                                  |
+| `<topic>/set-peers`      | `PUT /peers`           | `{"<peer id>": <boolean>}`            |
 | `<topic>/metrics`        | `GET /metrics`         | none                                  |
 
 ### Responses
@@ -1080,6 +1199,7 @@ dtaas/hospital-1/dt/response (UNSIGNED)
   "commands": ["open", "full", "closed", "admit", "discharge"],
   "stateMachine": true,
   "manager": { "commands": ["admit", "discharge"] },
+  "peers": ["hospital-2"],
   "publicKey": null
 }
 ```
@@ -1326,6 +1446,7 @@ carries the [descriptor](#get-dt):
       "commands": ["open", "full", "closed", "admit", "discharge"],
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
+      "peers": ["hospital-2"],
       "publicKey": null
     }
   }

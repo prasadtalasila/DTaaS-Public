@@ -81,6 +81,12 @@ The tests use topics with a random part, so runs do not interfere on a
 shared broker. The GitHub Actions workflow runs them against a
 Mosquitto container.
 
+`test/e2e/mqtt.peers.spec.ts` checks [peers](README.md#peers) against
+aedes with two runners in one process: `startRunner` of
+`test/e2e/mqtt.util.ts` takes a `prepare` hook that spies `getId` and
+`getPeers`, so `hospital-1` lists `hospital-2` and each runner has its
+own base topic on the same broker.
+
 ### Access Control Tests
 
 The tests of [access control](README.md#access-control) generate their

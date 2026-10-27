@@ -5,7 +5,7 @@ import { NotifyKind, offlineNotification } from '../dto/notify.dto.js';
 
 // A base topic is a prefix for the request topics, so it can not hold
 // wildcards, start in the reserved $ space or end with a separator.
-const baseTopic = z
+export const baseTopic = z
   .string()
   .regex(
     /^[^$#+]([^#+]*[^#+/])?$/,
@@ -39,6 +39,8 @@ export const mqttRoutes = [
   'set-parameters',
   'escalate',
   'metrics',
+  'peers',
+  'set-peers',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];

@@ -39,6 +39,7 @@ describe('Check Configuration Service', () => {
     expect(config.getStateMachine()).toBeUndefined();
     expect(config.getMqtt()).toBeUndefined();
     expect(config.getStopGrace()).toEqual(5000);
+    expect(config.getPeers()).toEqual([]);
   });
 
   it('Should load correct configuration', async () => {
@@ -114,6 +115,23 @@ describe('Check Configuration Service', () => {
       await expect(
         load(`${base}id: dt-1\nattributes: {__proto__: 1}`),
       ).rejects.toThrow(/Invalid configuration[\s\S]*__proto__/);
+    });
+
+    it('Should read the peers', async () => {
+      await load(`${base}id: dt-1\npeers: [{id: dt-2, topic: dtaas/dt-2}]`);
+
+      expect(config.getPeers()).toEqual([
+        { id: 'dt-2', topic: 'dtaas/dt-2', attributes: {}, enabled: true },
+      ]);
+    });
+
+    it('Should reject a __proto__ attribute of a peer', async () => {
+      await expect(
+        load(
+          `${base}id: dt-1\npeers:\n  - {id: dt-2, url: 'http://dt-2'}\n` +
+            '  - {id: dt-3, url: "http://dt-3", attributes: {__proto__: 1}}',
+        ),
+      ).rejects.toThrow(/__proto__[\s\S]*at peers.1.attributes/);
     });
 
     it('Should name the file when it is empty or not YAML', async () => {
