@@ -66,7 +66,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     );
     const client = this.connect(
       options.url,
-      clientOptions(options, this.config.getId()),
+      clientOptions(options, this.config.getId(), this.config.getSigner()),
     );
     this.client = client;
     // the url may hold credentials, so log only its host
@@ -171,7 +171,7 @@ export default class MqttService implements BeforeApplicationShutdown {
       const body = await this.answer(route, payload, packet);
       await client.publishAsync(
         responseTopic(topic, packet, (requested) => this.routes.has(requested)),
-        JSON.stringify(body),
+        this.config.getSigner().encode(body),
         publishOptions(packet.properties?.correlationData),
       );
     } catch (error) {
@@ -207,10 +207,11 @@ export default class MqttService implements BeforeApplicationShutdown {
       return;
     }
     const topic = notifyTopic(options.topic, kind);
+    const signer = this.config.getSigner();
     // A publish still waiting for its PUBACK when the client is ended at
     // shutdown never settles; nothing awaits it then
     try {
-      await this.client.publishAsync(topic, JSON.stringify(body), {
+      await this.client.publishAsync(topic, signer.encode(body), {
         qos: 1,
         retain,
       });

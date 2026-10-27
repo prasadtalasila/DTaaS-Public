@@ -1,5 +1,6 @@
 import type { IClientOptions } from 'mqtt';
 import { z } from 'zod';
+import Signer from '../auth/signer.js';
 import { NotifyKind, offlineNotification } from '../dto/notify.dto.js';
 
 // A base topic is a prefix for the request topics, so it can not hold
@@ -58,13 +59,15 @@ export const notifyTopic = (base: string, kind: NotifyKind): string =>
   `${base}/notify/${kind}`;
 
 // The broker publishes the will when the runner disappears without
-// disconnecting; retained, it replaces the online notice
+// disconnecting; retained, it replaces the online notice. It is encoded
+// once, at connect, and stays valid across reconnects.
 export const presenceWill = (
   base: string,
   id: string,
+  signer: Signer,
 ): IClientOptions['will'] => ({
   topic: notifyTopic(base, 'presence'),
-  payload: JSON.stringify(offlineNotification(id, null)),
+  payload: signer.encode(offlineNotification(id, null)),
   qos: 1,
   retain: true,
 });
@@ -72,11 +75,12 @@ export const presenceWill = (
 export const clientOptions = (
   options: MqttConfig,
   id: string,
+  signer: Signer,
 ): IClientOptions => ({
   username: options.username,
   password: options.password,
   protocolVersion: options.protocolVersion,
   // keep retrying after the broker refuses the connection too
   reconnectOnConnackError: true,
-  will: presenceWill(options.topic, id),
+  will: presenceWill(options.topic, id, signer),
 });
