@@ -1,6 +1,6 @@
 # 17a Script Resources
 
-- Status: planned
+- Status: in review
 - Depends on: 11
 - PR: none yet
 - Research note:
@@ -202,48 +202,107 @@ and children count; 17c documents a `fidelity` parameter convention.
 
 ## Tasks
 
-- [ ] `parseStat` reads fields 14 and 15 behind a name with spaces and
+- [x] `parseStat` reads fields 14 and 15 behind a name with spaces and
       `)`, `parseStatus` reads `VmHWM`, malformed text yields no sample.
       Check: `test/unit/resources.linux.spec.ts`.
-- [ ] The polling watch keeps the last sample, skips overlapping reads,
+- [x] The polling watch keeps the last sample, skips overlapping reads,
       logs repeated failures once, gives `NO_RESOURCES` without any;
       `meterFor('darwin')` measures nothing. Check:
       `test/unit/resources.polling.spec.ts` with fake timers.
-- [ ] The Windows sampler parses integer lines, prefers
+- [x] The Windows sampler parses integer lines, prefers
       `PeakWorkingSet64`, ignores a malformed line and is killed by
       `finish()` without being awaited. Check:
       `test/unit/resources.windows.spec.ts` with a fake subprocess.
-- [ ] `ExecaRunner` reports CPU above 0.3 s and a peak above 1 MB for
+- [x] `ExecaRunner` reports CPU above 0.3 s and a peak above 1 MB for
       `busy`, `null` without a meter, and a stop is not delayed by the
       meter. Check: `test/integration/execa-runner.resources.spec.ts`
       (new; the Linux case on `linux` only, the Windows case on `win32`
       only, so CI runs the first).
-- [ ] The queue adds both columns once to a file of 11's version,
+- [x] The queue adds both columns once to a file of 11's version,
       returns `null` for its old rows, and stores and replays new
       figures. Check: `test/integration/queue.migration.spec.ts`,
       `test/integration/queue.resources.spec.ts` (new, as
       `queue.service.spec.ts` is at 249 lines).
-- [ ] `POST /`, `GET /`, `GET /history` and MQTT `execute`, `status`
+- [x] `POST /`, `GET /`, `GET /history` and MQTT `execute`, `status`
       and `history` carry `resources`; `GET /metrics` sums by name;
       fakes and tuples of `CommandResult` gain `NO_RESOURCES`. Check:
       `test/e2e/command-input.spec.ts`,
       `test/unit/mqtt-request.execute.spec.ts`, 11's metrics specs,
       `test/unit/fsm.fixture.ts`, and `test/e2e/mqtt.broker.spec.ts`
       grepped for the old shapes (CI only).
-- [ ] README (POST /, GET /, GET /history, Resources), `DEVELOPER.md`
+- [x] README (POST /, GET /, GET /history, Resources), `DEVELOPER.md`
       (the `busy` script), `api/API.md` (POST /, GET /, GET /history,
       the metrics section) and `api/dev.api.http` updated; `DOCKER.md`
       needs nothing, as the image is Linux. Check: markdownlint-cli and
       prettier.
-- [ ] `docs/state-machine-design.md`: a decision with the next free D
+- [x] `docs/state-machine-design.md`: a decision with the next free D
       number when the pull request is opened (own reads, not
       `pidusage`; the direct child only; lower bounds), and Components
       lists `src/resources/`. Check: markdownlint-cli.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass, no
       file is over 250 lines and no function crosses the Qlty limits.
       Check: their output, with Linux CI as the authority.
 
 ## Learnings
 
-Written in the pull request that implements this issue.
+- **Drift.** 11 had already moved `RECORD`, `RECORD_BY_KEY` and
+  `toRecord` to `src/queue.history.ts`, and `SCHEMA` and `addColumn`
+  to `src/queue.schema.ts`, so `connect` calls `createSchema`, where
+  the two columns were added; `queue.service.ts` went from 226 lines
+  to 240 and nothing more moved. `ExecaManager.execute`, `createStatus`
+  and `checkStatus` sat at `:140-157`, `:194-204` and `:206-217`, and
+  `resultDto` at `src/dto/command.dto.ts:78-82`; the other references
+  held. `test/integration/queue.service.spec.ts` had 243 lines, and
+  `test/e2e/mqtt.broker.spec.ts` 249, which a shared `figures` keeps
+  at 248.
+- **`meterFor` lives in `src/resources/meter.ts`**, not in
+  `resources.ts` as the plan has it: the watches import
+  `NO_RESOURCES` from `resources.ts`, and `meterFor` imports the
+  watches, so one file would make an import cycle.
+- **The Windows sampler, as measured.** On Windows 11 with Windows
+  PowerShell 5.1, the held process reads the final
+  `TotalProcessorTime` only after `$p.Handle` was read once; without
+  it the line after the exit had no CPU time. `WorkingSet64` and
+  `PeakWorkingSet64` read `$null` after the exit, so the loop keeps
+  the values of the last refresh that had them, starting from 0, and
+  a line whose memory is 0 gives `peakRssBytes` `null` with a CPU
+  time. A process that is gone before `Get-Process` makes the sampler
+  exit with 1, which is logged once at debug level. The start that
+  the sampler compares is `Date.now()` right after the spawn, against
+  `ToUnixTimeMilliseconds()` of `StartTime`: both are truncated to the
+  millisecond, so the script's own process never counts as later.
+- **Readings this plan left open.** `Sample` carries a CPU time and a
+  peak that may be `null`, for the Windows line above; a Linux read
+  without `VmHWM` fails as a whole. `ExecaRunner` takes the meter in
+  `{ stopGrace, meter }` and exposes it as a public `options`, like
+  `command` and `args`, so the factory test reads it without bracket
+  access. `readLinux` takes the `/proc` root as a parameter, as 17b
+  plans for its tree, so its test runs on every platform against a
+  temporary directory.
+- **`busy`.** The POSIX script reads `/proc/uptime` with the `read`
+  builtin, as a command substitution or `date` would start a process
+  that is not measured; under dash in WSL (Ubuntu 26.04) it used
+  0.36 s of user and 0.62 s of system time. `busy.ps1` spins for three
+  seconds rather than one: while this host ran other test suites, a
+  PowerShell took 5 to 12 s to start, and the sampler is one. Adding
+  `busy` to the test configuration changed the command lists of
+  `options.service.spec.ts`, `mqtt.spec.ts` and
+  `mqtt.presence.spec.ts`.
+- **Tests compare figures by kind.** Whether a run is measured
+  depends on the platform and on timing, so the e2e and integration
+  replies expect `MEASURED` of `test/utils.ts`, a number or `null` per
+  figure, and `UNMEASURED` where no script ran. supertest's
+  `.expect(body)` compares without Jest's matchers, so `postRequest`
+  and `getRequest` of `test/e2e/util.ts` now compare the body with
+  Jest's `expect`.
+- **Which path ran where.** Locally, on Windows, the Windows case of
+  `execa-runner.resources.spec.ts` passed and the Linux case was
+  skipped; the parsers of both platforms, the polling watch with fake
+  timers and the sampler with a fake subprocess ran everywhere. The
+  Linux measurement itself, `busy` under `/proc`, ran only in CI.
+  Docker was not running on the host, so the Linux path was not tried
+  in a container first.
+- **Version and decision.** No shape breaks, so the version stays
+  0.10.0, as the Spec says. 11, 13 and 15b took D30 to D32, so this
+  decision is D33.
