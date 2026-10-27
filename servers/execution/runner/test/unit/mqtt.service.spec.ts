@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { IPublishPacket } from 'mqtt';
 import { presenceWill } from 'src/mqtt/mqtt.config';
-import { message, mqttConfig, packet, setup } from './mqtt.fixture';
+import { message, mqttConfig, packet, setup, unsigned } from './mqtt.fixture';
 
 describe('MQTT service', () => {
   it('Should stay disconnected without an MQTT configuration', async () => {
@@ -19,7 +19,7 @@ describe('MQTT service', () => {
       password: 'secret',
       protocolVersion: 5,
       reconnectOnConnackError: true,
-      will: presenceWill('dtaas/runner', 'hospital-1'),
+      will: presenceWill('dtaas/runner', 'hospital-1', unsigned),
     });
     expect(client.subscribe).toHaveBeenCalledWith(
       [

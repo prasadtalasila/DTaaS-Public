@@ -1,4 +1,8 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from '@jest/globals';
+import Signer from 'src/auth/signer';
+import { offlineNotification } from 'src/dto/notify.dto';
+import { verifiedPayload } from 'test/sign.util';
 import {
   clientOptions,
   defaultResponseTopic,
@@ -11,6 +15,8 @@ import {
 } from 'src/mqtt/mqtt.config';
 
 const valid = { url: 'mqtt://localhost:1883', topic: 'dtaas/user1/runner' };
+
+const unsigned = new Signer(undefined, 'hospital-1');
 
 describe('MQTT configuration', () => {
   it('Should accept a minimal configuration and default to MQTT 5', () => {
@@ -94,7 +100,7 @@ describe('MQTT configuration', () => {
   });
 
   it('Should give a retained will that says the runner is offline', () => {
-    expect(presenceWill('dtaas/runner', 'hospital-1')).toEqual({
+    expect(presenceWill('dtaas/runner', 'hospital-1', unsigned)).toEqual({
       topic: 'dtaas/runner/notify/presence',
       payload: JSON.stringify({
         kind: 'presence',
@@ -107,15 +113,30 @@ describe('MQTT configuration', () => {
     });
   });
 
+  it('Should sign the will with a key, keeping its time null', () => {
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const signer = new Signer(privateKey, 'hospital-1');
+    const will = presenceWill('dtaas/runner', 'hospital-1', signer);
+    const payload = String(will?.payload);
+
+    expect(verifiedPayload(payload, publicKey, 'hospital-1')).toEqual(
+      offlineNotification('hospital-1', null),
+    );
+    expect(payload).toBe(
+      signer.encode(offlineNotification('hospital-1', null)),
+    );
+  });
+
   it('Should connect with the will and keep retrying', () => {
-    const options = clientOptions({ ...valid, protocolVersion: 4 }, 'dt-1');
+    const version4 = { ...valid, protocolVersion: 4 as const };
+    const options = clientOptions(version4, 'dt-1', unsigned);
 
     expect(options).toEqual({
       username: undefined,
       password: undefined,
       protocolVersion: 4,
       reconnectOnConnackError: true,
-      will: presenceWill('dtaas/user1/runner', 'dt-1'),
+      will: presenceWill('dtaas/user1/runner', 'dt-1', unsigned),
     });
   });
 });

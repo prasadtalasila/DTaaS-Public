@@ -437,6 +437,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                                                                                                                                                                                                                                                                                                 |
 | D30 | Full history records, and metrics as counters in memory                                        | Added by issue 11 (S14). A Manager measures a DT network from the outcomes of commands with their times, so `GET /history` returns the stored records with `since` and `limit`; `since` is compared to the second, as times are stored. `GET /metrics` counts from the signals that `FsmService` already has (`onChange`, `onAnswer`, `onEscalation`) and from a query of the commands above the highest id of the start, so nothing new is stored and a restart resets the counters. Metrics stay out of the state document, so a counter sends no notification. `escalations` is top level, as `POST /escalate` needs no machine (D25). |
 | D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones.                                                                                                                                                                                                                                                                                                |
+| D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                            |
 
 ## Assumptions
 
@@ -476,6 +477,10 @@ proposal to derive the events from the transitions was declined (D4).
   listed principals and the runner's own scripts can call the API, each
   in its role (D29); the broker's access control remains the outer
   wall. Without `auth`, A8 holds as written.
+  Amended by issue 15b: with `auth.key`, a receiver can also tell that
+  a notification or an MQTT response came from the DT unchanged (D32).
+  A signature does not show that a message is new, so the broker's
+  access control still limits who can replay one.
 
 ## Error Handling
 

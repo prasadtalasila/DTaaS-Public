@@ -25,9 +25,9 @@ no file.
 | [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
 | [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done      | #91 |
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | in review | #92 |
-| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned   |     |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done      | #92 |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done      | #90 |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | in review | #93 |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
 | [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned   |     |
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
@@ -199,6 +199,14 @@ From implementing 13:
 - `test/e2e/mqtt.util.ts` runs two runners in one process against one
   aedes broker, each with its own spied `getId` and base topic, which
   tests one runner following another without Mosquitto.
+
+From implementing 15b:
+
+- eslint lints the `.ts` files since `a82e10a3`, so the lesson above
+  that it lints none is stale: `yarn syntax` catches errors in them.
+- A row of a Markdown table that is wider than its column makes
+  prettier re-pad every row; keep a new decision within the widths of
+  the table, or the rows of parallel issues conflict.
 
 ## Deferred
 

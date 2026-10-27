@@ -167,6 +167,9 @@ The runner keeps reconnecting while the broker is unavailable or
 refuses the connection, and serves HTTP in the meantime. The runner does not start
 if the `mqtt` section is invalid.
 
+With a [signing key](#signed-output), the runner signs every payload it
+publishes: its responses, its notifications and its will.
+
 ### Stop Grace Period
 
 A [stop](#stopping-scripts) sends `SIGTERM` to a script and, if the
@@ -193,6 +196,11 @@ The runner posts its [presence](#presence) at startup and, at
 shutdown, its offline notice once, with a 2 s timeout and no retry, so
 that a slow webhook does not hold the shutdown.
 
+With a [signing key](#signed-output), each body is a signed JWS, of
+type `application/jose`. The token still authenticates the runner to
+the webhook; the signature lets the receiver check every body,
+including those it stores or forwards.
+
 ### Access Control
 
 With an `auth` section, the runner answers only the callers it lists,
@@ -210,7 +218,8 @@ auth:
 ```
 
 - `name` follows the pattern of `id`, is unique, and is not `script`.
-  The section needs one principal at least.
+  The section needs one principal at least, or a
+  [signing key](#signed-output).
 - `publicKey` is an Ed25519 public key as the base64url of its 32 raw
   bytes, the `x` of its JWK. The caller keeps the private key; the file
   holds no secret, and deleting a principal revokes it at the next
@@ -238,6 +247,46 @@ Without `auth` every route is open and the runner ignores any
 Version 0.9.0 added access control. It changes no route without
 `auth`; a database file of an earlier version gains a `by` column for
 the principal of each command at the first start.
+
+### Signed Output
+
+With `key` in the `auth` section, the runner signs what it sends on its
+own or in reply, so that a receiver that holds its public key can check
+that a message came from this DT and was not changed:
+
+```yaml
+auth:
+  # an Ed25519 private key, PEM PKCS#8, relative to this file
+  key: 'keys/hospital-1.key'
+```
+
+- `key` is independent of `principals`: a runner may sign without
+  verifying its callers, and the reverse. A relative path is taken
+  from the directory of _runner.yaml_; an absolute path, such as one
+  in a mounted secret directory, works too.
+- [tools/keygen.mjs](demo/hospital/tools/keygen.mjs) writes the key:
+  `node keygen.mjs hospital-1 keys` gives `keys/hospital-1.key` and
+  prints the public key, which it also writes to `keys/hospital-1.pub`.
+- The runner does not start when the file cannot be read, is
+  encrypted, or holds a key that is not an Ed25519 private key; the
+  error names the file, never its content.
+- Every MQTT payload of the runner, the responses, the
+  [notifications](#notifications) and the will, and every webhook body
+  is then a compact JWS (RFC 7515) whose payload is the same JSON as
+  without a key. Its header is `{"alg":"Ed25519","kid":"<id>"}`. HTTP
+  replies stay plain JSON.
+- [GET /dt](#get-request-to-dt) and the online notice give the public
+  key as `publicKey`, in the encoding of the principals' keys, which
+  another runner lists as the `publicKey` of this DT among its
+  [peers](#peers).
+
+A signature proves origin and integrity, not that a message is new: a
+receiver that must not go back in time compares `time` with that of
+the last message it took. A new key takes a restart, and a new public
+key for every receiver. [API.md](api/API.md#signatures) shows a signed
+notification and how to verify it.
+
+Without `key` every payload is plain JSON, as before.
 
 ### Peers
 
@@ -896,16 +945,18 @@ Describes the digital twin that the runner serves, from its
   "commands": ["create", "execute"],
   "stateMachine": true,
   "manager": { "commands": ["execute"] },
-  "peers": ["hospital-2"]
+  "peers": ["hospital-2"],
+  "publicKey": null
 }
 ```
 
 `attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
 permitted commands, `stateMachine` tells whether a state machine
 is loaded, `manager` lists the
-[manager commands](#manager-commands), and `peers` the ids of the
+[manager commands](#manager-commands), `peers` the ids of the
 enabled [peers](#peers) in the order of _runner.yaml_, `[]` without
-any.
+any, and `publicKey` the public key of the
+[signing key](#signed-output), `null` without one.
 
 #### GET Request to /state
 
@@ -1323,7 +1374,8 @@ curl http://localhost:5000/metrics
 
 With MQTT enabled, the runner subscribes to one request topic
 for each REST API route. A request and its response carry the same
-JSON as the matching HTTP request and response.
+JSON as the matching HTTP request and response; with a
+[signing key](#signed-output), the response is a JWS of that JSON.
 
 | Request Topic            | Matching HTTP Request | Request Payload                            |
 | :----------------------- | :-------------------- | :----------------------------------------- |
@@ -1433,6 +1485,13 @@ at startup. A document that differs from the last one sent only in its
 those of the document. Documents built within the same millisecond can
 share `time`.
 
+With a [signing key](#signed-output), each notification is a compact
+JWS whose payload is this JSON, over MQTT and the webhook alike. A
+retained notification stays verifiable, as a JWS of the runner has no
+expiry. A plain notification retained from an earlier run without a
+key is replaced as soon as the runner connects, so a receiver that
+requires signatures drops it and waits.
+
 `kind` is `state` for a state document, `presence` for the notices of
 [presence](#presence), or `escalation` for an
 [escalation](#escalation):
@@ -1480,7 +1539,8 @@ mosquitto_sub -h localhost -v -t 'dtaas/user1/runner/notify/+'
 ```
 
 With a [webhook](#webhook), the runner posts each notification as
-`application/json`, with a 5 s timeout. It retries after 1 s, 2 s and
+`application/json`, or `application/jose` with a signing key, with a
+5 s timeout. It retries after 1 s, 2 s and
 4 s on a network error, a timeout or a `5xx` response, and not on any
 other response. Posts are independent, so they may arrive out of
 order; a receiver that needs a strict order uses MQTT, which delivers

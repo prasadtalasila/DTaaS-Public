@@ -1,4 +1,6 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import Signer from 'src/auth/signer';
 import Config from 'src/config/configuration.service';
 import DescriptorService from 'src/descriptor.service';
 import { FsmStateDto } from 'src/dto/fsm.dto';
@@ -29,6 +31,9 @@ const command = (finished: boolean, status = 'invalid'): CommandRecord => ({
   finishedAt: finished ? '2026-10-25T09:59:59.000Z' : null,
 });
 
+// The signer of the fake configuration, without a key unless a test
+// says otherwise
+const getSigner = jest.fn(() => new Signer(undefined, 'hospital-1'));
 const peer = (id: string, enabled: boolean): PeerConfig => ({
   id,
   topic: `dtaas/${id}`,
@@ -52,6 +57,7 @@ function createService(
       peer('hospital-3', false),
       peer('hospital-4', true),
     ],
+    getSigner,
   };
   const fsm = {
     check: () => state,
@@ -86,7 +92,18 @@ describe('Descriptor service', () => {
       stateMachine: true,
       manager: { commands: ['execute'] },
       peers: [],
+      publicKey: null,
     });
+  });
+
+  it('Should give the public key of the signing key', () => {
+    const { privateKey } = generateKeyPairSync('ed25519');
+    const signer = new Signer(privateKey, 'hospital-1');
+    getSigner.mockReturnValueOnce(signer);
+
+    expect(createService(machine, undefined).describe().publicKey).toBe(
+      privateKey.export({ format: 'jwk' }).x,
+    );
   });
 
   it('Should load the peers on init and list the enabled ones', () => {

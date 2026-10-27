@@ -1,8 +1,8 @@
 # 15b Signed Output
 
-- Status: planned
+- Status: in review
 - Depends on: 15a
-- PR: none yet
+- PR: [#93](https://github.com/prasadtalasila/DTaaS-Public/pull/93)
 - Research note:
   [item 15](../dtn-research-notes.md#15-access-control-by-role)
 
@@ -84,6 +84,9 @@ Not signed, with the reason:
   could replay an old signed document or will; broker access control
   (API.md, "Access Control") still limits that, and a receiver that
   must not go back in time compares `time` with the last one it took.
+  The will in particular has no time to compare: it keeps
+  `time: null`, so a captured will stays valid for as long as the
+  key does.
 - Key rotation and more than one key: a new key is a restart and a new
   public key for every receiver.
 
@@ -181,6 +184,10 @@ trusts that connection; `keygen.mjs` prints the same key.
 - A `typ` header (this plan's call): a notification cannot pass for a
   request token of 15a, which needs `aud`, `exp` and `jti`, so the
   header stays at `alg` and `kid`.
+- An MQTT 5 `contentType` of `application/jose` on signed publishes
+  (set aside in review): the demo's broker speaks MQTT 3.1.1, which has
+  no such property, and a payload that parses as JSON is plain, as a
+  JWS never does, which already tells the two apart.
 
 Signing is opt-in and breaks no route; the descriptor gains a field.
 The version stays as 15a leaves it, as for 07. The Notifications
@@ -249,60 +256,60 @@ so it does not count as a change (recommendation).
 
 ## Tasks
 
-- [ ] `mqtt-request.ts` holds `responseTopic` and the service shrinks
+- [x] `mqtt-request.ts` holds `responseTopic` and the service shrinks
       by it, with the existing response tests unchanged. Check:
       `test/unit/mqtt.service.spec.ts` and `wc -l`.
-- [ ] Without a key `encode` equals `JSON.stringify`, `publicKey()` is
+- [x] Without a key `encode` equals `JSON.stringify`, `publicKey()` is
       `null` and the type is `application/json`; with one, the JWS has
       three segments, the header `{alg, kid}`, the payload the bytes of
       `JSON.stringify`, and verifies; a changed payload does not. Check:
       `test/unit/signer.spec.ts`.
-- [ ] `Signer.load` fails, naming the file, for a missing file, an
+- [x] `Signer.load` fails, naming the file, for a missing file, an
       RSA key, an X25519 key and a public key. `auth.key` is accepted
       without `principals`, and resolved against the config's
       directory. Check: `test/unit/signer.spec.ts`,
       `test/unit/config.schema.spec.ts`, `test/unit/config.key.spec.ts`
       (no `.env` in any new file name).
-- [ ] The will, a notification and a response are JWS with a key and
+- [x] The will, a notification and a response are JWS with a key and
       plain JSON without. Check: `test/unit/mqtt.config.spec.ts`,
       `test/unit/mqtt.signed.spec.ts` (new, as `mqtt.service.spec.ts`
       has 215 lines).
-- [ ] The webhook posts a JWS as `application/jose` with the bearer
+- [x] The webhook posts a JWS as `application/jose` with the bearer
       token, and `sendOnce` too; without a key, today's JSON. Check:
       `test/unit/webhook.signed.spec.ts`.
-- [ ] `describe()` gives `publicKey` with a key and `null` without.
+- [x] `describe()` gives `publicKey` with a key and `null` without.
       Check: `test/unit/descriptor.service.spec.ts`,
       `test/e2e/descriptor.spec.ts`.
-- [ ] A runner with a key, on the local aedes broker: the retained
+- [x] A runner with a key, on the local aedes broker: the retained
       state notification, a `dt` response and the will after a cut
       connection verify with the `publicKey` of `GET /dt`, while
       `GET /state` stays JSON; the webhook receives `application/jose`.
       Check: `test/e2e/signed.spec.ts` with `test/e2e/jws.util.ts`.
-- [ ] Existing e2e tests pass through the unwrapping helpers.
+- [x] Existing e2e tests pass through the unwrapping helpers.
       `test/e2e/mqtt.broker.spec.ts` runs only in CI against Mosquitto,
       without a key; grep it for descriptor shapes. Check:
       `test/e2e/mqtt.spec.ts`, `test/e2e/mqtt.presence.spec.ts`,
       `test/e2e/webhook.spec.ts`, the CI run.
-- [ ] Demo tools print `verified`, `UNSIGNED` or `INVALID`. Check: run
+- [x] Demo tools print `verified`, `UNSIGNED` or `INVALID`. Check: run
       the demo once with and once without `auth.key` and read
       `run/mqtt.log` and `run/webhook.log`.
-- [ ] `README.md`: `auth.key` in 15a's configuration section, the
+- [x] `README.md`: `auth.key` in 15a's configuration section, the
       "MQTT", "Webhook" and "Notifications" sections. Check: those
       sections.
-- [ ] `api/API.md`: the `publicKey` row of `GET /dt`, "Responses",
+- [x] `api/API.md`: the `publicKey` row of `GET /dt`, "Responses",
       "Over a Webhook" and a "Signatures" subsection of
       "Notifications" with the example above. Check: those sections.
-- [ ] `api/dev.mqtt.http`: the `notifications` request says payloads
+- [x] `api/dev.mqtt.http`: the `notifications` request says payloads
       are JWS with `auth.key`. Check: the request's comment.
-- [ ] `docs/state-machine-design.md`: a decision, numbered the next
+- [x] `docs/state-machine-design.md`: a decision, numbered the next
       free D number when the PR is opened ("outbound messages are a
       JWS of today's JSON when `auth.key` is set"), with A8 amended.
       Check: the Decisions table and A8.
-- [ ] `DEVELOPER.md`: tests generate their keys; `jws.util.ts`. Check:
+- [x] `DEVELOPER.md`: tests generate their keys; `jws.util.ts`. Check:
       its test section.
-- [ ] `config/runner.yaml.sample`: a commented `key` under `auth`.
+- [x] `config/runner.yaml.sample`: a commented `key` under `auth`.
       Check: yamllint and the sample.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass;
       every changed file stays under 250 lines and every function under
       25, with Qlty's limits on complexity, parameters and returns.
@@ -310,4 +317,112 @@ so it does not count as a change (recommendation).
 
 ## Learnings
 
-Written in the pull request that implements this issue.
+- **Drift.** `mqtt.service.ts` had 232 lines, not 239, after 15a, with
+  `responseTopic` at lines 219-231, `respond`'s publish at 169-173 and
+  `notify`'s at 210; `test/unit/mqtt.service.spec.ts` had 221 lines.
+  `DescriptorService` is `src/descriptor.service.ts`. 15a tests a
+  configuration that reads files in `test/integration/`
+  (`config.auth.spec.ts`), so `config.key.spec.ts` went there, not to
+  `test/unit/`. The other references held.
+- **`responseTopic` and 13.** The branch of 13 had already moved
+  `responseTopic` as `responseTopic(topic, packet, isRequest)`, with a
+  predicate instead of the plan's map of routes. 15b took the same
+  signature and the identical hunk in `mqtt-request.ts`, so that the
+  move merges; `mqtt.service.ts` still conflicts, as both change its
+  imports and the publish in `respond`. Whichever of 13 and 15b merges
+  second rebases there. 13 merged first, and the merge took the move
+  as one hunk; only the publish in `respond` conflicted.
+- **Decision number.** 11 and 13 both recorded their decision as D30,
+  and the second to merge renumbers to D31, so 15b's decision is D32;
+  the table skips D30 and D31 until both merge. The row of D32 is kept
+  within the width of the Reason column, so prettier does not re-pad
+  the whole table, which would conflict with 11 and 13.
+- **The spec's example.** Its header segment
+  `eyJhbGciOiJFZERTQSIs…` decodes to `"alg":"EdDSA"`, not `Ed25519`.
+  The real one is `eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiaG9zcGl0YWwtMSJ9`,
+  two characters longer, so the signed document has 540 bytes rather
+  than 538. The payload, 404 characters, and the 86 of the signature
+  held.
+  API.md gives the corrected values.
+- **`auth`.** `principals` became optional and the section refines to
+  "principals or a key"; zod 4 reports that rule at `auth`. Access
+  control is built only from `principals`, so a section with only a
+  key leaves every route open, as the spec says.
+- **Key errors.** OpenSSL 3 refuses an encrypted PEM without a
+  passphrase with `interrupted or cancelled` and a public key with
+  `DECODER routines::unsupported`, neither of which says why, so the
+  error reads "Cannot read FILE as an unencrypted PEM private key"
+  with OpenSSL's reason and the caught error as `cause`. An X25519 or
+  RSA key loads and is refused by `asymmetricKeyType`.
+- **Fakes and Qlty.** `createService` of
+  `descriptor.service.spec.ts` already had three parameters, so its
+  fake `Config` takes `getSigner` from a module-level `jest.fn` that a
+  test overrides once, rather than a fourth parameter. `setup` of the
+  MQTT and webhook fixtures takes the signer as a defaulted last
+  parameter. The e2e `unwrap` splits its check into `verifies` to stay
+  under complexity 5. `qlty` is not installed here, so CI is the
+  check.
+- **`raw` beside `body`.** A notification of `test/e2e/mqtt.util.ts`
+  and a post of `webhook.util.ts` now carry the payload as received,
+  so the five equalities that compared a whole notification carry it
+  too, two of them in `mqtt.broker.spec.ts`, which runs only in CI.
+  `nextReply` unwraps as well, but has no `raw`, as nothing verifies a
+  reply of it.
+- **`signed.spec.ts`** spies `Config.prototype.getSigner` before the
+  start, as `webhook.spec.ts` spies `getNotify`, because the MQTT
+  helper starts the runner from the shared test configuration. The
+  loading of `auth.key` from a file is covered by `config.key.spec.ts`
+  and by `GET /dt` in `descriptor.spec.ts`, which starts a runner from
+  a `runner.yaml` with a key.
+- **eslint lints the TypeScript now** (since `a82e10a3`), so the first
+  lesson of the README no longer holds: `yarn syntax` reported
+  `preserve-caught-error` in `signer.ts`.
+- **The demo.** `record.mjs` ran twice. Unsigned, all 30 lines of
+  `run/mqtt.log` and of `run/webhook.log`, the three `mq` responses and
+  the retained notifications were `UNSIGNED`. With `auth.key` added to
+  `runner.auth.yaml` by a change to `record.mjs` that was not
+  committed, all of them were `verified`, and `mq dt` showed the
+  `publicKey`. A JWS of another key, and one checked without
+  `run/keys/hospital-1.pub`, gave `INVALID`. `hospital.cast` was
+  restored after each run; the recording stays as it is, so API.md's
+  logged outputs gained the marks only where the tools print them
+  today.
+- **Merging 13.** 15b merged `feature/distributed-demo` twice, after
+  11 and after 13, rather than rebasing, as its pull request was open.
+  The second merge conflicted in twelve files: the descriptor got
+  both `peers` and `publicKey`, in that order, in the type, the
+  service, every descriptor equality and the documents; Signed Output
+  and Peers both stayed in the README, `auth.key` before `peers` in the
+  sample, and D31 before D32. 13's `readNotice` verifies a peer's
+  notice with the peer's id as `kid`, the `kid` that `Config` gives the
+  `Signer`, but its tests signed with `test/sign.util.ts`; so
+  `test/unit/peer-notice.signed.spec.ts` feeds it what `Signer`
+  encodes, the will included, and `test/e2e/mqtt.peers.signed.spec.ts`
+  runs a runner that follows a signed peer runner, which fails when
+  the listed key is another.
+- **Review.** Four changes came from the review of the pull request.
+  The tests verify through one helper, `verifiedPayload` of
+  `test/sign.util.ts`, over `parseJws` and `verifyJws`, instead of
+  three hand-made verifiers; the demo's `jws.mjs` stays standalone, as
+  the runnable form of the verifier in API.md. `auth.key` is resolved
+  in `resolvePaths` beside `stateMachine`, so `Signer.load` takes
+  `(file, id)` rather than the plan's `(file, dir, id)`. The demo's
+  verifier treats a missing or half-written key file as no key, where
+  it threw inside the MQTT and webhook handlers, and an `INVALID` line
+  gives the reason and the payload marked unverified. Tests were added
+  for an `auth` section with principals and a key, and for the
+  `publicKey` of the signed online notice. The review left the will's
+  `time: null` as it is, with a sentence on replay in "Not signed",
+  and set aside an MQTT 5 `contentType`.
+- **Plain responses are not all objects.** The spec's rule that a
+  payload starting with `{` is plain JSON holds for notifications, but
+  an MQTT response may be an array: `history` replies `[]`. The e2e
+  `unwrap` took `[]` for a JWS and threw, which only
+  `mqtt.broker.spec.ts` in CI showed, as no local test reads a history
+  reply over MQTT. The test helpers and the demo's `jws.mjs` now take
+  any payload that parses as JSON as plain, since a JWS never does,
+  and API.md says so.
+- **Version.** The plan keeps the version as the earlier issues leave
+  it. 11 merged first and took the runner to 0.10.0, so 15b stays at
+  0.10.0, merged with `feature/distributed-demo` rather than rebased,
+  as the pull request was already open.

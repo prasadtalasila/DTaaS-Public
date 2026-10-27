@@ -51,6 +51,16 @@ describe('Runner configuration schema', () => {
     });
   });
 
+  it('Should accept an auth section with a key and no principals', () => {
+    const config = { ...valid, auth: { key: 'keys/hospital-1.key' } };
+
+    expect(configSchema.parse(config)).toEqual({
+      ...config,
+      attributes: {},
+      peers: [],
+    });
+  });
+
   it.each([
     [
       'a missing id',
@@ -97,6 +107,12 @@ describe('Runner configuration schema', () => {
       { ...valid, auth: { principals: [] } },
       /at least one principal[\s\S]*at auth.principals/,
     ],
+    [
+      'an auth section without principals or a key',
+      { ...valid, auth: {} },
+      /needs principals or a key[\s\S]*at auth/,
+    ],
+    ['an empty key path', { ...valid, auth: { key: '' } }, /at auth.key/],
   ])('Should reject %s', (_, config, message) => {
     expect(problems(config)).toMatch(message);
   });

@@ -302,7 +302,8 @@ QoS: 1
 # @name notifications
 # Subscribes to the notifications of the runner and publishes nothing;
 # the broker hands over the retained state document and presence
-# notice at once
+# notice at once. With auth.key in runner.yaml each payload is a
+# compact JWS of the JSON (API.md, "Signatures"), as is each response.
 MQTT {{broker}}
 Subscribe: {{topic}}/notify/+
 QoS: 1

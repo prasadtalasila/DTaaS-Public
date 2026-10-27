@@ -53,14 +53,22 @@ function duplicates(principals: PrincipalConfig[], context: z.RefinementCtx) {
   });
 }
 
-// At least one principal, so that a stray auth: locks nobody out
+// Principals to verify the callers, a key to sign the output, or both;
+// one at least, so that a stray auth: still fails
 export const authSchema = z
   .object({
     principals: z
       .array(principalSchema)
       .min(1, 'needs at least one principal')
-      .superRefine(duplicates),
+      .superRefine(duplicates)
+      .optional(),
+    // an Ed25519 private key, PEM PKCS#8, relative to runner.yaml
+    key: z.string().min(1).optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ principals, key }) => principals !== undefined || key !== undefined,
+    'needs principals or a key',
+  );
 
 export type AuthConfig = z.infer<typeof authSchema>;

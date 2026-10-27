@@ -25,6 +25,10 @@ commands:  # list of permitted scripts
 #     - name: 'manager-1'
 #       role: 'manager'  # manager or client
 #       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+#   # optional; an Ed25519 private key, PEM PKCS#8, relative to this
+#   # file, with which the runner signs its notifications and MQTT
+#   # responses
+#   key: 'keys/my-dt.key'
 # peers:  # optional; the digital twins that this one interacts with
 #   - id: 'dt-2'  # the peer's id, not that of this runner
 #     topic: 'dtaas/user1/dt-2'  # its MQTT base topic on this broker

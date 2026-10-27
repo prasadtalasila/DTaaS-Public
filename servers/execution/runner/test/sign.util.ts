@@ -5,6 +5,7 @@ import {
   randomBytes,
   sign,
 } from 'node:crypto';
+import { parseJws, verifyJws } from 'src/auth/jws';
 
 // A caller of the runner: its name and private key, and its public key
 // in the encoding of runner.yaml
@@ -68,4 +69,19 @@ export function mqttPayload(
   const claims = { ...timeClaims(aud), topic, body };
   const header = { alg: 'Ed25519', kid: caller.name };
   return Buffer.from(signToken(caller.privateKey, header, claims));
+}
+
+// The payload of a compact JWS that the key signed, with the kid if
+// given, checked by the runner's own parseJws and verifyJws, which
+// throw a 401 for anything else
+export function verifiedPayload(
+  text: string,
+  key: KeyObject,
+  kid?: string,
+): unknown {
+  const jws = parseJws(text);
+  verifyJws(jws, (found) =>
+    kid === undefined || found === kid ? key : undefined,
+  );
+  return jws.payload;
 }

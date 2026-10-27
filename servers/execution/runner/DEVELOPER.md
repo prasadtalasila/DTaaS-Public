@@ -111,6 +111,24 @@ It writes `keys/alice.key` (PKCS#8 PEM) and `keys/alice.pub`, and
 prints the public key. [api/README.md](api/README.md#access-control)
 tells how the request files sign with it.
 
+### Signed Output Tests
+
+The tests of [signed output](README.md#signed-output) also generate
+their keys at run time, with `generateKeyPairSync('ed25519')`, and
+write a key file only to a temporary directory. The unit fakes of
+`Config` give `getSigner()`, a `Signer` without a key unless a test
+passes one. Tests verify a JWS with `verifiedPayload(text, key, kid?)`
+of `test/sign.util.ts`, which calls the runner's own `parseJws` and
+`verifyJws` rather than a verifier of its own. The end-to-end helpers
+unwrap what the runner sends with `unwrap(text, key?)` of
+`test/e2e/jws.util.ts`, which parses plain JSON or a JWS, and with a
+key takes only a JWS that the key signed; `nextNotification` and the
+webhook receiver keep the payload as received in `raw`.
+`test/e2e/signed.spec.ts` spies `Config.getSigner()` and verifies with
+the `publicKey` of `GET /dt`;
+`test/e2e/mqtt.peers.signed.spec.ts` has one runner follow another
+that signs, as a peer of 13 does.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { jest } from '@jest/globals';
 import type { IPublishPacket, MqttClient } from 'mqtt';
 import Access from 'src/auth/access';
+import Signer from 'src/auth/signer';
 import Config from 'src/config/configuration.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { MqttRequest, parseJson } from 'src/mqtt/mqtt-request';
@@ -37,15 +38,23 @@ export const mqttConfig: MqttConfig = {
   protocolVersion: 5,
 };
 
-// The service with a fake client and handler, and access control if
-// given
-export function setup(options: MqttConfig | undefined, access?: Access) {
+// Encodes plain JSON, as without auth.key
+export const unsigned = new Signer(undefined, 'hospital-1');
+
+// The service with a fake client and handler, and access control and a
+// signing key if given
+export function setup(
+  options: MqttConfig | undefined,
+  access?: Access,
+  signer = unsigned,
+) {
   const client = new FakeClient();
   const connect = jest.fn<MqttConnect>(() => client as unknown as MqttClient);
   const config = {
     getMqtt: () => options,
     getId: () => 'hospital-1',
     access: () => access,
+    getSigner: () => signer,
   } as unknown as Config;
   const handle = jest.fn(
     (_route: string, _request: MqttRequest): Promise<unknown> =>
@@ -113,6 +122,7 @@ export const dt = {
   commands: ['create'],
   stateMachine: true,
   manager: { commands: [] },
+  publicKey: null,
 };
 
 export const stateDocument = {

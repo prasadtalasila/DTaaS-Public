@@ -214,10 +214,10 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
       await supertest(runner.getHttpServer())
         .post('/fsm/transition')
         .send({ state: 'create' });
-      const { body } = await finished;
+      const notification = await finished;
 
       expect(await lateSubscriber(url, 5, STATE)).toEqual({
-        body,
+        ...notification,
         retain: true,
       });
     } finally {
@@ -243,6 +243,7 @@ describeBroker(`Runner MQTT 5 end-to-end tests on ${host}`, () => {
         data: { online: false },
       },
       retain: true,
+      raw: expect.any(String),
     });
   });
 });

@@ -129,6 +129,29 @@ runner of `runner.yaml` expects. The present `hospital.cast` was
 recorded before access control, so its view of `tools/shell.sh` is the
 shorter one.
 
+The recording stays unsigned. The subscriber and webhook receiver of
+[tools/services.mjs](tools/services.mjs) and `mq` mark each message
+with [tools/jws.mjs](tools/jws.mjs): `UNSIGNED` for plain JSON,
+`verified` for a JWS that the runner's public key in
+`run/keys/hospital-1.pub` checks, and `INVALID` for one that fails or
+that no public key can check. An `INVALID` line gives the reason (no
+key file, unreadable key file, malformed, wrong `alg` or `kid`, bad
+signature) and the payload as it came, marked unverified, instead of
+the summary. To see signed output
+([Signed Output](../../README.md#signed-output)), give the runner a
+key and add `auth.key` to the `runner.auth.yaml` of a recording, then
+start the services and the runner by hand from this folder:
+
+```bash
+node tools/keygen.mjs hospital-1 run/keys
+echo '  key: run/keys/hospital-1.key' >> runner.auth.yaml
+node tools/services.mjs &
+node tools/runner.mjs -c runner.auth.yaml
+```
+
+`record.mjs` writes `runner.auth.yaml` anew, without the key, on each
+run.
+
 ## Convert to MP4
 
 asciinema has no video output, so [tools/to-mp4.sh](tools/to-mp4.sh)

@@ -13,6 +13,8 @@ import { Attributes } from './attributes.js';
 import { configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
+import { AuthConfig } from '../auth/auth.config.js';
+import Signer from '../auth/signer.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
@@ -62,8 +64,15 @@ function parseConfig(content: unknown, file: string): ConfigValues {
   return result.data;
 }
 
+// The signing key, like stateMachine, may be absolute, as it often
+// lives in a mounted secret directory
+const resolveAuth = (dir: string, auth: AuthConfig | undefined) =>
+  auth?.key === undefined
+    ? auth
+    : { ...auth, key: path.resolve(dir, auth.key) };
+
 // location and database keep path.join, so an absolute path is still
-// taken as relative to dir; stateMachine may be absolute
+// taken as relative to dir; stateMachine and auth.key may be absolute
 const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
   ...values,
   location: path.join(dir, values.location),
@@ -73,6 +82,7 @@ const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
     values.stateMachine === undefined
       ? undefined
       : path.resolve(dir, values.stateMachine),
+  auth: resolveAuth(dir, values.auth),
 });
 
 @Injectable()
@@ -81,18 +91,27 @@ export default class Config {
 
   private accessControl: Access | undefined;
 
+  private signer = new Signer(undefined, configDefault.id);
+
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
     const values = parseConfig(readConfig(file), file);
     this.configValues = resolvePaths(path.dirname(file), values);
-    this.accessControl =
-      values.auth && new Access(values.auth.principals, values.id);
+    const { principals, key } = this.configValues.auth ?? {};
+    this.accessControl = principals && new Access(principals, values.id);
+    this.signer = Signer.load(key, values.id);
   }
 
-  // Verifies the callers; without an auth section every route is open
+  // Verifies the callers; without principals every route is open
   access(): Access | undefined {
     return this.accessControl;
+  }
+
+  // Encodes the notifications and MQTT responses; without a key they
+  // are plain JSON
+  getSigner(): Signer {
+    return this.signer;
   }
 
   getId(): string {

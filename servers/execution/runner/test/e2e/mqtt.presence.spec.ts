@@ -65,7 +65,7 @@ describe('Runner MQTT presence end-to-end tests', () => {
   });
 
   it('announces the runner with its descriptor, retained', async () => {
-    const { body } = await online;
+    const { body, raw } = await online;
 
     expect(body).toEqual({
       kind: 'presence',
@@ -80,12 +80,14 @@ describe('Runner MQTT presence end-to-end tests', () => {
           stateMachine: false,
           manager: { commands: [] },
           peers: [],
+          publicKey: null,
         },
       },
     });
     expect(await lateSubscriber(broker.url, 4, PRESENCE)).toEqual({
       body,
       retain: true,
+      raw,
     });
   });
 
@@ -95,12 +97,13 @@ describe('Runner MQTT presence end-to-end tests', () => {
 
     await app?.close();
     app = undefined;
-    const { body } = await left;
+    const { body, raw } = await left;
 
     expect(body).toEqual(offline(expect.any(String)));
     expect(await lateSubscriber(broker.url, 4, PRESENCE)).toEqual({
       body,
       retain: true,
+      raw,
     });
   });
 
