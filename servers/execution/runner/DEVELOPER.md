@@ -122,7 +122,9 @@ passes one. The end-to-end helpers unwrap what the runner sends with
 JSON or decodes a JWS, and with a key takes only a JWS that the key
 signed; `nextNotification` and the webhook receiver keep the payload
 as received in `raw`. `test/e2e/signed.spec.ts` spies
-`Config.getSigner()` and verifies with the `publicKey` of `GET /dt`.
+`Config.getSigner()` and verifies with the `publicKey` of `GET /dt`;
+`test/e2e/mqtt.peers.signed.spec.ts` has one runner follow another
+that signs, as a peer of 13 does.
 
 ### On Filenames in Tests
 

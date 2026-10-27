@@ -323,7 +323,8 @@ so it does not count as a change (recommendation).
   signature and the identical hunk in `mqtt-request.ts`, so that the
   move merges; `mqtt.service.ts` still conflicts, as both change its
   imports and the publish in `respond`. Whichever of 13 and 15b merges
-  second rebases there.
+  second rebases there. 13 merged first, and the merge took the move
+  as one hunk; only the publish in `respond` conflicted.
 - **Decision number.** 11 and 13 both recorded their decision as D30,
   and the second to merge renumbers to D31, so 15b's decision is D32;
   the table skips D30 and D31 until both merge. The row of D32 is kept
@@ -379,6 +380,19 @@ so it does not count as a change (recommendation).
   restored after each run; the recording stays as it is, so API.md's
   logged outputs gained the marks only where the tools print them
   today.
+- **Merging 13.** 15b merged `feature/distributed-demo` twice, after
+  11 and after 13, rather than rebasing, as its pull request was open.
+  The second merge conflicted in twelve files: the descriptor got
+  both `peers` and `publicKey`, in that order, in the type, the
+  service, every descriptor equality and the documents; Signed Output
+  and Peers both stayed in the README, `auth.key` before `peers` in the
+  sample, and D31 before D32. 13's `readNotice` verifies a peer's
+  notice with the peer's id as `kid`, the `kid` that `Config` gives the
+  `Signer`, but its tests signed with `test/sign.util.ts`; so
+  `test/unit/peer-notice.signed.spec.ts` feeds it what `Signer`
+  encodes, the will included, and `test/e2e/mqtt.peers.signed.spec.ts`
+  runs a runner that follows a signed peer runner, which fails when
+  the listed key is another.
 - **Version.** The plan keeps the version as the earlier issues leave
   it. 11 merged first and took the runner to 0.10.0, so 15b stays at
   0.10.0, merged with `feature/distributed-demo` rather than rebased,

@@ -1,6 +1,6 @@
 # 13 Peer List and Relationships
 
-- Status: in review
+- Status: done
 - Depends on: 15a (the roles of `PUT /peers`)
 - PR: [#92](https://github.com/prasadtalasila/DTaaS-Public/pull/92)
 - Research note:
