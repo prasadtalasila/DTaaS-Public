@@ -60,15 +60,19 @@ class SamplerWatch implements ResourceWatch {
 
   private readonly log = debugOnce();
 
-  constructor(private readonly sampler: SamplerProcess) {
-    createInterface({ input: sampler.stdout }).on('line', (line) =>
+  constructor(private readonly sampler: SamplerProcess) {}
+
+  // Takes each line of the sampler, and logs a sampler that failed
+  listen(): this {
+    createInterface({ input: this.sampler.stdout }).on('line', (line) =>
       this.take(line),
     );
-    void sampler.then(({ failed, isTerminated }) => {
+    void this.sampler.then(({ failed, isTerminated }) => {
       if (failed && !isTerminated) {
         this.log('The resource sampler failed');
       }
     });
+    return this;
   }
 
   // Ends the sampler without waiting for it
@@ -98,5 +102,5 @@ export function windowsSampler(
   start: number,
   spawn = spawnSampler,
 ): ResourceWatch {
-  return new SamplerWatch(spawn(samplerScript(pid, start)));
+  return new SamplerWatch(spawn(samplerScript(pid, start))).listen();
 }

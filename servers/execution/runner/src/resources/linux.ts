@@ -6,6 +6,9 @@ import { roundSeconds, type Sample } from './resources.js';
 // The clock tick when getconf can not tell it, the usual value on Linux
 const DEFAULT_TICKS = 100;
 
+// getconf by its path, so that no directory of PATH can stand in for it
+const GETCONF = '/usr/bin/getconf';
+
 // Fields 3 to 13 of /proc/<pid>/stat after the command name, then utime
 // and stime, fields 14 and 15, in clock ticks
 const STAT_TIMES = /^ (?:\S+ ){11}(\d+) (\d+)\b/;
@@ -31,7 +34,7 @@ export function parseStatus(text: string): number | undefined {
 function readClockTicks(): number {
   try {
     const value = Number(
-      execFileSync('getconf', ['CLK_TCK'], { encoding: 'utf8', timeout: 1000 }),
+      execFileSync(GETCONF, ['CLK_TCK'], { encoding: 'utf8', timeout: 1000 }),
     );
     return value > 0 ? value : DEFAULT_TICKS;
   } catch {
