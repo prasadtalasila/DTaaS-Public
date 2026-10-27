@@ -2,9 +2,12 @@ import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from '@jest/globals';
 import Signer from 'src/auth/signer';
 import { NotificationDto, offlineNotification } from 'src/dto/notify.dto';
+import { verifiedPayload } from 'test/sign.util';
 import { message, mqttConfig, packet, setup } from './mqtt.fixture';
 
-const signer = new Signer(generateKeyPairSync('ed25519').privateKey, 'dt-1');
+const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+
+const signer = new Signer(privateKey, 'dt-1');
 
 const notification: NotificationDto = {
   kind: 'state',
@@ -13,8 +16,10 @@ const notification: NotificationDto = {
   data: {},
 };
 
-// A compact JWS: three base64url segments
-const JWS = /^[\w-]+\.[\w-]+\.[\w-]+$/;
+// The payload of a JWS that the signer's key signed, as the runner's
+// own parseJws and verifyJws read it
+const verified = (text: unknown) =>
+  verifiedPayload(String(text), publicKey, 'dt-1');
 
 describe('MQTT service with a signing key', () => {
   it('Should connect with a signed will', () => {
@@ -22,7 +27,9 @@ describe('MQTT service with a signing key', () => {
     service.start();
     const { will } = connect.mock.calls[0][1];
 
-    expect(will?.payload).toMatch(JWS);
+    expect(verified(will?.payload)).toEqual(
+      offlineNotification('hospital-1', null),
+    );
     expect(will?.payload).toBe(
       signer.encode(offlineNotification('hospital-1', null)),
     );
@@ -35,7 +42,7 @@ describe('MQTT service with a signing key', () => {
     await message(client, 'dtaas/runner/status', Buffer.alloc(0), packet());
 
     const [, payload] = client.publishAsync.mock.calls[0];
-    expect(payload).toMatch(JWS);
+    expect(verified(payload)).toEqual({ status: 'success' });
     expect(payload).toBe(signer.encode({ status: 'success' }));
   });
 
@@ -50,6 +57,8 @@ describe('MQTT service with a signing key', () => {
       signer.encode(notification),
       { qos: 1, retain: true },
     );
-    expect(client.publishAsync.mock.calls[0][1]).toMatch(JWS);
+    expect(verified(client.publishAsync.mock.calls[0][1])).toEqual(
+      notification,
+    );
   });
 });

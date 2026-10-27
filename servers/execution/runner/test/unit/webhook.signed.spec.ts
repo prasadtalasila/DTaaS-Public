@@ -8,12 +8,12 @@ import {
   jest,
 } from '@jest/globals';
 import Signer from 'src/auth/signer';
+import { verifiedPayload } from 'test/sign.util';
 import { answer, notification, setup, webhook } from './webhook.fixture';
 
-const signer = new Signer(
-  generateKeyPairSync('ed25519').privateKey,
-  'hospital-1',
-);
+const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+
+const signer = new Signer(privateKey, 'hospital-1');
 
 // The request of a signed post, with the bearer token if given
 const signedPost = (token?: string) => ({
@@ -47,7 +47,10 @@ describe('Webhook client with a signing key', () => {
     await client.post(notification);
 
     expect(fetchMock).toHaveBeenCalledWith(webhook.url, signedPost('secret'));
-    expect(signer.encode(notification).split('.')).toHaveLength(3);
+    const { body } = fetchMock.mock.calls[0][1] as { body: string };
+    expect(verifiedPayload(body, publicKey, 'hospital-1')).toEqual(
+      notification,
+    );
   });
 
   it('Should post a JWS once at shutdown, without a token', async () => {

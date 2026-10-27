@@ -2,6 +2,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it } from '@jest/globals';
 import Signer from 'src/auth/signer';
 import { offlineNotification } from 'src/dto/notify.dto';
+import { verifiedPayload } from 'test/sign.util';
 import {
   clientOptions,
   defaultResponseTopic,
@@ -113,13 +114,12 @@ describe('MQTT configuration', () => {
   });
 
   it('Should sign the will with a key, keeping its time null', () => {
-    const key = generateKeyPairSync('ed25519').privateKey;
-    const signer = new Signer(key, 'hospital-1');
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const signer = new Signer(privateKey, 'hospital-1');
     const will = presenceWill('dtaas/runner', 'hospital-1', signer);
     const payload = String(will?.payload);
-    const [, body] = payload.split('.');
 
-    expect(JSON.parse(Buffer.from(body, 'base64url').toString())).toEqual(
+    expect(verifiedPayload(payload, publicKey, 'hospital-1')).toEqual(
       offlineNotification('hospital-1', null),
     );
     expect(payload).toBe(
