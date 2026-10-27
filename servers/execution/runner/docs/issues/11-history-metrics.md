@@ -263,7 +263,7 @@ Both changes alter replies, so the runner goes to `0.10.0` (15a took
 - [x] MQTT `history` with a payload and `metrics`; the subscription
       list. Check: `test/unit/mqtt-request.handler.spec.ts`,
       `test/unit/mqtt.service.spec.ts`.
-- [ ] The existing tests on the new shape, including CI's
+- [x] The existing tests on the new shape, including CI's
       `test/e2e/mqtt.broker.spec.ts`. Check: `yarn test` locally, and
       the CI run for the broker test.
 - [x] Documents: `README.md` (Command History, the route table, GET
