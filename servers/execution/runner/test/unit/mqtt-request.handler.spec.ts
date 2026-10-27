@@ -9,6 +9,7 @@ import {
   fakeDescriptor,
   fakeManager,
   historyEntry,
+  metricsDocument,
   stateDocument,
   status,
   mqttRequest,
@@ -100,6 +101,13 @@ describe('MQTT request handler', () => {
 
     expect(manager.checkHistory).not.toHaveBeenCalled();
     expect(body).toMatchObject({ statusCode: 400 });
+  });
+
+  it('Should return the metrics of the digital twin', async () => {
+    const { handler } = createHandler('success');
+    expect(
+      await handler.handle('metrics', mqttRequest(Buffer.alloc(0))),
+    ).toEqual(metricsDocument);
   });
 
   it('Should return the descriptor of the digital twin', async () => {

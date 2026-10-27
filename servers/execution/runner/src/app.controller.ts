@@ -24,6 +24,7 @@ import {
   HistoryQuery,
   historyQuerySchema,
 } from './dto/history.dto.js';
+import { MetricsDto } from './dto/metrics.dto.js';
 import { StateDocumentDto } from './dto/state.dto.js';
 import {
   EXECUTE_STATUS_CODES,
@@ -59,6 +60,12 @@ export default class AppController {
   @AccessRoute('state')
   state(): StateDocumentDto {
     return this.descriptor.state();
+  }
+
+  @Get('metrics')
+  @AccessRoute('metrics')
+  metrics(): MetricsDto {
+    return this.descriptor.metrics();
   }
 
   @Get('history')

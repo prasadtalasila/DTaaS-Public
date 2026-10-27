@@ -72,6 +72,7 @@ export default class MqttRequestHandler {
     fsm: () => this.fsm.check() ?? fsmReply('no state machine', undefined),
     dt: () => this.descriptor.describe(),
     state: () => this.descriptor.state(),
+    metrics: () => this.descriptor.metrics(),
     // a request arrives only over a connected client
     health: () => healthReport('connected', this.manager.databaseMode()),
     parameters: () => this.parameterDocument(),

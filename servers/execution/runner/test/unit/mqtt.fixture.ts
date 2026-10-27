@@ -121,8 +121,24 @@ export const stateDocument = {
   command: null,
 };
 
+export const metricsDocument = {
+  since: '2026-10-25T09:59:00.000Z',
+  uptime: 60,
+  commands: {
+    valid: 1,
+    failed: 0,
+    stopped: 0,
+    invalid: 0,
+    interrupted: 0,
+    running: 0,
+  },
+  machine: null,
+  escalations: { request: 0, failure: 0, 'no-transition': 0 },
+};
+
 // A DescriptorService, for the MQTT request handler tests
 export const fakeDescriptor = () => ({
   describe: jest.fn(() => dt),
   state: jest.fn(() => stateDocument),
+  metrics: jest.fn(() => metricsDocument),
 });
