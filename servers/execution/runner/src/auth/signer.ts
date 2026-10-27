@@ -17,6 +17,7 @@ function readKey(file: string): KeyObject {
   } catch (error) {
     throw new Error(
       `Cannot read ${file} as an unencrypted PEM private key: ${error}`,
+      { cause: error },
     );
   }
   if (key.asymmetricKeyType !== 'ed25519') {
