@@ -31,6 +31,9 @@ Other documents of the runner:
   its scripts, and what it expects of the system that starts it.
 - [DEVELOPER.md](DEVELOPER.md) and the
   [design document](docs/state-machine-design.md): for developers.
+- [docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md)
+  and [docs/firecracker-research.md](docs/firecracker-research.md): the
+  research behind the security model.
 
 ## Install
 
