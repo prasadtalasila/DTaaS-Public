@@ -15,9 +15,11 @@ import { MqttConfig } from 'src/mqtt/mqtt.config';
 import { configFilename } from 'test/utils';
 
 // Starts the runner with the test configuration and, if given, the MQTT
-// settings, connected to the broker
+// settings, connected to the broker; prepare may spy on more of the
+// configuration
 export async function startRunner(
   mqtt?: MqttConfig,
+  prepare?: (config: Config) => void,
 ): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
@@ -30,6 +32,7 @@ export async function startRunner(
   if (mqtt !== undefined) {
     jest.spyOn(config, 'getMqtt').mockReturnValue(mqtt);
   }
+  prepare?.(config);
   // start does nothing without an MQTT configuration. It comes before
   // init, as in main.ts, so that the startup notification is published.
   app.get<MqttService>(MqttService).start();

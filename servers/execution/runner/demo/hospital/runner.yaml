@@ -26,3 +26,11 @@ mqtt:
   protocolVersion: 4
 notify:
   url: 'http://127.0.0.1:18080/dt-events'
+# the peers that this digital twin is willing to interact with; the demo
+# runs one runner, so hospital-2 stays online: null in GET /peers
+peers:
+  - id: 'hospital-2'
+    topic: 'dtaas/hospital-2'
+    url: 'http://localhost:5200'
+    attributes:
+      distance: 12.4

@@ -86,6 +86,13 @@ describe('MQTT configuration', () => {
     );
   });
 
+  it('Should serve the peers one level under the base topic', () => {
+    expect(mqttRoutes).toEqual(expect.arrayContaining(['peers', 'set-peers']));
+    expect(requestTopic('dtaas/runner', 'set-peers')).toBe(
+      'dtaas/runner/set-peers',
+    );
+  });
+
   it('Should give a retained will that says the runner is offline', () => {
     expect(presenceWill('dtaas/runner', 'hospital-1')).toEqual({
       topic: 'dtaas/runner/notify/presence',
