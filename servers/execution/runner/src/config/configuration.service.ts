@@ -9,12 +9,14 @@ import {
   ConfigValues,
   DEFAULT_STOP_GRACE,
 } from './config.interface.js';
-import { Attributes, configSchema } from './config.schema.js';
+import { Attributes } from './attributes.js';
+import { configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
+import { PeerConfig } from '../peers/peers.config.js';
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -29,12 +31,29 @@ function readConfig(file: string): unknown {
   }
 }
 
+// The value of a key of a parsed YAML mapping
+const field = (value: unknown, key: string): unknown =>
+  (value as Record<string, unknown> | null | undefined)?.[key];
+
 // zod skips a __proto__ key of a record without an error, so look for
-// one among the attributes first
+// one among the attributes of the runner and of each peer first
+function protoProblem(content: unknown): string | undefined {
+  const peers = field(content, 'peers');
+  const attributes = [
+    ['attributes', field(content, 'attributes')],
+    ...(Array.isArray(peers) ? peers : []).map((peer, index) => [
+      `peers.${index}.attributes`,
+      field(peer, 'attributes'),
+    ]),
+  ];
+  const found = attributes.find(([, value]) => hasOwnProto(value));
+  return found && `✖ __proto__ is not a valid name\n  → at ${found[0]}`;
+}
+
 function parseConfig(content: unknown, file: string): ConfigValues {
-  const attributes = (content as { attributes?: unknown } | null)?.attributes;
-  if (hasOwnProto(attributes)) {
-    throw invalid(file, '✖ __proto__ is not a valid name\n  → at attributes');
+  const problem = protoProblem(content);
+  if (problem !== undefined) {
+    throw invalid(file, problem);
   }
   const result = configSchema.safeParse(content);
   if (!result.success) {
@@ -114,5 +133,10 @@ export default class Config {
 
   getNotify(): NotifyConfig | undefined {
     return this.configValues.notify;
+  }
+
+  // The peers in the order of runner.yaml, with the enabled of the file
+  getPeers(): PeerConfig[] {
+    return this.configValues.peers;
   }
 }
