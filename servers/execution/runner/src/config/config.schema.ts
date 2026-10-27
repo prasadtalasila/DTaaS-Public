@@ -4,6 +4,7 @@ import { nameSchema } from '../fsm/definition.js';
 import { mqttConfigSchema } from '../mqtt/mqtt.config.js';
 import { notifyConfigSchema } from '../notify/notify.config.js';
 import { peersSchema, refuseSelf } from '../peers/peers.config.js';
+import { scriptsSchema } from '../scripts/scripts.config.js';
 import { attributesSchema } from './attributes.js';
 
 // The whole of runner.yaml; the paths are relative to that file
@@ -29,6 +30,8 @@ export const configSchema = z
     auth: authSchema.optional(),
     // optional; the peers that the DT is willing to interact with
     peers: peersSchema.default([]),
+    // optional; the account, on Linux, and the directory the scripts run in
+    scripts: scriptsSchema.optional(),
   })
   .strict()
   .superRefine(({ id, mqtt, peers }, context) =>
