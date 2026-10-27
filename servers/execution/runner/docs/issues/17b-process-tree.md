@@ -328,3 +328,13 @@ review them before starting.
   CPU time of descendants that were waited for, which would recover
   short processes, but adding them to the sampled values counts the
   same process twice.
+- **A wall-clock spin is not a CPU figure.** `busy` spun for one
+  second of `/proc/uptime`, and the tree test asked for more than 0.4 s
+  of CPU time. On a GitHub runner with two jobs in parallel the child
+  got 0.36 s of CPU in that second, and the last sample that saw it was
+  up to 500 ms before its exit, as a tree is read every `SAMPLE_MS` and
+  not at exit. The script now spins until fields 14 and 15 of its own
+  `/proc/self/stat` reach 1.5 s, so the figure no longer depends on the
+  load of the host; the loop forks nothing, as `$(...)` would, and reads
+  the positional parameters as `${12}`, since `$12` is `$1` followed by
+  `2`. In WSL it uses 1.5 s of CPU in 1.6 s of wall time.

@@ -1,11 +1,11 @@
 #!/bin/sh
-# Spins for about a second of CPU time, for the resource tests. It
-# starts no process, so that its figures are its own: read is a builtin,
-# and /proc/uptime gives the time in hundredths of a second.
-read -r up _ </proc/uptime
-end=$((${up%.*}${up#*.} + 100))
-now=0
-while [ "$now" -lt "$end" ]; do
-  read -r up _ </proc/uptime
-  now=${up%.*}${up#*.}
+# Spins for 1.5 s of its own CPU time, for the resource tests. It
+# starts no process, so that its figures are its own: read is a builtin
+# and the loop forks nothing. Fields 14 and 15 of /proc/self/stat give
+# the CPU time in hundredths of a second (USER_HZ), whatever the load of
+# the host.
+while :; do
+  read -r stat </proc/self/stat
+  set -- ${stat#*) }
+  [ $((${12} + ${13})) -ge 150 ] && break
 done
