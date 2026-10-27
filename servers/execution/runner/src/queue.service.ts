@@ -19,6 +19,7 @@ import {
   SAVE_MACHINE,
   toStoredMachine,
 } from './queue.machine.js';
+import { INSERT_PEER, PEER_SWITCHES, toSwitches } from './queue.peers.js';
 import { createSchema } from './queue.schema.js';
 import {
   COMMAND_COUNTS,
@@ -38,6 +39,18 @@ const STATUS: Record<RunOutcome, string> = {
   failed: 'failed',
   stopped: 'stopped',
 };
+
+// Runs the work in one transaction, which an error rolls back
+function inTransaction(db: DatabaseSync, work: () => void): void {
+  db.exec('BEGIN');
+  try {
+    work();
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
 
 // Keeps the received commands and their results in SQLite, in memory
 // unless open() names a database file
@@ -158,16 +171,11 @@ export default class Queue {
       'INSERT INTO parameters (name, value, changed_at) VALUES (?, ?, ?)',
     );
     const time = new Date().toISOString();
-    this.db.exec('BEGIN');
-    try {
+    inTransaction(this.db, () =>
       changes.forEach((value, name) =>
         insert.run(name, JSON.stringify(value), time),
-      );
-      this.db.exec('COMMIT');
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
+      ),
+    );
   }
 
   // The latest value of each parameter; the highest id is the latest,
@@ -182,6 +190,20 @@ export default class Queue {
     return Object.fromEntries(
       rows.map(({ name, value }) => [String(name), JSON.parse(String(value))]),
     );
+  }
+
+  // Records the switches of one request together, or none of them
+  setPeers(changes: ReadonlyMap<string, boolean>): void {
+    const insert = this.db.prepare(INSERT_PEER);
+    const time = new Date().toISOString();
+    inTransaction(this.db, () =>
+      changes.forEach((enabled, id) => insert.run(id, Number(enabled), time)),
+    );
+  }
+
+  // The latest switch of each peer that PUT /peers changed
+  peerSwitches(): Map<string, boolean> {
+    return toSwitches(this.db.prepare(PEER_SWITCHES).all());
   }
 
   // The machine of the state machine service, which no change signals

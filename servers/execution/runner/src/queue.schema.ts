@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { MACHINE_SCHEMA } from './queue.machine.js';
+import { PEERS_SCHEMA } from './queue.peers.js';
 
 // by is the principal that submitted a command: a name of runner.yaml,
 // script, or NULL without access control and for a state's script
@@ -28,7 +29,8 @@ export const SCHEMA = `
     value TEXT NOT NULL,
     changed_at TEXT NOT NULL
   );
-  ${MACHINE_SCHEMA}`;
+  ${MACHINE_SCHEMA};
+  ${PEERS_SCHEMA}`;
 
 // Adds a column that the commands table of an older version lacks
 function addColumn(db: DatabaseSync, column: string, type: string): void {
