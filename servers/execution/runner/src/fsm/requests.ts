@@ -8,6 +8,10 @@ export type Handle = (machine: StateMachine) => FsmReplyDto;
 // Moves the machine on an event
 export type Move = (machine: StateMachine, event: string) => FsmReplyDto;
 
+// Hears each reply that a request computed, with the request, such as
+// 'transition create' or 'event stop'
+export type AnswerListener = (request: string, reply: FsmReplyDto) => void;
+
 // The machine of the service, if it has one, and whether shutdown began
 export type Current = { machine: StateMachine | undefined; stopping: boolean };
 
@@ -15,28 +19,40 @@ export type Current = { machine: StateMachine | undefined; stopping: boolean };
 export default class Requests {
   private readonly replies = new RecentReplies<FsmReplyDto>();
 
+  private readonly listeners: AnswerListener[] = [];
+
   constructor(
     private readonly current: () => Current,
     private readonly logger: Logger,
   ) {}
 
+  onAnswer(listener: AnswerListener): void {
+    this.listeners.push(listener);
+  }
+
   // A repeated request key gets the reply to its first request, if that
   // was accepted; a refused request changed nothing, so it is checked
-  // again
+  // again. Only a computed reply is signalled.
   reply(
     request: string,
     requestKey: string | undefined,
     handle: Handle,
   ): FsmReplyDto {
     return this.replies.resolve(requestKey, request, {
-      compute: () => this.answer(handle),
+      compute: () => this.answer(request, handle),
       mismatch: () =>
         fsmReply('invalid request key', this.current().machine?.state),
       keep: ({ status }) => status === 'accepted',
     });
   }
 
-  answer(handle: Handle): FsmReplyDto {
+  private answer(request: string, handle: Handle): FsmReplyDto {
+    const reply = this.compute(handle);
+    this.listeners.forEach((listener) => listener(request, reply));
+    return reply;
+  }
+
+  private compute(handle: Handle): FsmReplyDto {
     const { machine, stopping } = this.current();
     if (machine === undefined) {
       return fsmReply('no state machine', undefined);
@@ -53,7 +69,7 @@ export default class Requests {
     events.forEach((event) =>
       logStay(
         this.logger,
-        this.answer((machine) => move(machine, event)),
+        this.answer(`event ${event}`, (machine) => move(machine, event)),
         event,
       ),
     );

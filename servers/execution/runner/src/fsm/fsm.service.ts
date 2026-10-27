@@ -17,7 +17,7 @@ import { CompletionEvent, Definition, loadDefinition } from './definition.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import MachineStore from './machine-store.js';
 import Parameters from './parameters.js';
-import Requests, { logStay } from './requests.js';
+import Requests, { AnswerListener, logStay } from './requests.js';
 import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine from './state-machine.js';
@@ -111,6 +111,10 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   onEscalation(listener: EscalationListener): void {
     this.escalations.on(listener);
+  }
+
+  onAnswer(listener: AnswerListener): void {
+    this.requests.onAnswer(listener);
   }
 
   // Needs no state machine, so that a plain DT escalates too
