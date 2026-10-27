@@ -292,9 +292,11 @@ Both changes alter replies, so the runner goes to `0.10.0` (15a took
 - **SQLite's `datetime()` does the parsing of `since`.** It turns `Z`,
   an offset and a fraction of a second into the stored
   `YYYY-MM-DD HH:MM:SS` in UTC, so one statement compares to the second
-  without code in TypeScript; `COALESCE(datetime(NULL), '')` lets every
-  row through without `since`. The schema refuses what `datetime()`
-  would turn into `NULL`.
+  without code in TypeScript. The plan's
+  `COALESCE(datetime(?), '')` failed open: a `since` that `datetime()`
+  turned into `NULL` would have returned every row. Review replaced it
+  with `:since IS NULL OR received_at >= datetime(:since)`, so such a
+  time matches no row; the schema refuses it before that anyway.
 - **The watermark is a separate query.** `run().changes` gives the
   number of rows `markInterrupted` marked, not the highest `id`, so
   `LAST_ID` reads it after the update. `markInterrupted` runs once, at
@@ -317,6 +319,14 @@ performance.now()`, a monotonic clock, so a change of the wall clock
   `test/integration/queue.history.spec.ts`, and the expected machine of
   `test/e2e/metrics.spec.ts` to a constant, to keep both files and the
   test under the limits.
+- **Review of #91** also asked for an explicit request kind:
+  `AnswerListener` receives `{ kind, name }`, set by
+  `Requests.transition`, `Requests.event` and `raiseAll`, rather than a
+  label that `Metrics` parsed by its prefix. `COMPLETION_OF_STATUS` in
+  `dto/fsm.dto.ts` derives the completion of a status from `STATUS`
+  and `COMPLETION`. The documents now tell that the `+` of an offset is
+  `%2B` in a URL, and that a stop transition counts no `$stopped`, as
+  it leaves the entry before the stopped script ends.
 - **For 17a.** `HistoryEntryDto` and `toHistoryEntry` take the CPU
   seconds and peak memory as two more fields, and `HISTORY` two more
   columns; `Metrics.report` is where totals per state would go.
