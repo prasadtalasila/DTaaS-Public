@@ -30,8 +30,9 @@ no file.
 | [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done      | #93  |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review | #95  |
 | [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done      | #94  |
-| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | in review | #100 |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done      | #100 |
 | [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done      | #99  |
+| [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | planned   |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
