@@ -12,7 +12,12 @@ import { CommandRefused } from 'src/dto/command.dto';
 import ExecaManager from 'src/execa-manager.service';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
-import { configFilename, nonExistingCommand, commandNames } from 'test/utils';
+import {
+  configFilename,
+  nonExistingCommand,
+  commandNames,
+  MEASURED,
+} from 'test/utils';
 
 // Each test runs scripts, and PowerShell takes a second or more to start
 // on a loaded Windows host
@@ -88,7 +93,7 @@ describe('Command input and outcome of the execution manager', () => {
     await manager.stop('loop');
 
     expect(await second).toEqual(await first);
-    expect(await first).toEqual(['stopped', expect.any(Map), null]);
+    expect(await first).toEqual(['stopped', expect.any(Map), null, MEASURED]);
   });
 
   it('Should replay a repeated request key whatever its input', async () => {

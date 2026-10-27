@@ -74,6 +74,17 @@ content-type: {{ContentType}}
 
 ###
 
+// spins for a second, three on Windows; the reply and GET /metrics
+// show the resources it used
+POST http://{{hostname}}:{{port}} HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "name": "busy"
+}
+
+###
+
 GET http://{{hostname}}:{{port}}/metrics HTTP/1.1
 content-type: {{ContentType}}
 

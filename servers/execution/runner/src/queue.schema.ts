@@ -3,7 +3,9 @@ import { MACHINE_SCHEMA } from './queue.machine.js';
 import { PEERS_SCHEMA } from './queue.peers.js';
 
 // by is the principal that submitted a command: a name of runner.yaml,
-// script, or NULL without access control and for a state's script
+// script, or NULL without access control and for a state's script.
+// cpu_seconds and peak_rss_bytes are what its script used, NULL when not
+// measured.
 export const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,7 +16,9 @@ export const SCHEMA = `
     exit_code INTEGER,
     received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TEXT,
-    by TEXT
+    by TEXT,
+    cpu_seconds REAL,
+    peak_rss_bytes INTEGER
   );
   -- the keys with which clients mark requests, and the command each
   -- request ran or joined
@@ -41,9 +45,12 @@ function addColumn(db: DatabaseSync, column: string, type: string): void {
 }
 
 // A database file of a version before 0.7.0 has no exit_code column,
-// and one before 0.9.0 no by column
+// one before 0.9.0 no by column, and one before issue 17a no resource
+// columns
 export function createSchema(db: DatabaseSync): void {
   db.exec(SCHEMA);
   addColumn(db, 'exit_code', 'INTEGER');
   addColumn(db, 'by', 'TEXT');
+  addColumn(db, 'cpu_seconds', 'REAL');
+  addColumn(db, 'peak_rss_bytes', 'INTEGER');
 }

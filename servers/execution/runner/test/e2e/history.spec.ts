@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { HttpStatus, INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
-import { configFilename } from 'test/utils';
+import { configFilename, MEASURED, UNMEASURED } from 'test/utils';
 import { startRunner } from './util';
 
 // An ISO 8601 UTC time, to the second, as the history returns it
@@ -35,6 +35,7 @@ describe('GET /history', () => {
         receivedAt: expect.stringMatching(ISO_TIME),
         finishedAt: expect.stringMatching(ISO_TIME),
         by: null,
+        resources: MEASURED,
       },
       {
         id: 2,
@@ -44,6 +45,7 @@ describe('GET /history', () => {
         receivedAt: expect.stringMatching(ISO_TIME),
         finishedAt: expect.stringMatching(ISO_TIME),
         by: null,
+        resources: UNMEASURED,
       },
     ]);
   });

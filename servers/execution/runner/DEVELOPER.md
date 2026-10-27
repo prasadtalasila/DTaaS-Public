@@ -41,6 +41,15 @@ _raise-event_ needs `curl`; on Windows it uses `Invoke-RestMethod`.
 _echo-input_ writes its stdin back, for the tests of command input, and
 _fail_ exits with code 3, for those of a failed command.
 
+The _busy_ script spins for about a second of CPU time, for the tests
+of the [resources](README.md#resources) of a run. The POSIX version
+reads `/proc/uptime` with the `read` builtin, so it starts no process
+and runs on Linux only; the PowerShell version spins for three seconds,
+as the sampler of a run is a second PowerShell that needs time to
+start. `test/integration/execa-runner.resources.spec.ts` runs the
+Linux case on Linux and the Windows case on Windows, so CI runs the
+first; the parsers of both platforms are tested everywhere.
+
 The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names
 with its `stateMachine` key. A `config/runner.test.yaml` copied from

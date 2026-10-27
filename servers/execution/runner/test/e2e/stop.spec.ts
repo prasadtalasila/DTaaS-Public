@@ -5,7 +5,7 @@ import Keyv from 'keyv';
 import supertest from 'supertest';
 import AppModule from 'src/app.module';
 import Config from 'src/config/configuration.service';
-import { configFilename } from 'test/utils';
+import { configFilename, MEASURED } from 'test/utils';
 import { poll } from './fsm.util';
 
 // PowerShell takes a second or more to start on a loaded Windows host
@@ -60,17 +60,22 @@ describe('POST /stop', () => {
         HttpStatus.OK,
         {
           status: 'stopped',
-          result: { exitCode: null, stdout: '', stderr: '' },
+          result: {
+            exitCode: null,
+            stdout: '',
+            stderr: '',
+            resources: MEASURED,
+          },
         },
       ]);
-      await supertest(app.getHttpServer())
-        .get('/')
-        .expect(HttpStatus.OK, {
-          name: 'loop',
-          status: 'stopped',
-          logs: { stdout: '', stderr: '' },
-          exitCode: null,
-        });
+      const latest = await supertest(app.getHttpServer()).get('/');
+      expect(latest.body).toEqual({
+        name: 'loop',
+        status: 'stopped',
+        logs: { stdout: '', stderr: '' },
+        exitCode: null,
+        resources: MEASURED,
+      });
     },
     TIMEOUT,
   );

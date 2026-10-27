@@ -29,7 +29,8 @@ notifications (02, 03), command input and outcome (05), escalation
 (06), presence (07), the script context (08), persistence across
 restarts (09), stopping scripts (10), full history and metrics (11),
 the health route (12), peers (13), access control (15a), signed
-output (15b) and peer events (16). Their files are in
+output (15b), peer events (16) and script resources (17a). Their
+files are in
 [docs/issues](issues/README.md).
 
 ## Context
@@ -113,6 +114,7 @@ state machine.
 | `queue.machine.ts`           | the SQL of the `machine` row and of marking commands interrupted     |
 | `queue.history.ts`           | the SQL of a command record, of the history and of command counts    |
 | `queue.peers.ts`             | the SQL of the switches of `PUT /peers`                              |
+| `resources/*`                | measures the CPU time and peak memory of each script run             |
 
 `FsmService` owns plain objects rather than injected services:
 `Requests`, `Changes`, `RunnerContext`, `Escalations`, `StopChain` and
@@ -385,7 +387,7 @@ malformed body or request key gets the `Validation Failed` response of
 
 | Table          | Rows                                                                 |
 | :------------- | :------------------------------------------------------------------- |
-| `commands`     | each command: name, status, logs, exit code, times and principal     |
+| `commands`     | each command: name, status, logs, exit code, resources, times, by    |
 | `request_keys` | the `Idempotency-Key` of each `POST /` request, and its command      |
 | `parameters`   | each parameter change, with its value as JSON and its time           |
 | `machine`      | one row (`id` 1): the state (`NULL` unstarted), entry, script status |
@@ -478,6 +480,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D30 | Full history records, and metrics as counters in memory                                        | Added by issue 11 (S14). A Manager measures a DT network from the outcomes of commands with their times, so `GET /history` returns the stored records with `since` and `limit`; `since` is compared to the second, as times are stored. `GET /metrics` counts from the signals that `FsmService` already has (`onChange`, `onAnswer`, `onEscalation`) and from a query of the commands above the highest id of the start, so nothing new is stored and a restart resets the counters. Metrics stay out of the state document, so a counter sends no notification. `escalations` is top level, as `POST /escalate` needs no machine (D25). |
 | D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event of its own. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones. Amended by issue 16: a subscription turns a notice into an event (D34).                                                                                                                                                                                                             |
 | D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                            |
+| D33 | Script resources come from own reads of the direct child, as lower bounds                      | Added by issue 17a. A Manager adjusts fidelity to load, so each run reports its CPU seconds and peak memory and the runner decides nothing. Own reads rather than `pidusage`, which on Windows runs `wmic` or a PowerShell per poll and has no peak: `/proc` every 500 ms on Linux, one PowerShell sampler per run on Windows. Only the direct child counts (17b adds the tree). A figure is the last sample, a lower bound, or `null`; no version change, as no shape breaks.                                                                                                                                                            |
 | D34 | Peer subscriptions raise events of the file when a condition on a peer turns true              | Added by issue 16 (S13). P2's peer-to-peer coordination needs a mechanism, and events are what moves a DT. A subscription names a listed peer, one condition on its `state` or `online`, and an event; the runner raises the event when the condition turns true, so a peer that keeps reporting `full` raises one event, which bounds the rate. The event takes a client's path without a request key, escalating as one (D25). A change seen before the first transition is not replayed; a state reads `GET /peers` at entry. Disabling a peer forgets its conditions.                                                                 |
 
 ## Assumptions

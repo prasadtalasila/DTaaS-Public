@@ -8,7 +8,7 @@ import {
 } from './interfaces/command.interface.js';
 import { DatabaseMode } from './dto/health.dto.js';
 import { HistoryEntryDto, HistoryQuery } from './dto/history.dto.js';
-import { CommandCounts } from './dto/metrics.dto.js';
+import { CommandCounts, ResourceTotals } from './dto/metrics.dto.js';
 import { StoredMachine } from './dto/fsm.dto.js';
 import { RunOutcome } from './interfaces/runner.interface.js';
 import { ParameterValue } from './dto/parameters.dto.js';
@@ -27,9 +27,11 @@ import {
   LAST_ID,
   RECORD,
   RECORD_BY_KEY,
+  RESOURCE_TOTALS,
   toCommandCounts,
   toHistoryEntry,
   toRecord,
+  toResourceTotals,
 } from './queue.history.js';
 
 // The status of a finished command in the commands table; a command
@@ -111,17 +113,23 @@ export default class Queue {
       .run(requestKey, commandId);
   }
 
-  complete(id: number, [outcome, logs, exitCode]: CommandResult): void {
+  complete(
+    id: number,
+    [outcome, logs, exitCode, resources]: CommandResult,
+  ): void {
     this.db
       .prepare(
         `UPDATE commands SET status = ?, stdout = ?, stderr = ?,
-          exit_code = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          exit_code = ?, cpu_seconds = ?, peak_rss_bytes = ?,
+          finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
       )
       .run(
         STATUS[outcome],
         logs.get('stdout') ?? '',
         logs.get('stderr') ?? '',
         exitCode,
+        resources.cpuSeconds,
+        resources.peakRssBytes,
         id,
       );
     this.changes.emit();
@@ -148,6 +156,12 @@ export default class Queue {
   commandCounts(): CommandCounts {
     const rows = this.db.prepare(COMMAND_COUNTS).all(this.start.id);
     return toCommandCounts(rows, this.start.interrupted);
+  }
+
+  // The resources of the commands received since the start, by name
+  resourceTotals(): ResourceTotals {
+    const rows = this.db.prepare(RESOURCE_TOTALS).all(this.start.id);
+    return toResourceTotals(rows);
   }
 
   activeCommand(): CommandRecord | undefined {

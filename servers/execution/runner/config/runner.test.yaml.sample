@@ -6,6 +6,7 @@ commands:  # list of permitted scripts
   - execute
   - echo-input
   - fail
+  - busy
 stateMachine: '../test/data/scripts/state-machine.yaml'
 peers:  # the peer of the subscription of the state machine
   - id: 'hospital-2'

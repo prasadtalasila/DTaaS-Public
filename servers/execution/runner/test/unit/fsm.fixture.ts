@@ -10,6 +10,7 @@ import { PeerConfig } from 'src/peers/peers.config';
 import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -68,7 +69,7 @@ function fakeManager() {
         new Promise<CommandResult>((resolve) => {
           finishers.set(name, (outcome) => {
             finishers.delete(name);
-            resolve([outcome, new Map(), null]);
+            resolve([outcome, new Map(), null, NO_RESOURCES]);
           });
         }),
     ),

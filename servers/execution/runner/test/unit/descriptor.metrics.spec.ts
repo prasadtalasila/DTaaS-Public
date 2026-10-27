@@ -18,6 +18,8 @@ const COUNTS = {
   running: 1,
 };
 
+const TOTALS = { admit: { cpuSeconds: 2.031, peakRssBytes: 117440512 } };
+
 const NO_ESCALATIONS = { request: 0, failure: 0, 'no-transition': 0 };
 
 const ESCALATION: EscalationData = {
@@ -42,6 +44,7 @@ function createService(start: FsmStateDto | undefined) {
   };
   const queue = {
     commandCounts: jest.fn(() => COUNTS),
+    resourceTotals: jest.fn(() => TOTALS),
     peerSwitches: () => new Map(),
   };
   const service = new DescriptorService(
@@ -78,6 +81,7 @@ describe('Descriptor service metrics', () => {
       since: new Date(performance.timeOrigin).toISOString(),
       uptime: expect.any(Number),
       commands: COUNTS,
+      resources: TOTALS,
       machine: null,
       escalations: { ...NO_ESCALATIONS, request: 1 },
     });

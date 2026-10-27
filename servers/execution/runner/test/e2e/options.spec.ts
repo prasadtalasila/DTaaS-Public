@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import AppModule from 'src/app.module';
 import Keyv from 'keyv';
 import Config from 'src/config/configuration.service';
-import { commandNames } from 'test/utils';
+import { commandNames, UNMEASURED } from 'test/utils';
 import { getRequest, postRequest, queriesJSON, RequestBody } from './util';
 
 const option = async (): Promise<Keyv> => {
@@ -83,6 +83,7 @@ describe('Runner end-to-end tests', () => {
           status: 'invalid',
           logs: { stdout: '', stderr: '' },
           exitCode: null,
+          resources: UNMEASURED,
         },
       }));
   });

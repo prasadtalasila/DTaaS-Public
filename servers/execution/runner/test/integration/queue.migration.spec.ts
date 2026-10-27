@@ -11,6 +11,7 @@ import {
   jest,
 } from '@jest/globals';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 
 // The commands table of version 0.6.0, which has no exit_code column
 const OLD_SCHEMA = `
@@ -26,11 +27,28 @@ const OLD_SCHEMA = `
   INSERT INTO commands (name, finished_at)
     VALUES ('create', CURRENT_TIMESTAMP);`;
 
-// A database file of 0.6.0 with one finished command
-function oldDatabase(dir: string): string {
+// The commands table of 0.10.0, before issue 17a, without resources
+const SCHEMA_0_10 = `
+  CREATE TABLE commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'invalid',
+    stdout TEXT NOT NULL DEFAULT '',
+    stderr TEXT NOT NULL DEFAULT '',
+    exit_code INTEGER,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    finished_at TEXT,
+    by TEXT
+  );
+  INSERT INTO commands (name, status, exit_code, finished_at)
+    VALUES ('create', 'valid', 0, CURRENT_TIMESTAMP);`;
+
+// A database file of 0.6.0, or of the schema given, with one finished
+// command
+function oldDatabase(dir: string, schema = OLD_SCHEMA): string {
   const file = join(dir, 'runner.db');
   const old = new DatabaseSync(file);
-  old.exec(OLD_SCHEMA);
+  old.exec(schema);
   old.close();
   return file;
 }
@@ -70,7 +88,7 @@ describe('Queue exit codes and statuses', () => {
 
     queue.open(file);
     const id = queue.enqueue('create');
-    queue.complete(id, ['failed', new Map(), 3]);
+    queue.complete(id, ['failed', new Map(), 3, NO_RESOURCES]);
     queue.close();
     queue = new Queue();
     queue.open(file);
@@ -92,6 +110,27 @@ describe('Queue exit codes and statuses', () => {
 
     expect(columnCount(file, 'by')).toBe(1);
     expect(callers(file)).toEqual([null, 'alice']);
+  });
+
+  it('should add the resource columns to a database of 0.10.0 once', () => {
+    const file = oldDatabase(dir, SCHEMA_0_10);
+    const figures = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
+
+    queue.open(file);
+    expect(queue.activeCommand()?.resources).toEqual(NO_RESOURCES);
+    queue.complete(queue.enqueue('create'), ['success', new Map(), 0, figures]);
+    queue.close();
+    queue = new Queue();
+    queue.open(file);
+
+    const records = queue.history({ limit: 2 });
+    expect(records.map(({ resources }) => resources)).toEqual([
+      NO_RESOURCES,
+      figures,
+    ]);
+    queue.close();
+    expect(columnCount(file, 'cpu_seconds')).toBe(1);
+    expect(columnCount(file, 'peak_rss_bytes')).toBe(1);
   });
 
   it('should store the caller of a command, NULL without one', () => {

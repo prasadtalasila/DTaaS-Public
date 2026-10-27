@@ -4,9 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { SCHEMA } from 'src/queue.schema';
 
-// Four commands with known times, the last one unfinished
+// Four commands with known times, the last one unfinished; the first
+// has resource figures
 const ROWS = `
   INSERT INTO commands
     (name, status, exit_code, received_at, finished_at, by) VALUES
@@ -14,7 +16,11 @@ const ROWS = `
     ('admit', 'failed', 3, '2026-10-26 14:55:59', '2026-10-26 14:56:00', NULL),
     ('discharge', 'valid', 0, '2026-10-26 14:56:00', '2026-10-26 14:56:01',
       'manager-1'),
-    ('open', 'invalid', NULL, '2026-10-26 14:56:17', NULL, NULL);`;
+    ('open', 'invalid', NULL, '2026-10-26 14:56:17', NULL, NULL);
+  UPDATE commands SET cpu_seconds = 0.469, peak_rss_bytes = 115646464
+    WHERE id = 1;`;
+
+const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
 
 const RECORDS = [
   {
@@ -25,6 +31,7 @@ const RECORDS = [
     receivedAt: '2026-10-26T14:55:51.000Z',
     finishedAt: '2026-10-26T14:55:52.000Z',
     by: 'alice',
+    resources: FIGURES,
   },
   {
     id: 2,
@@ -34,6 +41,7 @@ const RECORDS = [
     receivedAt: '2026-10-26T14:55:59.000Z',
     finishedAt: '2026-10-26T14:56:00.000Z',
     by: null,
+    resources: NO_RESOURCES,
   },
   {
     id: 3,
@@ -43,6 +51,7 @@ const RECORDS = [
     receivedAt: '2026-10-26T14:56:00.000Z',
     finishedAt: '2026-10-26T14:56:01.000Z',
     by: 'manager-1',
+    resources: NO_RESOURCES,
   },
   {
     id: 4,
@@ -52,6 +61,7 @@ const RECORDS = [
     receivedAt: '2026-10-26T14:56:17.000Z',
     finishedAt: null,
     by: null,
+    resources: NO_RESOURCES,
   },
 ];
 
@@ -115,7 +125,12 @@ describe('Queue history', () => {
 
   it('counts every status above the rows of the start, and the marked', () => {
     queue.markInterrupted('2026-10-26T14:57:00Z');
-    queue.complete(queue.enqueue('admit'), ['success', new Map(), 0]);
+    queue.complete(queue.enqueue('admit'), [
+      'success',
+      new Map(),
+      0,
+      NO_RESOURCES,
+    ]);
     queue.refuse(queue.enqueue('configure'));
     queue.enqueue('open');
 
