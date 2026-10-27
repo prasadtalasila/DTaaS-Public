@@ -243,7 +243,12 @@ review them before starting.
   `processes` joins `GET /metrics` as the largest tree of a command's
   runs and the history records, as the Spec puts it next to 17a's two
   figures wherever they are. `walkTree` keeps a visited set, so a loop
-  of parents seen across a scan ends.
+  of parents seen across a scan ends. `TreeTotals` moves the CPU time
+  of a process that left the tree into a sum, so its memory is that of
+  one tree: a script that loops on short sleeps, as the README advises,
+  starts two processes a second, which a map of every process seen
+  would keep for the whole run. A sample that finds no tree is skipped,
+  so it does not retire the processes that the next sample sees again.
 - **The Windows sampler, as measured.** Windows PowerShell 5.1 on this
   host answers `Get-CimInstance Win32_Process` with seven properties in
   about 0.45 s for some 400 processes, 0.6 to 1.5 s while other work

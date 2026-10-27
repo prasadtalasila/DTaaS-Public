@@ -55,22 +55,31 @@ export function walkTree<T extends TreeLink>(
 
 // The figures of a run from the trees of its samples: the last CPU time
 // of every process seen, the largest sum of resident memory in one
-// sample or the largest peak of one process, and the largest tree
+// sample or the largest peak of one process, and the largest tree. A
+// process missing from a sample has left the tree for good, as its pid
+// and start name it, so its CPU time moves to a sum and the memory held
+// stays that of one tree, however many processes a long run starts.
 export class TreeTotals {
-  private readonly cpu = new Map<string, number>();
+  private running = new Map<string, number>();
+
+  private leftSeconds = 0;
 
   private peakBytes = 0;
 
   private largest = 0;
 
+  // An empty tree is a sample that did not find the root, not a sign
+  // that every process left
   add(tree: readonly ProcessRow[]): void {
-    let resident = 0;
-    for (const row of tree) {
-      this.cpu.set(`${row.pid}@${row.start}`, row.cpuSeconds);
-      resident += row.rssBytes;
-      this.peakBytes = Math.max(this.peakBytes, row.peakBytes);
+    if (tree.length === 0) {
+      return;
     }
-    this.peakBytes = Math.max(this.peakBytes, resident);
+    this.retire(
+      new Map(tree.map((row) => [`${row.pid}@${row.start}`, row.cpuSeconds])),
+    );
+    const resident = tree.reduce((sum, { rssBytes }) => sum + rssBytes, 0);
+    const peaks = tree.map(({ peakBytes }) => peakBytes);
+    this.peakBytes = Math.max(this.peakBytes, resident, ...peaks);
     this.largest = Math.max(this.largest, tree.length);
   }
 
@@ -78,8 +87,8 @@ export class TreeTotals {
     if (this.largest === 0) {
       return NO_RESOURCES;
     }
-    let cpuSeconds = 0;
-    this.cpu.forEach((seconds) => {
+    let cpuSeconds = this.leftSeconds;
+    this.running.forEach((seconds) => {
       cpuSeconds += seconds;
     });
     return {
@@ -87,5 +96,14 @@ export class TreeTotals {
       peakRssBytes: this.peakBytes || null,
       processes: this.largest,
     };
+  }
+
+  // Keeps the CPU time of the processes that left the tree, and takes
+  // the processes of the sample as the running ones
+  private retire(running: Map<string, number>): void {
+    this.running.forEach((seconds, key) => {
+      this.leftSeconds += running.has(key) ? 0 : seconds;
+    });
+    this.running = running;
   }
 }

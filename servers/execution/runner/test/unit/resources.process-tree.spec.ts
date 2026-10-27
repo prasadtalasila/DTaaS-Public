@@ -65,6 +65,15 @@ describe('TreeTotals', () => {
     expect(totals.totals().cpuSeconds).toBe(0.7);
   });
 
+  it('Should not count again a tree after a sample without it', () => {
+    const totals = new TreeTotals();
+    totals.add([row(10, 1, 5, 0.25), row(11, 10, 6, 1)]);
+    totals.add([]);
+    totals.add([row(10, 1, 5, 0.5), row(11, 10, 6, 1.5)]);
+
+    expect(totals.totals()).toMatchObject({ cpuSeconds: 2, processes: 2 });
+  });
+
   it('Should count a reused pid as a new process', () => {
     const totals = new TreeTotals();
     totals.add([row(10, 1, 5, 0.25), row(11, 10, 6, 1)]);
