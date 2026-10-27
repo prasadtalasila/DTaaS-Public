@@ -23,8 +23,8 @@ states:
       INTERVAL: 5
       ENTRY: '\${DT_STATE}#\${DT_ENTRY}'
   idle:`,
-  ['monitor', 'idle'],
   'dt.yaml',
+  { commands: ['monitor', 'idle'], peers: [] },
 );
 
 const machine = {
@@ -139,8 +139,8 @@ describe('Script environment', () => {
       ...machine,
       definition: parseDefinition(
         'env: {PATH: C:\\dt}\nstates: {idle: }',
-        ['idle'],
         'dt.yaml',
+        { commands: ['idle'], peers: [] },
       ),
       command: 'idle',
       inherited: { dt_id: 'outer', Path: 'C:\\Windows', SystemRoot: 'C:\\' },

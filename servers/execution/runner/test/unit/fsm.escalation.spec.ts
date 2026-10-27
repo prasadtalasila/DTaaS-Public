@@ -4,7 +4,7 @@ import { parseDefinition } from 'src/fsm/definition';
 import Escalations, { Escalation, escalationSchema } from 'src/fsm/escalation';
 import StateMachine from 'src/fsm/state-machine';
 
-const permitted = ['create', 'execute'];
+const known = { commands: ['create', 'execute'], peers: [] };
 
 const STATES = `
 events: [restart]
@@ -13,7 +13,7 @@ states:
   execute:
 `;
 
-const parse = (text: string) => parseDefinition(text, permitted, 'dt.yaml');
+const parse = (text: string) => parseDefinition(text, 'dt.yaml', known);
 
 const BOTH: Escalation = { onFailure: true, onNoTransition: true };
 

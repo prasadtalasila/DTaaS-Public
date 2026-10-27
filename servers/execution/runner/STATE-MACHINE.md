@@ -18,7 +18,8 @@ _terminate_. The state machine runs them in order for you:
   its script.
 - A **transition request** starts the machine in a state you name.
 - **Events**, sent by you, by a Manager or by the DT's own scripts,
-  move the machine from one state to the next.
+  or raised by the runner when a peer DT changes, move the machine
+  from one state to the next.
 - When a script exits, the runner raises a **completion event**,
   `$success`, `$failure` or `$stopped`, which can move the machine on
   by itself.
@@ -52,6 +53,8 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
   hold both.
 - `mqtt` and `notify` sections add an MQTT API and a webhook; see
   [MQTT](#mqtt) and [Watch the State](#watch-the-state).
+- A `peers` section lists the DTs this one follows; see
+  [Subscriptions to Peers](#subscriptions-to-peers).
 
 ## Write the State Machine File
 
@@ -170,7 +173,7 @@ variables:
 | `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's HTTP API                        |
 | `RUNNER_TOKEN`    | the bearer token for that API, with access control only                 |
 | `DT_ID`           | the `id` of _runner.yaml_                                               |
-| `DT_STATE`        | the state whose script this is                                          |
+| `DT_STATE`        | the state whose script this is; for `POST /`, the current state         |
 | `DT_ENTRY`        | the number of that entry into a state, counted from 1                   |
 | `DT_PARAM_<NAME>` | the value of each parameter when the script starts, as `DT_PARAM_SCOPE` |
 
@@ -231,6 +234,53 @@ access control ([README](README.md#access-control)), a principal in the
 role `manager` may run only these commands; without it, the list is not
 enforced.
 
+### Subscriptions to Peers
+
+A DT can react to its peers, the DTs that the operator lists under
+`peers` in _runner.yaml_ ([README](README.md#peers)). Each subscription
+names a peer, a condition on what the peer last reported, and the
+event that the runner raises when the condition turns true:
+
+```yaml
+events:
+  - neighbour-full
+  - neighbour-down
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+  - peer: hospital-2
+    when:
+      online: false
+    event: neighbour-down
+states:
+  open:
+    transitions:
+      neighbour-full:
+        state: open
+        stop: true
+```
+
+- `peer` is the `id` of a peer of _runner.yaml_, enabled or not.
+- `when` holds exactly one condition. `state: <name>` holds when the
+  peer's last state document has that `machine.state`; it is the
+  peer's state, so it need not be one of yours. `online: true` or
+  `online: false` holds when the peer's last presence notice says so,
+  including the `online: false` that the broker sends for a runner
+  that dies.
+- `event` is one of your `events`; a completion event can not be
+  named.
+- The same `peer` and `when` may raise two events; both are raised, in
+  file order.
+
+The runner raises the event only when the condition turns from not
+holding, or unknown, to holding: once per change, not on every
+document. A peer that keeps reporting `full` raises
+`neighbour-full` once; it raises it again only after it reported
+another state in between. See [React to Peers](#react-to-peers) for
+what the event does.
+
 ### When the Runner Refuses the File
 
 The runner does not start, and its message names the file and every
@@ -245,7 +295,12 @@ problem, when:
   key other than `state` and `stop`;
 - `$success` and `$failure` transitions alone form a loop;
 - a name breaks the naming rule, a parameter, `env` or `escalation`
-  entry is invalid, or a manager command is not permitted.
+  entry is invalid, or a manager command is not permitted;
+- a subscription has a key other than `peer`, `when` and `event`, or
+  misses one; its `when` has no condition, both or another key; its
+  `peer` is not listed in _runner.yaml_; its `event` is not in
+  `events`; or two subscriptions have the same `peer`, `when` and
+  `event`.
 
 ## Run the Machine
 
@@ -364,6 +419,32 @@ code=$(node -e "fetch(process.env.RUNNER_URL + '/fsm/event', {
 }).then((reply) => console.log(reply.status), () => console.log(0))")
 ```
 
+### React to Peers
+
+An event of a [subscription](#subscriptions-to-peers) takes the path of
+an event that a client sends, without a request key and without a
+reply:
+
+- The current state's transition for the event is taken, a
+  `stop: true` self-transition too, which restarts the state's script.
+  `runner.log` logs the peer, the condition and the event of each
+  accepted one.
+- Without a transition, the event is logged at debug level and, with
+  `escalation.onNoTransition`, escalates once per entry into a state.
+- Before the first transition the event finds no transition and does
+  not escalate. The runner still counts the change as seen, so a state
+  that needs to know a peer's current state at entry reads
+  `GET $RUNNER_URL/peers`.
+- While the runner shuts down the event is refused `stopping`, with a
+  warning in the log.
+
+The runner reads the peer's notices only while the peer is enabled
+(`PUT /peers`), and forgets what it saw of a peer that is disabled, so
+the first notice after an enable counts as a change. A notice that the
+runner drops, such as an unsigned one from a peer with a `publicKey`,
+raises nothing. A peer that sends nothing raises nothing: a
+subscription reacts to notices and has no timeout.
+
 ### Read and Set Parameters
 
 `GET /parameters` returns each parameter with its value:
@@ -452,11 +533,13 @@ lists the events of the file in alphabetical order.
 `GET /state` returns the whole DT in one document: its `id`, the
 `time`, the body of `GET /fsm` as `machine` (or `null` without a state
 machine), the parameter values, and the latest command without its
-logs. `GET /` returns the latest command with its logs and exit code,
-and `GET /history` every command with its status, exit code and times,
-the state scripts included. `GET /metrics` counts the entries into each
-state, the seconds spent there, the scripts that finished, and the
-transition and event requests since the runner started.
+logs. `GET /` returns the latest command with its logs, exit code and
+resources, and `GET /history` every command with its status, exit
+code, times and resources, the state scripts included. `GET /metrics`
+counts the entries into each state, the seconds spent there, the
+scripts that finished, the transition and event requests, the commands
+by status, their resources and the escalations since the runner
+started.
 
 With a `notify` section in _runner.yaml_, or with MQTT, the runner
 sends the state document whenever it changes, as a notification of kind
@@ -474,9 +557,10 @@ sends the state document whenever it changes, as a notification of kind
 `data` is the whole state document of `GET /state`, shortened here.
 
 Over MQTT the notifications go to `<topic>/notify/<kind>`, where `kind`
-is `state`, `escalation` or `presence`; the last state document is
-retained. A webhook gets each notification as a `POST`. See the
-[API reference](api/API.md#notifications) for the details.
+is `state`, `escalation` or `presence`; the last state document and the
+last presence notice are retained, an escalation is not. A webhook gets
+each notification as a `POST`. See the [API
+reference](api/API.md#notifications) for the details.
 
 #### Script Status
 
@@ -527,8 +611,9 @@ and the latest parameter values at each change. When it starts again:
   `interrupted`. The runner does not run the script again, as it may
   have done part of its work; the machine is idle, so send a transition
   request or an event.
-- The commands that had not finished are `interrupted` in `GET /` and
-  `GET /state`; a repeat of such a request gets `failed`.
+- The commands that had not finished are `interrupted` in `GET /`,
+  `GET /state` and `GET /history`; a repeat of such a request gets
+  `failed`.
 - A stored state that the file no longer has is dropped with a warning
   in the log, and the machine starts without a state. The entry count
   is kept, so entry numbers never repeat.
@@ -572,6 +657,11 @@ topic of the request, or else to the request topic followed by
 
 MQTT has no status codes, so the `status` in the body is the outcome.
 Over MQTT 5, the request key is the `idempotency-key` user property.
+With access control, the payload of each request but `health` is a
+signed token instead of the JSON
+([API reference](api/API.md#mqtt-access-control)); with a signing key,
+each response and notification is a JWS of the JSON
+([README](README.md#signed-output)).
 
 ## Example: A Pipeline
 

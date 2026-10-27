@@ -1,6 +1,6 @@
 # Hospital Bed Management Demo
 
-A terminal recording of every feature of the runner, told as the
+A terminal recording of the features of the runner, told as the
 hospital bed-management case study of the paper _Self-Adaptation in
 Digital Twin Networks: A Hospital Bed Management Coordination Case
 Study_ (`.research-papers/Generalization_of_Self_Adaptation_in_DT_Networks`).
@@ -12,7 +12,13 @@ The recording is [hospital.cast](hospital.cast), an
 about 50 kB and 3 min 23 s, with a video of it,
 [hospital.mp4](hospital.mp4) (H.264, 1078×738, about 4 MB, stored in
 Git LFS). It was recorded on Windows against runner version 0.7.0
-(`feature/distributed-demo` at `f0f7f083`).
+(`feature/distributed-demo` at `f0f7f083`), so it does not show what
+came later: access control, full history records and metrics, the
+resources of scripts, the peers and peer events, and signed
+notifications. The configuration and
+the tools here already have the peers, the signing helpers and the
+`Authorization` header; the demo of issue 16 records two hospitals
+anew.
 
 ## Play
 
@@ -49,6 +55,10 @@ the script of the same name in [scripts](scripts):
 | `open`   | `open.ps1`   | Admits patients; watches the beds and raises `full` when none free |
 | `full`   | `full.ps1`   | No free bed and no early discharge; fails, which escalates         |
 | `closed` | `closed.ps1` | Admits nobody                                                      |
+
+The `peers` section of [runner.yaml](runner.yaml) lists `hospital-2`,
+which no runner of the demo serves yet, so `GET /peers` shows it with
+`online: null`.
 
 The Manager submits two commands, declared under `manager.commands`:
 

@@ -102,7 +102,8 @@ export default class MqttRequestHandler {
   // Only a request with a credential has a principal
   private authorize(route: MqttRoute, { principal, body }: MqttRequest) {
     if (principal !== undefined) {
-      const listed = listedCommand(this.fsm.managerCommands(), body);
+      const commands = this.fsm.declared()?.managerCommands ?? [];
+      const listed = listedCommand(commands, body);
       authorize(principal, route, listed);
       this.logger.debug(`${principal.name} calls ${route}`);
     }

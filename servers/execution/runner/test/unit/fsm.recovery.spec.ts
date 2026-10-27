@@ -8,8 +8,8 @@ const definition = parseDefinition(
 states:
   create: {transitions: {$success: execute}}
   execute: {}`,
-  ['create', 'execute'],
   'state-machine.yaml',
+  { commands: ['create', 'execute'], peers: [] },
 );
 
 const UNSTARTED = { state: undefined, entry: 0, status: 'none' } as const;

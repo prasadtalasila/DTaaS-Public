@@ -63,7 +63,7 @@ function createService(
   };
   const fsm = {
     check: () => state,
-    managerCommands: () => ['execute'],
+    declared: () => state && { managerCommands: ['execute'] },
     parameters: () => values && { values: () => values },
     onChange: jest.fn(),
     onAnswer: jest.fn(),
@@ -96,6 +96,15 @@ describe('Descriptor service', () => {
       peers: [],
       publicKey: null,
     });
+  });
+
+  it('Should list no manager commands without a state machine', () => {
+    const { manager, stateMachine } = createService(
+      undefined,
+      undefined,
+    ).describe();
+
+    expect([manager, stateMachine]).toEqual([{ commands: [] }, false]);
   });
 
   it('Should give the public key of the signing key', () => {

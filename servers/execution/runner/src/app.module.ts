@@ -19,6 +19,7 @@ import Notifier from './notify/notifier.service.js';
 import AccessGuard from './auth/access.guard.js';
 import PeersController from './peers/peers.controller.js';
 import PeerWatch from './peers/peer-watch.js';
+import PeerEventsService from './fsm/peer-events.service.js';
 
 @Module({
   imports: [],
@@ -43,6 +44,7 @@ import PeerWatch from './peers/peer-watch.js';
     WebhookClient,
     Notifier,
     PeerWatch,
+    PeerEventsService,
     { provide: APP_GUARD, useClass: AccessGuard },
   ],
 })

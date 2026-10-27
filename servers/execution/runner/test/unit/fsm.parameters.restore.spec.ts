@@ -10,8 +10,8 @@ parameters:
   label: {type: string, default: x}
 states:
   create: {}`,
-  ['create'],
   'state-machine.yaml',
+  { commands: ['create'], peers: [] },
 );
 
 describe('Restored parameter values', () => {

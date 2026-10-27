@@ -6,6 +6,7 @@ import Config from 'src/config/configuration.service';
 import { StoredMachine } from 'src/dto/fsm.dto';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
+import { PeerConfig } from 'src/peers/peers.config';
 import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
@@ -17,6 +18,16 @@ states:
   create: {transitions: {$success: execute, $failure: terminate}}
   execute: {transitions: {stop: terminate}}
   terminate: {transitions: {reset: create}}`;
+
+// The peers of the configuration, which subscriptions may name
+export const PEERS: PeerConfig[] = [
+  {
+    id: 'hospital-2',
+    topic: 'dtaas/hospital-2',
+    attributes: {},
+    enabled: true,
+  },
+];
 
 // Any name will do, as runner.yaml names the file
 export const MACHINE_FILE = 'machine.yaml';
@@ -78,6 +89,7 @@ export function createService(file: string | undefined) {
     getId: () => 'dt-1',
     getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
+    getPeers: () => PEERS,
   } as unknown as Config;
   const queue = {
     setParameters: jest.fn(),

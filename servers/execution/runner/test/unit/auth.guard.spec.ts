@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { ExecutionContext, HttpException } from '@nestjs/common';
 import { METHOD_METADATA } from '@nestjs/common/constants.js';
 import { Reflector } from '@nestjs/core';
@@ -22,7 +22,7 @@ const access = new Access(
 function guard(control: Access | undefined) {
   const config = { access: () => control } as unknown as Config;
   const fsm = {
-    managerCommands: jest.fn(() => ['admit']),
+    declared: () => ({ managerCommands: ['admit'] }),
   } as unknown as FsmService;
   return new AccessGuard(new Reflector(), config, fsm);
 }

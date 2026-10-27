@@ -150,6 +150,19 @@ describe('Peers', () => {
     expect(peers.document()['hospital-3']).toMatchObject(unknown);
   });
 
+  it('Should signal each notice it stored, after storing it', () => {
+    peers.load(LIST, store);
+    const seen: unknown[] = [];
+    peers.onNotice((id, kind, data) =>
+      seen.push([id, kind, data, peers.document()[id].online]),
+    );
+
+    peers.observe('hospital-2', 'presence', { online: true });
+    peers.observe('hospital-3', 'presence', { online: true });
+
+    expect(seen).toEqual([['hospital-2', 'presence', { online: true }, true]]);
+  });
+
   it('Should take a store of the PeerStore shape', () => {
     const typed: PeerStore = store;
 

@@ -10,7 +10,11 @@ The examples come from the
 [hospital bed-management demo](../demo/hospital/README.md). Most are
 requests typed in that recording, with the replies that the runner
 gave, so the values fit together from one example to the next; the
-text says where an example comes from elsewhere. The
+text says where an example comes from elsewhere. The recording was
+made with version 0.7.0, so the replies of later features, such as the
+full history records, the metrics, the `resources` of the commands, the
+peers, the `publicKey` of the descriptor and the signature marks,
+follow the code and the tests of 0.10.0 rather than the recording. The
 [Example Session](#example-session) at the end retells the recording as
 one story.
 
@@ -49,10 +53,10 @@ a PUT. `mq ROUTE [JSON]` publishes an MQTT request and prints the
 response, as described in [MQTT](#mqtt).
 
 The recording predates [access control](#access-control), so its
-requests carry no credential. A runner with an `auth` section wants an
-`Authorization` header on every HTTP request but `GET /health`, and a
-signed payload on every MQTT request but `health`; the examples leave
-both out.
+requests carry no credential. A runner with `principals` in its `auth`
+section wants an `Authorization` header on every HTTP request but `GET
+/health`, and a signed payload on every MQTT request but `health`; the
+examples leave both out.
 
 ## Routes
 
@@ -122,7 +126,7 @@ These rules hold for every route.
 - **Unexpected errors.** An unexpected failure gets HTTP status 500
   with `{"statusCode": 500, "message": "Internal server error"}`, over
   MQTT too.
-- **Credentials.** With an `auth` section in the configuration, a
+- **Credentials.** With `auth.principals` in the configuration, a
   request without a valid credential gets 401 and a caller whose role
   may not call the route 403, before the body is validated; see
   [Access Control](#access-control). Without it, the runner ignores any
@@ -548,16 +552,16 @@ only, so the times are those of the re-run that the
 ]
 ```
 
-| Field        | Value                                                                                                     |
-| :----------- | :-------------------------------------------------------------------------------------------------------- |
-| `id`         | the number of the request, which grows with each one                                                      |
-| `name`       | the command                                                                                               |
-| `status`     | `running` while unfinished, then as [GET /state](#get-state) reports it                                   |
-| `exitCode`   | as on [GET /](#get-); `null` while running                                                                |
-| `receivedAt` | when the request arrived                                                                                  |
-| `finishedAt` | when the command finished; `null` while running                                                           |
-| `by`         | the [principal](#access-control) that sent it, `script`, or `null` without `auth` or for a state's script |
-| `resources`  | as on [POST /](#post-); both `null` while running, and for refused, interrupted and older commands        |
+| Field        | Value                                                                                              |
+| :----------- | :------------------------------------------------------------------------------------------------- |
+| `id`         | the number of the request, which grows with each one                                               |
+| `name`       | the command                                                                                        |
+| `status`     | `running` while unfinished, then as [GET /state](#get-state) reports it                            |
+| `exitCode`   | as on [GET /](#get-); `null` while running                                                         |
+| `receivedAt` | when the request arrived                                                                           |
+| `finishedAt` | when the command finished; `null` while running                                                    |
+| `by`         | the [principal](#access-control) that sent it, or `null` without `auth` or for a state's script    |
+| `resources`  | as on [POST /](#post-); both `null` while running, and for refused, interrupted and older commands |
 
 The ten records are the three entries into `open`, the five admissions
 (`p-1`, `p-2`, `p-3` refused, `p-3` again and `p-4`), the script of
@@ -654,7 +658,8 @@ script of its state runs, with `busy`.
 Sends an event to the machine, which follows the transition of its
 current state for that event, even while the script of that state
 runs. MQTT route: `event`. Scripts raise events this way too, as in
-[Calls From Scripts](#calls-from-scripts).
+[Calls From Scripts](#calls-from-scripts), and the runner raises the
+events of [peer subscriptions](#peers) the same way.
 
 The state `full` has no transition for `close`:
 
@@ -823,7 +828,12 @@ topic's kind and of the peer's `id`; for a peer with a `publicKey`,
 only as a JWS of the envelope that the key signed, with the peer's `id`
 as `kid`. The runner logs and drops any other, and an empty payload,
 which clears a retained notification, sets its part back to `null`. A
-peer's notification raises no event and sends no notification.
+peer's notification sends no notification. It raises an event only
+through a `subscriptions` entry of the state machine file, when the
+entry's condition on the peer's `state` or `online` turns true; the
+event then takes the path of [POST /fsm/event](#post-fsmevent) without
+a request key, and nothing replies
+([README](../README.md#peer-events)).
 
 ### GET /peers
 
@@ -850,7 +860,8 @@ curl -s http://localhost:5100/peers
       "commands": ["open", "full", "closed", "admit", "discharge"],
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
-      "peers": ["hospital-1"]
+      "peers": ["hospital-1"],
+      "publicKey": null
     },
     "state": {
       "id": "hospital-2",
@@ -998,9 +1009,10 @@ instead, is not added to the history, and its key is not kept.
 
 ## Access Control
 
-Without an `auth` section in the configuration, every route is open to
-anyone who reaches the port or the request topics. With one, the
-runner answers only the principals it lists, each in a role, and its
+Without `auth.principals` in the configuration, every route is open
+to anyone who reaches the port or the request topics, also with an
+`auth` section that holds only a [key](#signatures). With principals,
+the runner answers only the principals it lists, each in a role, and its
 own scripts:
 
 ```yaml
@@ -1134,7 +1146,7 @@ before the signature check tells whether a name is listed.
 
 | Case                                                    | Status | `message`                               |
 | :------------------------------------------------------ | :----- | :-------------------------------------- |
-| No header, or an MQTT payload that is no JWS            | 401    | `missing credential`                    |
+| No header, or an empty MQTT payload or one with `{`     | 401    | `missing credential`                    |
 | Not `Bearer`, not three base64url parts, not JSON       | 401    | `malformed credential`                  |
 | `alg` not `Ed25519`, unknown `kid`, bad signature/token | 401    | `invalid credential`                    |
 | `aud` not this DT, claims missing or of the wrong type  | 401    | `invalid claims`                        |
@@ -1142,6 +1154,11 @@ before the signature check tells whether a name is listed.
 | `htm`, `htu`, `bh` or `topic` differs from the request  | 401    | `credential does not match the request` |
 | `jti` seen before                                       | 401    | `replayed credential`                   |
 | Role refused, or a manager command not listed           | 403    | `<role> may not call <route>`           |
+
+A bearer without a dot is taken for the script token, so a wrong one
+is `invalid credential`; an MQTT payload that is neither empty nor
+starts with `{` is read as a JWS, and is `malformed credential` if it
+is not one.
 
 A manager that runs `open` of the demo gets:
 
@@ -1294,7 +1311,7 @@ each time the runner connects.
 
 ### MQTT Access Control
 
-With an `auth` section, the payload of every request but `health` is a
+With `auth.principals`, the payload of every request but `health` is a
 compact JWS, signed as for HTTP (see [Token](#token)), whose claims are
 `aud`, `iat`, `exp`, `jti`, `topic`, the request topic, and `body`, the
 JSON of the plain request, absent for a route without one. The runner
@@ -1323,8 +1340,8 @@ payload: `node tools/sign.mjs mqtt execute '<json>'`.
 The broker's access control remains the outer wall: `auth` decides who
 may act, the broker who may publish on the request topics and read the
 responses and notifications at all, and which topics the runner may
-publish on. Without `auth`, anyone who can publish on the request
-topics can run the permitted commands. Use `mqtts://` or `wss://` with
+publish on. Without `auth.principals`, anyone who can publish on the
+request topics can run the permitted commands. Use `mqtts://` or `wss://` with
 a username and password when the broker is not on the same computer.
 
 ## Notifications
@@ -1693,7 +1710,7 @@ own address and the context of the DT in environment variables.
 | Variable          | Value in the demo, in state `open` at entry 1  |
 | :---------------- | :--------------------------------------------- |
 | `RUNNER_URL`      | `http://127.0.0.1:5100`                        |
-| `RUNNER_TOKEN`    | the scripts' bearer token, with `auth` only    |
+| `RUNNER_TOKEN`    | the bearer token, with `auth.principals` only  |
 | `DT_ID`           | `hospital-1`                                   |
 | `DT_STATE`        | `open`; empty before the first transition      |
 | `DT_ENTRY`        | `1`                                            |
@@ -1715,7 +1732,7 @@ A script raises an event with `POST $RUNNER_URL/fsm/event` and
 escalates with `POST $RUNNER_URL/escalate`, with the header
 `Authorization: Bearer $RUNNER_TOKEN`. `RUNNER_TOKEN` is drawn at each
 start of the runner, and a script that sends it acts in the role
-`script` (see [Roles](#roles)). Without `auth` the variable is unset
+`script` (see [Roles](#roles)). Without `auth.principals` the variable is unset
 and the runner ignores the header, so a script may always send it. The
 token is for HTTP only. The demo scripts use this PowerShell helper,
 from [scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
@@ -1784,8 +1801,9 @@ This document describes runner version 0.10.0, which made
 [GET /history](#get-history) return full records and added
 [GET /metrics](#get-metrics); 0.9.0 added
 [access control](#access-control). The optional
-[signatures](#signatures) and the `resources` of the commands came
-without a version change. The
+[signatures](#signatures), the `resources` of the commands, the
+[peers](#peers) and the subscriptions to them came without a version
+change. The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.

@@ -8,6 +8,11 @@ commands:  # list of permitted scripts
   - fail
   - busy
 stateMachine: '../test/data/scripts/state-machine.yaml'
+peers:  # the peer of the subscription of the state machine
+  - id: 'hospital-2'
+    topic: 'dtaas/user1/hospital-2'
+    attributes:
+      distance: 12.4
 # mqtt:  # uncomment to try api/dev.mqtt.http with a broker on this computer
 #   url: 'mqtt://localhost:1883'
 #   topic: 'dtaas/user1/runner'

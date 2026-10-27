@@ -97,7 +97,7 @@ describe('MQTT request handler with a principal', () => {
     const executor = fakeManager('success');
     const fsm = {
       environment: jest.fn(() => ({})),
-      managerCommands: jest.fn(() => ['admit']),
+      declared: () => ({ managerCommands: ['admit'] }),
     };
     const handler = new MqttRequestHandler(
       executor as unknown as ExecaManager,

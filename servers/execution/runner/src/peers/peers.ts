@@ -17,6 +17,12 @@ export type PeerStore = {
 
 export type EnabledListener = (peer: PeerConfig, enabled: boolean) => void;
 
+export type NoticeListener = (
+  id: string,
+  kind: NoticeKind,
+  data: unknown,
+) => void;
+
 type Received = Pick<PeerDto, 'online' | 'descriptor' | 'state'>;
 
 const UNKNOWN: Received = { online: null, descriptor: null, state: null };
@@ -50,6 +56,8 @@ export default class Peers {
 
   private readonly listeners: EnabledListener[] = [];
 
+  private readonly noticeListeners: NoticeListener[] = [];
+
   // A stored switch overrides the enabled of the file; each enabled
   // peer is signalled
   load(list: PeerConfig[], store: PeerStore): void {
@@ -68,6 +76,11 @@ export default class Peers {
   // Signals a peer that is enabled or disabled
   onEnabled(listener: EnabledListener): void {
     this.listeners.push(listener);
+  }
+
+  // Signals each notice that observe stored, after it stored it
+  onNotice(listener: NoticeListener): void {
+    this.noticeListeners.push(listener);
   }
 
   // In the order of runner.yaml
@@ -108,6 +121,7 @@ export default class Peers {
     }
     const last = this.received.get(id) ?? UNKNOWN;
     this.received.set(id, { ...last, ...part(kind, data, last) });
+    this.noticeListeners.forEach((listener) => listener(id, kind, data));
   }
 
   private isEnabled(id: string): boolean {

@@ -8,8 +8,8 @@ events: [stop, start]
 states:
   create: {transitions: {$success: execute}}
   execute: {transitions: {stop: {state: create, stop: true}}}`,
-  ['create', 'execute'],
   'state-machine.yaml',
+  { commands: ['create', 'execute'], peers: [] },
 );
 
 describe('State machine', () => {
