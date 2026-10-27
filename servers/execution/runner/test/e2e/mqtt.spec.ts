@@ -154,7 +154,7 @@ describe('Runner MQTT end-to-end tests', () => {
     expect(body).toEqual({
       id: 'test-runner',
       attributes: {},
-      commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail'],
+      commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail', 'busy'],
       stateMachine: false,
       manager: { commands: [] },
       peers: [],

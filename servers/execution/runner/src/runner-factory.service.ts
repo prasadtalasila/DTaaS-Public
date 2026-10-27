@@ -1,22 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import Runner from './interfaces/runner.interface.js';
 import ExecaRunner from './execa-runner.js';
+import { meterFor } from './resources/meter.js';
 
 @Injectable()
 export default class RunnerFactory {
-  // Windows can not execute shell scripts, so it runs <script>.ps1 instead
+  // Windows can not execute shell scripts, so it runs <script>.ps1 instead;
+  // each runner measures its runs as the platform can
   static create(
     command: string,
     stopGrace?: number,
     platform: NodeJS.Platform = process.platform,
   ): Runner {
+    const options = { stopGrace, meter: meterFor(platform) };
     if (platform === 'win32') {
       return new ExecaRunner(
         'powershell.exe',
         ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `${command}.ps1`],
-        stopGrace,
+        options,
       );
     }
-    return new ExecaRunner(command, [], stopGrace);
+    return new ExecaRunner(command, [], options);
   }
 }

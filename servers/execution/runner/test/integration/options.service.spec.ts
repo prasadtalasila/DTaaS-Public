@@ -57,6 +57,7 @@ describe('Check Configuration Service', () => {
       'ignore-term',
       'echo-input',
       'fail',
+      'busy',
     ]);
     expect(config.getLocation()).toEqual(resolveFile('script'));
     expect(config.getStateMachine()).toBeUndefined();
