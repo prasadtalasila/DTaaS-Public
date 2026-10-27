@@ -108,6 +108,41 @@ describe('State machine service environment of scripts', () => {
     expect(env).not.toHaveProperty('RUNNER_TOKEN');
   });
 
+  it('Should start from the allow-list with a script account', () => {
+    const account = {
+      name: 'dt-script',
+      uid: 999,
+      gid: 986,
+      home: '/nonexistent',
+      groups: [986],
+    };
+    const user = { account, runDirectory: '/var/lib/dt/run' };
+    const { service } = createService(join(dir, MACHINE_FILE), user);
+    service.setRunnerApi('http://127.0.0.1:5000', 'token-1');
+
+    const env = service.environment('create');
+
+    expect(env).toMatchObject({
+      HOME: '/nonexistent',
+      USER: 'dt-script',
+      LOGNAME: 'dt-script',
+      PATH: '/usr/local/bin:/bin:/usr/bin',
+      RUNNER_TOKEN: 'token-1',
+      HINT: 'dt-1-single',
+      LEVEL: 'create',
+    });
+    // Jest sets JEST_WORKER_ID in the runner's own environment
+    expect(env).not.toHaveProperty('JEST_WORKER_ID');
+  });
+
+  it("Should keep the runner's environment without a script account", () => {
+    const { service } = setup();
+
+    expect(service.environment('create').JEST_WORKER_ID).toBe(
+      process.env.JEST_WORKER_ID,
+    );
+  });
+
   it('Should give only the identity without a state machine', () => {
     const { service } = createService(undefined);
 

@@ -5,6 +5,8 @@ const known = { commands: ['monitor', 'idle'], peers: [] };
 
 const parse = (text: string) => parseDefinition(text, 'dt.yaml', known);
 
+const separated = { ...known, separated: true };
+
 const expectInvalid = (text: string, message: string) =>
   expect(() => parse(text)).toThrow(message);
 
@@ -97,4 +99,42 @@ states:
   ])('Should refuse a __proto__ key in the env of %s', (_where, text) => {
     expectInvalid(text, '__proto__ is not a valid name');
   });
+
+  it.each(['LD_PRELOAD', 'MALLOC_CHECK_', 'GCONV_PATH', 'LANG', 'LC_ALL'])(
+    'Should refuse %s in the env of the file with scripts.user',
+    (name) => {
+      expect(() =>
+        parseDefinition(withEnv(`{${name}: x}`), 'dt.yaml', separated),
+      ).toThrow(`env ${name} is refused with scripts.user`);
+    },
+  );
+
+  it('Should refuse a loader name in the env of a state with scripts.user', () => {
+    expect(() =>
+      parseDefinition(
+        'states: {idle: {env: {LD_AUDIT: /var/lib/dt/run/a.so}}}',
+        'dt.yaml',
+        separated,
+      ),
+    ).toThrow('state idle env LD_AUDIT is refused with scripts.user');
+  });
+
+  it.each(['PATH', 'POLL_MS'])(
+    'Should take %s in the env with scripts.user',
+    (name) => {
+      const text = `env: {${name}: x}
+states: {idle: {env: {${name}: y}}}`;
+
+      expect(parseDefinition(text, 'dt.yaml', separated).env).toEqual({
+        [name]: 'x',
+      });
+    },
+  );
+
+  it.each(['LD_PRELOAD', 'MALLOC_CHECK_', 'GCONV_PATH', 'LANG', 'LC_ALL'])(
+    'Should take %s in the env without scripts.user',
+    (name) => {
+      expect(parse(withEnv(`{${name}: x}`)).env).toEqual({ [name]: 'x' });
+    },
+  );
 });

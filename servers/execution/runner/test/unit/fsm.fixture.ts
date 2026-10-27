@@ -11,6 +11,7 @@ import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import { NO_RESOURCES } from 'src/resources/resources';
+import type { ScriptUser } from 'src/scripts/separation';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -82,14 +83,16 @@ function fakeManager() {
   return { manager, finish };
 }
 
-// The service with the state machine of the file, if one is given
-export function createService(file: string | undefined) {
+// The service with the state machine of the file, if one is given, and
+// the script account, if one is given
+export function createService(file: string | undefined, user?: ScriptUser) {
   const { manager, finish } = fakeManager();
   const config = {
     getId: () => 'dt-1',
     getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
     getPeers: () => PEERS,
+    getScriptUser: () => user,
   } as unknown as Config;
   const queue = {
     setParameters: jest.fn(),

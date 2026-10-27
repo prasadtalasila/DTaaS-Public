@@ -15,7 +15,7 @@ const itOnLinux = process.platform === 'linux' ? it : it.skip;
 const itOnWindows = process.platform === 'win32' ? it : it.skip;
 
 const script = (name: string, stopGrace?: number) =>
-  RunnerFactory.create(resolve('script', name), stopGrace);
+  RunnerFactory.create(resolve('script', name), { stopGrace });
 
 const delay = (ms: number) =>
   new Promise((done) => {

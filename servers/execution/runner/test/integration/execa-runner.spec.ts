@@ -20,7 +20,9 @@ const delay = (ms: number) =>
 
 // A test script of the script folder that runs until it is stopped
 const looping = (script: string, stopGrace?: number) =>
-  RunnerFactory.create(resolve('script', script), stopGrace) as ExecaRunner;
+  RunnerFactory.create(resolve('script', script), {
+    stopGrace,
+  }) as ExecaRunner;
 
 describe('check command Runner based on execa library', () => {
   it('should execute a valid command', async () => {

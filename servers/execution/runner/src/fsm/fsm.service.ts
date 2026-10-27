@@ -13,6 +13,7 @@ import {
 import { EscalateBody, EscalateReplyDto } from '../dto/escalation.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
+import { scriptBase } from '../scripts/launch.js';
 import { CompletionEvent, Definition, loadDefinition } from './definition.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import MachineStore from './machine-store.js';
@@ -75,6 +76,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.machine = definition && new StateMachine(definition);
     this.params = definition && new Parameters(definition.parameters);
     this.context.load(this.config.getId(), definition, this.params);
+    this.context.inherit(scriptBase(this.config.getScriptUser(), process.env));
     this.escalations.declare(definition?.escalation);
   }
 

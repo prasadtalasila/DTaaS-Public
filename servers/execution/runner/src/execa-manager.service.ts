@@ -118,10 +118,10 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     if (!this.config.permitCommands().includes(name)) {
       return undefined;
     }
-    return RunnerFactory.create(
-      join(this.config.getLocation(), name),
-      this.config.getStopGrace(),
-    );
+    return RunnerFactory.create(join(this.config.getLocation(), name), {
+      stopGrace: this.config.getStopGrace(),
+      user: this.config.getScriptUser(),
+    });
   }
 
   // The run leaves the running ones once its result is stored
