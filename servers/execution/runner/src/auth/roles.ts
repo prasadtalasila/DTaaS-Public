@@ -25,6 +25,8 @@ export const ROUTE_ROLES: Record<MqttRoute, RouteRoles> = {
   event: ['client', 'script'],
   escalate: ['client', 'script'],
   'set-parameters': ['client', 'manager'],
+  peers: EVERY_ROLE,
+  'set-peers': ['client', 'manager'],
 };
 
 export const ACCESS_ROUTE = 'accessRoute';

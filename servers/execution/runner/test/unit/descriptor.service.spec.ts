@@ -4,6 +4,7 @@ import DescriptorService from 'src/descriptor.service';
 import { FsmStateDto } from 'src/dto/fsm.dto';
 import FsmService from 'src/fsm/fsm.service';
 import { CommandRecord } from 'src/interfaces/command.interface';
+import { PeerConfig } from 'src/peers/peers.config';
 import Changes from 'src/notify/changes';
 import Queue from 'src/queue.service';
 
@@ -28,6 +29,13 @@ const command = (finished: boolean, status = 'invalid'): CommandRecord => ({
   finishedAt: finished ? '2026-10-25T09:59:59.000Z' : null,
 });
 
+const peer = (id: string, enabled: boolean): PeerConfig => ({
+  id,
+  topic: `dtaas/${id}`,
+  attributes: {},
+  enabled,
+});
+
 // A descriptor service over fakes of its configuration, state machine
 // and queue
 function createService(
@@ -39,6 +47,11 @@ function createService(
     getId: () => 'hospital-1',
     getAttributes: () => ({ city: 'Aarhus' }),
     permitCommands: () => ['create', 'execute'],
+    getPeers: () => [
+      peer('hospital-2', true),
+      peer('hospital-3', false),
+      peer('hospital-4', true),
+    ],
   };
   const fsm = {
     check: () => state,
@@ -46,7 +59,11 @@ function createService(
     parameters: () => values && { values: () => values },
     onEscalation: jest.fn(),
   };
-  const queue = { activeCommand: () => latest };
+  const queue = {
+    activeCommand: () => latest,
+    peerSwitches: () => new Map([['hospital-4', false]]),
+    setPeers: jest.fn(),
+  };
   return new DescriptorService(
     config as unknown as Config,
     fsm as unknown as FsmService,
@@ -66,7 +83,21 @@ describe('Descriptor service', () => {
       commands: ['create', 'execute'],
       stateMachine: true,
       manager: { commands: ['execute'] },
+      peers: [],
     });
+  });
+
+  it('Should load the peers on init and list the enabled ones', () => {
+    const service = createService(machine, undefined);
+
+    service.onModuleInit();
+
+    expect(service.describe().peers).toEqual(['hospital-2']);
+    expect(Object.keys(service.peers().document())).toEqual([
+      'hospital-2',
+      'hospital-3',
+      'hospital-4',
+    ]);
   });
 
   it('Should build a state document without a machine or a command', () => {

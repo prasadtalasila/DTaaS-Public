@@ -38,6 +38,8 @@ export const mqttRoutes = [
   'set-parameters',
   'escalate',
   'metrics',
+  'peers',
+  'set-peers',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];

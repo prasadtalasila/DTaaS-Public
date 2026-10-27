@@ -20,6 +20,8 @@ const TABLE: Record<MqttRoute, [string, string, string]> = {
   event: ['yes', 'no', 'yes'],
   escalate: ['yes', 'no', 'yes'],
   'set-parameters': ['yes', 'yes', 'no'],
+  peers: ['yes', 'yes', 'yes'],
+  'set-peers': ['yes', 'yes', 'no'],
 };
 
 const ROLES: Role[] = ['client', 'manager', 'script'];
