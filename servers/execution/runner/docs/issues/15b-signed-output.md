@@ -400,6 +400,20 @@ so it does not count as a change (recommendation).
   encodes, the will included, and `test/e2e/mqtt.peers.signed.spec.ts`
   runs a runner that follows a signed peer runner, which fails when
   the listed key is another.
+- **Review.** Four changes came from the review of the pull request.
+  The tests verify through one helper, `verifiedPayload` of
+  `test/sign.util.ts`, over `parseJws` and `verifyJws`, instead of
+  three hand-made verifiers; the demo's `jws.mjs` stays standalone, as
+  the runnable form of the verifier in API.md. `auth.key` is resolved
+  in `resolvePaths` beside `stateMachine`, so `Signer.load` takes
+  `(file, id)` rather than the plan's `(file, dir, id)`. The demo's
+  verifier treats a missing or half-written key file as no key, where
+  it threw inside the MQTT and webhook handlers, and an `INVALID` line
+  gives the reason and the payload marked unverified. Tests were added
+  for an `auth` section with principals and a key, and for the
+  `publicKey` of the signed online notice. The review left the will's
+  `time: null` as it is, with a sentence on replay in "Not signed",
+  and set aside an MQTT 5 `contentType`.
 - **Version.** The plan keeps the version as the earlier issues leave
   it. 11 merged first and took the runner to 0.10.0, so 15b stays at
   0.10.0, merged with `feature/distributed-demo` rather than rebased,
