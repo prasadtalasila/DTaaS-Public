@@ -16,6 +16,11 @@ export const ACCOUNT = 'dt-script-test';
 
 export const MAIN = resolve('dist/src/main.js');
 
+// By absolute path, as on Debian and Ubuntu, so that PATH plays no part
+const SUDO = '/usr/bin/sudo';
+
+const GETENT = '/usr/bin/getent';
+
 function run(command: string, args: string[]): string {
   const result = spawnSync(command, args, { encoding: 'utf8' });
   if (result.status !== 0) {
@@ -30,19 +35,19 @@ export function privileged(): boolean {
   if (process.platform !== 'linux' || process.env.CI !== 'true') {
     return false;
   }
-  return existsSync(MAIN) && spawnSync('sudo', ['-n', 'true']).status === 0;
+  return existsSync(MAIN) && spawnSync(SUDO, ['-n', 'true']).status === 0;
 }
 
 export type AccountEntry = { uid: number; gid: number; home: string };
 
 // The passwd entry of the script account, which is created once
 export function scriptAccount(): AccountEntry {
-  if (spawnSync('getent', ['passwd', ACCOUNT]).status !== 0) {
+  if (spawnSync(GETENT, ['passwd', ACCOUNT]).status !== 0) {
     const options = ['--system', '--no-create-home'];
     const shell = ['--shell', '/usr/sbin/nologin'];
-    run('sudo', ['-n', 'useradd', ...options, ...shell, ACCOUNT]);
+    run(SUDO, ['-n', '/usr/sbin/useradd', ...options, ...shell, ACCOUNT]);
   }
-  const entry = run('getent', ['passwd', ACCOUNT]).trim().split(':');
+  const entry = run(GETENT, ['passwd', ACCOUNT]).trim().split(':');
   return { uid: Number(entry[2]), gid: Number(entry[3]), home: entry[5] };
 }
 
@@ -144,24 +149,24 @@ export type Started = {
 
 // The runner as the test's own account with the three capabilities
 // ambient, started by root through setpriv, as PRIVILEGE-SETUP.md says
+const startLine = (config: string): string[] => [
+  '-n',
+  '/usr/bin/setpriv',
+  '--reset-env',
+  `--reuid=${process.getuid?.()}`,
+  `--regid=${process.getgid?.()}`,
+  '--init-groups',
+  '--inh-caps=+setuid,+setgid,+kill',
+  '--ambient-caps=+setuid,+setgid,+kill',
+  '--',
+  process.execPath,
+  MAIN,
+  '-c',
+  config,
+];
+
 export function startRunner({ dir, config }: Layout): Started {
-  const ids = [
-    `--reuid=${process.getuid?.()}`,
-    `--regid=${process.getgid?.()}`,
-  ];
-  const caps = [
-    '--inh-caps=+setuid,+setgid,+kill',
-    '--ambient-caps=+setuid,+setgid,+kill',
-  ];
-  const setpriv = [
-    '/usr/bin/setpriv',
-    '--reset-env',
-    ...ids,
-    '--init-groups',
-    ...caps,
-  ];
-  const command = ['--', process.execPath, MAIN, '-c', config];
-  const child = spawn('sudo', ['-n', ...setpriv, ...command], { cwd: dir });
+  const child = spawn(SUDO, startLine(config), { cwd: dir });
   let output = '';
   child.stdout.on('data', (data) => (output += String(data)));
   child.stderr.on('data', (data) => (output += String(data)));
@@ -199,7 +204,13 @@ export async function health(port: number): Promise<unknown> {
 // SIGTERM to the runner, which runs as the test's account; sudo, which
 // runs as root, exits with it
 export async function stopRunner({ config }: Layout, runner: Started) {
-  spawnSync('pkill', ['-TERM', '-u', String(process.getuid?.()), '-f', config]);
+  spawnSync('/usr/bin/pkill', [
+    '-TERM',
+    '-u',
+    String(process.getuid?.()),
+    '-f',
+    config,
+  ]);
   await runner.exited;
 }
 
@@ -226,15 +237,3 @@ export async function post(
   });
   return (await response.json()) as Reply;
 }
-
-// The name=value lines of a script's output
-export const fields = (stdout: string): Record<string, string> =>
-  Object.fromEntries(
-    stdout
-      .trim()
-      .split('\n')
-      .map((line) => [
-        line.slice(0, line.indexOf('=')),
-        line.slice(line.indexOf('=') + 1),
-      ]),
-  );

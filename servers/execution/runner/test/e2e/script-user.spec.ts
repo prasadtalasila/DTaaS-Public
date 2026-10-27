@@ -4,7 +4,6 @@ import { newCaller } from 'test/sign.util';
 import {
   type AccountEntry,
   ACCOUNT,
-  fields,
   freePort,
   health,
   type Layout,
@@ -21,6 +20,18 @@ import {
 const ZERO = '0000000000000000';
 
 const FAILED = expect.stringMatching(/^[1-9]/);
+
+// The name=value lines of a script's output
+const fields = (stdout: string): Record<string, string> =>
+  Object.fromEntries(
+    stdout
+      .trim()
+      .split('\n')
+      .map((line) => [
+        line.slice(0, line.indexOf('=')),
+        line.slice(line.indexOf('=') + 1),
+      ]),
+  );
 
 // Needs root for setpriv, so it runs on Linux CI only, where sudo asks
 // for no password; it is skipped on Windows, in WSL and on a Linux host
