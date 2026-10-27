@@ -832,6 +832,16 @@ for both platforms with the setting on. Its step, as planned:
   DEVELOPER.md says that Jest can not find tests with _config_ in their
   file names, but `jest --listTests` lists every `config.*.spec.ts`;
   that note predates this issue and is left as it is.
+- **Checks of the pull request.** On the first push, SonarCloud rated
+  the new code D for security, all in `test/e2e/script-user.util.ts`:
+  `sudo`, `getent` and `pkill` found through `PATH` (S4036), the literal
+  `/tmp` of `mkdtempSync` (S5443), and an `await` in the polling loop
+  (S9382). The helpers now run the binaries by absolute path, lay out
+  the runner in `os.tmpdir()`, which is `/tmp` in CI, and poll by
+  recursion. Codecov found three lines of `NODE_FS` uncovered (98.9%
+  of the patch); with `scripts.host.spec.ts` the patch is covered in
+  full and the project at 90.49%. Qlty reported no smell and no
+  blocking issue.
 - **Version and decision.** The version stays 0.10.0: `scripts` is an
   optional section, and `GET /health` gains a field. The decision is
   D35, as the Spec words it.

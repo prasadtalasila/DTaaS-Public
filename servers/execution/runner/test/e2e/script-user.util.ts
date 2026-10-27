@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createServer, type AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { type Caller, httpAuthorization } from 'test/sign.util';
 
@@ -116,10 +117,11 @@ function makeDir(path: string, mode: number): void {
   chmodSync(path, mode);
 }
 
-// A runner directory under /tmp as PRIVILEGE-SETUP.md lays it out; an
+// A runner directory in the temporary directory, which the script
+// account must be able to search, as PRIVILEGE-SETUP.md lays it out; an
 // open key, and its directory, are readable by every account
 export function writeLayout(caller: Caller, port: number, open = false) {
-  const dir = mkdtempSync('/tmp/runner-18-');
+  const dir = mkdtempSync(join(tmpdir(), 'runner-18-'));
   chmodSync(dir, 0o755);
   const layout: Layout = {
     dir,
@@ -182,18 +184,21 @@ const delay = (ms: number) =>
   });
 
 // Polls GET /health until the runner answers, or fails with its output
-// once it has exited
-export async function waitForHealth(port: number, runner: Started) {
-  let code: number | null | undefined;
-  void runner.exited.then((exit) => (code = exit));
-  for (let attempt = 0; attempt < 120 && code === undefined; attempt += 1) {
-    const reply = await health(port).catch(() => undefined);
-    if (reply !== undefined) {
-      return reply;
-    }
-    await delay(250);
+// once it has exited, or after 30 s
+export async function waitForHealth(
+  port: number,
+  runner: Started,
+  tries = 120,
+): Promise<unknown> {
+  const reply = await health(port).catch(() => undefined);
+  if (reply !== undefined) {
+    return reply;
   }
-  throw new Error(`The runner did not start:\n${runner.output()}`);
+  if (tries === 0 || runner.child.exitCode !== null) {
+    throw new Error(`The runner did not start:\n${runner.output()}`);
+  }
+  await delay(250);
+  return waitForHealth(port, runner, tries - 1);
 }
 
 export async function health(port: number): Promise<unknown> {

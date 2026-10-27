@@ -185,10 +185,12 @@ real. It needs root for `setpriv`, so it runs only on Linux with
 `CI=true`, a `sudo -n true` that succeeds and a built `dist/`, as in
 the `test-runner` job of `.github/workflows/runner.yml`; it is skipped
 on Windows and on any other Linux host, WSL included. It creates the
-account `dt-script-test` unless it exists, lays out a runner under
-`/tmp/runner-18-*`, and starts `dist/src/main.js` with `sudo -n` and
-the `setpriv` line of [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md), as the
-test's own account with the three capabilities.
+account `dt-script-test` unless it exists, lays out a runner in the
+temporary directory of `os.tmpdir()`, `/tmp/runner-18-*` in CI, which
+the script account must be able to search, and starts
+`dist/src/main.js` with `sudo -n` and the `setpriv` line of
+[PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md), as the test's own account
+with the three capabilities.
 
 To run it in WSL or on another Linux host, work in a copy on the Linux
 file system, as `/mnt/c` has no real modes, and let `sudo` cache your
