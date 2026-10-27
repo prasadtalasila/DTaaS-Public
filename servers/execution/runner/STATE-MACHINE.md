@@ -505,7 +505,7 @@ Without a `name`, or without a body, the runner stops every running
 script. It sends `SIGTERM`, then `SIGKILL` after `stopGrace`, and
 answers `200` once the scripts have exited; the list is empty when
 nothing ran. On Windows the runner ends `powershell.exe` at once, and
-the processes that the script started keep running.
+the processes that the script started keep running, unmeasured.
 
 When the stopped script is that of the current state, the runner raises
 `$stopped`. Without a `$stopped` transition the machine stays in the
