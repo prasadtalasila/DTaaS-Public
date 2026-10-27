@@ -68,6 +68,17 @@ content-type: {{ContentType}}
 
 ###
 
+// the two newest commands received since the time
+GET http://{{hostname}}:{{port}}/history?since=2026-10-26T14:56:00Z&limit=2 HTTP/1.1
+content-type: {{ContentType}}
+
+###
+
+GET http://{{hostname}}:{{port}}/metrics HTTP/1.1
+content-type: {{ContentType}}
+
+###
+
 POST http://{{hostname}}:{{port}} HTTP/1.1
 content-type: {{ContentType}}
 
