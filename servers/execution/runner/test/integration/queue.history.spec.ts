@@ -17,10 +17,10 @@ const ROWS = `
     ('discharge', 'valid', 0, '2026-10-26 14:56:00', '2026-10-26 14:56:01',
       'manager-1'),
     ('open', 'invalid', NULL, '2026-10-26 14:56:17', NULL, NULL);
-  UPDATE commands SET cpu_seconds = 0.469, peak_rss_bytes = 115646464
-    WHERE id = 1;`;
+  UPDATE commands SET cpu_seconds = 0.469, peak_rss_bytes = 115646464,
+    processes = 2 WHERE id = 1;`;
 
-const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
+const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464, processes: 2 };
 
 const RECORDS = [
   {

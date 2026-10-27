@@ -293,8 +293,8 @@ the session, with the times of the re-run:
     "running": 1
   },
   "resources": {
-    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512 },
-    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464 }
+    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512, "processes": 2 },
+    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464, "processes": 2 }
   },
   "machine": {
     "entries": { "open": 3, "full": 1 },
@@ -316,8 +316,9 @@ the session, with the times of the re-run:
   unfinished (see [Restarts](../README.md#restarts)). Every key is
   always present.
 - `resources` has a key for each command with a measured run among the
-  same records: `cpuSeconds` sums its runs, to the millisecond, and
-  `peakRssBytes` is the largest peak of one run. A `null` figure adds
+  same records: `cpuSeconds` sums its runs, to the millisecond,
+  `peakRssBytes` is the largest peak of one run, and `processes` the
+  largest tree of one run. A `null` figure adds
   nothing, so the object is `{}` before any measured run. The figures
   are those of [POST /](#post-).
 - `machine` is `null` without a state machine. `entries` and `seconds`
@@ -381,7 +382,11 @@ curl -s http://localhost:5100/ -H 'Idempotency-Key: admit-p-1' \
     "exitCode": 0,
     "stdout": "hospital-1 in state open#1, scope single\r\np-1 admitted to cardiology",
     "stderr": "",
-    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+    "resources": {
+      "cpuSeconds": 0.469,
+      "peakRssBytes": 115646464,
+      "processes": 2
+    }
   }
 }
 ```
@@ -410,12 +415,15 @@ from outside with 1. A refused request has no `result`.
 `resources` holds what the script used, as the runner sampled it while
 it ran; the [README](../README.md#resources) tells how each platform
 measures. `cpuSeconds` is user plus system CPU time in seconds, to the
-millisecond, and `peakRssBytes` the peak resident memory in bytes. Both
-are lower bounds, and `null` when not measured: on a platform other
-than Linux and Windows, or for a script that ended before its first
-sample. On Windows they are the figures of `powershell.exe`, which ran
-`admit.ps1` above, so most of the 110 MB is PowerShell's own.
-Processes that the script starts are not counted. The figures in the
+millisecond, `peakRssBytes` the peak resident memory in bytes, and
+`processes` the most processes seen at once. They cover the process
+tree of the run: the process that the runner starts and every process
+below it, sampled every half second or so. The figures are lower
+bounds, and `null` when not measured: on a platform other than Linux
+and Windows, or for a script that ended before its first sample. On
+Windows the tree is `powershell.exe`, which ran `admit.ps1` above, its
+`conhost.exe` and what the script starts, so most of the 110 MB is
+PowerShell's own and `processes` is at least 2. The figures in the
 examples of this document are illustrative, as the recording of the
 demo predates them.
 
@@ -436,7 +444,11 @@ curl -s http://localhost:5100/ \
     "exitCode": 3,
     "stdout": "hospital-1 in state open#1, scope single",
     "stderr": "no free bed for p-3; escalated: 202",
-    "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
+    "resources": {
+      "cpuSeconds": 0.812,
+      "peakRssBytes": 117440512,
+      "processes": 2
+    }
   }
 }
 ```
@@ -481,7 +493,11 @@ curl -s http://localhost:5100/
     "stderr": "no free bed for p-3; escalated: 202"
   },
   "exitCode": 3,
-  "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
+  "resources": {
+    "cpuSeconds": 0.812,
+    "peakRssBytes": 117440512,
+    "processes": 2
+  }
 }
 ```
 
@@ -495,7 +511,7 @@ curl -s http://localhost:5100/
 
 Before the first command, `name` is `none` and `status` is `invalid`.
 While the latest command runs, its `status` is `invalid` too, with
-empty logs, `exitCode` `null` and both `resources` `null`, until it
+empty logs, `exitCode` `null` and every `resources` figure `null`, until it
 finishes;
 [GET /state](#get-state) shows it as `running`. These names differ from
 those of `POST /`: `valid` here is `success` there.
@@ -527,7 +543,11 @@ only, so the times are those of the re-run that the
     "receivedAt": "2026-10-26T14:55:51.000Z",
     "finishedAt": "2026-10-26T14:55:52.000Z",
     "by": null,
-    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+    "resources": {
+      "cpuSeconds": 0.469,
+      "peakRssBytes": 115646464,
+      "processes": 2
+    }
   },
   {
     "id": 4,
@@ -537,7 +557,11 @@ only, so the times are those of the re-run that the
     "receivedAt": "2026-10-26T14:55:59.000Z",
     "finishedAt": "2026-10-26T14:56:00.000Z",
     "by": null,
-    "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
+    "resources": {
+      "cpuSeconds": 0.812,
+      "peakRssBytes": 117440512,
+      "processes": 2
+    }
   },
   {
     "id": 10,
@@ -547,21 +571,21 @@ only, so the times are those of the re-run that the
     "receivedAt": "2026-10-26T14:56:17.000Z",
     "finishedAt": null,
     "by": null,
-    "resources": { "cpuSeconds": null, "peakRssBytes": null }
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
   }
 ]
 ```
 
-| Field        | Value                                                                                              |
-| :----------- | :------------------------------------------------------------------------------------------------- |
-| `id`         | the number of the request, which grows with each one                                               |
-| `name`       | the command                                                                                        |
-| `status`     | `running` while unfinished, then as [GET /state](#get-state) reports it                            |
-| `exitCode`   | as on [GET /](#get-); `null` while running                                                         |
-| `receivedAt` | when the request arrived                                                                           |
-| `finishedAt` | when the command finished; `null` while running                                                    |
-| `by`         | the [principal](#access-control) that sent it, or `null` without `auth` or for a state's script    |
-| `resources`  | as on [POST /](#post-); both `null` while running, and for refused, interrupted and older commands |
+| Field        | Value                                                                                           |
+| :----------- | :---------------------------------------------------------------------------------------------- |
+| `id`         | the number of the request, which grows with each one                                            |
+| `name`       | the command                                                                                     |
+| `status`     | `running` while unfinished, then as [GET /state](#get-state) reports it                         |
+| `exitCode`   | as on [GET /](#get-); `null` while running                                                      |
+| `receivedAt` | when the request arrived                                                                        |
+| `finishedAt` | when the command finished; `null` while running                                                 |
+| `by`         | the [principal](#access-control) that sent it, or `null` without `auth` or for a state's script |
+| `resources`  | as on [POST /](#post-); `null` while running, and for refused, interrupted and older commands   |
 
 The ten records are the three entries into `open`, the five admissions
 (`p-1`, `p-2`, `p-3` refused, `p-3` again and `p-4`), the script of
@@ -605,7 +629,11 @@ payload or `{}` to stop every command.
 The runner sends the script `SIGTERM`, and `SIGKILL` if it still runs
 after `stopGrace` milliseconds of the configuration. On Windows, as in
 the demo, it ends `powershell.exe` at once. It answers once the scripts
-have exited, which can take the grace period and more:
+have exited, which can take the grace period and more. Only the
+script's own process is signalled; on Windows the processes that the
+script started keep running. The stopped run reports the `resources`
+of its tree up to the last sample before that process exited, and the
+processes that survive the stop are not measured:
 
 ```bash
 curl -s http://localhost:5100/stop --json '{"name":"open"}'
@@ -1268,7 +1296,7 @@ dtaas/hospital-1/execute/response (UNSIGNED)
     "exitCode": 0,
     "stdout": "p-1 left cardiology\r\nraised event beds-free, reply 202",
     "stderr": "",
-    "resources": { "cpuSeconds": 0.641, "peakRssBytes": 116391936 }
+    "resources": { "cpuSeconds": 0.641, "peakRssBytes": 116391936, "processes": 2 }
   }
 }
 ```

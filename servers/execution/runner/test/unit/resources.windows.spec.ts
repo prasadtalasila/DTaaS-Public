@@ -2,11 +2,8 @@ import { PassThrough } from 'node:stream';
 import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { NO_RESOURCES } from 'src/resources/resources';
-import {
-  samplerScript,
-  SamplerProcess,
-  windowsSampler,
-} from 'src/resources/windows';
+import { SamplerProcess, windowsSampler } from 'src/resources/windows';
+import { samplerScript } from 'src/resources/windows-tree';
 
 type Ending = { failed: boolean; isTerminated: boolean };
 
@@ -28,16 +25,18 @@ function fakeSampler() {
   return { spawn, kill, print, end };
 }
 
+// The root 4242, a child of it, and a process of another tree, with the
+// CPU time of the root and the child in 100 ns
+const line = (rootTicks: number, childTicks: number, childSet = 4096) =>
+  [
+    `4242 1000 500 ${rootTicks} 0 2048 2`,
+    `5000 4242 600 ${childTicks} 0 ${childSet} 4`,
+    `6000 1000 400 90000000 0 999999 999`,
+  ].join(';');
+
 describe('Windows sampler', () => {
   afterEach(() => {
     jest.restoreAllMocks();
-  });
-
-  it('Should take only numbers into its script', () => {
-    const script = samplerScript(4242, 1761576000123);
-
-    expect(script).toContain('Get-Process -Id 4242');
-    expect(script).toContain('-gt 1761576000123');
   });
 
   it('Should start one sampler for the pid and start time', () => {
@@ -49,34 +48,39 @@ describe('Windows sampler', () => {
     expect(spawn).toHaveBeenCalledWith(samplerScript(4242, 1761576000123));
   });
 
-  it('Should keep the last line and prefer PeakWorkingSet64', async () => {
+  it('Should measure the tree under the pid in each line', async () => {
     const { spawn, print } = fakeSampler();
     const watch = windowsSampler(4242, 0, spawn);
 
-    await print('1562500 74158080 74158080', '4690000 80191488 115646464');
+    await print(line(1000000, 2000000), line(2000000, 4000000, 8192));
 
     expect(watch.finish()).toEqual({
-      cpuSeconds: 0.469,
-      peakRssBytes: 115646464,
+      cpuSeconds: 0.6,
+      peakRssBytes: 2048 + 8192,
+      processes: 2,
     });
   });
 
-  it('Should take the largest working set for a peak of 0', async () => {
+  it('Should take the final CPU time of the root after its exit', async () => {
     const { spawn, print } = fakeSampler();
     const watch = windowsSampler(4242, 0, spawn);
 
-    await print('10000000 2048 0', '20000000 8192 0', '30000000 4096 0');
+    await print(line(1000000, 2000000), '4242 0 500 3000000 0 0 0');
 
-    expect(watch.finish()).toEqual({ cpuSeconds: 3, peakRssBytes: 8192 });
+    expect(watch.finish()).toMatchObject({ cpuSeconds: 0.5, processes: 2 });
   });
 
-  it('Should have no memory for a line without it', async () => {
+  it('Should have no memory for a root seen only after its exit', async () => {
     const { spawn, print } = fakeSampler();
     const watch = windowsSampler(4242, 0, spawn);
 
-    await print('12031250 0 0');
+    await print('4242 0 500 12031250 0 0 0');
 
-    expect(watch.finish()).toEqual({ cpuSeconds: 1.203, peakRssBytes: null });
+    expect(watch.finish()).toEqual({
+      cpuSeconds: 1.203,
+      peakRssBytes: null,
+      processes: 1,
+    });
   });
 
   it('Should ignore a malformed line and log it once', async () => {
@@ -86,10 +90,10 @@ describe('Windows sampler', () => {
     const { spawn, print } = fakeSampler();
     const watch = windowsSampler(4242, 0, spawn);
 
-    await print('10000000 2048 2048', '19375000  ', '1,5 2048 2048');
+    await print(line(10000000, 0), '19375000  ', '1,5 2048 2048');
 
     expect(debug).toHaveBeenCalledTimes(1);
-    expect(watch.finish()).toEqual({ cpuSeconds: 1, peakRssBytes: 2048 });
+    expect(watch.finish()).toMatchObject({ cpuSeconds: 1 });
   });
 
   it('Should kill the sampler on finish without waiting for it', () => {

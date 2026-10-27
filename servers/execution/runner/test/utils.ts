@@ -20,7 +20,15 @@ const figure = {
 };
 
 // The resources of a script run, as its platform measures them
-export const MEASURED = { cpuSeconds: figure, peakRssBytes: figure };
+export const MEASURED = {
+  cpuSeconds: figure,
+  peakRssBytes: figure,
+  processes: figure,
+};
 
 // The resources of a command that ran no script
-export const UNMEASURED = { cpuSeconds: null, peakRssBytes: null };
+export const UNMEASURED = {
+  cpuSeconds: null,
+  peakRssBytes: null,
+  processes: null,
+};

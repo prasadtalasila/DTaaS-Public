@@ -420,32 +420,55 @@ as `resources` on [POST /](#post-request-to-), [GET /](#get-request-to-),
 [GET /history](#get-request-to-history) and [GET /metrics](#metrics):
 
 ```http
-"resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+"resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464, "processes": 2 }
 ```
 
-`cpuSeconds` is user plus system CPU time, rounded to the millisecond,
-and `peakRssBytes` the peak resident memory. The runner reports the
-figures and decides nothing; a Manager reads them and acts.
+The figures cover the process tree of a run: the process that the
+runner starts and every process below it. `cpuSeconds` is the user
+plus system CPU time of every process seen in the tree, rounded to the
+millisecond. `peakRssBytes` is the largest resident memory of the tree
+in one sample, summed over its processes. `processes` is the largest
+number of processes seen in one sample, the first one included. The
+runner reports the figures and decides nothing; a Manager reads them
+and acts.
 
-| Platform | `cpuSeconds`                                    | `peakRssBytes`                                            | Process measured                    |
-| :------- | :---------------------------------------------- | :-------------------------------------------------------- | :---------------------------------- |
-| Linux    | fields 14 and 15 of `/proc/<pid>/stat`          | `VmHWM` of `/proc/<pid>/status`                           | the script                          |
-| Windows  | `TotalProcessorTime` of `Get-Process -Id <pid>` | `PeakWorkingSet64`, or the largest `WorkingSet64` sampled | `powershell.exe` running the script |
-| other    | `null`                                          | `null`                                                    | none                                |
+| Platform | Tree found through                                                                                        | CPU time and memory of each process                                                 | Root of the tree                    |
+| :------- | :-------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :---------------------------------- |
+| Linux    | `/proc/<pid>/task/*/children`, or the parent in every `/proc/<pid>/stat` where the kernel lacks that file | fields 14 and 15 of `/proc/<pid>/stat`; `VmRSS` and `VmHWM` of `/proc/<pid>/status` | the script                          |
+| Windows  | one `Get-CimInstance Win32_Process` per sample                                                            | `UserModeTime` and `KernelModeTime`; `WorkingSetSize` and `PeakWorkingSetSize`      | `powershell.exe` running the script |
+| other    | none                                                                                                      | `null`                                                                              | none                                |
 
-On Windows the figures are those of `powershell.exe`, so they include
-PowerShell's own: an idle PowerShell loop peaks at about 110 MB.
-Processes that a script starts are not counted on either platform.
+On Windows the tree holds `powershell.exe`, the `conhost.exe` that
+Windows gives it, and the processes that the script starts, so the
+figures include PowerShell's own: an idle PowerShell loop peaks at
+about 110 MB, and `processes` is at least 2. On Linux every account
+may read these files, so a script that runs as another account is
+measured the same way.
 
 A process that has exited can no longer be read, so the runner samples
-it while it runs: on Linux at the start and every 500 ms, on Windows
-through one `powershell.exe` per run, which needs a second or more to
-start. The figures are those of the last sample, so they are lower
-bounds that may miss up to half a second of use before the exit. A
-script that ends before its first sample, such as a short PowerShell
-script, reports `null`, as does a refused command, a command that is
-still running, and one recorded before the runner measured resources.
-Measuring never fails, delays or stops a script.
+the tree while it runs, finding it afresh each time: on Linux at the
+start and every 500 ms, on Windows through one `powershell.exe` per
+run, which needs a second or more to start and about half a second for
+each query. A pid and a start time name a process, so a pid reused
+during a run counts as a new process. The figures are lower bounds:
+
+- A process that starts and exits between two samples is never seen,
+  and one that exits loses the CPU time it used after the last sample
+  that saw it. A script that runs many short commands loses most of
+  them; their CPU time is small.
+- A spike in memory shorter than the interval is missed, but the peak
+  is never below the peak that the system kept for one process
+  (`VmHWM`, `PeakWorkingSetSize`).
+- A process whose parent exits leaves the tree, and so does every
+  process once the script's own process exits, when sampling ends.
+
+Resident memory counts shared pages, such as libraries, once for each
+process, so the sum over a tree overstates them. A script that ends
+before its first sample, such as a short PowerShell script, reports
+`null`, as does a refused command, a command that is still running,
+and one recorded before the runner measured resources. `processes`
+alone is `null` for a run recorded before the runner measured the
+tree. Measuring never fails, delays or stops a script.
 
 ## State Machine
 
@@ -569,6 +592,10 @@ Scripts must let a stop end them:
 - On Windows, the runner ends `powershell.exe` at once, without a
   grace period, and the processes that the script started keep
   running.
+
+A stopped run reports the [resources](#resources) of its process tree
+up to the last sample before the script's own process exited. The
+processes that survive a stop are not measured.
 
 ### Restarts
 
@@ -937,7 +964,7 @@ The response tells how the command ended, with its result:
     "exitCode": 3,
     "stdout": "",
     "stderr": "no free bed",
-    "resources": { "cpuSeconds": 0.002, "peakRssBytes": 1572864 }
+    "resources": { "cpuSeconds": 0.002, "peakRssBytes": 1572864, "processes": 1 }
   }
 }
 ```
@@ -977,7 +1004,7 @@ code:
     "stderr": "<error log of command>"
   },
   "exitCode": 0,
-  "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+  "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464, "processes": 2 }
 }
 ```
 
@@ -1023,7 +1050,7 @@ script used:
     "receivedAt": "2026-10-26T14:55:51.000Z",
     "finishedAt": "2026-10-26T14:55:52.000Z",
     "by": null,
-    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
+    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464, "processes": 2 }
   },
   {
     "id": 2,
@@ -1033,7 +1060,7 @@ script used:
     "receivedAt": "2026-10-26T14:55:59.000Z",
     "finishedAt": null,
     "by": "alice",
-    "resources": { "cpuSeconds": null, "peakRssBytes": null }
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
   }
 ]
 ```
@@ -1471,8 +1498,8 @@ transition and event requests; and the escalations by trigger.
     "running": 1
   },
   "resources": {
-    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512 },
-    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464 }
+    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512, "processes": 2 },
+    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464, "processes": 2 }
   },
   "machine": {
     "entries": { "open": 3, "full": 1 },
@@ -1486,7 +1513,8 @@ transition and event requests; and the escalations by trigger.
 ```
 
 `resources` sums the CPU seconds of each command's runs and keeps the
-largest peak of one run; a command without a measured run is left out.
+largest peak and the largest tree of one run; a command without a
+measured run is left out.
 `machine` is `null` without a state machine. `completions` counts the
 scripts that finished in the entry they started in: a transition with
 `stop: true` enters its next state before the stopped script ends, so

@@ -7,7 +7,8 @@ import { NO_RESOURCES, ScriptResources } from 'src/resources/resources';
 const figures = (
   cpuSeconds: number | null,
   peakRssBytes: number | null,
-): ScriptResources => ({ cpuSeconds, peakRssBytes });
+  processes: number | null = cpuSeconds === null ? null : 1,
+): ScriptResources => ({ cpuSeconds, peakRssBytes, processes });
 
 describe('Queue resources', () => {
   let queue: Queue;
@@ -73,14 +74,14 @@ describe('Queue resources', () => {
     expect(queue.resourceTotals()).toStrictEqual({});
   });
 
-  it('Should sum the CPU and keep the largest peak by name', () => {
-    run('admit', figures(1.219, 115646464));
-    run('admit', figures(0.812, 117440512), undefined, 'failed');
+  it('Should sum the CPU and keep the largest peak and tree by name', () => {
+    run('admit', figures(1.219, 115646464, 3));
+    run('admit', figures(0.812, 117440512, 2), undefined, 'failed');
     run('admit', NO_RESOURCES);
     run('open', figures(0.812, null));
 
     expect(queue.resourceTotals()).toStrictEqual({
-      admit: figures(2.031, 117440512),
+      admit: figures(2.031, 117440512, 3),
       open: figures(0.812, null),
     });
   });

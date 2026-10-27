@@ -18,7 +18,9 @@ const COUNTS = {
   running: 1,
 };
 
-const TOTALS = { admit: { cpuSeconds: 2.031, peakRssBytes: 117440512 } };
+const TOTALS = {
+  admit: { cpuSeconds: 2.031, peakRssBytes: 117440512, processes: 3 },
+};
 
 const NO_ESCALATIONS = { request: 0, failure: 0, 'no-transition': 0 };
 

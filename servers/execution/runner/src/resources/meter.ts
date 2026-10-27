@@ -1,4 +1,4 @@
-import { readLinux } from './linux.js';
+import { readHostTree } from './linux-tree.js';
 import PollingWatch from './polling-watch.js';
 import { type Meter, NO_WATCH, type ResourceWatch } from './resources.js';
 import { windowsSampler } from './windows.js';
@@ -6,7 +6,7 @@ import { windowsSampler } from './windows.js';
 type Watch = (pid: number, start: number) => ResourceWatch;
 
 const WATCHES: Partial<Record<NodeJS.Platform, Watch>> = {
-  linux: (pid) => new PollingWatch(() => readLinux(pid)),
+  linux: (pid) => new PollingWatch(() => readHostTree(pid)),
   win32: windowsSampler,
 };
 

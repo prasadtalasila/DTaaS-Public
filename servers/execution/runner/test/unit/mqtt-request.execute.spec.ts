@@ -16,7 +16,7 @@ const LOGS = new Map([
 
 const ENV = { DT_ID: 'hospital-1' };
 
-const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
+const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464, processes: 2 };
 
 const validationError = {
   message: 'Validation Failed',
@@ -100,7 +100,7 @@ describe('MQTT execute requests', () => {
           exitCode,
           stdout: '',
           stderr: '',
-          resources: { cpuSeconds: null, peakRssBytes: null },
+          resources: { cpuSeconds: null, peakRssBytes: null, processes: null },
         },
       });
     },

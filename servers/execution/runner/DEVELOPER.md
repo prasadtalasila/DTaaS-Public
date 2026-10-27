@@ -46,9 +46,18 @@ of the [resources](README.md#resources) of a run. The POSIX version
 reads `/proc/uptime` with the `read` builtin, so it starts no process
 and runs on Linux only; the PowerShell version spins for three seconds,
 as the sampler of a run is a second PowerShell that needs time to
-start. `test/integration/execa-runner.resources.spec.ts` runs the
-Linux case on Linux and the Windows case on Windows, so CI runs the
-first; the parsers of both platforms are tested everywhere.
+start. The _spawn-busy_ script starts _busy_ as a child, or on Windows
+a second PowerShell that spins for three seconds, and waits for it, for
+the tests of the process tree. Neither script is in the test
+configuration, as the tests start them by path.
+
+The resource tests that run real scripts depend on the platform:
+`test/integration/execa-runner.resources.spec.ts` runs its Linux case
+on Linux and its Windows case on Windows, and
+`test/integration/resources.tree.spec.ts` runs on both and is skipped
+elsewhere, so CI runs the Linux cases. The parsers of both platforms,
+the Linux discovery against a fake `/proc` in a temporary directory,
+the tree totals and the samplers with fakes are tested everywhere.
 
 The directory also has a `state-machine.yaml` for the _create_ and
 _execute_ scripts, which `runner.test.yaml.sample` permits and names

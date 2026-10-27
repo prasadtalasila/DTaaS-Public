@@ -7,8 +7,8 @@ import type { CommandStateStatus } from './state.dto.js';
 export type CommandCounts = Record<CommandStateStatus, number>;
 
 // By command name, the CPU seconds of its runs since the runner started,
-// summed, and the largest peak memory of one run; a command without a
-// measured run is left out
+// summed, and the largest peak memory and process tree of one run; a
+// command without a measured run is left out
 export type ResourceTotals = Record<string, ScriptResources>;
 
 // What the state machine did since the runner started: the entries into

@@ -4,7 +4,8 @@ import type { CommandStateStatus } from './dto/state.dto.js';
 import type { CommandRecord } from './interfaces/command.interface.js';
 import type { ScriptResources } from './resources/resources.js';
 
-const RESOURCES = 'cpu_seconds AS cpuSeconds, peak_rss_bytes AS peakRssBytes';
+const RESOURCES =
+  'cpu_seconds AS cpuSeconds, peak_rss_bytes AS peakRssBytes, processes';
 
 // The table keeps SQLite's YYYY-MM-DD HH:MM:SS times, which the query
 // turns into ISO 8601 UTC; strftime of NULL is NULL
@@ -40,16 +41,19 @@ export const COMMAND_COUNTS = `SELECT ${STATUS} AS status,
 export const LAST_ID = 'SELECT COALESCE(MAX(id), 0) AS id FROM commands';
 
 // The rows above an id with a figure, by name: the sum of their CPU
-// seconds, to the millisecond, and the largest of their peaks
+// seconds, to the millisecond, the largest of their peaks and the
+// largest of their trees
 export const RESOURCE_TOTALS = `SELECT name,
   ROUND(SUM(cpu_seconds), 3) AS cpuSeconds,
-  MAX(peak_rss_bytes) AS peakRssBytes FROM commands
+  MAX(peak_rss_bytes) AS peakRssBytes, MAX(processes) AS processes
+  FROM commands
   WHERE id > ? AND (cpu_seconds IS NOT NULL OR peak_rss_bytes IS NOT NULL)
   GROUP BY name ORDER BY name`;
 
 const toResources = (row: Record<string, unknown>): ScriptResources => ({
   cpuSeconds: row.cpuSeconds as number | null,
   peakRssBytes: row.peakRssBytes as number | null,
+  processes: row.processes as number | null,
 });
 
 export function toRecord(

@@ -370,8 +370,9 @@ of the whole tree is not planned by 17b, which measures the tree only.
 
 ### Measurements
 
-17a and 17b read `/proc/<pid>/stat` and `/proc/<pid>/status`, which
-any account may read, so they are unaffected by the second account.
+17a and 17b read `/proc/<pid>/stat` and `/proc/<pid>/status`, and 17b
+also `/proc/<pid>/task/*/children` or the list of `/proc`, which any
+account may read, so they are unaffected by the second account.
 
 ### Supplementary Groups
 

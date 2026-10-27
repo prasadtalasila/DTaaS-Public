@@ -50,7 +50,7 @@ describe('Resources of a script run', () => {
   });
 
   it('Should give the meter the pid and the start of the run', async () => {
-    const figures = { cpuSeconds: 0.25, peakRssBytes: 4096 };
+    const figures = { cpuSeconds: 0.25, peakRssBytes: 4096, processes: 1 };
     const finish = jest.fn(() => figures);
     const meter = jest.fn<Meter>(() => ({ finish }));
     const runner = new ExecaRunner(process.execPath, ['--version'], { meter });
