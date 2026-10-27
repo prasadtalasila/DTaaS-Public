@@ -127,7 +127,7 @@ export default class Queue {
   history({ since, limit }: HistoryQuery): HistoryEntryDto[] {
     return this.db
       .prepare(HISTORY)
-      .all(since ?? null, limit)
+      .all({ since: since ?? null, limit })
       .map(toHistoryEntry);
   }
 

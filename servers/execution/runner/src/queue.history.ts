@@ -19,13 +19,15 @@ export const RECORD_BY_KEY = `${RECORD} WHERE id =
 const STATUS = `CASE WHEN finished_at IS NULL THEN 'running' ELSE status END`;
 
 // The newest rows received since the time given, to the second, oldest
-// first; datetime of NULL is NULL, so without a time every row counts
+// first; every row without a time, and none for a time that datetime
+// can not read, as a comparison with NULL is never true
 export const HISTORY = `SELECT * FROM (
   SELECT id, name, ${STATUS} AS status, exit_code AS exitCode,
     strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
     strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt, by
-  FROM commands WHERE received_at >= COALESCE(datetime(?), '')
-  ORDER BY id DESC LIMIT ?) ORDER BY id`;
+  FROM commands
+  WHERE :since IS NULL OR received_at >= datetime(:since)
+  ORDER BY id DESC LIMIT :limit) ORDER BY id`;
 
 // The rows above an id, by status
 export const COMMAND_COUNTS = `SELECT ${STATUS} AS status,

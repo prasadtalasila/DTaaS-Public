@@ -85,6 +85,11 @@ describe('Queue history', () => {
     expect(queue.history({ limit: 100 })).toStrictEqual(RECORDS);
   });
 
+  // the schema refuses such a time; the query must not fail open
+  it('returns no record for a time that SQLite can not read', () => {
+    expect(queue.history({ since: 'yesterday', limit: 100 })).toEqual([]);
+  });
+
   it.each([
     '2026-10-26T14:56:00Z',
     '2026-10-26T14:56:00.900Z',
