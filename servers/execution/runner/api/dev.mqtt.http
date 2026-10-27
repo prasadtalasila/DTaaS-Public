@@ -229,6 +229,33 @@ QoS: 1
 
 ###
 
+# @name peerFull
+# Publishes, as the peer hospital-2 of config/runner.test.yaml would, a
+# retained state document in state full. The runner raises
+# neighbour-full, which takes execute to create, whose success leads
+# back to execute: GET /fsm of dev.api.http shows the entry count grown
+# by two. In state create the event has no transition, which GET
+# /metrics counts. It is raised again only after peerOpen, and not
+# while set-peers below has disabled the peer.
+MQTT {{broker}}
+Publish: dtaas/user1/hospital-2/notify/state
+QoS: 1
+Retain: true
+
+{"kind": "state", "id": "hospital-2", "time": null, "data": {"id": "hospital-2", "machine": {"state": "full"}}}
+
+###
+
+# @name peerOpen
+MQTT {{broker}}
+Publish: dtaas/user1/hospital-2/notify/state
+QoS: 1
+Retain: true
+
+{"kind": "state", "id": "hospital-2", "time": null, "data": {"id": "hospital-2", "machine": {"state": "open"}}}
+
+###
+
 # @name peers
 MQTT {{broker}}
 Subscribe: {{topic}}/peers/response

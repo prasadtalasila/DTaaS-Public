@@ -197,7 +197,7 @@ describe('State machine file', () => {
   it('Should read the state machine of the test scripts', () => {
     const definition = loadDefinition('test/data/scripts/state-machine.yaml', {
       commands: ['create', 'execute'],
-      peers: [],
+      peers: ['hospital-2'],
     });
 
     expect([...(definition?.states.keys() ?? [])]).toEqual([

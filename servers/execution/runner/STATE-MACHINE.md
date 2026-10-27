@@ -18,7 +18,8 @@ _terminate_. The state machine runs them in order for you:
   its script.
 - A **transition request** starts the machine in a state you name.
 - **Events**, sent by you, by a Manager or by the DT's own scripts,
-  move the machine from one state to the next.
+  or raised by the runner when a peer DT changes, move the machine
+  from one state to the next.
 - When a script exits, the runner raises a **completion event**,
   `$success`, `$failure` or `$stopped`, which can move the machine on
   by itself.
@@ -52,6 +53,8 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
   hold both.
 - `mqtt` and `notify` sections add an MQTT API and a webhook; see
   [MQTT](#mqtt) and [Watch the State](#watch-the-state).
+- A `peers` section lists the DTs this one follows; see
+  [Subscriptions to Peers](#subscriptions-to-peers).
 
 ## Write the State Machine File
 
@@ -231,6 +234,53 @@ access control ([README](README.md#access-control)), a principal in the
 role `manager` may run only these commands; without it, the list is not
 enforced.
 
+### Subscriptions to Peers
+
+A DT can react to its peers, the DTs that the operator lists under
+`peers` in _runner.yaml_ ([README](README.md#peers)). Each subscription
+names a peer, a condition on what the peer last reported, and the
+event that the runner raises when the condition turns true:
+
+```yaml
+events:
+  - neighbour-full
+  - neighbour-down
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+  - peer: hospital-2
+    when:
+      online: false
+    event: neighbour-down
+states:
+  open:
+    transitions:
+      neighbour-full:
+        state: open
+        stop: true
+```
+
+- `peer` is the `id` of a peer of _runner.yaml_, enabled or not.
+- `when` holds exactly one condition. `state: <name>` holds when the
+  peer's last state document has that `machine.state`; it is the
+  peer's state, so it need not be one of yours. `online: true` or
+  `online: false` holds when the peer's last presence notice says so,
+  including the `online: false` that the broker sends for a runner
+  that dies.
+- `event` is one of your `events`; a completion event can not be
+  named.
+- The same `peer` and `when` may raise two events; both are raised, in
+  file order.
+
+The runner raises the event only when the condition turns from not
+holding, or unknown, to holding: once per change, not on every
+document. A peer that keeps reporting `full` raises
+`neighbour-full` once; it raises it again only after it reported
+another state in between. See [React to Peers](#react-to-peers) for
+what the event does.
+
 ### When the Runner Refuses the File
 
 The runner does not start, and its message names the file and every
@@ -245,7 +295,12 @@ problem, when:
   key other than `state` and `stop`;
 - `$success` and `$failure` transitions alone form a loop;
 - a name breaks the naming rule, a parameter, `env` or `escalation`
-  entry is invalid, or a manager command is not permitted.
+  entry is invalid, or a manager command is not permitted;
+- a subscription has a key other than `peer`, `when` and `event`, or
+  misses one; its `when` has no condition, both or another key; its
+  `peer` is not listed in _runner.yaml_; its `event` is not in
+  `events`; or two subscriptions have the same `peer`, `when` and
+  `event`.
 
 ## Run the Machine
 
@@ -363,6 +418,32 @@ code=$(node -e "fetch(process.env.RUNNER_URL + '/fsm/event', {
   body: JSON.stringify({ event: 'done' }),
 }).then((reply) => console.log(reply.status), () => console.log(0))")
 ```
+
+### React to Peers
+
+An event of a [subscription](#subscriptions-to-peers) takes the path of
+an event that a client sends, without a request key and without a
+reply:
+
+- The current state's transition for the event is taken, a
+  `stop: true` self-transition too, which restarts the state's script.
+  `runner.log` logs the peer, the condition and the event of each
+  accepted one.
+- Without a transition, the event is logged at debug level and, with
+  `escalation.onNoTransition`, escalates once per entry into a state.
+- Before the first transition the event finds no transition and does
+  not escalate. The runner still counts the change as seen, so a state
+  that needs to know a peer's current state at entry reads
+  `GET $RUNNER_URL/peers`.
+- While the runner shuts down the event is refused `stopping`, with a
+  warning in the log.
+
+The runner reads the peer's notices only while the peer is enabled
+(`PUT /peers`), and forgets what it saw of a peer that is disabled, so
+the first notice after an enable counts as a change. A notice that the
+runner drops, such as an unsigned one from a peer with a `publicKey`,
+raises nothing. A peer that sends nothing raises nothing: a
+subscription reacts to notices and has no timeout.
 
 ### Read and Set Parameters
 

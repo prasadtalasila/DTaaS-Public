@@ -65,6 +65,15 @@ back to _create_, and the `stop` event is refused as an undeclared
 event. The parameters requests set `scope` to `multi`, which raises
 `scope-changed`: in _execute_, that restarts the _execute_ script.
 
+The peers requests show and switch the peer `hospital-2`, which
+`config/runner.test.yaml` lists; the state machine subscribes to its
+state `full` with the event `neighbour-full`. With the `mqtt` section,
+the `peerFull` request of `dev.mqtt.http` publishes, as that peer
+would, a retained state document in state `full`, which takes
+_execute_ to _create_; `peerOpen` publishes `open`, after which a
+`full` raises the event again. `set-peers` disables the peer, and
+`PUT /peers` with `true` enables it.
+
 The command requests with input run _echo-input_, which writes its
 input back, so the reply carries it in `result.stdout`; _fail_ shows a
 `failed` reply with exit code 3. Both scripts are in

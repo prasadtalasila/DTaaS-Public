@@ -205,6 +205,11 @@ content-type: {{ContentType}}
     "scope": "multi"
 }
 
+### The machine after peerFull of dev.mqtt.http: create ran again
+
+GET http://{{hostname}}:{{port}}/fsm HTTP/1.1
+content-type: {{ContentType}}
+
 ### Peers of runner.yaml, {} without a peers section
 
 GET http://{{hostname}}:{{port}}/peers HTTP/1.1

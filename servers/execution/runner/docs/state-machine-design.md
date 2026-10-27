@@ -51,7 +51,9 @@ state machine.
 1. `MqttService.start()`, then `app.listen`, which runs the
    `onModuleInit` and `onApplicationBootstrap` hooks: the `Notifier`
    subscribes to changes and sends the startup state document, which is
-   thus the restored one.
+   thus the restored one. `PeerEventsService` declares the subscriptions
+   of the loaded file; the first notice of a peer needs I/O, so it
+   arrives after the hooks.
 1. `FsmService.setRunnerApi` gives the scripts `RUNNER_URL` and, with
    access control, `RUNNER_TOKEN`.
 
@@ -72,6 +74,8 @@ state machine.
 | `fsm/script-outcome.ts`      | runs a state's script; `failed` if it can not start                  |
 | `fsm/metrics.ts`             | `Metrics`: counts entries, time, completions, requests, escalations  |
 | `fsm/stop-chain.ts`          | runs scripts after the stops of stop transitions, in order           |
+| `fsm/subscriptions.ts`       | subscriptions schema and checks; `PeerEvents` keeps the conditions   |
+| `fsm/peer-events.service.ts` | `PeerEventsService`: raises the events of peers' notices             |
 | `fsm/recovery.ts`            | pure: the machine to resume from the stored row                      |
 | `fsm/machine-store.ts`       | stores the machine, and restores it at startup                       |
 | `fsm/fsm.service.ts`         | `FsmService`: runs scripts, raises completion events, replies        |
@@ -97,6 +101,9 @@ state machine.
 constructor reaches Qlty's limit of four parameters and no dependency
 cycle forms; `DescriptorService` forwards the signals of `FsmService`
 and `Queue` to the `Notifier`, and owns `Metrics` for the same reason.
+`PeerEventsService` is the one injectable that receives both
+`FsmService` and `DescriptorService`; it owns `PeerEvents` and
+registers with `Peers` in its constructor, as `PeerWatch` does.
 
 ## Data Flow
 
@@ -184,17 +191,19 @@ states:
   stops the script of the state left before the next one runs (D20).
 - `parameters` declares the parameters of the DT (D21, D22), `env` the
   variables of the scripts (D23), `escalation` the triggers the runner
-  escalates by itself (D25), and `manager.commands` the commands a
-  Manager may submit (D24).
+  escalates by itself (D25), `manager.commands` the commands a
+  Manager may submit (D24), and `subscriptions` the events that the
+  notices of listed peers raise (D34).
 
 ### Validation
 
 `loadDefinition` refuses the file, and the runner does not start, when:
 
 - it holds a key other than `events`, `states`, `parameters`, `env`,
-  `escalation` and `manager`, a state a key other than `transitions`
-  and `env`, `escalation` a key other than the booleans `onFailure` and
-  `onNoTransition`, or `manager` a key other than `commands`;
+  `escalation`, `manager` and `subscriptions`, a state a key other than
+  `transitions` and `env`, `escalation` a key other than the booleans
+  `onFailure` and `onNoTransition`, or `manager` a key other than
+  `commands`;
 - a command of `manager.commands` is not permitted by `runner.yaml`;
 - a state or event name does not match `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
@@ -219,7 +228,15 @@ states:
   or a `${NAME}` in a value names neither a runner variable
   (`RUNNER_URL`, `RUNNER_TOKEN`, `DT_ID`, `DT_STATE`, `DT_ENTRY`) nor
   the variable of a
-  declared parameter.
+  declared parameter;
+- a subscription has a key other than `peer`, `when` and `event`, or
+  misses one; its `when` is not exactly one of `{ state: <name> }` and
+  `{ online: <boolean> }`; its `peer` is not the `id` of a peer of
+  `runner.yaml`, enabled or not; its `event` is not in `events`; or two
+  subscriptions have the same `peer`, `when` and `event`. Strict
+  objects refuse a `__proto__` key, so `hasProtoKey` needs no entry for
+  them. `known(config)` passes the permitted commands and the peer ids
+  to `loadDefinition`.
 
 `events` may be left out, and a state without transitions may be left
 empty. Without `stateMachine` the machine is off, and its routes answer
@@ -436,8 +453,9 @@ proposal to derive the events from the transitions was declined (D4).
 | D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                                                                                                                                                                                                                                                                                                         |
 | D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                                                                                                                                                                                                                                                                                                 |
 | D30 | Full history records, and metrics as counters in memory                                        | Added by issue 11 (S14). A Manager measures a DT network from the outcomes of commands with their times, so `GET /history` returns the stored records with `since` and `limit`; `since` is compared to the second, as times are stored. `GET /metrics` counts from the signals that `FsmService` already has (`onChange`, `onAnswer`, `onEscalation`) and from a query of the commands above the highest id of the start, so nothing new is stored and a restart resets the counters. Metrics stay out of the state document, so a counter sends no notification. `escalations` is top level, as `POST /escalate` needs no machine (D25). |
-| D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones.                                                                                                                                                                                                                                                                                                |
+| D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event of its own. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones. Amended by issue 16: a subscription turns a notice into an event (D34).                                                                                                                                                                                                             |
 | D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                            |
+| D34 | Peer subscriptions raise events of the file when a condition on a peer turns true              | Added by issue 16 (S13). P2's peer-to-peer coordination needs a mechanism, and events are what moves a DT. A subscription names a listed peer, one condition on its `state` or `online`, and an event; the runner raises the event when the condition turns true, so a peer that keeps reporting `full` raises one event, which bounds the rate. The event takes a client's path without a request key, escalating as one (D25). A change seen before the first transition is not replayed; a state reads `GET /peers` at entry. Disabling a peer forgets its conditions.                                                                 |
 
 ## Assumptions
 
@@ -462,7 +480,9 @@ proposal to derive the events from the transitions was declined (D4).
   Amended by issue 06: the runner also sends an escalation by itself
   on the triggers that the DT author declares (D25); an escalation
   raises no event either. Amended by issue 13: a peer's notice raises
-  no event either (D31).
+  no event either (D31). Amended by issue 16: the runner also raises an
+  event by itself when the condition of a subscription to a listed peer
+  turns true; the event takes the path of a client's event (D34).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.
@@ -508,19 +528,23 @@ tests of the state machine:
 - Unit, with a fake `ExecaManager` and `Queue` from
   `test/unit/fsm.fixture.ts`: the definition rules
   (`fsm.definition.spec.ts`, `fsm.declared-env.spec.ts`,
-  `fsm.manager.spec.ts`), the pure units (`fsm.state-machine`,
+  `fsm.manager.spec.ts`, `fsm.subscriptions.spec.ts`), the pure units
+  (`fsm.state-machine`, `fsm.peer-events`,
   `fsm.recovery`, `fsm.recent-replies`, `fsm.parameters*`,
   `fsm.escalation`, `fsm.machine-store`, `fsm.metrics`), and the service
   (`fsm.service*.spec.ts`: each status, completion events, stale
   completions, stop transitions, shutdown, request keys, parameters,
-  escalation, script environment, restore).
+  escalation, script environment, restore, peer events), with
+  `peer-events.service.spec.ts` for the wiring to `Peers`.
 - Integration, with a real SQLite: `queue.machine.spec.ts`,
   `queue.migration.spec.ts`, `queue.history.spec.ts`, and the manager's
   shutdown and restart behaviour in `execa-manager.restart.spec.ts`.
 - End to end, with the Nest module and real scripts in a temporary
   folder (`test/e2e/fsm.util.ts`): `fsm.spec.ts`, `fsm.stop.spec.ts`,
   `parameters.spec.ts`, `escalation.spec.ts`, `script-context.spec.ts`,
-  `state.spec.ts`, `history.spec.ts`, `metrics.spec.ts`, and
+  `state.spec.ts`, `history.spec.ts`, `metrics.spec.ts`,
+  `peer-events.spec.ts`, which follows a peer on a local aedes broker,
+  and
   `restart.spec.ts`, which restarts a runner on
   its database file with `startStoredRunner`.
 - `mqtt.broker.spec.ts` runs only in CI, against Mosquitto with MQTT 5;

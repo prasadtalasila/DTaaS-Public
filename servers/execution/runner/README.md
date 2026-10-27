@@ -323,9 +323,10 @@ are retained, so they arrive as soon as the runner subscribes. A
 notification counts only if it is an envelope of its topic's kind and
 of the peer's `id`; for a peer with a `publicKey`, only if it is a JWS
 of the envelope that the key signed, with the peer's `id` as `kid`.
-The runner logs and drops any other. A peer's notification raises no
-event and sends nothing. Without MQTT, the peers are listed but never
-followed.
+The runner logs and drops any other. A peer's notification sends
+nothing; it raises an event only through a
+[subscription](#peer-events) of the state machine file. Without MQTT,
+the peers are listed but never followed.
 
 [GET /peers](#peers-requests) shows the peers and what they told, and
 [PUT /peers](#peers-requests) enables and disables them. A Manager can
@@ -726,6 +727,51 @@ escalation:
 The runner sends each escalation as a
 [notification](#notifications) of kind `escalation`. An escalation
 raises no event and does not change the state.
+
+### Peer Events
+
+A digital twin can react to its [peers](#peers) without a script that
+polls them. The state machine file subscribes to a condition on a peer,
+and the runner raises an event of the file when that condition turns
+true:
+
+```yaml
+subscriptions:
+  - peer: hospital-2 # the id of a peer of runner.yaml
+    when:
+      state: full # the peer's last state document is in state full
+    event: neighbour-full # one of the events of the file
+  - peer: hospital-2
+    when:
+      online: false # the peer's last presence notice is offline
+    event: neighbour-down
+```
+
+- The section is optional. `when` holds exactly one of `state: <name>`,
+  a state of the peer's machine, and `online: true` or `online: false`.
+- The runner does not start when an entry has an unknown or a missing
+  key, `when` has no condition or both, `peer` is not listed under
+  `peers` (enabled or not), `event` is not under `events`, or two
+  entries have the same `peer`, `when` and `event`. The same `peer`
+  and `when` may raise two events, in file order.
+- The runner keeps, for each subscription, whether its condition held
+  in the last notice of the peer, and raises the event only when it
+  turns from not holding, or unknown, to holding. The first notice
+  after the start, such as a retained `full`, counts as a change. A
+  state condition reads state documents only, and an `online` one
+  presence notices only; a duplicate notice raises nothing. A machine
+  that is `null` holds no state.
+- The event takes the path of a client's `POST /fsm/event` without a
+  request key, and nothing replies. Its transition is taken, a
+  `stop: true` self-transition too; without one, it escalates with
+  `onNoTransition` as a client's event does. Before the first
+  transition it finds no transition, and during shutdown it is
+  refused `stopping`; neither is raised again for that change. Each
+  accepted event is logged with the peer and the condition.
+- A disabled peer's notices do not arrive, and the runner forgets what
+  it saw of a peer when it is disabled, so its first notice after an
+  enable counts as a change. Notices that the runner drops, such as an
+  unsigned one from a peer with a `publicKey`, raise nothing.
 
 ### Manager Commands
 
