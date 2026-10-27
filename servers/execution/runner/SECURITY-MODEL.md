@@ -1,14 +1,14 @@
 # Security Model
 
 This guide is for operators who deploy the runner and for the
-developers who will implement the separation of the runner from its
-scripts. It states what the runner protects, from whom, and what it
-leaves to the system that starts it. It records a design that the owner
-settled on 2026-10-27; apart from access control (issue 15a) and
-signed output (issue 15b), none of it is implemented yet. The issue
-that implements it is issue 18
-([docs/issues/18-script-user.md](docs/issues/18-script-user.md)); its
-configuration keys are provisional.
+developers who work on the separation of the runner from its scripts.
+It states what the runner protects, from whom, and what it leaves to
+the system that starts it. It records a design that the owner settled
+on 2026-10-27. Access control (issue 15a), signed output (issue 15b)
+and the second account of the scripts, C1 below (issue 18,
+[docs/issues/18-script-user.md](docs/issues/18-script-user.md)), are
+implemented; B3 is the orchestrator's. How to set up the second account
+is in [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md).
 
 The research behind the design is in
 [docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md)
@@ -197,8 +197,8 @@ accounts, and the runner starts each script through util-linux
 
 ### Opt-In
 
-A setting of `runner.yaml`, provisionally `scripts.user`, names the
-account that the scripts run as. It is off by default. The runner never
+The setting `scripts.user` of `runner.yaml` names the account that the
+scripts run as. It is off by default. The runner never
 enforces isolation by itself: without the setting, scripts run as the
 runner's account, as today. A deployment may add its own isolation
 without any runner setting.
@@ -271,11 +271,14 @@ useradd --system --no-create-home --shell /usr/sbin/nologin dt-scripts
 ```
 
 At startup with the setting on, the runner checks that it can switch:
-that it is not uid 0 and that it holds the three capabilities. A runner
+that it is not uid 0, that `/usr/bin/setpriv` exists, and that it holds
+the three capabilities in its effective and its ambient set. A runner
 that runs as uid 0 with the setting on refuses to start, as does one
-that lacks a capability, with an error that says which. On Windows the
-setting is a startup error; without it, the runner runs on Windows
-unchanged.
+that lacks a capability, with an error that says which. Only the
+ambient set passes through `execve` to `setpriv`, so a runner that got
+the capabilities from file capabilities on `node` is refused too. On
+Windows, and any platform other than Linux, the setting is a startup
+error; without it, the runner runs on Windows unchanged.
 
 #### Capabilities must not reach the script
 
@@ -313,22 +316,34 @@ script launch leaves it out. `--reset-env` clears every variable but
 builds the whole environment of the script itself (see
 [Environment](#environment)), and `setpriv` passes it on unchanged. The
 experiment verified the capabilities and the groups, not the
-environment, so issue 18's end-to-end test must also show that the
-script sees `RUNNER_URL`, `RUNNER_TOKEN`, and the `HOME` of the script
-account.
+environment, so issue 18's end-to-end test,
+`test/e2e/script-user.spec.ts`, also shows that the script sees
+`RUNNER_URL`, `RUNNER_TOKEN`, and the `HOME` of the script account.
 
 ### Layout Verified, Never Imposed
 
 At startup with the setting on, the runner checks the files against
-the script account and names each path that fails:
+the script account and names each path that fails, in one error:
 
-| Path                                 | Must be                                          |
-| :----------------------------------- | :----------------------------------------------- |
-| `runner.yaml`                        | not readable by the script account               |
-| the key of `auth.key`                | not readable by the script account               |
-| the database file, and its directory | not readable by the script account, nor writable |
-| the scripts directory and its files  | not writable by the script account               |
-| the run directory                    | writable by the script account                   |
+| Path                                  | Must be, for the script account                                 |
+| :------------------------------------ | :-------------------------------------------------------------- |
+| `runner.yaml`                         | not readable, not writable, no writable ancestor                |
+| the key of `auth.key`                 | not readable, not writable, no writable ancestor                |
+| the state machine file                | not readable, not writable, no writable ancestor                |
+| the database's directory              | no permission at all (no `r`, `w` or `x`), no writable ancestor |
+| the database file, when it exists     | not readable, not writable                                      |
+| the scripts directory and every entry | not writable, no writable ancestor                              |
+| the run directory                     | writable (`w` and `x`), every ancestor searchable               |
+
+A path counts as readable or writable only if the account can search
+every directory above it; a symbolic link is judged by its target. An
+ancestor that the account can write lets it rename the path away and
+put its own in its place, unless the ancestor has the sticky bit and
+the account owns neither it nor the entry, as in `/tmp`. The database
+directory must grant nothing, as SQLite creates its journal there with
+the runner's umask after the check. The check does not see ACLs,
+AppArmor, or accounts from NSS sources other than `/etc/passwd` and
+`/etc/group` (`src/scripts/layout.ts`).
 
 The runner's own environment needs no check of files: on Linux
 `/proc/<pid>/environ` of the runner is readable only by its own account
@@ -338,11 +353,13 @@ layout is the orchestrator's (see [Orchestrator Requirements](#orchestrator-requ
 
 ### Working Directory
 
-A setting, provisionally `scripts.runDirectory`, names the run
-directory; it defaults to the scripts location. It becomes the working
-directory of every script and the one place the script account may
-write. Its files are shared between runs by design. Today a script runs
-in the runner's own working directory.
+The setting `scripts.runDirectory` names the run directory, relative to
+`runner.yaml` or absolute. It is required: the scripts location, the
+default first settled, can never pass the layout check, which wants the
+scripts not writable and the run directory writable. It becomes the
+working directory of every script and the one place the script account
+may write. Its files are shared between runs by design. Without the
+setting, a script runs in the runner's own working directory.
 
 ### Environment
 
@@ -357,10 +374,20 @@ of the runner's environment:
 - `TMPDIR` and `LANG` with the runner's values;
 - then the runner variables, the file's `env` and the state's `env`.
 
-`scriptEnvironment` in `src/fsm/script-context.ts` already builds the
-whole map and `src/execa-runner.ts` passes it with `extendEnv` off, so
-only the inherited base changes. With the setting off, nothing
-changes.
+`scriptEnvironment` in `src/fsm/script-context.ts` builds the whole map
+and `src/execa-runner.ts` passes it with `extendEnv` off, so only the
+inherited base changes (`scriptBase` in `src/scripts/launch.ts`). With
+the setting off, nothing changes.
+
+`setpriv` holds the three capabilities from its start until it
+switches, without the secure-execution mode that would make the dynamic
+loader ignore `LD_PRELOAD` and its kin, as the capabilities come from
+the ambient set only. So with the setting on, a state machine file
+whose `env`, or a state's `env`, declares a name that the loader or the
+C library reads a file from (`LD_*`, `MALLOC_*`, the rest of glibc's
+`unsecvars.h`, `LANG`, `LANGUAGE` and `LC_*`) is refused at startup.
+That the loader would honour them was reasoned from the kernel and
+glibc, not tried (_unverified_).
 
 ### Stop
 
@@ -401,7 +428,8 @@ the same limits as in the table under
   capability, has `NoNewPrivs: 1`, sees `RUNNER_URL`, `RUNNER_TOKEN`
   and the script account's `HOME`, and can not read the key.
 - The test is skipped on Windows through `process.platform`, and on a
-  Linux host where the runner can not get the capabilities.
+  Linux host without `CI=true` and a passwordless `sudo -n`, where the
+  runner can not get the capabilities: in WSL, for one.
 
 ## Implementation Technologies
 
@@ -418,7 +446,8 @@ the same limits as in the table under
 A check that a path is not readable by the script account must also
 consider its parent directories: without search permission on a
 directory, the account can not reach the files under it whatever their
-mode. Issue 18 decides how far up the check goes.
+mode. Issue 18 checks every directory up to `/`, as
+[Layout Verified, Never Imposed](#layout-verified-never-imposed) says.
 
 ## Orchestrator Requirements
 
@@ -447,6 +476,9 @@ issue to copy:
       the runner, port forwarding for the runner's port, and a graceful
       shutdown that delivers `SIGTERM` to the runner.
 - [ ] For Docker: the lines below.
+
+[PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md) carries out this list on
+Ubuntu, with the commands and the modes.
 
 ```yaml
 services:
@@ -488,9 +520,9 @@ issue is to settle.
 What DTaaS has today: `compose.runner.yml` and `compose.runner.dev.yml`
 in `servers/execution/runner`, and the image of
 `developer/check/runner.dockerfile`, run the runner as `node`, uid 1000,
-with Docker's default capabilities and no entrypoint of their own. They
-will need the lines above, and the two accounts in the image, when
-issue 18 lands.
+with Docker's default capabilities and no entrypoint of their own. To
+use `scripts.user` they need the lines above and the two accounts in
+the image, which the deploy issue is to add.
 
 ## Decided Since the Design
 
@@ -503,18 +535,23 @@ written:
   version.
 - The hospital demo gets a Linux shell variant, recorded in WSL with
   the setting on, from a copy of the demo inside the WSL filesystem.
+  Postponed from issue 18 to the recording of issue 16, which records
+  both platforms with the setting on.
 - The deploy issue is one issue with three deliverables: the compose
   files and image of today, a systemd unit for a bare host, and the
   microVM (B3) contract that a future Execution Manager must provide.
-- An operator help document, `docs/privilege-setup.md`, is a task of
-  issue 18.
+- An operator help document is a task of issue 18; it is
+  [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md), beside the other guides.
+- The configuration keys are `scripts.user`, `scripts.group` and
+  `scripts.runDirectory`, the last required.
 - The spawn clears the capabilities through the `setpriv` launch of
   [Capabilities must not reach the script](#capabilities-must-not-reach-the-script).
 
 ## Not Decided Yet
 
-- The final names of the configuration keys, `scripts.user` and
-  `scripts.runDirectory` above, which issue 18 fixes.
+- The `HOME` of a runner that a Docker entrypoint starts without
+  `--reset-env`, which the deploy issue is to settle; PRIVILEGE-SETUP.md
+  keeps `--reset-env`, as the runner reads none of compose's variables.
 
 Further reading:
 [docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md),

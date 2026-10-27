@@ -155,7 +155,7 @@ function crossCheck(definition: Definition, known: Known): string[] {
   return [
     ...problems,
     ...parameterProblems(definition),
-    ...envProblems(definition),
+    ...envProblems(definition, known.separated),
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
   ];

@@ -15,7 +15,11 @@ import {
   HistoryQuery,
   historyQuerySchema,
 } from './dto/history.dto.js';
-import { DatabaseMode } from './dto/health.dto.js';
+import {
+  DatabaseMode,
+  ScriptsHealth,
+  scriptsHealth,
+} from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
 import Runner, { RunOptions } from './interfaces/runner.interface.js';
@@ -118,10 +122,10 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     if (!this.config.permitCommands().includes(name)) {
       return undefined;
     }
-    return RunnerFactory.create(
-      join(this.config.getLocation(), name),
-      this.config.getStopGrace(),
-    );
+    return RunnerFactory.create(join(this.config.getLocation(), name), {
+      stopGrace: this.config.getStopGrace(),
+      user: this.config.getScriptUser(),
+    });
   }
 
   // The run leaves the running ones once its result is stored
@@ -229,5 +233,9 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
 
   databaseMode(): DatabaseMode {
     return this.commandQueue.mode();
+  }
+
+  scriptsHealth(): ScriptsHealth {
+    return scriptsHealth(this.config.getScriptUser());
   }
 }

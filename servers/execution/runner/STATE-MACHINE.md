@@ -168,7 +168,11 @@ Manager trade accuracy for computing power.
 ### Environment
 
 Each script inherits the runner's environment and gets these
-variables:
+variables. When the operator runs the scripts as a second account
+([Script User](README.md#script-user)), a script inherits only
+`TMPDIR` and `LANG`, gets `HOME`, `USER` and `LOGNAME` of that account
+and a fixed `PATH`, and runs in the run directory, the one place where
+it may write.
 
 | Variable          | Value                                                                   |
 | :---------------- | :---------------------------------------------------------------------- |
@@ -200,6 +204,10 @@ states:
   means the same on every host.
 - The `env` of a state wins over the `env` of the file, which wins over
   the runner's variables and environment.
+- With a script account, a name that the dynamic loader or the C
+  library reads a file from, such as `LD_PRELOAD`, `LANG` or `LC_ALL`,
+  stops the runner at startup; the README lists them under
+  [Declared Environment](README.md#declared-environment).
 
 The scripts of the state machine get no input on stdin; stdin is empty
 and closed.

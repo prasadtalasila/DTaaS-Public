@@ -7,8 +7,9 @@ export type PermitCommand = {
   executable: string;
 };
 
-// The configuration once loaded, with location, database and
-// stateMachine resolved against the directory of the config file
+// The configuration once loaded, with location, database,
+// stateMachine, auth.key and scripts.runDirectory resolved against the
+// directory of the config file
 export type ConfigValues = z.infer<typeof configSchema>;
 
 // milliseconds from SIGTERM to SIGKILL when a script is stopped,

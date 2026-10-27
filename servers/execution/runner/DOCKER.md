@@ -160,6 +160,9 @@ the MQTT topics in detail.
 
 The container is the boundary between the runner and the host, but the
 scripts in it run as the runner's own account and can read
-`runner.yaml` and the key. [SECURITY-MODEL.md](./SECURITY-MODEL.md)
-describes the threat model, the planned separation of the runner from
-its scripts, and the compose lines it will need.
+`runner.yaml` and the key. A `scripts` section in `config/runner.yaml`
+runs them as a second account instead; the image then needs that
+account, and the container needs the start that
+[PRIVILEGE-SETUP.md](./PRIVILEGE-SETUP.md) describes for Docker.
+[SECURITY-MODEL.md](./SECURITY-MODEL.md) describes the threat model
+behind it.

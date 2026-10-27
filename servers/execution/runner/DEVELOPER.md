@@ -166,6 +166,45 @@ the `publicKey` of `GET /dt`;
 `test/e2e/mqtt.peers.signed.spec.ts` has one runner follow another
 that signs, as a peer of 13 does.
 
+### Script User Tests
+
+The checks of the [script user](README.md#script-user) run everywhere
+on fakes: `test/unit/scripts.*.spec.ts` pass the texts of
+`/etc/passwd`, `/etc/group` and `/proc/self/status`, and a fake file
+system of `test/unit/scripts.fake-fs.ts` with modes, owners and links.
+`test/integration/config.scripts.spec.ts` loads a `runner.yaml` with a
+`scripts` section after replacing the members of `HOST` in
+`src/scripts/separation.ts` with `jest.spyOn` and
+`jest.replaceProperty`, and `test/integration/scripts.host.spec.ts`
+tries the real `HOST` and file system on a temporary directory. The
+unit fakes of `Config` give `getScriptUser()`, `undefined` unless a
+test passes a user.
+
+`test/e2e/script-user.spec.ts` runs the build as a second account for
+real. It needs root for `setpriv`, so it runs only on Linux with
+`CI=true`, a `sudo -n true` that succeeds and a built `dist/`, as in
+the `test-runner` job of `.github/workflows/runner.yml`; it is skipped
+on Windows and on any other Linux host, WSL included. It creates the
+account `dt-script-test` unless it exists, lays out a runner in the
+temporary directory of `os.tmpdir()`, `/tmp/runner-18-*` in CI, which
+the script account must be able to search, and starts
+`dist/src/main.js` with `sudo -n` and the `setpriv` line of
+[PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md), as the test's own account
+with the three capabilities.
+
+To run it in WSL or on another Linux host, work in a copy on the Linux
+file system, as `/mnt/c` has no real modes, and let `sudo` cache your
+password first, so that `sudo -n` succeeds for a few minutes:
+
+```bash
+yarn install && yarn build
+sudo -v
+CI=true NODE_OPTIONS=--experimental-vm-modules npx jest --coverage=false test/e2e/script-user
+```
+
+The test leaves the account `dt-script-test` behind; remove it with
+`sudo userdel dt-script-test`.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files

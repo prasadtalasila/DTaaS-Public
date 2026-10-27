@@ -29,6 +29,8 @@ Other documents of the runner:
 - [DOCKER.md](DOCKER.md): running the runner in a container.
 - [SECURITY-MODEL.md](SECURITY-MODEL.md): what the runner protects from
   its scripts, and what it expects of the system that starts it.
+- [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md): running the scripts as a
+  second account on Linux.
 - [DEVELOPER.md](DEVELOPER.md) and the
   [design document](docs/state-machine-design.md): for developers.
 - [docs/sandbox-runtime-research.md](docs/sandbox-runtime-research.md)
@@ -354,6 +356,51 @@ peers, their subscriptions, the signed output and the `resources` of
 the commands were added at version 0.10.0 without a version bump, as
 they change no route.
 
+### Script User
+
+On Linux, the runner can run its scripts as a second account, so that a
+script reaches neither _runner.yaml_, the signing key, the database nor
+the runner's own environment. An optional `scripts` section turns it
+on:
+
+```yaml
+scripts:
+  user: 'dt-script' # the account of the scripts: a name or a uid
+  group: 'dt-script' # optional; instead of the account's primary group
+  runDirectory: '/var/lib/dt/hospital-1/run' # where the scripts run
+```
+
+- `user` is a name or a uid of `/etc/passwd`, and `group` a name of
+  `/etc/group` or a gid. A uid needs its entry in `/etc/passwd`.
+- `runDirectory` is relative to _runner.yaml_, or absolute. It is the
+  working directory of every script and the one place where a script
+  may write; its files are shared between runs.
+- Each script starts through `/usr/bin/setpriv` as the account, with
+  its groups, without any capability and with no-new-privs. `setpriv`
+  becomes the script in the same process, so
+  [stopping](#stopping-scripts) and [resources](#resources) work as
+  before.
+- A script's environment starts from an allow-list instead of the
+  runner's environment (see [Script Environment](#script-environment)),
+  and the state machine file may not declare the variables that the
+  dynamic loader reads (see [Declared Environment](#declared-environment)).
+
+The runner must run as its own unprivileged account, with `CAP_SETUID`,
+`CAP_SETGID` and `CAP_KILL` as ambient capabilities. At startup it
+refuses to start on Windows and any platform other than Linux, as root,
+without `/usr/bin/setpriv`, without the three capabilities, for root's
+or its own account, and when the account could read or replace
+_runner.yaml_, the key, the state machine file, the database or the
+scripts, or could not write the run directory. It never changes a mode
+or an owner: the error names every offending path, and
+[PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md) shows the accounts, the modes
+and the start commands. [GET /health](#health) names the account.
+
+Without the section, the scripts run as the runner's account, in its
+working directory, with its whole environment, on Linux and Windows
+alike. The section was added at version 0.10.0 without a version bump,
+as it changes no route.
+
 ## Create Commands
 
 The runner requires commands / scripts to be run.
@@ -387,8 +434,10 @@ input puts it in the [command history](#command-history).
 
 ### Script Environment
 
-Each script inherits the environment of the runner, and the runner adds
-its own variables:
+Each script inherits the environment of the runner. With a
+[script account](#script-user) it inherits only `TMPDIR` and `LANG`,
+and gets `HOME`, `USER` and `LOGNAME` of that account and `PATH` set to
+`/usr/local/bin:/bin:/usr/bin`. The runner adds its own variables:
 
 | Variable          | Value                                                             |
 | :---------------- | :---------------------------------------------------------------- |
@@ -716,6 +765,14 @@ states:
   state than the current one, which `DT_STATE` still names.
 - On Windows, where names ignore case, a variable of the runner's
   environment such as `Path` gives way to a declared `PATH`.
+- With a [script account](#script-user), the runner refuses to start
+  when either `env` names a variable that the dynamic loader or the C
+  library reads from a file: a name starting with `LD_`, `MALLOC_` or
+  `LC_`, `LANG`, `LANGUAGE`, `TMPDIR`, or one of `GCONV_PATH`,
+  `GETCONF_DIR`, `GLIBC_TUNABLES`, `HOSTALIASES`, `LOCALDOMAIN`,
+  `LOCPATH`, `NIS_PATH`, `NLSPATH`, `RESOLV_HOST_CONF`, `RES_OPTIONS`
+  and `TZDIR`. `setpriv` holds the runner's capabilities until it
+  switches, and its loader would honour them.
 
 ### Raising Events From Scripts
 
@@ -1458,7 +1515,8 @@ whether the digital twin does its job.
   "status": "ok",
   "uptime": 3724,
   "mqtt": "connected",
-  "database": "file"
+  "database": "file",
+  "scripts": null
 }
 ```
 
@@ -1468,6 +1526,10 @@ whether the digital twin does its job.
   without an `mqtt` section in the configuration.
 - `database` is `file` with a [database file](#command-history), else
   `memory`.
+- `scripts` is `{ "user": "dt-script" }`, with the name of the account
+  that the [scripts run as](#script-user), also when _runner.yaml_
+  gives a uid; `null` without it. `GET /health` is open, so any caller
+  learns that name.
 - `status` is `degraded` while `mqtt` is `disconnected`, else `ok`.
 
 The runner answers `200` in both cases. It connects to the broker after

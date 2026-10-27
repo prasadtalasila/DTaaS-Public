@@ -75,7 +75,12 @@ export default class MqttRequestHandler {
     state: () => this.descriptor.state(),
     metrics: () => this.descriptor.metrics(),
     // a request arrives only over a connected client
-    health: () => healthReport('connected', this.manager.databaseMode()),
+    health: () =>
+      healthReport(
+        'connected',
+        this.manager.databaseMode(),
+        this.manager.scriptsHealth(),
+      ),
     parameters: () => this.parameterDocument(),
     'set-parameters': this.whenValid(parametersBodySchema, (body) =>
       this.setParameters(body),

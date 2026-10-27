@@ -19,6 +19,8 @@ import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
 import { PeerConfig } from '../peers/peers.config.js';
+import { ScriptsConfig } from '../scripts/scripts.config.js';
+import { checkSeparation, ScriptUser } from '../scripts/separation.js';
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -71,8 +73,16 @@ const resolveAuth = (dir: string, auth: AuthConfig | undefined) =>
     ? auth
     : { ...auth, key: path.resolve(dir, auth.key) };
 
+// The run directory often lives under /var/lib, so it may be absolute
+const resolveScripts = (dir: string, scripts: ScriptsConfig | undefined) =>
+  scripts && {
+    ...scripts,
+    runDirectory: path.resolve(dir, scripts.runDirectory),
+  };
+
 // location and database keep path.join, so an absolute path is still
-// taken as relative to dir; stateMachine and auth.key may be absolute
+// taken as relative to dir; stateMachine, auth.key and
+// scripts.runDirectory may be absolute
 const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
   ...values,
   location: path.join(dir, values.location),
@@ -83,6 +93,7 @@ const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
       ? undefined
       : path.resolve(dir, values.stateMachine),
   auth: resolveAuth(dir, values.auth),
+  scripts: resolveScripts(dir, values.scripts),
 });
 
 @Injectable()
@@ -93,6 +104,8 @@ export default class Config {
 
   private signer = new Signer(undefined, configDefault.id);
 
+  private scriptUser: ScriptUser | undefined;
+
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
@@ -101,6 +114,7 @@ export default class Config {
     const { principals, key } = this.configValues.auth ?? {};
     this.accessControl = principals && new Access(principals, values.id);
     this.signer = Signer.load(key, values.id);
+    this.scriptUser = checkSeparation(file, this.configValues);
   }
 
   // Verifies the callers; without principals every route is open
@@ -157,5 +171,11 @@ export default class Config {
   // The peers in the order of runner.yaml, with the enabled of the file
   getPeers(): PeerConfig[] {
     return this.configValues.peers;
+  }
+
+  // The account and the directory of the scripts; undefined without
+  // scripts.user, when the scripts run as the runner's account
+  getScriptUser(): ScriptUser | undefined {
+    return this.scriptUser;
   }
 }

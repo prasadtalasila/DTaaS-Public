@@ -4,12 +4,18 @@ import type { NoticeKind } from '../peers/peers.js';
 import { nameSchema } from './name.js';
 
 // What a definition is checked against: the commands that runner.yaml
-// permits and the ids of the peers it lists
-export type Known = { commands: string[]; peers: string[] };
+// permits, the ids of the peers it lists, and whether the scripts run
+// as a second account
+export type Known = {
+  commands: string[];
+  peers: string[];
+  separated?: boolean;
+};
 
 export const known = (config: Config): Known => ({
   commands: config.permitCommands(),
   peers: config.getPeers().map(({ id }) => id),
+  separated: config.getScriptUser() !== undefined,
 });
 
 // Exactly one condition on the latest notice of a peer

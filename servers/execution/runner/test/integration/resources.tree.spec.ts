@@ -17,7 +17,7 @@ const describeMeasured = ['linux', 'win32'].includes(process.platform)
 const SHELL_SECONDS = process.platform === 'win32' ? 1 : 0.1;
 
 const script = (name: string, stopGrace?: number) =>
-  RunnerFactory.create(resolve('script', name), stopGrace);
+  RunnerFactory.create(resolve('script', name), { stopGrace });
 
 const delay = (ms: number) =>
   new Promise((done) => {

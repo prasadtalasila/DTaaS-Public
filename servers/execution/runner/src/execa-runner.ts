@@ -12,8 +12,9 @@ import {
 
 // stopGrace: milliseconds between SIGTERM and SIGKILL on a stop,
 // execa's default of five seconds without it; meter: what measures the
-// resources of each run, nothing without it
-export type RunnerOptions = { stopGrace?: number; meter?: Meter };
+// resources of each run, nothing without it; cwd: the working directory
+// of the script, the runner's own without it
+export type RunnerOptions = { stopGrace?: number; meter?: Meter; cwd?: string };
 
 export default class ExecaRunner implements Runner {
   command: string;
@@ -52,6 +53,7 @@ export default class ExecaRunner implements Runner {
   async run(options?: RunOptions): Promise<RunOutcome> {
     const subprocess = execa(this.command, this.args, {
       forceKillAfterDelay: this.options.stopGrace,
+      cwd: this.options.cwd,
       env: options?.env,
       extendEnv: options?.env === undefined,
       input: options?.input ?? '',

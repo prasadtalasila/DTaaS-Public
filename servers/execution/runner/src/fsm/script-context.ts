@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { z } from 'zod';
 import type { ParameterValue } from '../dto/parameters.dto.js';
 import type { Definition } from './definition.js';
+import { type Inherited, refusedName } from '../scripts/launch.js';
 import Parameters, { variableName } from './parameters.js';
 
 // The variables of a script's environment, by name
@@ -65,13 +66,32 @@ const unknownNames = (env: Env, known: Set<string>, owner: string) =>
       .map((reference) => `${owner}${name} uses unknown variable ${reference}`),
   );
 
-// The problems of the env of a definition that its schema can not see
-export function envProblems(definition: Definition): string[] {
+// With a script account, setpriv starts with capabilities but not in
+// secure-execution mode, so its loader would honour these names
+const refusedNames = (env: Env, owner: string) =>
+  Object.keys(env)
+    .filter(refusedName)
+    .map((name) => `${owner}${name} is refused with scripts.user`);
+
+// The problems of the env of a definition that its schema can not see,
+// and with a script account the names that the launch refuses
+export function envProblems(
+  definition: Definition,
+  separated = false,
+): string[] {
   const known = knownNames(definition);
-  const states = [...definition.stateEnv].flatMap(([state, env]) =>
-    unknownNames(env, known, `state ${state} env `),
+  const envs: Array<[Env, string]> = [
+    [definition.env, 'env '],
+    ...[...definition.stateEnv].map(([state, env]): [Env, string] => [
+      env,
+      `state ${state} env `,
+    ]),
+  ];
+  const unknown = envs.flatMap(([env, owner]) =>
+    unknownNames(env, known, owner),
   );
-  return [...unknownNames(definition.env, known, 'env '), ...states];
+  const refused = envs.flatMap(([env, owner]) => refusedNames(env, owner));
+  return [...unknown, ...(separated ? refused : [])];
 }
 
 // What the environment of one script is built from. Without a state
@@ -87,7 +107,7 @@ export type ScriptContext = {
   entry?: number;
   values?: Readonly<Record<string, ParameterValue>>;
   definition?: Definition;
-  inherited?: Readonly<Record<string, string | undefined>>;
+  inherited?: Inherited;
   platform?: NodeJS.Platform;
 };
 
@@ -181,6 +201,8 @@ export class RunnerContext {
 
   private parameters: Parameters | undefined;
 
+  private inherited: Inherited | undefined;
+
   load(id: string, definition?: Definition, parameters?: Parameters): void {
     this.id = id;
     this.definition = definition;
@@ -190,6 +212,12 @@ export class RunnerContext {
   setApi(url: string | undefined, token: string | undefined): void {
     this.url = url;
     this.token = token;
+  }
+
+  // What every script's environment starts from; the runner's own
+  // without a call
+  inherit(base: Inherited): void {
+    this.inherited = base;
   }
 
   // The environment of the command's script, for the entry of the state
@@ -203,6 +231,7 @@ export class RunnerContext {
       entry,
       values: this.parameters?.values(),
       definition: this.definition,
+      inherited: this.inherited,
     });
   }
 }
