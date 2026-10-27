@@ -101,7 +101,8 @@ docker compose -f compose.runner.dev.yml down
 - `POST /` with `{"name": "<command name>"}` executes a command.
 - `GET /` returns the status and logs of the last command.
 - `GET /history` returns the commands received so far, with their
-  status, exit code and times.
+  status, exit code, times and the CPU time and peak memory of their
+  scripts.
 - `GET /metrics` returns counters since the runner started.
 - `GET /dt` returns the `id`, `attributes` and `commands` of the
   digital twin, whether a state machine is loaded, the commands of its

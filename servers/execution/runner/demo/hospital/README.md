@@ -14,7 +14,8 @@ about 50 kB and 3 min 23 s, with a video of it,
 Git LFS). It was recorded on Windows against runner version 0.7.0
 (`feature/distributed-demo` at `f0f7f083`), so it does not show what
 came later: access control, full history records and metrics, the
-peers and peer events, and signed notifications. The configuration and
+resources of scripts, the peers and peer events, and signed
+notifications. The configuration and
 the tools here already have the peers, the signing helpers and the
 `Authorization` header; the demo of issue 16 records two hospitals
 anew.

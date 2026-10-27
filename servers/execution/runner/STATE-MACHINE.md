@@ -533,12 +533,13 @@ lists the events of the file in alphabetical order.
 `GET /state` returns the whole DT in one document: its `id`, the
 `time`, the body of `GET /fsm` as `machine` (or `null` without a state
 machine), the parameter values, and the latest command without its
-logs. `GET /` returns the latest command with its logs and exit code,
-and `GET /history` every command with its status, exit code and times,
-the state scripts included. `GET /metrics` counts the entries into each
-state, the seconds spent there, the scripts that finished, the
-transition and event requests, the commands by status and the
-escalations since the runner started.
+logs. `GET /` returns the latest command with its logs, exit code and
+resources, and `GET /history` every command with its status, exit
+code, times and resources, the state scripts included. `GET /metrics`
+counts the entries into each state, the seconds spent there, the
+scripts that finished, the transition and event requests, the commands
+by status, their resources and the escalations since the runner
+started.
 
 With a `notify` section in _runner.yaml_, or with MQTT, the runner
 sends the state document whenever it changes, as a notification of kind
