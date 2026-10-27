@@ -162,6 +162,8 @@ The runner never restarts a script on its own. A script keeps the
 values it started with. To make a change take effect at once, give the
 parameter an `event` whose transition restarts the script, as a
 self-transition with `stop: true` does.
+[Pattern: Fidelity](#pattern-fidelity) uses such a parameter to let a
+Manager trade accuracy for computing power.
 
 ### Environment
 
@@ -886,3 +888,153 @@ The requests of the recording, with their replies:
 
 The demo's [README](demo/hospital/README.md) tells how to record it
 again.
+
+## Pattern: Fidelity
+
+A DT that can trade accuracy for computing power, with models of
+different fidelity, a coarser step size or a lower sample rate, can let
+its Manager choose the trade. The runner has no feature for this, and
+no parameter name means anything to it. Fidelity is a convention
+between DT authors and Managers, made of [Parameters](#parameters),
+[Stop Transitions](#stop-transitions), the [Environment](#environment)
+and the [resources](README.md#resources) that the runner reports.
+
+### The Convention
+
+1. A DT that can trade accuracy for computing power declares a
+   parameter named `fidelity`, of type `enum`, with
+   `controllable: true`, a `default` and an `event`.
+1. You choose the `values`. List them from the cheapest to the most
+   accurate, so that a Manager that knows none of the names can step one
+   value down or up.
+1. The event, by custom `fidelity-changed`, has a self-transition with
+   `stop: true` in each state whose script must restart to use a new
+   value. In the other states, a new value applies when their script
+   next starts.
+1. Scripts read `DT_PARAM_FIDELITY` and choose a model, a step size or a
+   sample rate from it.
+
+```yaml
+events:
+  - fidelity-changed
+parameters:
+  fidelity:
+    type: enum
+    values:
+      - low
+      - medium
+      - high
+    default: medium
+    controllable: true
+    event: fidelity-changed
+states:
+  simulate:
+    transitions:
+      fidelity-changed:
+        state: simulate
+        stop: true
+```
+
+_scripts/simulate_ chooses a step size and `exec`s the model, so the
+model is the script's process: a stop reaches it, and the runner
+measures it.
+
+```sh
+#!/bin/sh
+case "$DT_PARAM_FIDELITY" in
+  low) step=60 ;;
+  high) step=1 ;;
+  *) step=10 ;;
+esac
+exec ./simulate --step "$step"
+```
+
+On Windows the runner ends `powershell.exe` and not the processes that
+the script started (see [Stop a Script](#stop-a-script)), so
+_scripts/simulate.ps1_ does its work in its own process and loops on
+short steps:
+
+```powershell
+$step = @{ low = 60; medium = 10; high = 1 }[$env:DT_PARAM_FIDELITY]
+if ($null -eq $step) { $step = 10 }
+while ($true) { Update-Model -Seconds $step; Start-Sleep -Seconds 1 }
+```
+
+`Update-Model` stands for the DT's own code. The figures of a Windows
+run include those of PowerShell itself, about 110 MB of memory, so
+compare runs on the same platform.
+
+### What a Manager Does
+
+A Manager finds the DTs that offer the trade in `GET /parameters`: a
+controllable `enum` named `fidelity`, whose `values` give the order.
+
+```json
+{
+  "fidelity": {
+    "value": "medium",
+    "type": "enum",
+    "values": ["low", "medium", "high"],
+    "default": "medium",
+    "controllable": true
+  }
+}
+```
+
+To shed load, it sends `PUT /parameters` with `{"fidelity": "low"}`, or
+the same body over the MQTT route `set-parameters`. The runner stores
+the value and raises `fidelity-changed`; in _simulate_, the
+self-transition stops the script and starts it again as a new entry,
+with `DT_PARAM_FIDELITY=low`. `GET /fsm` and `GET /state` show the new
+entry. The reply of `PUT` is the same whatever the event did (see
+[Read and Set Parameters](#read-and-set-parameters)).
+
+The Manager sees the effect in the `resources` of each run, in
+`GET /history`:
+
+```json
+[
+  {
+    "id": 7,
+    "name": "simulate",
+    "status": "stopped",
+    "exitCode": null,
+    "receivedAt": "2026-10-27T09:00:00.000Z",
+    "finishedAt": "2026-10-27T09:10:00.000Z",
+    "by": null,
+    "resources": { "cpuSeconds": 512.4, "peakRssBytes": 734003200 }
+  },
+  {
+    "id": 8,
+    "name": "simulate",
+    "status": "running",
+    "exitCode": null,
+    "receivedAt": "2026-10-27T09:10:00.000Z",
+    "finishedAt": null,
+    "by": null,
+    "resources": { "cpuSeconds": null, "peakRssBytes": null }
+  }
+]
+```
+
+- The run at the old fidelity ends with status `stopped` and its
+  figures. The run at the new one shows `null` until it ends, at the
+  next change or stop; `GET /` shows the same for the latest run.
+- `cpuSeconds` grows with the length of a run. Divide it by the time
+  from `receivedAt` to `finishedAt` to compare runs of different
+  lengths: 512.4 s in 600 s is 0.85 of a processor.
+- `GET /metrics` sums the CPU seconds of all runs of `simulate` and
+  keeps the largest peak, at whatever fidelity they ran, so it shows
+  the load over time rather than the effect of one change.
+- The figures are lower bounds, and [resources](README.md#resources)
+  tells which processes they count. A model that the shell script
+  `exec`s is the script's own process, so it counts in any case.
+
+With a `database` in _runner.yaml_, the runner restores the value after
+a restart (see [Restarts](#restarts)), so the DT stays at the fidelity
+that the Manager chose: the next script that starts reads it.
+
+An event in a state without the self-transition, or before the first
+transition, is refused and logged at debug level; the new value stands
+and applies at the next script start. A parameter event does not
+escalate with `onNoTransition`, which covers client events only.
