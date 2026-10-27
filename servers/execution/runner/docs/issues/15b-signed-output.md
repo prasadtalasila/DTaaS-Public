@@ -84,6 +84,9 @@ Not signed, with the reason:
   could replay an old signed document or will; broker access control
   (API.md, "Access Control") still limits that, and a receiver that
   must not go back in time compares `time` with the last one it took.
+  The will in particular has no time to compare: it keeps
+  `time: null`, so a captured will stays valid for as long as the
+  key does.
 - Key rotation and more than one key: a new key is a restart and a new
   public key for every receiver.
 
@@ -181,6 +184,10 @@ trusts that connection; `keygen.mjs` prints the same key.
 - A `typ` header (this plan's call): a notification cannot pass for a
   request token of 15a, which needs `aud`, `exp` and `jti`, so the
   header stays at `alg` and `kid`.
+- An MQTT 5 `contentType` of `application/jose` on signed publishes
+  (set aside in review): the demo's broker speaks MQTT 3.1.1, which has
+  no such property, and the rule that a payload starting with `{` is
+  plain JSON already tells the two apart.
 
 Signing is opt-in and breaks no route; the descriptor gains a field.
 The version stays as 15a leaves it, as for 07. The Notifications

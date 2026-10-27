@@ -1621,8 +1621,10 @@ export function unwrap(text, key, id) {
 A payload that starts with `{` is plain JSON from a runner without a
 key; whether to accept it is the consumer's choice. The demo's
 [tools/jws.mjs](../demo/hospital/tools/jws.mjs) marks each message
-`verified`, `UNSIGNED`, or `INVALID` when the signature fails or no
-public key is at hand.
+`verified`, `UNSIGNED`, or `INVALID` with the reason: no key file, an
+unreadable key file, a malformed JWS, a wrong `alg` or `kid`, or a bad
+signature. It prints an `INVALID` payload as it came, marked
+unverified, so that a refusal of a signed runner still shows.
 
 Not signed, with the reason:
 
@@ -1634,6 +1636,9 @@ Not signed, with the reason:
   can replay an old signed document or will; the access control of the
   broker limits that, and a receiver that must not go back in time
   compares `time` with that of the last message it took.
+  The will in particular has no time to compare: it keeps
+  `time: null`, so a captured will stays valid for as long as the
+  key does.
 - More than one key: a new key is a restart, and a new public key for
   every receiver.
 
