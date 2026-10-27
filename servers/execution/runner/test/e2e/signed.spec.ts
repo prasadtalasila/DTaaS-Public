@@ -107,6 +107,17 @@ describe('Signed output end-to-end tests', () => {
     expect(state.body).toMatchObject({ id: 'test-runner', machine: null });
   });
 
+  it('signs the online notice, whose descriptor has the publicKey', async () => {
+    const { raw } = await lateSubscriber(broker.url, 4, PRESENCE);
+    const { body } = await supertest(app.getHttpServer()).get('/dt');
+
+    expect(body.publicKey).toMatch(/^[\w-]{43}$/);
+    expect(unwrap(raw, await publicKey())).toMatchObject({
+      kind: 'presence',
+      data: { online: true, descriptor: { publicKey: body.publicKey } },
+    });
+  });
+
   it('signs a response over MQTT', async () => {
     const raw = await request(client, 'dt');
     const { body } = await supertest(app.getHttpServer()).get('/dt');

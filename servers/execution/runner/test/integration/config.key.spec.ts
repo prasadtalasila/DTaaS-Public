@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Keyv from 'keyv';
+import Access from 'src/auth/access';
+import { publicKeyObject } from 'src/auth/auth.config';
 import Config from 'src/config/configuration.service';
+import { newCaller, verifiedPayload } from 'test/sign.util';
 
 const BASE = 'id: dt-1\nport: 5000\nlocation: .\ncommands: [create]\n';
 
@@ -46,8 +49,29 @@ describe('Configuration of the signing key', () => {
     await load(`${BASE}auth:\n  key: keys/dt-1.key\n`);
 
     expect(config.getSigner().publicKey()).toBe(publicKey);
-    expect(config.getSigner().encode({}).split('.')).toHaveLength(3);
+    const jws = config.getSigner().encode({ id: 'dt-1' });
+    const key = publicKeyObject(publicKey);
+    expect(verifiedPayload(jws, key, 'dt-1')).toEqual({ id: 'dt-1' });
     expect(config.access()).toBeUndefined();
+  });
+
+  it('Should take an absolute key path as it is', async () => {
+    const publicKey = keyFile();
+    await load(`${BASE}auth:\n  key: '${join(dir, 'keys', 'dt-1.key')}'\n`);
+
+    expect(config.getSigner().publicKey()).toBe(publicKey);
+  });
+
+  it('Should verify the callers and sign with principals and a key', async () => {
+    const publicKey = keyFile();
+    const alice = newCaller('alice');
+    await load(
+      `${BASE}auth:\n  key: keys/dt-1.key\n  principals:\n` +
+        `    - {name: alice, role: client, publicKey: '${alice.publicKey}'}\n`,
+    );
+
+    expect(config.access()).toBeInstanceOf(Access);
+    expect(config.getSigner().publicKey()).toBe(publicKey);
   });
 
   it('Should refuse a key that cannot be read, naming it', async () => {
