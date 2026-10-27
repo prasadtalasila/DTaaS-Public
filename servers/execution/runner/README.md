@@ -1203,7 +1203,11 @@ transition and event requests; and the escalations by trigger.
 }
 ```
 
-`machine` is `null` without a state machine. The counters live in
+`machine` is `null` without a state machine. `completions` counts the
+scripts that finished in the entry they started in: a transition with
+`stop: true` enters its next state before the stopped script ends, so
+it counts nothing, and only a [POST /stop](#post-request-to-stop),
+which keeps the entry, counts as `$stopped`. The counters live in
 memory, so a restart, which `since` shows, sets them back to zero; they
 are not part of the state document and send no notification.
 [API.md](api/API.md#get-metrics) describes each field.

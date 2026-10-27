@@ -309,7 +309,13 @@ the session, with the times of the re-run:
 - `completions` counts the scripts of the current entry that finished,
   by the event that their outcome raises: the first two entries into
   `open` were left before their scripts ended, so their ends count
-  nothing.
+  nothing. A
+  [stop transition](../STATE-MACHINE.md#stop-transitions)
+  (`stop: true`) likewise enters its next state before the stopped
+  script ends, so that stop counts nothing; only a
+  [POST /stop](#post-stop), which keeps the entry, counts as
+  `$stopped`. A DT whose only stops are stop transitions keeps
+  `$stopped` at zero.
 - `transitions` and `events` count the requests that reached the
   machine; a [repeated request](#repeated-requests) that gets its
   stored reply counts once. `events` includes the events that a
