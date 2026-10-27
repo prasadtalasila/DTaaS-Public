@@ -13,6 +13,7 @@ import { StateDocumentDto } from 'src/dto/state.dto';
 import MqttService from 'src/mqtt/mqtt.service';
 import { MqttConfig } from 'src/mqtt/mqtt.config';
 import { configFilename } from 'test/utils';
+import { unwrap } from './jws.util';
 
 // Starts the runner with the test configuration and, if given, the MQTT
 // settings, connected to the broker
@@ -83,7 +84,7 @@ export function nextReply(
       client.removeListener('message', listener);
       resolve({
         topic: replyTopic,
-        body: JSON.parse(payload.toString()),
+        body: unwrap(payload.toString()),
         correlationData: received,
       });
     };
@@ -91,11 +92,15 @@ export function nextReply(
   });
 }
 
-export type Notification = { body: NotificationDto; retain: boolean };
+export type Notification = {
+  body: NotificationDto;
+  retain: boolean;
+  raw: string;
+};
 
 // Resolves with the next notification on the topic whose data, by
-// default a state document, passes the check, and whether the broker
-// retained it
+// default a state document, passes the check, whether the broker
+// retained it, and the payload as received, plain JSON or a JWS
 export function nextNotification<Data = StateDocumentDto>(
   client: MqttClient,
   topic: string,
@@ -111,10 +116,11 @@ export function nextNotification<Data = StateDocumentDto>(
       if (notifyTopic !== topic || payload.length === 0) {
         return;
       }
-      const body = JSON.parse(payload.toString()) as NotificationDto;
+      const raw = payload.toString();
+      const body = unwrap(raw) as NotificationDto;
       if (check(body.data as Data)) {
         client.removeListener('message', listener);
-        resolve({ body, retain });
+        resolve({ body, retain, raw });
       }
     };
     client.on('message', listener);

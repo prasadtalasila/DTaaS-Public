@@ -196,9 +196,15 @@ describe('Runner MQTT end-to-end tests', () => {
       ({ command }) => command?.status === 'valid',
     );
     await supertest(app.getHttpServer()).post('/').send({ name: 'create' });
-    const { body } = await finished;
+    const notification = await finished;
 
-    expect(await lateSubscriber(url, 4, topic)).toEqual({ body, retain: true });
-    expect(body).toMatchObject({ kind: 'state', id: 'test-runner' });
+    expect(await lateSubscriber(url, 4, topic)).toEqual({
+      ...notification,
+      retain: true,
+    });
+    expect(notification.body).toMatchObject({
+      kind: 'state',
+      id: 'test-runner',
+    });
   });
 });

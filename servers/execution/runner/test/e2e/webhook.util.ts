@@ -7,10 +7,13 @@ import {
 } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { HttpStatus } from '@nestjs/common';
+import { unwrap } from './jws.util';
 
+// A post as received, its body unwrapped from a JWS if it is one
 export type Post = {
   headers: IncomingHttpHeaders;
   body: Record<string, unknown>;
+  raw: string;
 };
 
 type Machine = { state: string | null; status: string };
@@ -20,9 +23,10 @@ export default class Webhook extends EventEmitter {
   readonly posts: Post[] = [];
 
   readonly server: Server = createServer((request, response) => {
-    void Webhook.read(request).then((body) => {
+    void Webhook.read(request).then((raw) => {
       response.writeHead(HttpStatus.NO_CONTENT).end();
-      const received = { headers: request.headers, body: JSON.parse(body) };
+      const body = unwrap(raw) as Record<string, unknown>;
+      const received = { headers: request.headers, body, raw };
       this.posts.push(received);
       this.emit('post', received);
     });
