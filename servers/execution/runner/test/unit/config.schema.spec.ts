@@ -54,7 +54,11 @@ describe('Runner configuration schema', () => {
   it('Should accept an auth section with a key and no principals', () => {
     const config = { ...valid, auth: { key: 'keys/hospital-1.key' } };
 
-    expect(configSchema.parse(config)).toEqual({ ...config, attributes: {} });
+    expect(configSchema.parse(config)).toEqual({
+      ...config,
+      attributes: {},
+      peers: [],
+    });
   });
 
   it.each([
