@@ -26,16 +26,22 @@ async function childPids(pid: number, proc: string): Promise<number[]> {
   return lists.join(' ').split(/\s+/).filter(Boolean).map(Number);
 }
 
-// Walks down from the root through the children files, one level of the
-// tree at a time
+// Adds the processes below a pid to the tree, reading the children of
+// all its children at once
+async function descend(
+  pid: number,
+  proc: string,
+  tree: Set<number>,
+): Promise<void> {
+  const children = (await childPids(pid, proc)).filter((kid) => !tree.has(kid));
+  children.forEach((kid) => tree.add(kid));
+  await Promise.all(children.map((kid) => descend(kid, proc, tree)));
+}
+
+// Walks down from the root through the children files
 export const byChildren: Discovery = async (rootPid, proc) => {
   const tree = new Set([rootPid]);
-  let level = [rootPid];
-  while (level.length > 0) {
-    const found = await Promise.all(level.map((pid) => childPids(pid, proc)));
-    level = found.flat().filter((pid) => !tree.has(pid));
-    level.forEach((pid) => tree.add(pid));
-  }
+  await descend(rootPid, proc, tree);
   return [...tree];
 };
 

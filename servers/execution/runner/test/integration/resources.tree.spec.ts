@@ -8,7 +8,9 @@ jest.setTimeout(60000);
 
 // Linux and Windows measure the tree, each its own way; other platforms
 // measure nothing
-const itMeasured = ['linux', 'win32'].includes(process.platform) ? it : it.skip;
+const describeMeasured = ['linux', 'win32'].includes(process.platform)
+  ? describe
+  : describe.skip;
 
 // The direct child of spawn-busy only waits: sh on Linux; on Windows
 // powershell.exe, which uses well under a second to start
@@ -22,8 +24,8 @@ const delay = (ms: number) =>
     setTimeout(done, ms);
   });
 
-describe('Resources of a process tree', () => {
-  itMeasured('Should count the CPU time of the children', async () => {
+describeMeasured('Resources of a process tree', () => {
+  it('Should count the CPU time of the children', async () => {
     const runner = script('spawn-busy');
 
     expect(await runner.run()).toBe('success');
@@ -32,7 +34,7 @@ describe('Resources of a process tree', () => {
     expect(processes).toBeGreaterThanOrEqual(2);
   });
 
-  itMeasured('Should report the figures of a stopped run', async () => {
+  it('Should report the figures of a stopped run', async () => {
     const runner = script('loop', 500);
     const run = runner.run();
     await delay(3000);
