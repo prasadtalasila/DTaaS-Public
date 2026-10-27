@@ -13,6 +13,7 @@ import { Attributes } from './attributes.js';
 import { configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
+import { AuthConfig } from '../auth/auth.config.js';
 import Signer from '../auth/signer.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
@@ -63,8 +64,15 @@ function parseConfig(content: unknown, file: string): ConfigValues {
   return result.data;
 }
 
+// The signing key, like stateMachine, may be absolute, as it often
+// lives in a mounted secret directory
+const resolveAuth = (dir: string, auth: AuthConfig | undefined) =>
+  auth?.key === undefined
+    ? auth
+    : { ...auth, key: path.resolve(dir, auth.key) };
+
 // location and database keep path.join, so an absolute path is still
-// taken as relative to dir; stateMachine may be absolute
+// taken as relative to dir; stateMachine and auth.key may be absolute
 const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
   ...values,
   location: path.join(dir, values.location),
@@ -74,6 +82,7 @@ const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
     values.stateMachine === undefined
       ? undefined
       : path.resolve(dir, values.stateMachine),
+  auth: resolveAuth(dir, values.auth),
 });
 
 @Injectable()
@@ -88,11 +97,10 @@ export default class Config {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
     const values = parseConfig(readConfig(file), file);
-    const dir = path.dirname(file);
-    this.configValues = resolvePaths(dir, values);
-    const { principals, key } = values.auth ?? {};
+    this.configValues = resolvePaths(path.dirname(file), values);
+    const { principals, key } = this.configValues.auth ?? {};
     this.accessControl = principals && new Access(principals, values.id);
-    this.signer = Signer.load(key, dir, values.id);
+    this.signer = Signer.load(key, values.id);
   }
 
   // Verifies the callers; without principals every route is open

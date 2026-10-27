@@ -5,7 +5,6 @@ import {
   sign,
 } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { ALG, encodeSegment } from './jws.js';
 
 // An Ed25519 private key, PEM PKCS#8; an error names the file, never
@@ -45,11 +44,9 @@ export default class Signer {
         : String(createPublicKey(key).export({ format: 'jwk' }).x);
   }
 
-  // The file is resolved against dir, so an absolute path stays as it is
-  static load(file: string | undefined, dir: string, id: string): Signer {
-    const key =
-      file === undefined ? undefined : readKey(path.resolve(dir, file));
-    return new Signer(key, id);
+  // The file is a path as Config resolved it, from runner.yaml
+  static load(file: string | undefined, id: string): Signer {
+    return new Signer(file === undefined ? undefined : readKey(file), id);
   }
 
   encode(value: unknown): string {
