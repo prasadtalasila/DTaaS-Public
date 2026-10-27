@@ -113,6 +113,7 @@ export const fakeManager = (outcome: RunOutcome) => ({
   checkStatus: jest.fn(() => status),
   checkHistory: jest.fn((_query?: HistoryQuery) => [historyEntry]),
   databaseMode: jest.fn(() => 'file'),
+  scriptsHealth: jest.fn(() => null),
   stop: jest.fn((_name?: string) => Promise.resolve(['create'])),
 });
 

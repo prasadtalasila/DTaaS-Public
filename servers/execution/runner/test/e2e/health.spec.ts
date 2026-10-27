@@ -25,6 +25,7 @@ describe('Runner health end-to-end tests', () => {
         status: 'ok',
         mqtt: 'disabled',
         database: 'memory',
+        scripts: null,
       }),
     );
   });

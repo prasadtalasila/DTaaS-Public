@@ -134,6 +134,7 @@ describe('MQTT request handler', () => {
       uptime: expect.any(Number),
       mqtt: 'connected',
       database: 'file',
+      scripts: null,
     });
   });
 
