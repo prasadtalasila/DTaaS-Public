@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
+import Signer from 'src/auth/signer';
 import Config from 'src/config/configuration.service';
 import { NotificationDto } from 'src/dto/notify.dto';
 import { NotifyConfig } from 'src/notify/notify.config';
@@ -25,10 +26,15 @@ export const answer = (status: number) =>
 
 export const networkError = () => new TypeError('fetch failed');
 
-// A webhook client of the configuration, with its errors recorded
-export function setup(config: NotifyConfig | null = webhook) {
+// A webhook client of the configuration and signer, with its errors
+// recorded
+export function setup(
+  config: NotifyConfig | null = webhook,
+  signer = new Signer(undefined, 'hospital-1'),
+) {
   const client = new WebhookClient({
     getNotify: () => config ?? undefined,
+    getSigner: () => signer,
   } as unknown as Config);
   const error = jest
     .spyOn(Logger.prototype, 'error')

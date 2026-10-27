@@ -14,14 +14,10 @@ const RETRY_DELAYS = [1000, 2000, 4000];
 
 type Attempt = 'done' | 'retry';
 
-const headers = (token: string | undefined): Record<string, string> =>
-  token === undefined
-    ? { 'Content-Type': 'application/json' }
-    : { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
 // Posts each notification to the webhook of the configuration, if it
-// has one. A network error, a timeout or a 5xx response is retried
-// after 1, 2 and 4 s; any other response is final.
+// has one, as JSON or, with auth.key, as a JWS of the JSON. A network
+// error, a timeout or a 5xx response is retried after 1, 2 and 4 s; any
+// other response is final.
 @Injectable()
 export default class WebhookClient implements BeforeApplicationShutdown {
   private readonly logger = new Logger(WebhookClient.name);
@@ -40,14 +36,15 @@ export default class WebhookClient implements BeforeApplicationShutdown {
     if (webhook === undefined) {
       return Promise.resolve();
     }
-    return this.deliver(webhook, JSON.stringify(notification), 0);
+    const body = this.config.getSigner().encode(notification);
+    return this.deliver(webhook, body, 0);
   }
 
   // Posts the notification once, without a retry, even after shutdown
   async sendOnce(notification: NotificationDto): Promise<void> {
     const webhook = this.config.getNotify();
     if (webhook !== undefined) {
-      const body = JSON.stringify(notification);
+      const body = this.config.getSigner().encode(notification);
       await this.attempt(webhook, body, AbortSignal.timeout(ONCE_TIMEOUT));
     }
   }
@@ -87,7 +84,7 @@ export default class WebhookClient implements BeforeApplicationShutdown {
     try {
       const response = await fetch(webhook.url, {
         method: 'POST',
-        headers: headers(webhook.token),
+        headers: this.headers(webhook.token),
         body,
         signal,
       });
@@ -100,6 +97,15 @@ export default class WebhookClient implements BeforeApplicationShutdown {
       }
       return this.failed(webhook.url, String(error));
     }
+  }
+
+  // The bearer token authenticates the runner to the webhook, and the
+  // signature, if any, lets the receiver check each body
+  private headers(token: string | undefined): Record<string, string> {
+    const type = { 'Content-Type': this.config.getSigner().contentType() };
+    return token === undefined
+      ? type
+      : { ...type, Authorization: `Bearer ${token}` };
   }
 
   // A 4xx response is a failure that a retry would repeat
