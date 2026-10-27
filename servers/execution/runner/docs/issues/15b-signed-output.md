@@ -285,7 +285,7 @@ so it does not count as a change (recommendation).
       connection verify with the `publicKey` of `GET /dt`, while
       `GET /state` stays JSON; the webhook receives `application/jose`.
       Check: `test/e2e/signed.spec.ts` with `test/e2e/jws.util.ts`.
-- [ ] Existing e2e tests pass through the unwrapping helpers.
+- [x] Existing e2e tests pass through the unwrapping helpers.
       `test/e2e/mqtt.broker.spec.ts` runs only in CI against Mosquitto,
       without a key; grep it for descriptor shapes. Check:
       `test/e2e/mqtt.spec.ts`, `test/e2e/mqtt.presence.spec.ts`,
