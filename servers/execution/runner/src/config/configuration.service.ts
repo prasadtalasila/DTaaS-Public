@@ -12,6 +12,7 @@ import {
 import { Attributes, configSchema } from './config.schema.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
+import Signer from '../auth/signer.js';
 import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
@@ -62,18 +63,28 @@ export default class Config {
 
   private accessControl: Access | undefined;
 
+  private signer = new Signer(undefined, configDefault.id);
+
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
     const values = parseConfig(readConfig(file), file);
-    this.configValues = resolvePaths(path.dirname(file), values);
-    this.accessControl =
-      values.auth && new Access(values.auth.principals, values.id);
+    const dir = path.dirname(file);
+    this.configValues = resolvePaths(dir, values);
+    const { principals, key } = values.auth ?? {};
+    this.accessControl = principals && new Access(principals, values.id);
+    this.signer = Signer.load(key, dir, values.id);
   }
 
-  // Verifies the callers; without an auth section every route is open
+  // Verifies the callers; without principals every route is open
   access(): Access | undefined {
     return this.accessControl;
+  }
+
+  // Encodes the notifications and MQTT responses; without a key they
+  // are plain JSON
+  getSigner(): Signer {
+    return this.signer;
   }
 
   getId(): string {
