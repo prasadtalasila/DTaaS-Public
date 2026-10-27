@@ -1,8 +1,8 @@
 # 16 React to Peer State
 
-- Status: planned
+- Status: in review
 - Depends on: 13, 15b
-- PR: none yet
+- PR: #95
 - Research note:
   [item 16](../dtn-research-notes.md#16-react-to-peer-state)
 
@@ -359,37 +359,37 @@ runner part are merged (this plan's call).
 
 ### Runner Feature
 
-- [ ] The section accepts the example and an empty list, and rejects
+- [x] The section accepts the example and an empty list, and rejects
       an unknown key, `__proto__` in an entry or in `when`, a `when`
       with no key or both, a non-boolean `online`, an unlisted peer,
       an undeclared event and a duplicate, each with a message; the
       same `when` with two events loads. Check:
       `test/unit/fsm.subscriptions.spec.ts` (new).
-- [ ] `parseDefinition` and `loadDefinition` take `known`, and every
+- [x] `parseDefinition` and `loadDefinition` take `known`, and every
       existing refusal still names its problem. Check:
       `test/unit/fsm.definition.spec.ts`,
       `test/unit/fsm.parameters.spec.ts`,
       `test/unit/fsm.declared-env.spec.ts`.
-- [ ] `PeerEvents` replays the worked example and raises exactly
+- [x] `PeerEvents` replays the worked example and raises exactly
       `neighbour-full` at 5 and `neighbour-down` at 9; a first document
       that holds raises; a duplicate does not; a presence notice leaves
       a state record alone; a `null` machine holds nothing; two
       subscriptions on one document raise in file order; after
       `forget`, the next document counts as first. Check:
       `test/unit/fsm.peer-events.spec.ts` (new).
-- [ ] Through `FsmService`: a peer event takes a `stop: true`
+- [x] Through `FsmService`: a peer event takes a `stop: true`
       self-transition and restarts the script; without a transition it
       escalates once per entry with `onNoTransition`; before the first
       transition it is refused and not escalated; during shutdown it
       is refused `stopping`. Check:
       `test/unit/fsm.service.peer-events.spec.ts` (new).
-- [ ] `PeerEventsService` declares the subscriptions after `load()`,
+- [x] `PeerEventsService` declares the subscriptions after `load()`,
       forwards documents and disables, and logs each reply at its
       level; `Peers.onNotice` fires after `observe` stores the data.
       Check: `test/unit/peer-events.service.spec.ts` (new),
       `test/unit/peers.spec.ts`, and
       `test/unit/descriptor.service.spec.ts` for `declared()`.
-- [ ] End to end on the local aedes broker: a retained `full` of a
+- [x] End to end on the local aedes broker: a retained `full` of a
       peer without a key, published before the runner starts, raises
       the event at startup; a later `full` after `open` raises it once;
       a will raises the `online: false` event; an unsigned document of
@@ -398,7 +398,7 @@ runner part are merged (this plan's call).
       `startBroker` of `test/e2e/mqtt.util.ts`.
 - [ ] `test/e2e/mqtt.broker.spec.ts` asserts no shape that 16 changes.
       Check: grep it, and its CI run against Mosquitto.
-- [ ] README, `STATE-MACHINE.md`, the design document (the next free
+- [x] README, `STATE-MACHINE.md`, the design document (the next free
       D number when the pull request is opened; A4 amended: "Amended
       by issue 16: the runner also raises an event by itself when the
       condition of a subscription to a listed peer turns true; the
@@ -406,7 +406,7 @@ runner part are merged (this plan's call).
       `api/dev.mqtt.http`, `DEVELOPER.md` and the index. Check: from
       the repository root, `npx markdownlint-cli -c .markdownlint.yaml`
       on them, and each request file run once against a runner.
-- [ ] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
+- [x] `yarn syntax`, `yarn build`, `yarn test --maxWorkers=2` and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` pass;
       no file passes 250 lines; no function reaches complexity 5, four
       parameters or four returns. Check: their output, and
@@ -438,4 +438,79 @@ runner part are merged (this plan's call).
 
 ## Learnings
 
-Written in the pull request that implements the issue.
+- **Drift.** `FsmService.managerCommands()`
+  (`src/fsm/fsm.service.ts:129-132`, not `:125-128`) had two more
+  readers since 15a: `AccessGuard.check` (`src/auth/access.guard.ts:64`)
+  and `MqttRequestHandler.authorize`
+  (`src/mqtt/mqtt-request.handler.ts:105`). Both read
+  `declared()?.managerCommands ?? []` now, as the descriptor does. The
+  service already had a private field `declared`, the `Parameters`
+  (`src/fsm/fsm.service.ts:37`), which became `params` to free the
+  name. The refusal during shutdown is in `Requests.compute`
+  (`src/fsm/requests.ts:76-85`), not `:33-42` and `:53-62`.
+  `FsmService.event` is at `:165-173` and `move` at `:175-185`. The
+  other references held: 13's `readNotice` in
+  `src/peers/peer-notice.ts`, the follows as a map of `MqttService`
+  with `follow` and `unfollow` per topic, `PeerWatch` in
+  `src/peers/peer-watch.ts`, the switches in `src/queue.peers.ts`, and
+  15b's `kid` of the DT id, verified through `src/auth/jws.ts`.
+  `fsm.service.ts` stays at 247 lines and `definition.ts` grows to 237.
+- **`PeerEvents` lives in `subscriptions.ts`**, as the plan says, beside
+  the schema and the checks; the file has 155 lines. `holds` is split
+  into `stateHolds` and `onlineHolds`, each parsing the notice with a
+  zod schema, so that a state document of any shape holds no state
+  rather than throwing.
+- **zod's union errors.** For a `when` that matches neither branch,
+  zod 4 reports the issue of the branch it came closest to: a
+  `__proto__` beside `online` is `Unrecognized key: "__proto__"` at
+  `subscriptions[0].when`, and a bad state name the message of the
+  name rule at `when.state`. The union's own message, "must hold
+  exactly one of state: <name> and online: <boolean>", shows for no
+  key, both keys, another key and a non-boolean `online`. Every case is
+  refused with its path; the tests assert the message zod gives.
+- **The log.** An accepted event is logged at `log` level as
+  `Raised neighbour-full on state full of peer hospital-2: entered
+open`; a refused one goes through `logStay`, at debug level for `no
+transition` and as a warning otherwise, without the peer, as the
+  spec asks the peer only of an accepted one.
+- **End to end.** Closing a runner while `loop` runs waits for the
+  script, and a stop transition chains a new run after the stop, so a
+  test that ends in `loop` hangs in `app.close`; the disable test
+  moves `create` instead, which exits at once. The will is a real one:
+  a client connects with it and its stream is destroyed. The event
+  that a retained `full` raises before the first transition shows only
+  in `GET /metrics`, as `events.noTransition`. Each test waits for the
+  runner's subscription on the broker before it publishes, so the
+  order of the notices is the order of publishing.
+- **Request files.** The test state machine subscribes to the state
+  `full` of `hospital-2`, which `config/runner.test.yaml.sample` now
+  lists, so a configuration copied from the older sample stops the
+  runner. Against a runner on a local aedes broker (MQTT 3.1.1, so
+  `protocolVersion: 4`), `dev.mqtt.http` sent all 25 requests, and
+  `peerFull` took `execute` to `create` with the log line above;
+  `dev.api.http` sent 32, and httpYac counts one as errored: the
+  `{{@request}}` script of 15a throws `keyFile is not defined` while
+  `@keyFile` is commented out, which predates this issue.
+- **Tests and checks.** The whole suite passed on Windows with
+  `--maxWorkers=2`: 105 suites, 953 tests, 9 skipped, 100 % of lines
+  covered. On the merge base, two suites had failed on the same host
+  with 5 s timeouts (`options.spec.ts`, `auth.mqtt.spec.ts`), which
+  passed on the run with this branch. The Qlty CLI is not installed
+  here, so the complexity of the new functions was counted by hand;
+  CI's Qlty is the check.
+- **Version and decision.** The version stays at 0.10.0, as the Spec
+  says: an optional section breaks no file and no route. 17a, in
+  progress at the same time, may bump it; whichever merges second
+  keeps the other's version. 17a takes D33, so peer subscriptions are
+  D34, and the decision table skips D33 until 17a merges.
+- **The demo is not in this pull request.** The Tasks make the demo a
+  second pull request once the runner part is merged, so its boxes
+  stay open; `hospital.cast` and the examples of `api/API.md` are not
+  re-captured yet, and API.md now says which of its replies follow the
+  code rather than the recording.
+- **Documentation sweep.** On the owner's request, this pull request
+  also brings the runner's documents up to date with 11, 13 and 15b,
+  in separate commits: `auth.principals` where the text said `auth`,
+  the routes, the error table, the design document's components,
+  tables and tests, a broken link of `DEVELOPER.md`, and a status
+  column in the research notes.

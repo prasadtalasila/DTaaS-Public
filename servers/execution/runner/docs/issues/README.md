@@ -27,8 +27,8 @@ no file.
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
 | [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done      | #92 |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done      | #90 |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | in review | #93 |
-| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done      | #93 |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review | #95 |
 | [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned   |     |
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
 | [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | planned   |     |
