@@ -13,6 +13,7 @@ import {
 } from '@jest/globals';
 import { ParameterValue } from 'src/dto/parameters.dto';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { commandNames } from 'test/utils';
 
 // An ISO 8601 UTC time, as the queue returns its timestamps
@@ -54,6 +55,7 @@ describe('check Queue service', () => {
       stdout: '',
       stderr: '',
       exitCode: null,
+      resources: NO_RESOURCES,
       finished: false,
       receivedAt: expect.stringMatching(ISO_TIME),
       finishedAt: null,
@@ -62,7 +64,8 @@ describe('check Queue service', () => {
 
   it('should store the result of a completed command', async () => {
     const id = queue.enqueue('hello');
-    queue.complete(id, ['success', logs('hello world', 'warning'), 0]);
+    const output = logs('hello world', 'warning');
+    queue.complete(id, ['success', output, 0, NO_RESOURCES]);
 
     expect(queue.activeCommand()).toEqual({
       id,
@@ -71,6 +74,7 @@ describe('check Queue service', () => {
       stdout: 'hello world',
       stderr: 'warning',
       exitCode: 0,
+      resources: NO_RESOURCES,
       finished: true,
       receivedAt: expect.stringMatching(ISO_TIME),
       finishedAt: expect.stringMatching(ISO_TIME),
@@ -93,7 +97,7 @@ describe('check Queue service', () => {
 
   it('should store a failed command with its exit code', async () => {
     const id = queue.enqueue('terminate');
-    queue.complete(id, ['failed', new Map(), 3]);
+    queue.complete(id, ['failed', new Map(), 3, NO_RESOURCES]);
 
     expect(queue.activeCommand()).toMatchObject({
       status: 'failed',
@@ -105,7 +109,7 @@ describe('check Queue service', () => {
 
   it('should store a stopped command as stopped', async () => {
     const id = queue.enqueue('loop');
-    queue.complete(id, ['stopped', new Map(), null]);
+    queue.complete(id, ['stopped', new Map(), null, NO_RESOURCES]);
 
     expect(queue.activeCommand()).toMatchObject({
       status: 'stopped',
@@ -119,7 +123,7 @@ describe('check Queue service', () => {
 
     const id = queue.enqueue('hello', 'key-1');
     expect(changed).toHaveBeenCalledTimes(1);
-    queue.complete(id, ['success', logs('hello world'), 0]);
+    queue.complete(id, ['success', logs('hello world'), 0, NO_RESOURCES]);
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
@@ -178,7 +182,7 @@ describe('check Queue service', () => {
     try {
       queue.open(file);
       const id = queue.enqueue('hello', 'key-1');
-      queue.complete(id, ['success', logs('hello world'), 0]);
+      queue.complete(id, ['success', logs('hello world'), 0, NO_RESOURCES]);
       queue.close();
 
       const restarted = new Queue();

@@ -33,7 +33,10 @@ describe('Check RunnerFactoryService', () => {
 
     expect(runner.command).toBe('scripts/create');
     expect(runner.args).toEqual([]);
-    expect(runner['stopGrace']).toBe(1000);
+    expect(runner.options).toEqual({
+      stopGrace: 1000,
+      meter: expect.any(Function),
+    });
   });
 
   it('should run the PowerShell version of the script on Windows', () => {
@@ -51,6 +54,9 @@ describe('Check RunnerFactoryService', () => {
       '-File',
       'scripts/create.ps1',
     ]);
-    expect(runner['stopGrace']).toBe(1000);
+    expect(runner.options).toEqual({
+      stopGrace: 1000,
+      meter: expect.any(Function),
+    });
   });
 });

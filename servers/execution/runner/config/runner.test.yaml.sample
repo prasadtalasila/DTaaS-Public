@@ -6,6 +6,7 @@ commands:  # list of permitted scripts
   - execute
   - echo-input
   - fail
+  - busy
 stateMachine: '../test/data/scripts/state-machine.yaml'
 # mqtt:  # uncomment to try api/dev.mqtt.http with a broker on this computer
 #   url: 'mqtt://localhost:1883'

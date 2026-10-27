@@ -8,5 +8,6 @@ commands:
   - ignore-term
   - echo-input
   - fail
+  - busy
 # milliseconds from SIGTERM to SIGKILL on a stop
 stopGrace: 500

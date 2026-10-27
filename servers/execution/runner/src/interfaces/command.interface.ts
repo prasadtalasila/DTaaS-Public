@@ -1,9 +1,16 @@
 import type { HistoryEntryDto, HistoryQuery } from '../dto/history.dto.js';
+import type { ScriptResources } from '../resources/resources.js';
 import { RunOptions, RunOutcome } from './runner.interface.js';
 
-// How a command ended, its stdout and stderr logs, and its exit code,
-// which is null when the script did not exit by itself with one
-type CommandResult = [RunOutcome, Map<string, string>, number | null];
+// How a command ended, its stdout and stderr logs, its exit code, which
+// is null when the script did not exit by itself with one, and the
+// resources its script used
+type CommandResult = [
+  RunOutcome,
+  Map<string, string>,
+  number | null,
+  ScriptResources,
+];
 
 // A command in the queue, with its times in ISO 8601 UTC; finishedAt is
 // null while it runs
@@ -14,6 +21,7 @@ type CommandRecord = {
   stdout: string;
   stderr: string;
   exitCode: number | null;
+  resources: ScriptResources;
   finished: boolean;
   receivedAt: string;
   finishedAt: string | null;
@@ -31,6 +39,7 @@ type CommandStatus = {
     stderr: string | undefined;
   };
   exitCode: number | null;
+  resources: ScriptResources;
 };
 
 interface Manager {

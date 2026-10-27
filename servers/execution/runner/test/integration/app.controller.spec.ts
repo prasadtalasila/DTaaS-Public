@@ -10,15 +10,26 @@ import ExecaManager from 'src/execa-manager.service';
 import Keyv from 'keyv';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
+import { MEASURED, UNMEASURED } from 'test/utils';
 
 type ResponseBody = {
   status: string;
-  result?: { exitCode: number | null; stdout: string; stderr: string };
+  result?: {
+    exitCode: number | null;
+    stdout: string;
+    stderr: string;
+    resources: unknown;
+  };
 };
 
 const SUCCESS = {
   status: 'success',
-  result: { exitCode: 0, stdout: 'hello world', stderr: '' },
+  result: {
+    exitCode: 0,
+    stdout: 'hello world',
+    stderr: '',
+    resources: MEASURED,
+  },
 };
 
 let mockBlackhole: jest.Mock;
@@ -90,7 +101,12 @@ describe('Test AppController', () => {
   it('should answer a failing script with its result', async () => {
     await newCommandTest({ name: 'fail' }, HttpStatus.OK, {
       status: 'failed',
-      result: { exitCode: 3, stdout: '', stderr: 'no free bed' },
+      result: {
+        exitCode: 3,
+        stdout: '',
+        stderr: 'no free bed',
+        resources: MEASURED,
+      },
     });
   });
 
@@ -128,6 +144,7 @@ describe('Test AppController', () => {
         stderr: '',
       },
       exitCode: 0,
+      resources: MEASURED,
     });
     expect(unsuccessStatus).toEqual({
       name: 'test',
@@ -137,6 +154,7 @@ describe('Test AppController', () => {
         stderr: '',
       },
       exitCode: null,
+      resources: UNMEASURED,
     });
   });
 
@@ -151,6 +169,7 @@ describe('Test AppController', () => {
         stderr: '',
       },
       exitCode: null,
+      resources: UNMEASURED,
     });
   });
 });

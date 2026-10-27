@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { commandState } from 'src/dto/state.dto';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { commandNames } from 'test/utils';
 
 const STARTED = { state: 'execute', entry: 3, status: 'running' } as const;
@@ -67,7 +68,7 @@ describe('Queue machine store', () => {
 
   it('Should mark only the commands that did not finish as interrupted', () => {
     const finished = queue.enqueue('create', 'key-0');
-    queue.complete(finished, ['success', new Map(), 0]);
+    queue.complete(finished, ['success', new Map(), 0, NO_RESOURCES]);
     queue.enqueue('execute', 'key-1');
 
     queue.markInterrupted('2026-10-26T07:25:21.123Z');

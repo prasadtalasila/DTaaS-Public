@@ -6,6 +6,7 @@ import FsmService from 'src/fsm/fsm.service';
 import { CommandResult } from 'src/interfaces/command.interface';
 import { RunOptions } from 'src/interfaces/runner.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { mqttRequest } from './mqtt.fixture';
 
 const LOGS = new Map([
@@ -14,6 +15,8 @@ const LOGS = new Map([
 ]);
 
 const ENV = { DT_ID: 'hospital-1' };
+
+const FIGURES = { cpuSeconds: 0.469, peakRssBytes: 115646464 };
 
 const validationError = {
   message: 'Validation Failed',
@@ -45,7 +48,7 @@ const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
 describe('MQTT execute requests', () => {
   it('Should reply with the result of a successful command', async () => {
-    const { handler, manager } = ending(['success', LOGS, 0]);
+    const { handler, manager } = ending(['success', LOGS, 0, FIGURES]);
 
     const body = await handler.handle(
       'execute',
@@ -57,12 +60,17 @@ describe('MQTT execute requests', () => {
     });
     expect(body).toEqual({
       status: 'success',
-      result: { exitCode: 0, stdout: 'hello world', stderr: '' },
+      result: {
+        exitCode: 0,
+        stdout: 'hello world',
+        stderr: '',
+        resources: FIGURES,
+      },
     });
   });
 
   it('Should pass the request key, the environment and the input on', async () => {
-    const { handler, manager } = ending(['success', LOGS, 0]);
+    const { handler, manager } = ending(['success', LOGS, 0, FIGURES]);
     const request = { name: 'admit', input: { ward: 'B' } };
 
     await handler.handle('execute', mqttRequest(json(request), 'key-1'));
@@ -79,7 +87,7 @@ describe('MQTT execute requests', () => {
   ] as const)(
     'Should reply with the result of a %s command',
     async (outcome, exitCode) => {
-      const { handler } = ending([outcome, new Map(), exitCode]);
+      const { handler } = ending([outcome, new Map(), exitCode, NO_RESOURCES]);
 
       const body = await handler.handle(
         'execute',
@@ -88,7 +96,12 @@ describe('MQTT execute requests', () => {
 
       expect(body).toEqual({
         status: outcome,
-        result: { exitCode, stdout: '', stderr: '' },
+        result: {
+          exitCode,
+          stdout: '',
+          stderr: '',
+          resources: { cpuSeconds: null, peakRssBytes: null },
+        },
       });
     },
   );
@@ -127,7 +140,7 @@ describe('MQTT execute requests', () => {
   ])(
     'Should return the validation error for %s',
     async (_, payload, requestKey) => {
-      const { handler, manager } = ending(['success', LOGS, 0]);
+      const { handler, manager } = ending(['success', LOGS, 0, FIGURES]);
 
       const body = await handler.handle(
         'execute',

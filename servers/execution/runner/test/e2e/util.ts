@@ -1,3 +1,4 @@
+import { expect } from '@jest/globals';
 import supertest from 'supertest';
 import { INestApplication, HttpStatus } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -6,6 +7,7 @@ import AppModule from 'src/app.module';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
 import Queue from 'src/queue.service';
+import { MEASURED, UNMEASURED } from 'test/utils';
 
 // Loads the configuration file given and the state machine it names
 async function configure(app: INestApplication, configFile: string) {
@@ -61,7 +63,13 @@ type ResponseBody = {
   name?: string;
   logs?: { stdout: string; stderr: string };
   exitCode?: number | null;
-  result?: { exitCode: number | null; stdout: string; stderr: string };
+  resources?: unknown;
+  result?: {
+    exitCode: number | null;
+    stdout: string;
+    stderr: string;
+    resources: unknown;
+  };
 };
 
 type Query = {
@@ -72,24 +80,25 @@ type Query = {
   resBody: ResponseBody | Array<RequestBody>;
 };
 
+// The bodies may hold Jest matchers, which supertest does not take
 export async function postRequest(query: Query) {
-  return supertest(query.app.getHttpServer())
+  const { body } = await supertest(query.app.getHttpServer())
     .post(query.route)
     .send(query.reqBody)
     .set('Content-Type', 'application/json')
     .set('Accept', 'application/json')
-    .expect(query.HttpStatus)
-    .expect(query.resBody);
+    .expect(query.HttpStatus);
+  expect(body).toEqual(query.resBody);
 }
 
 export async function getRequest(query: Query) {
-  return supertest(query.app.getHttpServer())
+  const { body } = await supertest(query.app.getHttpServer())
     .get(query.route)
     .send(query.reqBody)
     .set('Content-Type', 'application/json')
     .set('Accept', 'application/json')
-    .expect(query.HttpStatus)
-    .expect(query.resBody);
+    .expect(query.HttpStatus);
+  expect(body).toEqual(query.resBody);
 }
 
 const invalidQuery = (name: string) => ({
@@ -106,6 +115,7 @@ const invalidQuery = (name: string) => ({
       status: 'invalid',
       logs: { stdout: '', stderr: '' },
       exitCode: null,
+      resources: UNMEASURED,
     },
   },
 });
@@ -119,13 +129,19 @@ export const queriesJSON = {
     resBody: {
       POST: {
         status: 'success',
-        result: { exitCode: 0, stdout: 'hello world', stderr: '' },
+        result: {
+          exitCode: 0,
+          stdout: 'hello world',
+          stderr: '',
+          resources: MEASURED,
+        },
       },
       GET: {
         name: 'create',
         status: 'valid',
         logs: { stdout: 'hello world', stderr: '' },
         exitCode: 0,
+        resources: MEASURED,
       },
     },
   },
@@ -147,6 +163,7 @@ export const queriesJSON = {
         status: 'invalid',
         logs: { stdout: '', stderr: '' },
         exitCode: null,
+        resources: UNMEASURED,
       },
     },
   },

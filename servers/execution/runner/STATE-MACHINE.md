@@ -694,7 +694,7 @@ again:
 | Request                                         | Reply                                                                                        |
 | :---------------------------------------------- | :------------------------------------------------------------------------------------------- |
 | `GET /fsm`                                      | `200` `{"state": "execute", "status": "interrupted", "entry": 6, ...}`                       |
-| `GET /`                                         | `200` `{"name": "execute", "status": "interrupted", "logs": {...}, "exitCode": null}`        |
+| `GET /`                                         | `200` `{"name": "execute", "status": "interrupted", "logs": {...}, "exitCode": null, ...}`   |
 | `GET /parameters`                               | `200`, with `scope` still `multi`                                                            |
 | `POST /fsm/transition` `{"state": "terminate"}` | `202` `{"status": "accepted", "state": "terminate"}`; `GET /fsm` then shows entry 7, `valid` |
 

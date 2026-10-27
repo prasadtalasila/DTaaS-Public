@@ -24,6 +24,7 @@ export function storedResult(command: CommandRecord): CommandResult {
       ['stderr', command.stderr],
     ]),
     command.exitCode,
+    command.resources,
   ];
 }
 

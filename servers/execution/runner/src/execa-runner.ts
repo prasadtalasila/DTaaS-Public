@@ -3,6 +3,17 @@ import Runner, {
   RunOptions,
   RunOutcome,
 } from './interfaces/runner.interface.js';
+import {
+  type Meter,
+  NO_RESOURCES,
+  NO_WATCH,
+  type ScriptResources,
+} from './resources/resources.js';
+
+// stopGrace: milliseconds between SIGTERM and SIGKILL on a stop,
+// execa's default of five seconds without it; meter: what measures the
+// resources of each run, nothing without it
+export type RunnerOptions = { stopGrace?: number; meter?: Meter };
 
 export default class ExecaRunner implements Runner {
   command: string;
@@ -22,12 +33,12 @@ export default class ExecaRunner implements Runner {
 
   private exitCode: number | null = null;
 
-  // stopGrace: milliseconds between SIGTERM and SIGKILL on a stop;
-  // execa's default of five seconds without it
+  private resources: ScriptResources = NO_RESOURCES;
+
   constructor(
     command: string,
     args: string[] = [],
-    private readonly stopGrace?: number,
+    readonly options: RunnerOptions = {},
   ) {
     this.command = command;
     this.args = args;
@@ -36,17 +47,21 @@ export default class ExecaRunner implements Runner {
   // A failure is an outcome, not an exception; stdin is closed after
   // the input, or at once without one, so a script that reads it ends.
   // An env is the whole environment of the script, so execa does not
-  // merge the runner's own into it.
+  // merge the runner's own into it. The resources are measured from the
+  // spawn to the exit, and their figures are taken without waiting.
   async run(options?: RunOptions): Promise<RunOutcome> {
     const subprocess = execa(this.command, this.args, {
-      forceKillAfterDelay: this.stopGrace,
+      forceKillAfterDelay: this.options.stopGrace,
       env: options?.env,
       extendEnv: options?.env === undefined,
       input: options?.input ?? '',
       reject: false,
     });
+    const meter = this.options.meter ?? (() => NO_WATCH);
+    const watch = meter(subprocess.pid, Date.now());
     this.subprocess = subprocess;
     const { stdout, stderr, exitCode, failed } = await subprocess;
+    this.resources = watch.finish();
     this.stdout = stdout;
     this.stderr = stderr;
     this.exitCode = this.stopped ? null : (exitCode ?? null);
@@ -82,5 +97,9 @@ export default class ExecaRunner implements Runner {
 
   checkExitCode(): number | null {
     return this.exitCode;
+  }
+
+  checkResources(): ScriptResources {
+    return this.resources;
   }
 }

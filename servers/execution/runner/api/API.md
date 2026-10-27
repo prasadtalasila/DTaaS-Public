@@ -288,6 +288,10 @@ the session, with the times of the re-run:
     "interrupted": 0,
     "running": 1
   },
+  "resources": {
+    "admit": { "cpuSeconds": 2.031, "peakRssBytes": 117440512 },
+    "open": { "cpuSeconds": 0.812, "peakRssBytes": 115646464 }
+  },
   "machine": {
     "entries": { "open": 3, "full": 1 },
     "seconds": { "open": 34.4, "full": 4.6 },
@@ -307,6 +311,11 @@ the session, with the times of the re-run:
   ones; `interrupted` counts the commands that this start found
   unfinished (see [Restarts](../README.md#restarts)). Every key is
   always present.
+- `resources` has a key for each command with a measured run among the
+  same records: `cpuSeconds` sums its runs, to the millisecond, and
+  `peakRssBytes` is the largest peak of one run. A `null` figure adds
+  nothing, so the object is `{}` before any measured run. The figures
+  are those of [POST /](#post-).
 - `machine` is `null` without a state machine. `entries` and `seconds`
   have a key for each state entered since the start, and for the state
   that a restored machine starts in, which counts from `since` without
@@ -367,7 +376,8 @@ curl -s http://localhost:5100/ -H 'Idempotency-Key: admit-p-1' \
   "result": {
     "exitCode": 0,
     "stdout": "hospital-1 in state open#1, scope single\r\np-1 admitted to cardiology",
-    "stderr": ""
+    "stderr": "",
+    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
   }
 }
 ```
@@ -393,6 +403,18 @@ start or was killed by a signal. On Windows, a missing script is
 reported with the exit code of `powershell.exe`, and a script killed
 from outside with 1. A refused request has no `result`.
 
+`resources` holds what the script used, as the runner sampled it while
+it ran; the [README](../README.md#resources) tells how each platform
+measures. `cpuSeconds` is user plus system CPU time in seconds, to the
+millisecond, and `peakRssBytes` the peak resident memory in bytes. Both
+are lower bounds, and `null` when not measured: on a platform other
+than Linux and Windows, or for a script that ended before its first
+sample. On Windows they are the figures of `powershell.exe`, which ran
+`admit.ps1` above, so most of the 110 MB is PowerShell's own.
+Processes that the script starts are not counted. The figures in the
+examples of this document are illustrative, as the recording of the
+demo predates them.
+
 Both wards hold two beds and `scope` is `single`, so after `p-2`, a
 third cardiology patient fails with exit code 3:
 
@@ -409,7 +431,8 @@ curl -s http://localhost:5100/ \
   "result": {
     "exitCode": 3,
     "stdout": "hospital-1 in state open#1, scope single",
-    "stderr": "no free bed for p-3; escalated: 202"
+    "stderr": "no free bed for p-3; escalated: 202",
+    "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
   }
 }
 ```
@@ -453,7 +476,8 @@ curl -s http://localhost:5100/
     "stdout": "hospital-1 in state open#1, scope single",
     "stderr": "no free bed for p-3; escalated: 202"
   },
-  "exitCode": 3
+  "exitCode": 3,
+  "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
 }
 ```
 
@@ -467,7 +491,8 @@ curl -s http://localhost:5100/
 
 Before the first command, `name` is `none` and `status` is `invalid`.
 While the latest command runs, its `status` is `invalid` too, with
-empty logs and `exitCode` `null`, until it finishes;
+empty logs, `exitCode` `null` and both `resources` `null`, until it
+finishes;
 [GET /state](#get-state) shows it as `running`. These names differ from
 those of `POST /`: `valid` here is `success` there.
 
@@ -497,7 +522,8 @@ only, so the times are those of the re-run that the
     "exitCode": 0,
     "receivedAt": "2026-10-26T14:55:51.000Z",
     "finishedAt": "2026-10-26T14:55:52.000Z",
-    "by": null
+    "by": null,
+    "resources": { "cpuSeconds": 0.469, "peakRssBytes": 115646464 }
   },
   {
     "id": 4,
@@ -506,7 +532,8 @@ only, so the times are those of the re-run that the
     "exitCode": 3,
     "receivedAt": "2026-10-26T14:55:59.000Z",
     "finishedAt": "2026-10-26T14:56:00.000Z",
-    "by": null
+    "by": null,
+    "resources": { "cpuSeconds": 0.812, "peakRssBytes": 117440512 }
   },
   {
     "id": 10,
@@ -515,7 +542,8 @@ only, so the times are those of the re-run that the
     "exitCode": null,
     "receivedAt": "2026-10-26T14:56:17.000Z",
     "finishedAt": null,
-    "by": null
+    "by": null,
+    "resources": { "cpuSeconds": null, "peakRssBytes": null }
   }
 ]
 ```
@@ -529,6 +557,7 @@ only, so the times are those of the re-run that the
 | `receivedAt` | when the request arrived                                                                                  |
 | `finishedAt` | when the command finished; `null` while running                                                           |
 | `by`         | the [principal](#access-control) that sent it, `script`, or `null` without `auth` or for a state's script |
+| `resources`  | as on [POST /](#post-); both `null` while running, and for refused, interrupted and older commands        |
 
 The ten records are the three entries into `open`, the five admissions
 (`p-1`, `p-2`, `p-3` refused, `p-3` again and `p-4`), the script of
@@ -1217,7 +1246,8 @@ dtaas/hospital-1/execute/response (UNSIGNED)
   "result": {
     "exitCode": 0,
     "stdout": "p-1 left cardiology\r\nraised event beds-free, reply 202",
-    "stderr": ""
+    "stderr": "",
+    "resources": { "cpuSeconds": 0.641, "peakRssBytes": 116391936 }
   }
 }
 ```
@@ -1754,7 +1784,8 @@ This document describes runner version 0.10.0, which made
 [GET /history](#get-history) return full records and added
 [GET /metrics](#get-metrics); 0.9.0 added
 [access control](#access-control). The optional
-[signatures](#signatures) came without a version change. The
+[signatures](#signatures) and the `resources` of the commands came
+without a version change. The
 [README](../README.md#use) tells how to install, configure and start the
 runner, and the [state machine guide](../STATE-MACHINE.md) how to write a
 state machine file.

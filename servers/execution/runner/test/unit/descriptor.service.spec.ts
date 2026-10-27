@@ -9,6 +9,7 @@ import { CommandRecord } from 'src/interfaces/command.interface';
 import { PeerConfig } from 'src/peers/peers.config';
 import Changes from 'src/notify/changes';
 import Queue from 'src/queue.service';
+import { NO_RESOURCES } from 'src/resources/resources';
 
 const NOW = new Date('2026-10-25T10:00:00.000Z');
 
@@ -26,6 +27,7 @@ const command = (finished: boolean, status = 'invalid'): CommandRecord => ({
   stdout: 'output',
   stderr: '',
   exitCode: null,
+  resources: NO_RESOURCES,
   finished,
   receivedAt: '2026-10-25T09:59:58.000Z',
   finishedAt: finished ? '2026-10-25T09:59:59.000Z' : null,

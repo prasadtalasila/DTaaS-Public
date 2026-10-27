@@ -10,7 +10,7 @@ import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, MqttClient } from 'mqtt';
 import { MqttRoute } from 'src/mqtt/mqtt.config';
-import { commandNames } from 'test/utils';
+import { commandNames, MEASURED } from 'test/utils';
 import { queriesJSON } from './util';
 import {
   lateSubscriber,
@@ -118,6 +118,7 @@ describe('Runner MQTT end-to-end tests', () => {
           exitCode: 0,
           stdout: expect.stringContaining('{"ward":"B"}'),
           stderr: '',
+          resources: MEASURED,
         },
       },
     ));
@@ -127,7 +128,7 @@ describe('Runner MQTT end-to-end tests', () => {
     await request(client, 'execute', { name: 'create' });
     await request(client, 'execute', { name: 'configure' });
     await expectReply(client, 'history', {}, [
-      expect.objectContaining({ id: 1, name: 'create', status: 'valid' }),
+      expect.objectContaining({ id: 1, name: 'create', resources: MEASURED }),
       expect.objectContaining({ id: 2, name: 'configure', status: 'invalid' }),
     ]);
   });
@@ -154,7 +155,7 @@ describe('Runner MQTT end-to-end tests', () => {
     expect(body).toEqual({
       id: 'test-runner',
       attributes: {},
-      commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail'],
+      commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail', 'busy'],
       stateMachine: false,
       manager: { commands: [] },
       peers: [],
