@@ -151,7 +151,7 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   // Moves an idle machine to any of its states
   transition(state: string, requestKey?: string): FsmReplyDto {
-    return this.requests.reply(`transition ${state}`, requestKey, (machine) => {
+    return this.requests.transition(state, requestKey, (machine) => {
       if (!machine.hasState(state)) {
         return fsmReply('invalid state', machine.state);
       }
@@ -163,7 +163,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   event(event: string, requestKey?: string): FsmReplyDto {
-    return this.requests.reply(`event ${event}`, requestKey, (machine) => {
+    return this.requests.event(event, requestKey, (machine) => {
       const reply = this.move(machine, event);
       if (reply.status === 'no transition') {
         this.escalations.noTransition(machine, event);

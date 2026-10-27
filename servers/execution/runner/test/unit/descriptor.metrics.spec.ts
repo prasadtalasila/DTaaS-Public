@@ -89,7 +89,7 @@ describe('Descriptor service metrics', () => {
 
     jest.advanceTimersByTime(1000);
     move(state('full', 5));
-    answer('transition full', reply);
+    answer({ kind: 'transition', name: 'full' }, reply);
     jest.advanceTimersByTime(2500);
 
     const { machine, escalations } = service.metrics();

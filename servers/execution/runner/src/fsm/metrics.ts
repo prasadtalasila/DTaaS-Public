@@ -9,6 +9,7 @@ import type {
   EscalationCounts,
   MachineMetricsDto,
 } from '../dto/metrics.dto.js';
+import type { FsmRequest } from './requests.js';
 
 // The machine as last observed, and when it entered its state, in
 // milliseconds since the epoch
@@ -72,10 +73,8 @@ export default class Metrics {
   }
 
   // A transition request, or an event request or raised event
-  answered(request: string, { status }: FsmReplyDto): void {
-    const counts = request.startsWith('transition ')
-      ? this.transitions
-      : this.events;
+  answered({ kind }: FsmRequest, { status }: FsmReplyDto): void {
+    const counts = kind === 'transition' ? this.transitions : this.events;
     counts.requested += 1;
     if (status === 'accepted') {
       counts.accepted += 1;

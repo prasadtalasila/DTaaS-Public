@@ -104,8 +104,14 @@ states:
       service.event('stop');
 
       expect(answered.mock.calls).toEqual([
-        ['transition create', { status: 'accepted', state: 'create' }],
-        ['event stop', { status: 'no transition', state: 'create' }],
+        [
+          { kind: 'transition', name: 'create' },
+          { status: 'accepted', state: 'create' },
+        ],
+        [
+          { kind: 'event', name: 'stop' },
+          { status: 'no transition', state: 'create' },
+        ],
       ]);
     });
 
@@ -127,10 +133,10 @@ states:
 
         service.setParameters({ scope: 'multi' });
 
-        expect(answered).toHaveBeenLastCalledWith('event stop', {
-          status: 'accepted',
-          state: 'create',
-        });
+        expect(answered).toHaveBeenLastCalledWith(
+          { kind: 'event', name: 'stop' },
+          { status: 'accepted', state: 'create' },
+        );
       } finally {
         rmSync(other, { recursive: true, force: true });
       }

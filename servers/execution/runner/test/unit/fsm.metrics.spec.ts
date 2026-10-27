@@ -3,6 +3,7 @@ import { EscalationData } from 'src/dto/escalation.dto';
 import { COMPLETION, FsmStateDto, ScriptStatus, STATUS } from 'src/dto/fsm.dto';
 import { RunOutcome } from 'src/interfaces/runner.interface';
 import Metrics from 'src/fsm/metrics';
+import { FsmRequest } from 'src/fsm/requests';
 
 // The clock of the tests, in milliseconds since the runner started
 const START = 1_000_000;
@@ -108,11 +109,14 @@ describe('Metrics of the state machine', () => {
 
   it('counts the answers to transition and event requests', () => {
     const metrics = twoEntries();
-    metrics.answered('transition open', { status: 'accepted', state: 'open' });
-    metrics.answered('transition x', { status: 'invalid state', state: null });
-    metrics.answered('event full', { status: 'accepted', state: 'full' });
-    metrics.answered('event close', { status: 'no transition', state: 'x' });
-    metrics.answered('event stop', { status: 'busy', state: 'x' });
+    const transition: FsmRequest = { kind: 'transition', name: 'open' };
+    const event: FsmRequest = { kind: 'event', name: 'transition' };
+    // an event named like a transition counts as an event
+    metrics.answered(transition, { status: 'accepted', state: 'open' });
+    metrics.answered(transition, { status: 'invalid state', state: null });
+    metrics.answered(event, { status: 'accepted', state: 'full' });
+    metrics.answered(event, { status: 'no transition', state: 'x' });
+    metrics.answered(event, { status: 'busy', state: 'x' });
 
     const report = metrics.report(at(6)).machine;
 
