@@ -15,12 +15,15 @@ import {
 } from '../dto/notify.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import MqttRequestHandler from './mqtt-request.handler.js';
-import { openRequest, publishOptions, refusalBody } from './mqtt-request.js';
+import {
+  openRequest,
+  publishOptions,
+  refusalBody,
+  responseTopic,
+} from './mqtt-request.js';
 import settles from './settles.js';
 import {
   clientOptions,
-  defaultResponseTopic,
-  isPublishableTopic,
   MqttRoute,
   mqttRoutes,
   notifyTopic,
@@ -30,6 +33,8 @@ import {
 export type MqttConnect = (url: string, options: IClientOptions) => MqttClient;
 
 export const MQTT_CONNECT = Symbol('MQTT_CONNECT');
+
+export type FollowListener = (payload: Buffer) => void;
 
 // milliseconds that each step of leaving the broker may take
 const LEAVE_TIMEOUT = 2000;
@@ -46,6 +51,10 @@ export default class MqttService implements BeforeApplicationShutdown {
   private routes = new Map<string, MqttRoute>();
 
   private readonly connects = new Changes();
+
+  // Topics other than the request topics, such as the notify topics of
+  // peers, and the listener of each
+  private readonly follows = new Map<string, FollowListener>();
 
   constructor(
     private readonly config: Config,
@@ -68,11 +77,27 @@ export default class MqttService implements BeforeApplicationShutdown {
     this.client = client;
     // the url may hold credentials, so log only its host
     this.listen(client, new URL(options.url).host);
-    client.subscribe([...this.routes.keys()], { qos: 1 }, (error) => {
-      if (error) {
-        this.logger.error(`MQTT subscription failed: ${error.message}`);
-      }
-    });
+    const topics = [...this.routes.keys(), ...this.follows.keys()];
+    client.subscribe(topics, { qos: 1 }, this.subscribed);
+  }
+
+  private readonly subscribed = (error?: Error | null) => {
+    if (error) {
+      this.logger.error(`MQTT subscription failed: ${error.message}`);
+    }
+  };
+
+  // Hands each message on the topic to the listener, retained or not,
+  // instead of answering it. Without a client, start subscribes it;
+  // mqtt.js subscribes again on reconnect.
+  follow(topic: string, listener: FollowListener): void {
+    this.follows.set(topic, listener);
+    this.client?.subscribe(topic, { qos: 1 }, this.subscribed);
+  }
+
+  unfollow(topic: string): void {
+    this.follows.delete(topic);
+    this.client?.unsubscribe(topic);
   }
 
   private listen(client: MqttClient, host: string): void {
@@ -90,9 +115,12 @@ export default class MqttService implements BeforeApplicationShutdown {
       }
       lastError = message;
     });
-    client.on('message', (_topic, payload, packet) =>
-      this.respond(client, payload, packet),
-    );
+    client.on('message', (topic, payload, packet) => {
+      const listener = this.follows.get(topic);
+      return listener === undefined
+        ? this.respond(client, payload, packet)
+        : listener(payload);
+    });
   }
 
   // Calls the listener on each connection to the broker, and at once if
@@ -167,7 +195,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     try {
       const body = await this.answer(route, payload, packet);
       await client.publishAsync(
-        this.responseTopic(topic, packet),
+        responseTopic(topic, packet, (requested) => this.routes.has(requested)),
         JSON.stringify(body),
         publishOptions(packet.properties?.correlationData),
       );
@@ -214,19 +242,5 @@ export default class MqttService implements BeforeApplicationShutdown {
     } catch (error) {
       this.logger.error(`MQTT notification on ${topic} failed: ${error}`);
     }
-  }
-
-  // Fall back to the default response topic when the requested one can
-  // not be published to, or would turn the response into a new request
-  private responseTopic(topic: string, packet: IPublishPacket): string {
-    const responseTopic = packet.properties?.responseTopic;
-    if (
-      responseTopic === undefined ||
-      !isPublishableTopic(responseTopic) ||
-      this.routes.has(responseTopic)
-    ) {
-      return defaultResponseTopic(topic);
-    }
-    return responseTopic;
   }
 }

@@ -3,6 +3,7 @@ import type { IClientPublishOptions, IPublishPacket } from 'mqtt';
 import Access from '../auth/access.js';
 import { Principal } from '../auth/auth.config.js';
 import { REQUEST_KEY } from '../dto/command.dto.js';
+import { defaultResponseTopic, isPublishableTopic } from './mqtt.config.js';
 
 // A request as the handler takes it: its plain body, the request key of
 // its MQTT 5 user property, and with access control the principal
@@ -53,6 +54,24 @@ export function openRequest(
   }
   const { principal, body } = access.mqtt(packet.topic, payload);
   return { body, requestKey: key, principal };
+}
+
+// Fall back to the default response topic when the requested one can
+// not be published to, or would turn the response into a new request
+export function responseTopic(
+  topic: string,
+  packet: IPublishPacket,
+  isRequest: (topic: string) => boolean,
+): string {
+  const requested = packet.properties?.responseTopic;
+  if (
+    requested === undefined ||
+    !isPublishableTopic(requested) ||
+    isRequest(requested)
+  ) {
+    return defaultResponseTopic(topic);
+  }
+  return requested;
 }
 
 // The body of the HTTP reply of a refusal, such as a 401 of openRequest;
