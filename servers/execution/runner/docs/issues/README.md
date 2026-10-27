@@ -27,7 +27,7 @@ no file.
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
 | [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | planned   |     |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned   |     |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | in review |     |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
 | [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | planned   |     |
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | planned   |     |
@@ -189,6 +189,14 @@ From implementing 15a:
   `git checkout` unless the issue re-captures the recording.
 - `node:crypto` takes any 32 bytes as an Ed25519 public key; only a
   verification shows that a key is no point of the curve.
+
+From implementing 15b:
+
+- eslint lints the `.ts` files since `a82e10a3`, so the lesson above
+  that it lints none is stale: `yarn syntax` catches errors in them.
+- A row of a Markdown table that is wider than its column makes
+  prettier re-pad every row; keep a new decision within the widths of
+  the table, or the rows of parallel issues conflict.
 
 ## Deferred
 
