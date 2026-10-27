@@ -2,7 +2,7 @@
 
 - Status: in review
 - Depends on: 15a (the roles of `PUT /peers`)
-- PR: none yet
+- PR: [#92](https://github.com/prasadtalasila/DTaaS-Public/pull/92)
 - Research note:
   [item 13](../dtn-research-notes.md#13-peer-list-and-relationships-r)
 

@@ -25,7 +25,7 @@ no file.
 | [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76 |
 | [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | in review | #91 |
 | [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75 |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | in review |     |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | in review | #92 |
 | [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | in review | #90 |
 | [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | planned   |     |
 | [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | planned   |     |
