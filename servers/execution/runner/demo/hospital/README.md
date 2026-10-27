@@ -4,61 +4,83 @@ A terminal recording of the features of the runner, told as the
 hospital bed-management case study of the paper _Self-Adaptation in
 Digital Twin Networks: A Hospital Bed Management Coordination Case
 Study_ (`.research-papers/Generalization_of_Self_Adaptation_in_DT_Networks`).
-One runner manages the digital twin (DT) of one hospital; the person at
-the terminal plays the DT Manager of the network.
+Two runners manage the digital twins (DTs) of two hospitals,
+`hospital-1` and `hospital-2`, which are peers of each other; the
+person at the terminal plays the DT Manager of the network.
 
-The recording is [hospital.cast](hospital.cast), an
-[asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) file of
-about 50 kB and 3 min 23 s, with a video of it,
-[hospital.mp4](hospital.mp4) (H.264, 1078×738, about 4 MB, stored in
-Git LFS). It was recorded on Windows against runner version 0.7.0
-(`feature/distributed-demo` at `f0f7f083`), so it does not show what
-came later: access control, full history records and metrics, the
-resources of scripts, the peers and peer events, and signed
-notifications. The configuration and
-the tools here already have the peers, the signing helpers and the
-`Authorization` header; the demo of issue 16 records two hospitals
-anew.
+The recording is two [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/)
+files on one clock, which end together:
+
+- [demo-windows-manager.cast](demo-windows-manager.cast), the
+  Manager's terminal, which types to both runners;
+- [demo-windows-network.cast](demo-windows-network.cast), the
+  notifications of both DTs as an MQTT subscriber to
+  `dtaas/+/notify/+` receives them, one line each.
+
+Each is about 6 min 23 s long; the Manager's has about 88 kB, the
+network's about 9 kB. [demo-windows.mp4](demo-windows.mp4) shows the
+two side by side, the Manager on the left (H.264, 1966×918, about
+5 MB, stored in Git LFS). Both were recorded on Windows against runner
+version 0.10.0 (`feature/distributed-demo` at `0885d759`), with access
+control and signed notifications on. The same story recorded on Linux, with the
+scripts running as a second account (`scripts.user`), is to follow as
+`demo-linux-*`.
 
 ## Play
 
-Open `hospital.mp4` in any video player, or play the cast in a
-terminal:
+Open `demo-windows.mp4` in any video player, or play a cast in a
+terminal, the two in two terminals side by side:
 
 ```bash
-asciinema play hospital.cast
+asciinema play demo-windows-manager.cast
+asciinema play demo-windows-network.cast
 ```
 
 Or in a web page, with
 [asciinema-player](https://docs.asciinema.org/manual/player/):
 
 ```html
-<div id="demo"></div>
+<div id="manager"></div>
+<div id="network"></div>
 <script src="asciinema-player.min.js"></script>
 <script>
-  AsciinemaPlayer.create('hospital.cast', document.getElementById('demo'));
+  for (const pane of ['manager', 'network']) {
+    AsciinemaPlayer.create(
+      `demo-windows-${pane}.cast`,
+      document.getElementById(pane),
+    );
+  }
 </script>
 ```
 
-The recording has a marker at each section, so the player can jump
-between them.
+Each cast has a marker at each section, so the player can jump between
+them.
 
 ## Scenario
 
-`hospital-1` in Aarhus has two wards, cardiology and maternity, of
-`capacity` beds each. Its state machine
-([hospital.fsm.yaml](hospital.fsm.yaml)) has three states, each running
-the script of the same name in [scripts](scripts):
+`hospital-1` and `hospital-2`, both in Aarhus and 12.4 km apart, have
+two wards each, cardiology and maternity. Each runner reads its own
+configuration, [runner.yaml](runner.yaml) and
+[runner-2.yaml](runner-2.yaml), which list the other hospital under
+`peers` with a `distance` attribute. Their state machines,
+[hospital.fsm.yaml](hospital.fsm.yaml) and
+[hospital-2.fsm.yaml](hospital-2.fsm.yaml), have three states, each
+running the script of the same name in [scripts](scripts):
 
-| State    | Script       | Meaning                                                            |
-| :------- | :----------- | :----------------------------------------------------------------- |
-| `open`   | `open.ps1`   | Admits patients; watches the beds and raises `full` when none free |
-| `full`   | `full.ps1`   | No free bed and no early discharge; fails, which escalates         |
-| `closed` | `closed.ps1` | Admits nobody                                                      |
+| State    | Script       | Meaning                                                                                      |
+| :------- | :----------- | :------------------------------------------------------------------------------------------- |
+| `open`   | `open.ps1`   | Admits patients; logs where overflow goes, samples the beds and raises `full` when none free |
+| `full`   | `full.ps1`   | No free bed; succeeds when a peer is open to take overflow, else fails, which escalates      |
+| `closed` | `closed.ps1` | Admits nobody                                                                                |
 
-The `peers` section of [runner.yaml](runner.yaml) lists `hospital-2`,
-which no runner of the demo serves yet, so `GET /peers` shows it with
-`online: null`.
+The two files differ in two places only: `hospital-2` has `capacity` 1,
+one bed per ward, so two admissions fill it, and only `hospital-1` has
+`subscriptions`. These raise `neighbour-full` when `hospital-2`
+reports state `full`, and `neighbour-down` when it goes offline. Both
+events are `stop: true` self-transitions of `open`, so its script
+starts again and logs the new place for overflow. `open` and `full`
+read that place from `GET $RUNNER_URL/peers`: the nearest peer that is
+online and in state `open`, or none.
 
 The Manager submits two commands, declared under `manager.commands`:
 
@@ -69,46 +91,58 @@ The Manager submits two commands, declared under `manager.commands`:
 - `discharge` with input `{"patient": "p-1"}`, which frees the bed and
   raises `beds-free`.
 
-`scope` is the shared-policy parameter θ ∈ {single, multi} of the
-paper, controllable by the Manager; changing it raises `scope-changed`,
-a `stop: true` self-transition that restarts `open`. `capacity` is
-declared but not controllable.
+Three parameters are declared:
+
+- `scope` is the shared-policy parameter θ ∈ {single, multi} of the
+  paper, controllable by the Manager; changing it raises
+  `scope-changed`, a `stop: true` self-transition that restarts `open`.
+- `capacity`, the beds per ward, is declared but not controllable.
+- `fidelity`, of values `low`, `medium` and `high`, follows the
+  [fidelity convention](../../STATE-MACHINE.md#pattern-fidelity):
+  `open` samples the beds every `POLL_MS` milliseconds times 4, 1 or
+  0.2, and `fidelity-changed` restarts it, so the Manager trades the
+  freshness of the DT against the CPU time that the runner reports.
 
 ## Sections
 
-| Time | Section                                       | Features                                                                         |
-| ---: | :-------------------------------------------- | :------------------------------------------------------------------------------- |
-| 0:00 | Setup                                         | `runner.yaml`, state machine file, demo shell helpers                            |
-| 0:15 | Presence: online                              | Retained online notice with the descriptor; first state document                 |
-| 0:31 | DT identity and descriptor                    | `GET /dt`, the MQTT `dt` route                                                   |
-| 0:37 | Health                                        | `GET /health`                                                                    |
-| 0:40 | One state document                            | `GET /state`                                                                     |
-| 0:42 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`                     |
-| 0:53 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command |
-| 1:18 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script                        |
-| 1:39 | Baseline: last command                        | `GET /` with the exit code                                                       |
-| 1:43 | Declared parameters                           | `GET`/`PUT /parameters`; refused non-controllable; event raised                  |
-| 2:01 | Script raises an event; escalation on failure | `full` raised over HTTP; `$failure` without a transition                         |
-| 2:23 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                    |
-| 2:36 | MQTT request/response with input              | MQTT `execute`; late subscriber gets retained state and presence                 |
-| 2:51 | Baseline: history                             | `GET /history`                                                                   |
-| 2:54 | Stop                                          | `POST /stop`; `$stopped` transition                                              |
-| 3:05 | Webhook                                       | Every notification also posted to the webhook                                    |
-| 3:10 | Presence: offline                             | Graceful shutdown leaves a retained offline notice                               |
+The times are those of the casts and of the video.
+
+| Time | Section                                       | Features                                                                                                         |
+| ---: | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+| 0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers       |
+| 0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)          |
+| 0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role        |
+| 1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                         |
+| 1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state` |
+| 1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                          |
+| 1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                 |
+| 2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                              |
+| 2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures    |
+| 3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                  |
+| 4:03 | Script raises an event; escalation on failure | `full` raised over HTTP; `full` finds no open peer; `$failure` without a transition escalates                    |
+| 4:29 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                                                    |
+| 4:46 | MQTT request/response with input              | MQTT `execute` and `fsm`, verified                                                                               |
+| 4:59 | Disable and enable a peer                     | `PUT /peers`; the retained `full` counts again after the enable                                                  |
+| 5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                           |
+| 5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                    |
+| 5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                 |
+| 6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                              |
+| 6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                              |
 
 ## Assumptions
 
-- One hospital DT; the other DTs of the network and the Manager's
+- Two hospital DTs; the other DTs of the network and the Manager's
   allocation algorithm are out of scope. The terminal user acts as the
-  Manager.
-- Two wards, cardiology and maternity, with 2 beds each; the beds live
-  in `run/ward.json`, a stand-in for the hospital's information system.
+  Manager and as the operator of both runners.
+- Each hospital keeps its beds in `run/<id>/ward.json`, a stand-in for
+  the hospital's information system, and its scripts log to
+  `run/<id>/ward.log`.
 - A patient the hospital cannot take is refused by `admit` (exit 3)
   rather than queued; the escalation carries the proposal the paper's
   DT would send (scope `multi`).
 - The broker is a local aedes broker on port 18830 (MQTT 3.1.1), and the
   webhook is a local receiver on port 18080; both only log what they
-  receive.
+  receive. Both runners use them.
 
 ## Record Again
 
@@ -119,55 +153,82 @@ node demo/hospital/tools/record.mjs
 node demo/hospital/tools/check-cast.mjs
 ```
 
-`record.mjs` starts the broker, subscriber, webhook receiver and runner
-([tools/services.mjs](tools/services.mjs)), plays the steps of
-[tools/steps.mjs](tools/steps.mjs) in Git Bash (`DEMO_BASH` overrides
-the shell) with real output and simulated typing, and writes
-`hospital.cast`. Everything the run writes goes to `run/`, which git
-ignores. On Linux the runner starts the state scripts with `/bin/sh`, so
-it needs shell versions of the `.ps1` scripts in `scripts/`.
+`record.mjs` starts the broker, subscriber and webhook receiver
+([tools/services.mjs](tools/services.mjs)) and both runners
+([tools/runner.mjs](tools/runner.mjs)), plays the steps of
+[tools/steps.mjs](tools/steps.mjs) and
+[tools/steps-peers.mjs](tools/steps-peers.mjs) in Git Bash (`DEMO_BASH`
+overrides the shell) with real output and simulated typing, and writes
+`demo-windows-manager.cast` and `demo-windows-network.cast`, or
+`demo-linux-*` on Linux. A recording takes about three minutes on
+Windows, as each PowerShell script needs seconds to start. Everything
+the run writes goes to `run/`, which git ignores; `run/transcript.txt`
+has each command with its output, and `run/notify.jsonl` each
+notification as it came. `check-cast.mjs` checks every pair of casts
+in the folder: valid asciicast v2, times that never go back, and the
+same height and end time for the two casts of a pair.
 
-The recording runs the runner with access control (runner 0.9.0 and
-later): `record.mjs` writes new key pairs of `alice` (role `client`)
-and `manager-1` (role `manager`) into `run/keys/` with
-[tools/keygen.mjs](tools/keygen.mjs), and a git-ignored
-`runner.auth.yaml`, which is `runner.yaml` with an `auth` section
-listing both. [tools/sign.mjs](tools/sign.mjs) signs each request: `dt`
-and the waits as `alice`, `mq` as `manager-1`; `DT_AS` names another
-principal. Without the keys the tools send unsigned requests, as the
-runner of `runner.yaml` expects. The present `hospital.cast` was
-recorded before access control, so its view of `tools/shell.sh` is the
-shorter one.
+The casts share one clock ([tools/clock.mjs](tools/clock.mjs)).
+Typing and narration move it by set amounts, and commands and waits by
+the real time they took. The subscriber writes the real time at which
+each notification arrived, which the clock turns into a time of the
+network cast. Gaps longer than 2 s are then shortened in both casts
+together, so that they stay in step and end at the same time.
 
-The recording stays unsigned. The subscriber and webhook receiver of
+On Linux the runner starts the state scripts by their bare names, so it
+needs shell versions of the `.ps1` scripts in `scripts/`, which the
+Linux recording adds.
+
+### Keys, Access Control and Signatures
+
+`record.mjs` writes new key pairs into `run/keys/` with
+[tools/keygen.mjs](tools/keygen.mjs), so that no private key is
+committed: `alice` (role `client`), `manager-1` (role `manager`), and
+one key of each runner. It then writes `runner.auth.yaml` and
+`runner-2.auth.yaml`, git-ignored, which are `runner.yaml` and
+`runner-2.yaml` with the peer's `publicKey` appended to the peer's
+entry, which is last in each file, and an `auth` section: `key`, the
+runner's signing key, and `principals`, alice and manager-1.
+
+[tools/sign.mjs](tools/sign.mjs) signs each request: `dt1`, `dt2` and
+the waits as `alice`, `mq1` and `mq2` as `manager-1`; `DT_AS` names
+another principal, and one without a key file, such as `DT_AS=nobody`,
+sends the request unsigned. `DT_ID` names the runner, and
+[tools/settings.mjs](tools/settings.mjs) gives its address and base
+topic.
+
+The subscriber and webhook receiver of
 [tools/services.mjs](tools/services.mjs) and `mq` mark each message
-with [tools/jws.mjs](tools/jws.mjs): `UNSIGNED` for plain JSON,
-`verified` for a JWS that the runner's public key in
-`run/keys/hospital-1.pub` checks, and `INVALID` for one that fails or
-that no public key can check. An `INVALID` line gives the reason (no
-key file, unreadable key file, malformed, wrong `alg` or `kid`, bad
-signature) and the payload as it came, marked unverified, instead of
-the summary. To see signed output
-([Signed Output](../../README.md#signed-output)), give the runner a
-key and add `auth.key` to the `runner.auth.yaml` of a recording, then
-start the services and the runner by hand from this folder:
+with [tools/jws.mjs](tools/jws.mjs): `verified` for a JWS that the
+public key of its DT, `run/keys/<id>.pub`, checks, `UNSIGNED` for plain
+JSON, and `INVALID` for one that fails or that no public key can check.
+An `INVALID` line gives the reason (no key file, unreadable key file,
+malformed, wrong `alg` or `kid`, bad signature) and the payload as it
+came, marked unverified, instead of the summary
+([tools/summary.mjs](tools/summary.mjs)).
+
+To try a runner by hand after a recording, start the services and the
+runners from this folder; `run/keys/` and the two `*.auth.yaml` files
+stay until the next recording:
 
 ```bash
-node tools/keygen.mjs hospital-1 run/keys
-echo '  key: run/keys/hospital-1.key' >> runner.auth.yaml
 node tools/services.mjs &
-node tools/runner.mjs -c runner.auth.yaml
+node tools/runner.mjs -c runner.auth.yaml &
+node tools/runner.mjs -c runner-2.auth.yaml &
+source tools/shell.sh
+dt1 /peers
 ```
 
-`record.mjs` writes `runner.auth.yaml` anew, without the key, on each
-run.
+`touch run/shutdown` shuts down gracefully the runners that watch for
+it, as Ctrl+C would; the first runner that sees the file removes it.
 
 ## Convert to MP4
 
 asciinema has no video output, so [tools/to-mp4.sh](tools/to-mp4.sh)
-renders the cast as a GIF with [agg](https://github.com/asciinema/agg)
-and encodes the GIF with ffmpeg. It runs on Linux or in WSL. Install the
-tools once; the release binaries of asciinema and agg need no root:
+renders each cast as a GIF with [agg](https://github.com/asciinema/agg)
+and joins the two side by side with ffmpeg's `hstack`. It runs on
+Linux or in WSL. Install the tools once; the release binaries of
+asciinema and agg need no root:
 
 ```bash
 mkdir -p ~/.local/bin && cd ~/.local/bin
@@ -180,13 +241,16 @@ chmod +x asciinema agg
 sudo apt-get install ffmpeg # or any ffmpeg build with libx264
 ```
 
-Then, from this folder (in WSL, under `/mnt/c/...`):
+The script looks in `~/.local/bin` before the `PATH`. Then, from this
+folder (in WSL, under `/mnt/c/...`):
 
 ```bash
-bash tools/to-mp4.sh
+bash tools/to-mp4.sh windows # or linux
 ```
 
-It checks the cast with `asciinema convert`, writing the plain-text
-transcript to `run/hospital.txt`, renders `run/hospital.gif` at font
-size 16 with idle gaps capped at 2 s, and writes `hospital.mp4` with
-libx264 at CRF 32. The conversion takes about two minutes.
+It checks each cast with `asciinema convert`, writing its plain-text
+transcript to `run/demo-windows-*.txt`, renders `run/demo-windows-*.gif`
+at font size 16 with an idle limit of 60 s, so that agg keeps the gaps
+as `record.mjs` set them, and writes `demo-windows.mp4` with libx264 at
+CRF 32. The conversion took 14 minutes in WSL under `/mnt/c`, most of it in
+agg.
