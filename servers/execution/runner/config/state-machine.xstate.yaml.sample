@@ -1,0 +1,126 @@
+# PROPOSAL ONLY: option B of docs/xstate.md. The runner does not read
+# this format; it shows the hospital-1 twin of demo/hospital as an
+# XState v5 machine configuration written as data.
+#
+# The keys beside machine are those of state-machine.yaml.sample,
+# unchanged. The events list is gone: the runner would take the events
+# from the "on" keys. machine holds no code: every action and guard
+# names one that the runner implements:
+#   actions: run, stop, escalate, increment, reset
+#   guards:  paramEquals, below
+parameters:
+  scope:
+    type: enum
+    values:
+      - single
+      - multi
+    default: single
+    controllable: true
+    event: scope-changed
+  capacity:
+    type: number
+    default: 2
+    controllable: false
+  fidelity:
+    type: enum
+    values:
+      - low
+      - medium
+      - high
+    default: medium
+    controllable: true
+    event: fidelity-changed
+env:
+  HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
+escalation:
+  onNoTransition: true  # onFailure is replaced by the $failure handling below
+manager:
+  commands:
+    - admit
+    - discharge
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+  - peer: hospital-2
+    when:
+      online: false
+    event: neighbour-down
+machine:  # an XState v5 machine configuration
+  id: hospital
+  initial: unstarted  # no script runs before the first transition (D6)
+  context:
+    failures: 0  # extended state; today's format has no place for it
+  states:
+    unstarted: {}
+    open:
+      entry:  # the script is named, no longer implied by the state
+        type: run
+        params:
+          script: open
+          env:
+            POLL_MS: 500
+      on:
+        full: full  # a plain transition leaves the old script running (D10)
+        scope-changed:  # reenter plus stop replaces stop: true
+          target: open
+          reenter: true
+          actions: stop
+        fidelity-changed:
+          target: open
+          reenter: true
+          actions: stop
+        neighbour-full:  # a guard: only a multi-scope hospital re-reads
+          guard:
+            type: paramEquals
+            params:
+              name: scope
+              value: multi
+          target: open
+          reenter: true
+          actions: stop
+        neighbour-down:
+          target: open
+          reenter: true
+          actions: stop
+        close:
+          target: closed
+          actions: stop
+        $stopped: closed
+        $failure:  # a counter: retry twice, then close and escalate
+          - guard:
+              type: below
+              params:
+                name: failures
+                max: 2
+            target: open
+            reenter: true
+            actions:
+              type: increment
+              params:
+                name: failures
+          - target: closed
+            actions:
+              type: escalate
+              params:
+                reason: open failed three times
+    full:
+      entry:
+        type: run
+        params:
+          script: full
+      after:  # a timer: re-open after five minutes without beds-free
+        300000: open
+      on:
+        beds-free: open
+    closed:
+      entry:
+        - type: run
+          params:
+            script: closed
+        - type: reset
+          params:
+            name: failures
+      on:
+        reopen: open
