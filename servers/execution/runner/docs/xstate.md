@@ -94,6 +94,12 @@ environment (issue 18, D35).
    _Inference_: a state named `true` would fail validation with a
    confusing message.
 
+   Tools that follow YAML 1.1 still read `on` as `true`. They include
+   PyYAML and the repository's yamllint check, whose `truthy` rule
+   checks keys (`.yamllint.yml`). Today's format has no `on` key, but
+   XState's transitions live under one, so option B must quote it as
+   `'on':`, as GitHub workflow files do.
+
 7. **No ecosystem.** The format belongs to DTaaS alone: no importers,
    no exporters, and no conversion to SCXML.
 
@@ -193,7 +199,7 @@ open:
       script: open
       env:
         POLL_MS: 500
-  on:
+  'on':
     full:
       target: full
       guard: # D8: refused while the script of full is running
@@ -251,7 +257,7 @@ open:
       script: open
       env:
         POLL_MS: 500
-  on:
+  'on':
     full: full
     scope-changed:
       target: open
@@ -295,7 +301,7 @@ full:
       script: full
   after:
     300000: open # re-open after five minutes without beds-free
-  on:
+  'on':
     beds-free: open
 ```
 
@@ -320,6 +326,10 @@ B is more verbose. A stopping transition takes three keys instead of
 two, and every state names its script. A runner-side shorthand could
 expand `stop: true` and an implied `run`. The file would then no longer
 be plain XState, and the Stately tools would not read it.
+
+B also has to quote XState's `'on'` key. Unquoted, it passes the runner
+and XState, because js-yaml reads YAML 1.2. yamllint, and any YAML 1.1
+parser, read it as the boolean `true`.
 
 ### How the Examples Were Checked
 

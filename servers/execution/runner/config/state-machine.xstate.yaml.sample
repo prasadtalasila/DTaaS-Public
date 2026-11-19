@@ -61,7 +61,7 @@ machine:  # an XState v5 machine configuration
           script: open
           env:
             POLL_MS: 500
-      on:
+      'on':
         full: full  # a plain transition leaves the old script running (D10)
         scope-changed:  # reenter plus stop replaces stop: true
           target: open
@@ -112,7 +112,7 @@ machine:  # an XState v5 machine configuration
           script: full
       after:  # a timer: re-open after five minutes without beds-free
         300000: open
-      on:
+      'on':
         beds-free: open
     closed:
       entry:
@@ -122,5 +122,5 @@ machine:  # an XState v5 machine configuration
         - type: reset
           params:
             name: failures
-      on:
+      'on':
         reopen: open
