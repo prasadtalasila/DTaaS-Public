@@ -174,6 +174,160 @@ curl -sf -X PUT "$RUNNER_URL/properties" \
 A Manager then sees `free-beds: 1` in `hospital-1`'s state document,
 not only the state name `open`.
 
+### The Hospital's State Machine File
+
+The whole file of `hospital-1` with properties, as
+`demo/hospital/hospital.fsm.yaml` would become. Only the `properties`
+section is new; the rest is today's file with comments. yamllint
+passes on it.
+
+```yaml
+# The state machine of hospital-1, as proposed by issue 19. The only
+# new section is properties; everything else is today's file.
+events:
+  - full
+  - beds-free
+  - scope-changed
+  - fidelity-changed
+  - close
+  - reopen
+  - neighbour-full
+  - neighbour-down
+parameters:
+  # set by a Manager: a patient goes to the requested ward only
+  # (single), or to any ward with a free bed (multi)
+  scope:
+    type: enum
+    values:
+      - single
+      - multi
+    default: single
+    controllable: true
+    event: scope-changed
+  # set by the DT author only: beds per ward
+  capacity:
+    type: number
+    default: 2
+    controllable: false
+  # set by a Manager: how often open samples the beds
+  fidelity:
+    type: enum
+    values:
+      - low
+      - medium
+      - high
+    default: medium
+    controllable: true
+    event: fidelity-changed
+# new (issue 19): the latest values the scripts hand the runner; null
+# until first written, never interpreted by the runner
+properties:
+  # written by open at each sample, and by admit and discharge
+  free-beds:
+    type: number
+    source: sensed
+  # written with free-beds: taken beds over all beds
+  occupancy:
+    type: number
+    source: sensed
+    unit: '%'
+  # written by open: the nearest online peer with a free bed, or none
+  overflow-to:
+    type: string
+    source: computed
+  # written by open from a short admission forecast
+  free-beds-in-2h:
+    type: number
+    source: computed
+env:
+  HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
+escalation:
+  onFailure: true
+  onNoTransition: true
+manager:
+  commands:
+    - admit
+    - discharge
+subscriptions:
+  - peer: hospital-2
+    when:
+      state: full
+    event: neighbour-full
+  - peer: hospital-2
+    when:
+      online: false
+    event: neighbour-down
+states:
+  # samples the beds, writes the properties, raises full at zero
+  open:
+    env:
+      POLL_MS: 500
+    transitions:
+      full: full
+      scope-changed:
+        state: open
+        stop: true
+      fidelity-changed:
+        state: open
+        stop: true
+      # restarts open, which recomputes overflow-to from GET /peers
+      neighbour-full:
+        state: open
+        stop: true
+      neighbour-down:
+        state: open
+        stop: true
+      close:
+        state: closed
+        stop: true
+      $stopped: closed
+  # waits for a discharge; writes free-beds as beds free up
+  full:
+    transitions:
+      beds-free: open
+  # writes null to the sensed properties: nothing is measured
+  closed:
+    transitions:
+      reopen: open
+```
+
+What each kind of value does in it:
+
+| Value                            | Kind                           | Changed by                         | Effect on the machine                                   |
+| :------------------------------- | :----------------------------- | :--------------------------------- | :------------------------------------------------------ |
+| `scope`, `fidelity`              | controllable parameter (`θ_i`) | a Manager, with `PUT /parameters`  | raises its event, which restarts `open`                 |
+| `capacity`                       | uncontrollable parameter       | the DT author, by editing the file | none; scripts read `DT_PARAM_CAPACITY`                  |
+| `free-beds`, `occupancy`         | sensed property (`x_i`)        | scripts, with `PUT /properties`    | none; `open` raises `full` itself when `free-beds` is 0 |
+| `overflow-to`, `free-beds-in-2h` | computed property              | the `open` script                  | none; published for the Manager and peers               |
+| `open`, `full`, `closed`         | machine state (`λ_i`)          | events and transitions             | the machine itself                                      |
+
+Script changes the comments assume:
+
+- **`open`** already computes the overflow target (`Get-Overflow` in
+  `ward.ps1`) and counts free beds (`Get-FreeBeds`). It would write
+  both.
+- **`admit` and `discharge`** would write `free-beds` and `occupancy`,
+  so the values stay current in `full`, where nothing samples.
+- **`closed`** would write `null` to the sensed properties. The runner
+  never clears a value itself, so this is a convention for the
+  scripts.
+- **The forecast behind `free-beds-in-2h`** does not exist yet. It
+  stands for a `computed` value; the demo could fill it with a naive
+  estimate or leave it `null`.
+
+The operator's `runner.yaml`, in the layout of
+[20](20-config-sections.md), adds the notification interval and,
+optionally, a feeder of sensed values:
+
+```yaml
+stateInterval: 1000
+security:
+  principals:
+    - name: 'ward-gateway'
+      role: 'sensor'
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+```
+
 ### Not in This Issue
 
 - **Intermediate simulation data.** Series, checkpoints, traces and
@@ -263,7 +417,7 @@ not only the state name `open`.
 - [ ] Documents and samples updated. Check: markdownlint and yamllint
       from the repository root.
 - [ ] `yarn build` and `yarn test` pass, `npx tsc --noEmit
-    --noUnusedLocals --noUnusedParameters` is clean, and no function
+  --noUnusedLocals --noUnusedParameters` is clean, and no function
       crosses the Qlty thresholds.
 
 ## Learnings
