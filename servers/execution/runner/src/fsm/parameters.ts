@@ -190,7 +190,7 @@ export default class Parameters {
     });
   }
 
-  // Takes the stored values of declared parameters that fit their
+  // Takes the stored values of controllable parameters that fit their
   // declarations, and returns the names of the others, which keep their
   // defaults
   restore(values: Record<string, ParameterValue>): string[] {
@@ -204,7 +204,7 @@ export default class Parameters {
   private fits(name: string, value: ParameterValue): boolean {
     const declaration = this.declarations.get(name);
     return (
-      declaration !== undefined &&
+      declaration?.controllable === true &&
       valueProblems(name, declaration, value).length === 0
     );
   }

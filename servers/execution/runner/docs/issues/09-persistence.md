@@ -49,7 +49,10 @@ request reaches the machine before `restore()`, which:
    declared and the value fits its declaration. Others (removed
    parameter, changed type, removed enum value) are dropped with one
    warning, at each start until set again, and start at the default.
-   Controllability is not checked; no declared event is raised (S6).
+   No declared event is raised (S6). (Amended: controllability was not
+   checked at first; a parameter the file no longer marks controllable
+   now starts at its default, since no request could ever change a
+   value restored for it.)
 1. Sends no notification of its own: 03's `Notifier` subscribes in
    `onModuleInit` and sends the startup document from
    `onApplicationBootstrap`, both run by `listen` (`app.init()` in

@@ -628,8 +628,9 @@ and the latest parameter values at each change. When it starts again:
   in the log, and the machine starts without a state. The entry count
   is kept, so entry numbers never repeat.
 - A stored parameter value that the file no longer allows, such as a
-  removed parameter or enum value, is dropped with a warning; the
-  parameter starts at its default. A restored value raises no event.
+  removed parameter or enum value, or a parameter no longer
+  controllable, is dropped with a warning; the parameter starts at its
+  default. A restored value raises no event.
 - Without `stateMachine`, the runner logs the stored state and keeps it
   for a later start with the state machine.
 

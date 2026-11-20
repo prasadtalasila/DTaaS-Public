@@ -412,8 +412,8 @@ is logged and the reply stands. `FsmService.restore()` calls
    later start with the state machine resumes it;
 1. otherwise applies `recover` and writes the result back at once, so a
    `running` row does not stay;
-1. restores the parameter values that still fit their declarations
-   (`Parameters.restore`), and warns once about the rest.
+1. restores the values of controllable parameters that still fit their
+   declarations (`Parameters.restore`), and warns once about the rest.
 
 ```mermaid
 stateDiagram-v2

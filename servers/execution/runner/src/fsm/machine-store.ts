@@ -60,7 +60,7 @@ export default class MachineStore {
     }
     if (dropped.length > 0) {
       this.logger.warn(
-        `Dropped the stored values of ${dropped.join(', ')}, which no longer fit their declarations`,
+        `Dropped the stored values of ${dropped.join(', ')}, which no longer fit their declarations or are not controllable`,
       );
     }
   }
