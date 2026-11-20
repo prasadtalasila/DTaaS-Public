@@ -1,0 +1,597 @@
+# Digital Twin Capabilities: DTDL, WoT, WLDT and the Runner
+
+How accurately can each of these technologies represent a digital twin
+(DT)?
+
+- **DTDL v4**, the Digital Twins Definition Language of Azure Digital
+  Twins.
+- **WLDT** 0.8.1, the Java library mapped in
+  [wldt-code-map.md](wldt-code-map.md).
+- **The runner** 0.10.0, this package, with the properties of
+  [issue 19](issues/19-properties.md) where noted.
+
+[The Web of Things](#the-web-of-things), the W3C's Thing Description
+and Scripting API, follows as a fourth point of comparison.
+
+The hospital twin of `demo/hospital` serves as the running example.
+Runner citations give `file:line` under `servers/execution/runner/`;
+WLDT citations follow [wldt-research-notes.md](wldt-research-notes.md).
+Statements marked _inference_ are this document's reading.
+
+## What Each One Is
+
+The three do not do the same job. DTDL describes a twin, WLDT mirrors
+an asset's data, and the runner controls a twin's behaviour.
+
+|               | DTDL v4                                             | WLDT 0.8.1                                         | Runner 0.10.0                                                                       |
+| :------------ | :-------------------------------------------------- | :------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| Kind          | A modelling language in JSON-LD                     | A Java runtime library                             | A runtime service for one DT                                                        |
+| Represents    | The twin's type: what any twin of that kind exposes | The current physical state of one asset            | The policy and control state of one twin: which behaviour runs, with which settings |
+| Does not have | A runtime, behaviour or lifecycle                   | A portable description or explicit behaviour model | Mirrored physical state, until issue 19                                             |
+
+DTDL's own definition: "a language for describing digital twin models
+of smart devices, assets, spaces, and environments". Its metamodel
+classes are Interface, Telemetry, Property, Command, Relationship and
+Component, together with a schema language (DTDL v4, "Digital Twins
+Definition Language").
+
+In the terms of P1 of [dtn-research-notes.md](dtn-research-notes.md),
+a DT's state is `s_i = (x_i, λ_i, θ_i)`:
+
+- `x_i` is the state mirrored from the physical twin (PT);
+- `λ_i` is the active policy;
+- `θ_i` is the shared parameters.
+
+WLDT is strong on `x_i`, the runner on `λ_i` and `θ_i`. DTDL describes
+the shape of `x_i` and `θ_i` but not their values.
+
+## Accuracy, Dimension by Dimension
+
+"Partial" or "none" in a cell marks a gap that makes the representation
+less faithful.
+
+| Dimension                         | DTDL v4                                                                                                   | WLDT                                                                                        | Runner today                                                                                            | Runner with issue 19                                           |
+| :-------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------- |
+| Model identity and version        | DTMI with a major.minor version; reuse by `extends` ("Model Versioning", "Digital Twin Model Identifier") | None; a twin is assembled in Java code                                                      | Instance `id` only; no model id or version                                                              | Same                                                           |
+| Model separate from instance      | Yes: an Interface is the model, and the platform holds the instances                                      | No                                                                                          | No: `demo/hospital/hospital-2.fsm.yaml` repeats hospital-1's file except `capacity` and `subscriptions` | Same                                                           |
+| Observed state (`x_i`)            | Read-only `Property`; `Telemetry` for streams                                                             | Typed properties built from each adapter's asset description, committed in transactions     | None                                                                                                    | Latest value per property, `sensed` or `computed`, with `time` |
+| Settings others change (`θ_i`)    | `writable: true` Property                                                                                 | Managed resources: abstract, no transport                                                   | Declared parameters; `controllable`; all-or-nothing writes; events on change                            | Same                                                           |
+| Data types                        | 19 primitives; Array, Enum, Map, Object; geospatial; scaled decimal                                       | Any Java class; `type` and `contentType` tags, never interpreted                            | `string`, `number`, `boolean`, `enum`                                                                   | The same four                                                  |
+| Units and semantics               | QuantitativeTypes extension; RDF-compatible JSON-LD                                                       | An uninterpreted `type` tag                                                                 | None                                                                                                    | A free-text `unit`                                             |
+| Operations                        | `Command` with request and response schemas                                                               | Fire-and-forget actions, with no result                                                     | Allow-listed commands; input not validated; outcome and logs returned                                   | Same                                                           |
+| Behaviour and policy (`λ_i`)      | None; DTDL describes, it does not behave                                                                  | Hidden in the model's Java callbacks                                                        | An explicit state machine: states, transitions, completion events, escalation                           | Same                                                           |
+| Lifecycle and sync with the asset | Each Property has sync information, kept by the platform and outside the model ("Property")               | Bound, synchronized, out of sync; declared by the model (`DigitalTwinModel.java:2303-2316`) | Presence, health and script status; no sync flag (W6)                                                   | Per-value `time` shows a stale feed                            |
+| Composition                       | `Component`: an Interface included by value                                                               | Several adapters merged into one state; no composition                                      | None: one DT per runner (S2)                                                                            | Same                                                           |
+| Relationships                     | Named, with target type, multiplicity, typed properties and `writable`                                    | Named relationships and instances; `targetId` never resolved                                | Peers with opaque `attributes`; the runner follows their notices                                        | Same (W8 adds names)                                           |
+| History                           | Historization extension                                                                                   | Opt-in storage; queries by time range, sample range, last value, count                      | Command history and the machine; values of parameters                                                   | Latest property values only, by design                         |
+| Provenance and trust              | None                                                                                                      | None                                                                                        | Ed25519 roles, signed output, a separate script account                                                 | Properties signed like all output                              |
+
+### Verdicts
+
+- **DTDL** is the most precise **description**:
+  - typed schemas, with units through an extension;
+  - components and relationships with multiplicity;
+  - inheritance and versioned identifiers.
+
+  It represents nothing at run time, and it has no vocabulary for
+  behaviour or lifecycle.
+
+- **WLDT** gives the most faithful **snapshot of the physical asset**:
+  typed state built from what each adapter declares, transactional
+  commits, a lifecycle that the model declares, and stored history.
+  Its weak points:
+  - an opaque behaviour model;
+  - a description that never leaves the JVM;
+  - no versions;
+  - a shallow copy that can corrupt the "previous state"
+    (`DigitalTwinState.java:85-91`).
+- **The runner** is the only one of the three that makes the
+  **behaviour** explicit and inspectable: which policy is active, why
+  it changed, and with which settings. Its outputs are signed, and it
+  survives restarts. Its gaps:
+  - observed state, which issue 19 fills;
+  - the range of its types;
+  - model identity;
+  - typed relationships;
+  - composition.
+
+An accurate DT needs all three: a description (DTDL), mirrored state
+(WLDT, or the runner's properties) and behaviour (the runner's state
+machine). The runner with issue 19 and an exported description (a WoT
+TD or DTDL, C4) would cover all three at its interface.
+
+## The Hospital in DTDL
+
+hospital-1 as a DTDL v4 Interface. The JSON parses, and all 27 element
+names match DTDL's name rule. The official DTDL parser is a .NET
+library that was not run, so the model is not validated beyond those
+two checks.
+
+```json
+{
+  "@context": "dtmi:dtdl:context;4",
+  "@id": "dtmi:org:intocps:dtaas:Hospital;1",
+  "@type": "Interface",
+  "displayName": "Hospital",
+  "contents": [
+    {
+      "@type": "Property",
+      "name": "scope",
+      "writable": true,
+      "schema": "dtmi:org:intocps:dtaas:Hospital:scope;1"
+    },
+    {
+      "@type": "Property",
+      "name": "fidelity",
+      "writable": true,
+      "schema": "dtmi:org:intocps:dtaas:Hospital:fidelity;1"
+    },
+    {
+      "@type": "Property",
+      "name": "capacity",
+      "schema": "integer"
+    },
+    {
+      "@type": "Property",
+      "name": "state",
+      "schema": "dtmi:org:intocps:dtaas:Hospital:state;1"
+    },
+    {
+      "@type": "Property",
+      "name": "freeBeds",
+      "schema": "integer"
+    },
+    {
+      "@type": "Property",
+      "name": "occupancy",
+      "schema": "double"
+    },
+    {
+      "@type": "Property",
+      "name": "overflowTo",
+      "schema": "string"
+    },
+    {
+      "@type": "Property",
+      "name": "freeBedsIn2h",
+      "schema": "integer"
+    },
+    {
+      "@type": "Command",
+      "name": "admit",
+      "request": {
+        "name": "admission",
+        "schema": {
+          "@type": "Object",
+          "fields": [
+            {
+              "name": "patient",
+              "schema": "string"
+            },
+            {
+              "name": "ward",
+              "schema": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "@type": "Command",
+      "name": "discharge",
+      "request": {
+        "name": "discharge",
+        "schema": {
+          "@type": "Object",
+          "fields": [
+            {
+              "name": "patient",
+              "schema": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "@type": "Command",
+      "name": "close"
+    },
+    {
+      "@type": "Command",
+      "name": "reopen"
+    },
+    {
+      "@type": "Relationship",
+      "name": "neighbour",
+      "target": "dtmi:org:intocps:dtaas:Hospital;1",
+      "properties": [
+        {
+          "@type": "Property",
+          "name": "distance",
+          "schema": "double"
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "@id": "dtmi:org:intocps:dtaas:Hospital:scope;1",
+      "@type": "Enum",
+      "valueSchema": "string",
+      "enumValues": [
+        {
+          "name": "single",
+          "enumValue": "single"
+        },
+        {
+          "name": "multi",
+          "enumValue": "multi"
+        }
+      ]
+    },
+    {
+      "@id": "dtmi:org:intocps:dtaas:Hospital:fidelity;1",
+      "@type": "Enum",
+      "valueSchema": "string",
+      "enumValues": [
+        {
+          "name": "low",
+          "enumValue": "low"
+        },
+        {
+          "name": "medium",
+          "enumValue": "medium"
+        },
+        {
+          "name": "high",
+          "enumValue": "high"
+        }
+      ]
+    },
+    {
+      "@id": "dtmi:org:intocps:dtaas:Hospital:state;1",
+      "@type": "Enum",
+      "valueSchema": "string",
+      "enumValues": [
+        {
+          "name": "open",
+          "enumValue": "open"
+        },
+        {
+          "name": "full",
+          "enumValue": "full"
+        },
+        {
+          "name": "closed",
+          "enumValue": "closed"
+        }
+      ]
+    }
+  ]
+}
+```
+
+What maps across, and what does not:
+
+- **Maps cleanly:**
+  - parameters become Properties, `writable` when controllable;
+  - the properties of issue 19 become read-only Properties;
+  - `manager.commands` and the external events `close` and `reopen`
+    become Commands. The request shapes come from the scripts:
+    `admit.ps1` reads `{"patient", "ward"}` on stdin, and
+    `discharge.ps1` reads `{"patient"}`;
+  - peers become a `neighbour` Relationship whose `distance` is a
+    typed property instead of an opaque attribute.
+- **Does not map:** DTDL has no vocabulary for behaviour, which is what
+  the runner adds.
+  - The state machine shrinks to an enum `state` Property.
+  - Which commands are allowed in which state is lost.
+  - So are completion events, escalation, peer subscriptions, and the
+    effect of `fidelity`.
+- **Names clash.** A DTDL name contains only letters, digits and
+  underscores, starts with a letter and ends with a letter or digit.
+  The runner's names fail that rule: `free-beds`, `neighbour-full` and
+  `$success`. An export needs a mapping, such as `free-beds` to
+  `freeBeds`.
+- **Telemetry or Property?** DTDL's `Telemetry` is a stream that is not
+  kept as state. The properties of issue 19 keep the latest value, so
+  they are Properties.
+
+## The Web of Things
+
+The W3C Web of Things (WoT) is a fourth point of comparison. Both of
+its documents read here are Editor's Drafts (`specStatus: "ED"`):
+
+- **Thing Description (TD) 2.0** continues the TD 1.1 Recommendation
+  of 5 December 2023.
+- **The Scripting API** has Eclipse Thingweb's node-wot as its
+  reference implementation.
+
+Neither document uses the term "digital twin".
+
+### What WoT Provides
+
+**Thing Description.** A JSON-LD document that describes one thing.
+The spec calls it "the entry point of a Thing (much like the index.html
+of a Web site)". It has five parts:
+
+- metadata;
+- interaction affordances: properties, actions and events;
+- data schemas: a JSON Schema subset with `unit`, ranges, `readOnly`
+  and `writeOnly`;
+- security definitions;
+- links to other things.
+
+Each affordance carries **forms**, its protocol bindings: an `href`,
+an operation and a content type. One affordance may have HTTP and MQTT
+forms side by side.
+
+- **Properties** may be `observable`. Their operations are
+  `readproperty`, `writeproperty`, `observeproperty` and
+  `unobserveproperty`.
+- **Actions** have `input` and `output` schemas and the flags `safe`,
+  `idempotent` and `synchronous`. Their operations are `invokeaction`,
+  `queryaction` and `cancelaction`.
+- **Events** have a `data` schema, and `subscription` and
+  `cancellation` schemas. Those schemas let a consumer set up a
+  webhook (TD, "Webhook Event Example").
+
+**Thing Model (TM).** A template for TDs that leaves out communication
+and security details. It adds:
+
+- `{{PLACEHOLDER}}` values, substituted when a TD is derived;
+- `tm:extends` for inheritance and `tm:ref` for imports;
+- `tm:submodel` for composition;
+- `version.model`.
+
+**Scripting API.** The runtime side:
+
+- `WOT.produce(td)` returns an **ExposedThing**. Handlers are attached
+  with `setPropertyReadHandler`, `setActionHandler` and their
+  siblings; values are pushed with `emitPropertyChange` and
+  `emitEvent`; `expose()` starts serving.
+- `WOT.consume(td)` returns a **ConsumedThing**, with `readProperty`,
+  `observeProperty`, `invokeAction` and `subscribeEvent`.
+- `discover()` and `exploreDirectory()` find things, including through
+  TD directories.
+
+### WoT Against the Other Three
+
+| Dimension               | WoT (TD 2.0, Scripting API)                                                                             | DTDL v4                                 | WLDT                    | Runner                                                                             |
+| :---------------------- | :------------------------------------------------------------------------------------------------------ | :-------------------------------------- | :---------------------- | :--------------------------------------------------------------------------------- |
+| What is described       | An instance and how to reach it (TD); a class (TM)                                                      | A class (Interface)                     | Nothing portable        | Its own descriptor at `/dt`, in a format of its own                                |
+| Model against instance  | A TM with placeholders, from which TDs are derived                                                      | Interface against platform twin         | None                    | None (C3)                                                                          |
+| Protocol bindings       | Forms per operation (HTTP, MQTT, CoAP), several per affordance                                          | MQTT extension only                     | Adapter code            | Every route over HTTP and MQTT, undescribed                                        |
+| State                   | Properties: observable, read-only, write-only                                                           | Property, Telemetry                     | Typed properties        | Machine and parameters; properties with issue 19                                   |
+| Operations              | Actions: input, output, `synchronous`, `idempotent`, `safe`; query and cancel                           | Command with request and response       | Fire-and-forget actions | Synchronous commands; asynchronous transitions and events (`202`, then `GET /fsm`) |
+| Events                  | Events with `data`, subscribe and cancel; webhooks                                                      | Telemetry, roughly                      | Bus events in the JVM   | Notifications: state, escalation, presence                                         |
+| Data types              | JSON Schema subset: `integer`, `number`, `string`, `boolean`, `object`, `array`, `null`; `unit`, ranges | 19 primitives, complex schemas          | Java classes            | Four types                                                                         |
+| Semantics               | JSON-LD; ontologies such as SAREF and SSN; state annotations that link data to physical state           | JSON-LD; QuantitativeTypes              | Tag strings             | None                                                                               |
+| Relationships           | `links` with `rel`; no multiplicity, no typed link properties                                           | Typed, with multiplicity and properties | Name and target id      | Peers with opaque attributes                                                       |
+| Composition             | `tm:submodel`                                                                                           | Component                               | None                    | None                                                                               |
+| Security                | Described, for example `bearer` with `format: jws` and `alg`; enforcement is the implementation's       | None                                    | None                    | Enforced: Ed25519 request tokens, roles, signed output                             |
+| Discovery               | Discovery and TD directories                                                                            | None                                    | None                    | None, by design (S8)                                                               |
+| Behaviour and lifecycle | None: handlers are opaque code; the lifecycle is `expose()` and `destroy()`                             | None                                    | Hidden in callbacks     | An explicit state machine                                                          |
+
+### The Runner as a WoT Thing
+
+The runner already behaves like a WoT server for one thing:
+
+| Runner                                                          | WoT                                                 |
+| :-------------------------------------------------------------- | :-------------------------------------------------- |
+| `/dt`, the descriptor                                           | the TD                                              |
+| every route over HTTP and MQTT                                  | two forms per affordance                            |
+| the retained `notify/state` notification                        | `observeproperty`                                   |
+| escalation and presence notifications                           | events                                              |
+| controllable parameters                                         | writable properties                                 |
+| `manager.commands` through `POST /`                             | actions with `synchronous: true`                    |
+| `POST /fsm/event` and `/fsm/transition`, `202`, then `GET /fsm` | actions with `synchronous: false` and `queryaction` |
+| following peers (13, 16)                                        | `ConsumedThing.observeProperty` on each peer        |
+| scripts                                                         | action handlers                                     |
+
+hospital-1, in part, as a TD. It parses as JSON. It was not checked
+against the TD's JSON Schema, and the MQTT terms follow the TD's own
+example binding (prefix `mqv`).
+
+```json
+{
+  "@context": [
+    "https://www.w3.org/ns/wot-next/td",
+    {
+      "mqv": "http://www.example.org/mqtt-binding#"
+    }
+  ],
+  "id": "urn:dtaas:hospital-1",
+  "title": "hospital-1",
+  "links": [
+    {
+      "rel": "type",
+      "href": "./hospital.tm.jsonld",
+      "type": "application/tm+json"
+    }
+  ],
+  "securityDefinitions": {
+    "jws_sc": {
+      "scheme": "bearer",
+      "format": "jws",
+      "alg": "EdDSA"
+    }
+  },
+  "security": "jws_sc",
+  "properties": {
+    "parameters": {
+      "type": "object",
+      "observable": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["single", "multi"]
+        },
+        "capacity": {
+          "type": "integer",
+          "readOnly": true
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:5100/parameters",
+          "op": ["readproperty", "writeproperty"]
+        },
+        {
+          "href": "mqtt://localhost:1883",
+          "mqv:filter": "dtaas/hospital-1/parameters",
+          "op": "readproperty"
+        }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "forms": [
+        {
+          "href": "http://localhost:5100/state",
+          "op": "readproperty"
+        },
+        {
+          "href": "mqtt://localhost:1883",
+          "mqv:filter": "dtaas/hospital-1/notify/state",
+          "mqv:controlPacket": "subscribe",
+          "op": "observeproperty"
+        }
+      ]
+    }
+  },
+  "actions": {
+    "admit": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "patient": {
+            "type": "string"
+          },
+          "ward": {
+            "type": "string"
+          }
+        }
+      },
+      "synchronous": true,
+      "forms": [
+        {
+          "href": "http://localhost:5100/",
+          "op": "invokeaction"
+        }
+      ]
+    },
+    "close": {
+      "synchronous": false,
+      "idempotent": false,
+      "forms": [
+        {
+          "href": "http://localhost:5100/fsm/event",
+          "op": "invokeaction"
+        },
+        {
+          "href": "http://localhost:5100/fsm",
+          "op": "queryaction"
+        }
+      ]
+    }
+  },
+  "events": {
+    "escalation": {
+      "data": {
+        "type": "object",
+        "properties": {
+          "trigger": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "mqtt://localhost:1883",
+          "mqv:filter": "dtaas/hospital-1/notify/escalation",
+          "mqv:controlPacket": "subscribe",
+          "op": "subscribeevent"
+        }
+      ]
+    }
+  }
+}
+```
+
+Where the runner and WoT do not line up:
+
+1. **Generic routes against one endpoint per affordance.** The runner
+   names the command or the event in the body: `POST /` with
+   `{name: "admit", input}`, and `POST /fsm/event` with
+   `{event: "close"}`. A TD expects each affordance to have its own
+   form, so the sketch simplifies here: its `admit` input leaves out
+   the runner's wrapper. An exact TD needs per-affordance routes (C7),
+   or forms that fix the body. This is the largest gap.
+2. **Part of the runner's security cannot be described.** A TD can say
+   "a bearer token, JWS, EdDSA". It cannot say that the token is bound
+   to the method, the path and a hash of the body (15a), nor that the
+   runner signs its output (15b). The TD has no term for a signed
+   payload; it treats tampering only as a security consideration.
+3. **Who chooses the webhook.** In WoT, the consumer passes its
+   callback when it subscribes. The runner's webhook is fixed by the
+   operator in `runner.yaml` (03).
+4. **Handlers in the same process.** `setActionHandler` runs JavaScript
+   inside the server, which is the model that [xstate.md](xstate.md)
+   argues against for code written by DT authors. In WoT terms, the
+   runner is an ExposedThing whose handlers are separate processes,
+   under another account (18).
+5. **Discovery.** WoT expects things to be found through directories.
+   The runner lists its peers by hand (S8); a TD directory could become
+   an optional source of that list.
+6. **Behaviour.** The TD's state annotations link data to an ontology's
+   notion of state; they describe no transitions. Which commands are
+   allowed in which state, completion events and escalation have no WoT
+   equivalent, just as they have none in DTDL.
+
+### Verdict
+
+- **WoT fits the runner better than DTDL.** A TD describes a networked
+  service: its bindings, operations, asynchronous actions and security.
+  The runner is such a service.
+- **DTDL fits better for ingestion into a platform** such as Azure
+  Digital Twins, and for typed relationships and composition.
+- **Behaviour.** Neither standard can express the runner's state
+  machine. That part of the twin stays the runner's own.
+
+## Suggestions for the Runner
+
+In priority order. C2, C3 and C4 take the Web of Things into account.
+
+| #   | Suggestion                                 | Size | Notes                                                                                                                                                                                                                                                                                                                                                  |
+| :-- | :----------------------------------------- | :--- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | Model identity                             | S    | An optional model identifier and version in the state machine file, shown in `/dt`, such as a DTMI or a Thing Model URI. A Manager can then tell that hospital-1 and hospital-2 are the same kind of twin.                                                                                                                                             |
+| C2  | Standard types in issue 19, before release | S    | Use the TD's JSON Schema types: `integer`, `number`, `string`, `boolean`, `object`, `array`, with `unit` and ranges. They map onto DTDL too (`number` to `double`), and zod validates them as they are. This also answers 19's open `json` question. Changing types after release breaks configs.                                                      |
+| C3  | Model separate from instance               | M    | The state machine file becomes a model with placeholders, in the manner of a WoT Thing Model (`"capacity": "{{CAPACITY}}"`). `runner.yaml` supplies each instance's values, such as `capacity: 1` for hospital-2. The author sets the model, the operator the instance. This amends S4 and fits the split of [issue 20](issues/20-config-sections.md). |
+| C4  | Export the descriptor                      | M    | First as a TD: `GET /dt` with `Accept: application/td+json`, carrying both bindings and the security scheme. Then as DTDL for platforms such as Azure Digital Twins, with names mapped. Together they give the description side of deferred item 14.                                                                                                   |
+| C5  | Typed relationships                        | M    | W8 together with DTDL: a peer gets a relationship name, a target model and typed relationship properties, in place of opaque `attributes`. WoT links carry no multiplicity or typed properties, so DTDL is the model here.                                                                                                                             |
+| C6  | No telemetry streams                       | –    | Issue 19's properties are DTDL Properties and observable TD properties. A true telemetry stream is data-plane work and stays out, unless a stream-only notification kind is needed later.                                                                                                                                                              |
+| C7  | One endpoint per affordance                | M    | Routes such as `POST /actions/<name>`, `POST /events/<name>` and `GET /properties/<name>`, beside today's generic routes, so that a TD can describe each operation exactly. They only add routes, so nothing breaks.                                                                                                                                   |
+
+## Sources
+
+- DTDL v4:
+  <https://github.com/Azure/opendigitaltwins-dtdl/blob/master/DTDL/v4/DTDL.v4.md>,
+  read in full on 2026-11-20. Also the Overriding extension
+  (`DTDL.overriding.v2.md`). It overrides an extension property of an
+  element, such as a `unit`, from an instance; it is not a general way
+  for an instance to override a model.
+- Web of Things, both Editor's Drafts, read on 2026-11-20:
+  - Thing Description 2.0: <https://w3c.github.io/wot-thing-description/>;
+  - Scripting API: <https://w3c.github.io/wot-scripting-api/>.
+- WLDT: [wldt-code-map.md](wldt-code-map.md) and
+  [wldt-docs-and-paper.md](wldt-docs-and-paper.md).
+- Runner at `e5c12fd4`: `demo/hospital/hospital.fsm.yaml`,
+  `demo/hospital/hospital-2.fsm.yaml`, `demo/hospital/scripts/*.ps1`,
+  `src/fsm/parameters.ts`, `docs/issues/19-properties.md`,
+  `docs/dtn-research-notes.md`.
