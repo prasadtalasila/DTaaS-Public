@@ -33,6 +33,8 @@ no file.
 | [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done      | #100 |
 | [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done      | #99  |
 | [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review | #97  |
+| [19-properties.md](19-properties.md)                   | Sensed and computed values  | L    | planned   |      |
+| [20-config-sections.md](20-config-sections.md)         | Group runner.yaml sections  | M    | planned   |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -71,6 +73,18 @@ stores with each command; whichever merges second adds the column. 13
 needs 15a because `PUT /peers` is a Manager route, and 16 needs 15b so
 that a peer's state documents can be verified. 17a extends the records
 and metrics of 11.
+
+The third round, planned on 2026-11-20:
+
+```text
+04 parameters, 15a access-control ─> 20 config-sections ─> 19 properties
+```
+
+20 goes first so that 19 adds its `runner.yaml` settings (the `sensor`
+role and `stateInterval`) to the new layout. 20 waits for the owner's
+approval of its breaking change. 19 removes the non-goal "a script that
+mirrors physical-twin state into the state document": its scripts write
+the values, and the runner only holds them.
 
 ## Delivery
 
@@ -235,8 +249,6 @@ Out of scope for every file here, with what could reopen each:
   webhook of 03 covers HTTP.
 - A stdout line protocol for scripts to raise events (open question
   13); scripts use the HTTP API.
-- A script that mirrors physical-twin state into the state document
-  (item 2 of the research notes).
 - A declared `recover` state after a restart (open question 11).
 - Per-command input schemas (open question 10).
 - Discovery of peers by wildcard subscription (S8).
