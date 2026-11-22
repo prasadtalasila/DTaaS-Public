@@ -6,6 +6,7 @@ import { Principal, Role } from './auth.config.js';
 // credential at all
 export type RouteRoles = readonly Role[] | 'public';
 
+// Every role but sensor, which may call only the property routes
 const EVERY_ROLE: readonly Role[] = ['client', 'manager', 'script'];
 
 // One row for each route, which HTTP and MQTT share; a manager may
@@ -27,6 +28,9 @@ export const ROUTE_ROLES: Record<MqttRoute, RouteRoles> = {
   'set-parameters': ['client', 'manager'],
   peers: EVERY_ROLE,
   'set-peers': ['client', 'manager'],
+  // a manager tunes parameters; it may not write what the DT observes
+  properties: [...EVERY_ROLE, 'sensor'],
+  'set-properties': ['client', 'script', 'sensor'],
 };
 
 export const ACCESS_ROUTE = 'accessRoute';

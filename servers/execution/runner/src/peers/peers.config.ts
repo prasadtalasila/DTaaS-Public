@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { publicKeySchema } from '../auth/auth.config.js';
 import { attributesSchema } from '../config/attributes.js';
-import { nameSchema } from '../fsm/name.js';
+import { resourceNameSchema } from '../fsm/name.js';
 import { baseTopic } from '../mqtt/mqtt.config.js';
 
 // A peer that the DT is willing to interact with: its MQTT base topic
@@ -9,7 +9,7 @@ import { baseTopic } from '../mqtt/mqtt.config.js';
 // never reads its attributes, such as a distance.
 const peerSchema = z
   .object({
-    id: nameSchema,
+    id: resourceNameSchema,
     topic: baseTopic.optional(),
     url: z.url({ protocol: /^https?$/ }).optional(),
     attributes: attributesSchema.default({}),
@@ -68,7 +68,7 @@ export function refuseSelf(
       context.addIssue({
         code: 'custom',
         message: SELF,
-        path: ['peers', index, key],
+        path: ['relationships', 'peers', index, key],
       }),
     ),
   );

@@ -8,8 +8,8 @@ import { mqttRequest } from './mqtt.fixture';
 const document = {
   scope: {
     value: 'single',
-    type: 'enum',
-    values: ['single', 'multi'],
+    type: 'string',
+    enum: ['single', 'multi'],
     default: 'single',
     controllable: true,
   },

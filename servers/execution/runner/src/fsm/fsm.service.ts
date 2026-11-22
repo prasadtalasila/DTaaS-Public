@@ -21,7 +21,7 @@ import Parameters from './parameters.js';
 import Requests, { AnswerListener, logStay } from './requests.js';
 import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
-import StateMachine from './state-machine.js';
+import StateMachine, { machineOf } from './state-machine.js';
 import StopChain from './stop-chain.js';
 import { known } from './subscriptions.js';
 
@@ -73,7 +73,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     const file = this.config.getStateMachine();
     const definition = loadDefinition(file, known(this.config));
     this.definition = definition;
-    this.machine = definition && new StateMachine(definition);
+    this.machine = machineOf(definition);
     this.params = definition && new Parameters(definition.parameters);
     this.context.load(this.config.getId(), definition, this.params);
     this.context.inherit(scriptBase(this.config.getScriptUser(), process.env));
@@ -86,7 +86,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     const { definition, params } = this;
     const { state, entry, status } = this.store.restore(definition, params);
     this.status = status;
-    this.machine = definition && new StateMachine(definition, state, entry);
+    this.machine = machineOf(definition, state, entry);
   }
 
   // The HTTP API for scripts and its token; undefined leaves either unset

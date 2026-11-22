@@ -11,6 +11,7 @@ import {
   offlineNotification,
 } from '../dto/notify.dto.js';
 import MqttService from '../mqtt/mqtt.service.js';
+import StateHold from './state-hold.js';
 import WebhookClient from './webhook.client.js';
 
 // The kinds whose last notification the broker keeps for a Manager
@@ -32,6 +33,12 @@ export default class Notifier
   private last: string | undefined;
 
   private stopped = false;
+
+  // holds back the documents in which only property values changed
+  private readonly hold = new StateHold(
+    () => this.descriptor.stateInterval(),
+    () => this.sendState(),
+  );
 
   constructor(
     private readonly descriptor: DescriptorService,
@@ -59,6 +66,7 @@ export default class Notifier
   // already disconnecting when this hook runs
   async beforeApplicationShutdown(): Promise<void> {
     this.stopped = true;
+    this.hold.cancel();
     const { id } = this.descriptor.describe();
     const time = new Date().toISOString();
     await this.webhook.sendOnce(offlineNotification(id, time));
@@ -72,14 +80,15 @@ export default class Notifier
   }
 
   // A document equal to the last one sent, but for its time, is not
-  // sent again
+  // sent again, and one that differs in property values only may wait
   private sendState(): void {
     if (this.stopped) {
       return;
     }
     const document = this.descriptor.state();
     const content = JSON.stringify({ ...document, time: undefined });
-    if (content === this.last) {
+    const control = JSON.stringify({ ...document, time: 0, properties: 0 });
+    if (content === this.last || !this.hold.due(control)) {
       return;
     }
     this.last = content;

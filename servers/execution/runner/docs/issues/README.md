@@ -7,34 +7,33 @@ Manager can observe and steer. The features come from
 one feature, numbered by its item in the research notes so that the two
 documents cross-reference by one number. Items 15 and 17 are split into
 sub-issues with a letter suffix. Item 14 is deferred (see below) and has
-no file.
+no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 
 ## Status
 
-| File                                                   | Feature                     | Size | Status    | PR   |
-| :----------------------------------------------------- | :-------------------------- | :--- | :-------- | :--- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done      | #74  |
-| [02-state-document.md](02-state-document.md)           | One state document          | M    | done      | #77  |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done      | #79  |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done      | #78  |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done      | #84  |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done      | #83  |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done      | #82  |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done      | #81  |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done      | #86  |
-| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done      | #76  |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done      | #91  |
-| [12-health.md](12-health.md)                           | Health endpoint             | S    | done      | #75  |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done      | #92  |
-| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done      | #90  |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done      | #93  |
-| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review | #95  |
-| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done      | #94  |
-| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done      | #100 |
-| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done      | #99  |
-| [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review | #97  |
-| [19-properties.md](19-properties.md)                   | Sensed and computed values  | L    | planned   |      |
-| [20-config-sections.md](20-config-sections.md)         | Group runner.yaml sections  | M    | planned   |      |
+| File                                                   | Feature                     | Size | Status      | PR   |
+| :----------------------------------------------------- | :-------------------------- | :--- | :---------- | :--- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done        | #74  |
+| [02-state-document.md](02-state-document.md)           | One state document          | M    | done        | #77  |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done        | #79  |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done        | #78  |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done        | #84  |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done        | #83  |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done        | #82  |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done        | #81  |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done        | #86  |
+| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done        | #76  |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done        | #91  |
+| [12-health.md](12-health.md)                           | Health endpoint             | S    | done        | #75  |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done        | #92  |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done        | #90  |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done        | #93  |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review   | #95  |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done        | #94  |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done        | #100 |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done        | #99  |
+| [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review   | #97  |
+| [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -77,20 +76,21 @@ and metrics of 11.
 The third round, planned on 2026-11-20:
 
 ```text
-04 parameters, 15a access-control ─> 20 config-sections ─> 19 properties
+04 parameters, 15a access-control ─> 19 properties, with 20 config-sections
 ```
 
-20 goes first so that 19 adds its `runner.yaml` settings (the `sensor`
-role and `stateInterval`) to the new layout. 20 waits for the owner's
-approval of its breaking change. 19 removes the non-goal "a script that
-mirrors physical-twin state into the state document": its scripts write
-the values, and the runner only holds them.
+19 and 20 were merged into one issue on 2026-11-22, with C2 of the
+[proposed work](#proposed-work): the layout of `runner.yaml` goes
+first, so that the `sensor` role and `stateInterval` are added to the
+new layout. The issue removes the non-goal "a script that mirrors
+physical-twin state into the state document": its scripts write the
+values, and the runner only holds them.
 
 ## Proposed Work
 
 Recorded on 2026-11-22. The research documents propose more work than
-19 and 20. None of it has an issue file yet; a proposal gets a file,
-and a row in the status table, when it is planned. The ids are those
+issue 19. None of it has an issue file yet; a proposal gets a file, and
+a row in the status table, when it is planned. The ids are those
 of the source documents:
 
 - W1 to W11: [wldt-research-notes.md](../wldt-research-notes.md);
@@ -110,15 +110,14 @@ _inferred_ when it follows from what the proposal changes.
 | W4  | Script timings and delivery counters        | S    | none                              | stated                       |                             |
 | W5  | DT lifecycle as its own axis                | M    | none                              | stated                       |                             |
 | W6  | Script-declared sync with the physical twin | S    | 19                                | inferred                     | the "PT mirroring" non-goal |
-| W7  | `type` and `contentType` on declarations    | S    | C2                                | inferred                     | the input schema non-goal   |
+| W7  | `type` and `contentType` on declarations    | S    | 19                                | inferred                     | the input schema non-goal   |
 | W8  | Named relationships on peers                | S    | none                              | stated                       |                             |
 | W9  | Domain event notifications                  | M    | none                              | stated                       |                             |
 | W10 | Wait for a state revision (long poll)       | S/M  | W1                                | stated                       | the SSE non-goal            |
 | W11 | Overhead benchmark                          | M    | none                              | stated                       |                             |
 | C1  | Model identity                              | S    | none                              | stated                       |                             |
-| C2  | Standard types in issue 19                  | S    | part of 19, before its release    | stated                       |                             |
-| C3  | Model separate from instance                | M    | 20                                | inferred                     | amending S4                 |
-| C4  | Export the descriptor (TD, then DTDL)       | M    | 19, C2, C7; C5 for DTDL           | C7 stated, the rest inferred |                             |
+| C3  | Model separate from instance                | M    | 19                                | inferred                     | amending S4                 |
+| C4  | Export the descriptor (TD, then DTDL)       | M    | 19, C7; C5 for DTDL               | C7 stated, the rest inferred |                             |
 | C5  | Typed relationships                         | M    | W8, C1                            | W8 stated, C1 inferred       |                             |
 | C7  | One endpoint per affordance                 | M    | 19                                | inferred                     |                             |
 | C8  | Simulation-time convention                  | S    | 19                                | inferred                     |                             |
@@ -129,17 +128,18 @@ _inferred_ when it follows from what the proposal changes.
 | BRC | Simulation bridge client script             | –    | 19                                | stated                       |                             |
 | SIM | Native `simulations` key                    | –    | 19, BRC, fixes in the bridge      | stated                       | D2 and S6                   |
 
-C6 of the comparison is a decision to keep telemetry streams out, so
-it is no work. TMR, BRC and SIM carry no size in their source.
+C2, the types of the properties, is part of 19. C6 of the comparison is
+a decision to keep telemetry streams out, so it is no work. TMR, BRC
+and SIM carry no size in their source.
 
 ```text
-20 ─┬─> 19 (with C2) ─┬─> W6
-    │                 ├─> W7
-    │                 ├─> C8
-    │                 ├─> C7 ──────────┬─> C4
-    │                 ├────────────────┘
-    │                 └─> BRC ─> SIM
-    └─> C3
+19 ─┬─> W6
+    ├─> W7
+    ├─> C3
+    ├─> C8
+    ├─> C7 ──────────┬─> C4
+    ├────────────────┘
+    └─> BRC ─> SIM
 
 W1 ─> W10
 W8, C1 ─> C5 ─> C4 (its DTDL half)
@@ -218,6 +218,10 @@ open) or `done`.
 | S13 | Peer subscriptions are global to the state machine file and edge-triggered: an event is raised when a `when` condition on a peer's `state` or `online` turns true, not on every document.                  |
 | S14 | Metrics are counters in memory since the runner started, served as JSON, and never part of the state document; durable analysis is the Manager's, from the history and the notifications.                  |
 | S15 | Verification and signing use `node:crypto`; `jose` is added only if the routine outgrows one file.                                                                                                         |
+| S16 | `runner.yaml` groups the other parties of the DT under `relationships`: the Manager's webhook and the peers. `auth` and `scripts` stay at the top. Amends the list of S4.                                  |
+| S17 | Values are declared with the types and keywords of JSON Schema, as a WoT Thing Description uses them. Every number of a property names its unit; a parameter takes none.                                   |
+| S18 | A fourth role, `sensor`, may write and read the properties and nothing else. A `manager` may read them, never write them. Amends S10.                                                                      |
+| S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
 
 ## Lessons for Every Issue
 

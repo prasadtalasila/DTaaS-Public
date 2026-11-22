@@ -11,12 +11,13 @@ const BASE =
   'database: runner.db\n';
 
 const PEERS =
-  'peers:\n' +
-  '  - id: hospital-2\n' +
-  '    topic: dtaas/hospital-2\n' +
-  "    url: 'http://localhost:5200'\n" +
-  '    attributes: {distance: 12.4}\n' +
-  '  - {id: hospital-3, url: "http://localhost:5300", enabled: false}\n';
+  'relationships:\n' +
+  '  peers:\n' +
+  '    - id: hospital-2\n' +
+  '      topic: dtaas/hospital-2\n' +
+  "      url: 'http://localhost:5200'\n" +
+  '      attributes: {distance: 12.4}\n' +
+  '    - {id: hospital-3, url: "http://localhost:5300", enabled: false}\n';
 
 const unknown = { online: null, descriptor: null, state: null };
 

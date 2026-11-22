@@ -18,10 +18,13 @@ const valid = {
   location: 'scripts',
   commands: ['create'],
   mqtt: { url: 'mqtt://127.0.0.1:18830', topic: 'dtaas/hospital-1' },
-  peers: [hospital2],
+  relationships: { peers: [hospital2] },
 };
 
-const withPeers = (...peers: unknown[]) => ({ ...valid, peers });
+const withPeers = (...peers: unknown[]) => ({
+  ...valid,
+  relationships: { peers },
+});
 
 // The message that names every problem of an invalid configuration
 function problems(config: unknown): string {
@@ -31,21 +34,21 @@ function problems(config: unknown): string {
 
 describe('Peers in the runner configuration', () => {
   it('Should accept the example and default enabled', () => {
-    expect(configSchema.parse(valid).peers).toEqual([
+    expect(configSchema.parse(valid).relationships.peers).toEqual([
       { ...hospital2, enabled: true },
     ]);
   });
 
   it('Should default the peers to none', () => {
-    expect(configSchema.parse({ ...valid, peers: undefined }).peers).toEqual(
-      [],
-    );
+    const config = { ...valid, relationships: undefined };
+
+    expect(configSchema.parse(config).relationships.peers).toEqual([]);
   });
 
   it('Should accept a peer with only a url, a key and no attributes', () => {
     const peer = { id: 'hospital-3', url: 'https://h3', publicKey: KEY };
 
-    expect(configSchema.parse(withPeers(peer)).peers).toEqual([
+    expect(configSchema.parse(withPeers(peer)).relationships.peers).toEqual([
       { ...peer, attributes: {}, enabled: true },
     ]);
   });
@@ -55,24 +58,32 @@ describe('Peers in the runner configuration', () => {
     [
       'an invalid topic',
       { id: 'h-3', topic: 'dtaas/#' },
-      /wildcards[\s\S]*at peers\[0\].topic/,
+      /wildcards[\s\S]*at relationships.peers\[0\].topic/,
     ],
-    ['an invalid url', { id: 'h-3', url: 'mqtt://h3' }, /at peers\[0\].url/],
+    [
+      'an invalid url',
+      { id: 'h-3', url: 'mqtt://h3' },
+      /at relationships.peers\[0\].url/,
+    ],
     [
       'a nested attribute',
       { ...hospital2, attributes: { ward: { beds: 1 } } },
-      /at peers\[0\].attributes.ward/,
+      /at relationships.peers\[0\].attributes.ward/,
     ],
     [
       'an unknown key',
       { ...hospital2, distance: 12 },
       /Unrecognized key[\s\S]*distance/,
     ],
-    ['an invalid id', { ...hospital2, id: '../h' }, /at peers\[0\].id/],
+    [
+      'an invalid id',
+      { ...hospital2, id: '../h' },
+      /at relationships.peers\[0\].id/,
+    ],
     [
       'an invalid key',
       { ...hospital2, publicKey: 'key' },
-      /at peers\[0\].publicKey/,
+      /at relationships.peers\[0\].publicKey/,
     ],
   ])('Should refuse %s', (_, peer, message) => {
     expect(problems(withPeers(peer))).toMatch(message);
@@ -90,9 +101,11 @@ describe('Peers in the runner configuration', () => {
       ),
     );
 
-    expect(message).toMatch(/duplicate peer hospital-2[\s\S]*at peers\[1\].id/);
     expect(message).toMatch(
-      /duplicate peer topic dtaas\/hospital-2[\s\S]*at peers\[2\].topic/,
+      /duplicate peer hospital-2[\s\S]*at relationships.peers\[1\].id/,
+    );
+    expect(message).toMatch(
+      /duplicate peer topic dtaas\/hospital-2[\s\S]*at relationships.peers\[2\].topic/,
     );
   });
 
@@ -104,8 +117,12 @@ describe('Peers in the runner configuration', () => {
       ),
     );
 
-    expect(message).toMatch(/the runner itself[\s\S]*at peers\[0\].id/);
-    expect(message).toMatch(/the runner itself[\s\S]*at peers\[1\].topic/);
+    expect(message).toMatch(
+      /the runner itself[\s\S]*at relationships.peers\[0\].id/,
+    );
+    expect(message).toMatch(
+      /the runner itself[\s\S]*at relationships.peers\[1\].topic/,
+    );
   });
 
   it('Should take a peer topic without an mqtt section', () => {

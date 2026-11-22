@@ -10,7 +10,7 @@ import Queue from 'src/queue.service';
 const definition = parseDefinition(
   `
 parameters:
-  scope: {type: enum, values: [single, multi], default: single}
+  scope: {type: string, enum: [single, multi], default: single}
 states:
   create: {}
   execute: {}`,

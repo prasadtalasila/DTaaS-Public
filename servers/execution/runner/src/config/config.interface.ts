@@ -16,6 +16,10 @@ export type ConfigValues = z.infer<typeof configSchema>;
 // without stopGrace in runner.yaml
 export const DEFAULT_STOP_GRACE = 5000;
 
+// milliseconds between state notifications that differ in property
+// values only, without stateInterval in runner.yaml
+export const DEFAULT_STATE_INTERVAL = 1000;
+
 // Only seen before loadConfig, which main.ts calls before the server
 // listens
 export const configDefault: ConfigValues = {
@@ -24,5 +28,5 @@ export const configDefault: ConfigValues = {
   port: 5000,
   location: 'script',
   commands: [],
-  peers: [],
+  relationships: { peers: [] },
 };

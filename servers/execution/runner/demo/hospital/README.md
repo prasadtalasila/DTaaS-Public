@@ -22,9 +22,12 @@ network's about 9 kB. [demo-windows.mp4](demo-windows.mp4) shows the
 two side by side, the Manager on the left (H.264, 1966×918, about
 5 MB, stored in Git LFS). Both were recorded on Windows against runner
 version 0.10.0 (`feature/distributed-demo` at `0885d759`), with access
-control and signed notifications on. The same story recorded on Linux, with the
-scripts running as a second account (`scripts.user`), is to follow as
-`demo-linux-*`.
+control and signed notifications on. The recording predates version
+0.11.0: the files of this folder now use the `relationships` layout of
+`runner.yaml`, the property `free-beds` and the MQTT topic
+`parameters/set`, none of which it shows. The same story recorded on
+Linux, with the scripts running as a second account (`scripts.user`),
+is to follow as `demo-linux-*`.
 
 ## Play
 
@@ -62,7 +65,7 @@ them.
 two wards each, cardiology and maternity. Each runner reads its own
 configuration, [runner.yaml](runner.yaml) and
 [runner-2.yaml](runner-2.yaml), which list the other hospital under
-`peers` with a `distance` attribute. Their state machines,
+`relationships.peers` with a `distance` attribute. Their state machines,
 [hospital.fsm.yaml](hospital.fsm.yaml) and
 [hospital-2.fsm.yaml](hospital-2.fsm.yaml), have three states, each
 running the script of the same name in [scripts](scripts):
@@ -102,6 +105,13 @@ Three parameters are declared:
   `open` samples the beds every `POLL_MS` milliseconds times 4, 1 or
   0.2, and `fidelity-changed` restarts it, so the Manager trades the
   freshness of the DT against the CPU time that the runner reports.
+
+One property is declared: `free-beds`, an integer of unit `beds`, the
+free beds of all wards. `open` writes it with `PUT /properties`
+(`Send-FreeBeds` of [scripts/ward.ps1](scripts/ward.ps1)) at its start
+and whenever a sample gives another number, and writes `0` before it
+raises `full`. The Manager and the peer read it in `GET /properties`
+and in the state document; the runner never reads it.
 
 ## Sections
 

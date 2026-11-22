@@ -14,8 +14,8 @@ parameters:
   # the shared-policy parameter: a patient goes to the requested ward
   # only (single), or to any ward with a free bed (multi)
   scope:
-    type: enum
-    values:
+    type: string
+    enum:
       - single
       - multi
     default: single
@@ -29,14 +29,22 @@ parameters:
   # how often open samples the beds, from the cheapest to the most
   # accurate (STATE-MACHINE.md, Pattern: Fidelity)
   fidelity:
-    type: enum
-    values:
+    type: string
+    enum:
       - low
       - medium
       - high
     default: medium
     controllable: true
     event: fidelity-changed
+# the latest values that the scripts hand the runner, for the Manager
+# and the peers; the runner never reads them
+properties:
+  # the free beds of all wards, which open writes at each sample
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
 env:
   HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
 escalation:

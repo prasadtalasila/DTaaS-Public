@@ -109,8 +109,8 @@ docker compose -f compose.runner.dev.yml down
   Manager, its enabled peers and the public key of its signatures.
 - `GET /health` returns whether the runner and its connections are up.
 
-The state machine, parameters, state document, peers, stop and
-escalation routes are in the [README](./README.md#use) and
+The state machine, parameters, properties, state document, peers, stop
+and escalation routes are in the [README](./README.md#use) and
 [API.md](./api/API.md).
 
 A sample request is:

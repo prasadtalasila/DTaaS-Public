@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
 import { MetricsDto } from './dto/metrics.dto.js';
@@ -6,6 +6,7 @@ import { commandState, StateDocumentDto } from './dto/state.dto.js';
 import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
 import Metrics from './fsm/metrics.js';
+import Properties from './fsm/properties.js';
 import { ChangeListener } from './notify/changes.js';
 import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
@@ -21,6 +22,9 @@ export default class DescriptorService implements OnModuleInit {
 
   // The peers of runner.yaml, which PeerWatch follows
   private readonly peerList = new Peers();
+
+  // The latest values that scripts and sensors wrote
+  private readonly propertyValues = new Properties();
 
   constructor(
     private readonly config: Config,
@@ -38,6 +42,28 @@ export default class DescriptorService implements OnModuleInit {
     );
     this.fsm.onEscalation((data) => this.counters.escalated(data));
     this.peerList.load(this.config.getPeers(), this.queue);
+    this.restoreProperties();
+  }
+
+  // A stored value that no longer fits its declaration is dropped
+  private restoreProperties(): void {
+    const declared = this.fsm.declared()?.properties;
+    const dropped = this.propertyValues.load(declared, this.queue);
+    if (dropped.length > 0) {
+      new Logger(DescriptorService.name).warn(
+        `Dropped the stored properties ${dropped.join(', ')}, which no longer fit their declarations`,
+      );
+    }
+  }
+
+  properties(): Properties {
+    return this.propertyValues;
+  }
+
+  // Milliseconds between state notifications that differ in property
+  // values only
+  stateInterval(): number {
+    return this.config.getStateInterval();
   }
 
   peers(): Peers {
@@ -62,6 +88,7 @@ export default class DescriptorService implements OnModuleInit {
       time: new Date().toISOString(),
       machine: this.fsm.check() ?? null,
       parameters: this.fsm.parameters()?.values() ?? {},
+      properties: this.propertyValues.values(),
       command: commandState(this.queue.activeCommand()),
     };
   }
@@ -76,9 +103,10 @@ export default class DescriptorService implements OnModuleInit {
     };
   }
 
-  // The state machine and the queue each signal a change of the state
-  // document
+  // The state machine, the queue and the properties each signal a change
+  // of the state document
   onChange(listener: ChangeListener): void {
+    this.propertyValues.onChange(listener);
     this.fsm.onChange(listener);
     this.queue.onChange(listener);
   }

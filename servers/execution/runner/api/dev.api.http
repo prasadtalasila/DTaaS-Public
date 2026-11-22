@@ -216,12 +216,29 @@ content-type: {{ContentType}}
     "scope": "multi"
 }
 
+### Properties of the state machine file
+
+// the test file declares free-beds, null until its first write
+GET http://{{hostname}}:{{port}}/properties HTTP/1.1
+content-type: {{ContentType}}
+
+### Write the latest value of a declared property
+
+// null means not known, and {} changes nothing; a name that is not
+// declared gets 400
+PUT http://{{hostname}}:{{port}}/properties HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "free-beds": 3
+}
+
 ### The machine after peerFull of dev.mqtt.http: create ran again
 
 GET http://{{hostname}}:{{port}}/fsm HTTP/1.1
 content-type: {{ContentType}}
 
-### Peers of runner.yaml, {} without a peers section
+### Peers of runner.yaml, {} without relationships.peers
 
 GET http://{{hostname}}:{{port}}/peers HTTP/1.1
 content-type: {{ContentType}}

@@ -26,14 +26,14 @@ source or the experiment are marked _unverified_.
 | runner               | The Node process that serves one digital twin (DT): it reads `runner.yaml`, serves the HTTP and MQTT APIs, and runs the DT's scripts as child processes.                                                                                                                               |
 | DT author            | The person who writes the scripts and the state machine file of a DT.                                                                                                                                                                                                                  |
 | operator             | The person who writes `runner.yaml` and starts the runner: who may call it, the broker, the peers, the signing key, the database.                                                                                                                                                      |
-| caller               | Anything that sends the runner a request over HTTP or MQTT. A **client** has every right, a **manager** reads, sets parameters and peers and runs the commands of `manager.commands`, and a **peer** is another DT; a peer has no role of its own and calls as a client or a manager.  |
+| caller               | Anything that sends the runner a request over HTTP or MQTT. A **client** has every right, a **manager** reads, sets parameters and peers and runs `manager.commands`, a **sensor** only reads and writes properties, and a **peer** is another DT, calling as a client or a manager.   |
 | script               | A file in the scripts directory (`location`) that the runner runs for a command of `POST /` or for the entry into a state. On Linux it is run directly; on Windows the runner runs `<name>.ps1` with `powershell.exe` (`src/runner-factory.service.ts`).                               |
 | script context       | What a script gets from the runner: the environment variables `RUNNER_URL`, `RUNNER_TOKEN`, `DT_ID`, `DT_STATE`, `DT_ENTRY`, `DT_PARAM_*` and the declared `env`; the command input on stdin; and a working directory, today the runner's own (`src/execa-runner.ts` passes no `cwd`). |
 | principal            | A caller that `auth.principals` lists, with a name, a role and an Ed25519 public key (15a).                                                                                                                                                                                            |
 | request token        | The credential of a principal: a compact JWS that the principal signs for one request, bound to the DT, the request and at most 60 s, and accepted once (15a).                                                                                                                         |
 | script token         | `RUNNER_TOKEN`: a random bearer token that the runner draws at each start and gives to its scripts, with the role `script` (15a).                                                                                                                                                      |
 | signed output        | With `auth.key`, the runner's notifications, MQTT responses and will are a compact JWS of their JSON, signed with the DT's Ed25519 private **key**, whose `kid` is the DT's `id` (15b).                                                                                                |
-| peer                 | A DT that the operator lists under `peers` in `runner.yaml`. The runner follows its presence and state notices and may raise events from them (13, 16).                                                                                                                                |
+| peer                 | A DT that the operator lists under `relationships.peers` in `runner.yaml`. The runner follows its presence and state notices and may raise events from them (13, 16).                                                                                                                  |
 | orchestrator         | Whatever starts and stops the runner process: a shell, systemd, Docker, a microVM manager. DTaaS's own Execution Manager is planned and not available.                                                                                                                                 |
 | boundary             | A wall that code on one side can not cross by the means it is given: a user account, a container, a virtual machine.                                                                                                                                                                   |
 | sandbox              | A boundary placed around one program or one run of it, here around a script.                                                                                                                                                                                                           |
@@ -94,14 +94,30 @@ The script token against a principal's request token:
 | Replay      | accepted any number of times                                                    | each `jti` once                                                            |
 | Bound to    | nothing but the runner process                                                  | the DT (`aud`), the method, path and body hash, or the MQTT topic and body |
 | Transport   | HTTP only; over MQTT it is a malformed credential                               | HTTP and MQTT                                                              |
-| Routes      | every reading route, `POST /fsm/event` and `POST /escalate`                     | those of the principal's role                                              |
+| Routes      | every reading route, `POST /fsm/event`, `POST /escalate` and `PUT /properties`  | those of the principal's role                                              |
 | Not allowed | `POST /`, `POST /stop`, `POST /fsm/transition`, `PUT /parameters`, `PUT /peers` | depends on the role                                                        |
 | Exists      | only with `auth.principals`; without them every route is open anyway            | only with `auth.principals`                                                |
 
 The routes of the role `script` are those of `ROUTE_ROLES` in
 `src/auth/roles.ts`: `GET /`, `/history`, `/dt`, `/state`, `/metrics`,
-`/fsm`, `/parameters` and `/peers`, plus `POST /fsm/event` and
-`POST /escalate`; `GET /health` needs no credential.
+`/fsm`, `/parameters`, `/properties` and `/peers`, plus
+`POST /fsm/event`, `POST /escalate` and `PUT /properties`;
+`GET /health` needs no credential.
+
+A script may thus write any value that fits the declaration of a
+property, and so may a principal in the role `sensor` or `client`. The
+runner checks a value against its declaration, not its truth: it
+stores the value with the name of its writer (`by`), and never acts on
+it. A reader that acts on a property
+trusts the DT's scripts and sensors, as it trusts the DT's state.
+
+The role `sensor` is the narrowest: `ROUTE_ROLES` gives it
+`GET /properties` and `PUT /properties` only, besides the public
+`GET /health`. A feeder outside the runner, such as a gateway of the
+physical twin, thus holds a key that can neither run a command, drive
+the machine, set a parameter nor read the history. A `manager` may
+read the properties but not write them: it tunes the parameters, and
+must not write what the DT observes.
 
 ### The Boundary Between Users
 

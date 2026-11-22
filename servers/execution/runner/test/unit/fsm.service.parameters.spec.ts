@@ -12,7 +12,7 @@ import {
 const DEFINITION = `
 events: [restart, scope-changed]
 parameters:
-  scope: {type: enum, values: [single, multi], default: single, controllable: true, event: scope-changed}
+  scope: {type: string, enum: [single, multi], default: single, controllable: true, event: scope-changed}
   mode: {type: string, default: a, controllable: true, event: scope-changed}
   label: {type: string, default: x, controllable: true, event: restart}
   capacity: {type: number, default: 20}

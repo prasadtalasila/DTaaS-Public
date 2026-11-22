@@ -14,8 +14,10 @@ export type ParametersBody = z.infer<typeof parametersBodySchema>;
 // A parameter in GET /parameters: its current value and its declaration
 export type ParameterDto = {
   value: ParameterValue;
-  type: 'string' | 'number' | 'boolean' | 'enum';
-  values?: string[];
+  type: 'string' | 'number' | 'integer' | 'boolean';
+  enum?: (string | number)[];
+  minimum?: number;
+  maximum?: number;
   default: ParameterValue;
   controllable: boolean;
 };

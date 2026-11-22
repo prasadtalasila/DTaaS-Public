@@ -50,7 +50,7 @@ const values = (scripts?: ConfigValues['scripts']): ConfigValues => ({
   database: PATHS.database,
   stateMachine: PATHS.stateMachine,
   auth: { key: PATHS.key },
-  peers: [],
+  relationships: { peers: [] },
   scripts,
 });
 

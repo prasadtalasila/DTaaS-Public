@@ -31,7 +31,7 @@ describe('Runner configuration schema', () => {
     expect(configSchema.parse(valid)).toEqual({
       ...valid,
       attributes: {},
-      peers: [],
+      relationships: { peers: [] },
     });
   });
 
@@ -47,7 +47,7 @@ describe('Runner configuration schema', () => {
     expect(configSchema.parse(config)).toEqual({
       ...config,
       mqtt: { ...config.mqtt, protocolVersion: 5 },
-      peers: [],
+      relationships: { peers: [] },
     });
   });
 
@@ -57,7 +57,7 @@ describe('Runner configuration schema', () => {
     expect(configSchema.parse(config)).toEqual({
       ...config,
       attributes: {},
-      peers: [],
+      relationships: { peers: [] },
     });
   });
 

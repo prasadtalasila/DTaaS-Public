@@ -7,6 +7,10 @@
 // its route and publishes the request. The "=== wait-for-server" line
 // keeps the connection open until the response arrives, and the empty
 // {{ "" }} part after it sends nothing.
+//
+// A route that writes is one level under the topic that reads:
+// parameters/set, properties/set and peers/set. The set-parameters and
+// set-peers topics of before 0.11 answer until 0.12, with a warning.
 
 @broker = mqtt://localhost:1883
 @topic = dtaas/user1/runner
@@ -219,11 +223,38 @@ QoS: 1
 
 # @name set-parameters
 MQTT {{broker}}
-Subscribe: {{topic}}/set-parameters/response
-Publish: {{topic}}/set-parameters
+Subscribe: {{topic}}/parameters/set/response
+Publish: {{topic}}/parameters/set
 QoS: 1
 
 {"scope": "multi"}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name properties
+# free-beds of the test state machine, null until its first write
+MQTT {{broker}}
+Subscribe: {{topic}}/properties/response
+Publish: {{topic}}/properties
+QoS: 1
+
+{}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name set-properties
+# Writes the latest value of a declared property; the response is the
+# properties, as for the read
+MQTT {{broker}}
+Subscribe: {{topic}}/properties/set/response
+Publish: {{topic}}/properties/set
+QoS: 1
+
+{"free-beds": 3}
 === wait-for-server
 {{ "" }}
 
@@ -270,8 +301,8 @@ QoS: 1
 
 # @name set-peers
 MQTT {{broker}}
-Subscribe: {{topic}}/set-peers/response
-Publish: {{topic}}/set-peers
+Subscribe: {{topic}}/peers/set/response
+Publish: {{topic}}/peers/set
 QoS: 1
 
 {"hospital-2": false}

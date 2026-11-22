@@ -26,12 +26,15 @@ mqtt:
   topic: 'dtaas/hospital-2'
   # the local aedes broker speaks MQTT 3.1.1 only
   protocolVersion: 4
-notify:
-  url: 'http://127.0.0.1:18080/dt-events'
-# the peers that this digital twin is willing to interact with
-peers:
-  - id: 'hospital-1'
-    topic: 'dtaas/hospital-1'
-    url: 'http://localhost:5100'
-    attributes:
-      distance: 12.4
+# the other parties of this digital twin in the network
+relationships:
+  manager:
+    notify:
+      url: 'http://127.0.0.1:18080/dt-events'
+  # the peers that this digital twin is willing to interact with
+  peers:
+    - id: 'hospital-1'
+      topic: 'dtaas/hospital-1'
+      url: 'http://localhost:5100'
+      attributes:
+        distance: 12.4

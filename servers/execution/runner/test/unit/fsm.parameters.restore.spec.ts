@@ -5,7 +5,7 @@ import Parameters from 'src/fsm/parameters';
 const { parameters } = parseDefinition(
   `
 parameters:
-  scope: {type: enum, values: [single, multi], default: single, controllable: true}
+  scope: {type: string, enum: [single, multi], default: single, controllable: true}
   capacity: {type: number, default: 20, controllable: true}
   label: {type: string, default: x, controllable: true}
   beds: {type: number, default: 2}

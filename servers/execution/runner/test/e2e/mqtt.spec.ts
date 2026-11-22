@@ -9,7 +9,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import supertest from 'supertest';
 import { connectAsync, MqttClient } from 'mqtt';
-import { MqttRoute } from 'src/mqtt/mqtt.config';
+import { MqttRoute, requestTopic } from 'src/mqtt/mqtt.config';
 import { commandNames, MEASURED } from 'test/utils';
 import { queriesJSON } from './util';
 import {
@@ -34,9 +34,8 @@ async function request(
       resolve({ topic, body: JSON.parse(payload.toString()) });
     });
   });
-  await client.publishAsync(`${TOPIC}/${route}`, JSON.stringify(body), {
-    qos: 1,
-  });
+  const topic = requestTopic(TOPIC, route);
+  await client.publishAsync(topic, JSON.stringify(body), { qos: 1 });
   return reply;
 }
 
@@ -48,7 +47,7 @@ async function expectReply(
   expected: unknown,
 ): Promise<void> {
   expect(await request(client, route, body)).toEqual({
-    topic: `${TOPIC}/${route}/response`,
+    topic: `${requestTopic(TOPIC, route)}/response`,
     body: expected,
   });
 }
@@ -74,7 +73,9 @@ describe('Runner MQTT end-to-end tests', () => {
     url = broker.url;
     client = await connectAsync(broker.url, { protocolVersion: 4 });
     cleanups.push(() => client.endAsync());
-    await client.subscribeAsync(`${TOPIC}/+/response`, { qos: 1 });
+    // a write topic is a level under its read topic, and so is its response
+    const responses = [`${TOPIC}/+/response`, `${TOPIC}/+/set/response`];
+    await client.subscribeAsync(responses, { qos: 1 });
     const runnerSubscribed = new Promise<void>((resolve) => {
       broker.aedes.on('subscribe', (subscriptions) => {
         if (subscriptions.some(({ topic }) => topic === `${TOPIC}/execute`)) {

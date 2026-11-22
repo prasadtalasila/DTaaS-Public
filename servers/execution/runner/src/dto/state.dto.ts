@@ -1,6 +1,7 @@
 import { CommandRecord } from '../interfaces/command.interface.js';
 import { FsmStateDto } from './fsm.dto.js';
 import { ParameterValue } from './parameters.dto.js';
+import { PropertyState } from './properties.dto.js';
 
 // running until the command finishes, then its stored status;
 // interrupted when the runner restarted while it ran
@@ -17,12 +18,15 @@ export type CommandState = {
 
 // The state of the digital twin in one document: machine is the body
 // of GET /fsm, or null without a state machine, and command is null
-// before the first command. time is when the document was built.
+// before the first command. properties holds the latest value that
+// was written of each, null until the first write. time is when the
+// document was built.
 export type StateDocumentDto = {
   id: string;
   time: string;
   machine: FsmStateDto | null;
   parameters: Record<string, ParameterValue>;
+  properties: Record<string, PropertyState>;
   command: CommandState | null;
 };
 

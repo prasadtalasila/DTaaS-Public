@@ -16,8 +16,8 @@ const machine = (parameters: string, events = '[restart, scope-changed]') =>
 
 const EXAMPLE = `
   scope:
-    type: enum
-    values: [single, multi]
+    type: string
+    enum: [single, multi]
     default: single
     controllable: true
     event: scope-changed
@@ -40,8 +40,8 @@ describe('Parameter declarations', () => {
     const { parameters: declared } = parse(machine(EXAMPLE));
 
     expect(declared.get('scope')).toEqual({
-      type: 'enum',
-      values: ['single', 'multi'],
+      type: 'string',
+      enum: ['single', 'multi'],
       default: 'single',
       controllable: true,
       event: 'scope-changed',
@@ -84,12 +84,12 @@ describe('Parameter declarations', () => {
     [
       'an enum without values',
       '  a: {type: enum, default: x}',
-      'parameters.a.values',
+      'parameters.a.enum',
     ],
     [
       'an enum with no values',
-      '  a: {type: enum, values: [], default: x}',
-      'parameters.a.values',
+      '  a: {type: string, enum: [], default: x}',
+      'parameters.a.enum',
     ],
     ['an unknown type', '  a: {type: date, default: x}', 'parameters.a.type'],
     ['an unknown key', '  a: {type: string, default: x, unit: m}', 'unit'],
@@ -100,7 +100,7 @@ describe('Parameter declarations', () => {
     ],
     [
       'a default outside the values',
-      '  a: {type: enum, values: [x, y], default: z}',
+      '  a: {type: string, enum: [x, y], default: z}',
       'parameter a default: Invalid option: expected one of "x"|"y"',
     ],
     [
@@ -142,8 +142,8 @@ describe('Parameters', () => {
 
     expect(document.scope).toEqual({
       value: 'single',
-      type: 'enum',
-      values: ['single', 'multi'],
+      type: 'string',
+      enum: ['single', 'multi'],
       default: 'single',
       controllable: true,
     });

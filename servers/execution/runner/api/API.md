@@ -16,6 +16,12 @@ example comes from elsewhere. The
 [Example Session](#example-session) at the end retells the recording as
 one story.
 
+The recording predates version 0.11.0, which this document describes.
+The replies of [GET /parameters](#get-parameters) are shown as 0.11
+gives them, the state documents of the recording lack the `properties`
+member, and the examples of [properties](#properties) are not from the
+recording.
+
 ## The Demo Setup
 
 The demo runs two runners, of the hospitals `hospital-1` and
@@ -43,7 +49,9 @@ the same name. It declares the events `full`, `beds-free`,
 `neighbour-full` and `neighbour-down`, and three parameters: `scope`,
 of values `single` and `multi`, which the Manager controls; `capacity`,
 which the Manager may read only; and `fidelity`, of values `low`,
-`medium` and `high`, which sets how often `open` samples the beds. Its
+`medium` and `high`, which sets how often `open` samples the beds. It
+declares one property, `free-beds`, an integer of unit `beds`, which
+`open` writes when the number of free beds changes. Its
 subscriptions raise `neighbour-full` when `hospital-2` is `full` and
 `neighbour-down` when it goes offline. The scripts run on Windows in
 PowerShell, so their output ends lines with `\r\n`.
@@ -69,7 +77,11 @@ a PUT. `mq1 ROUTE [JSON]` and `mq2` publish an MQTT request, signed as
 
 Every HTTP route has an MQTT route of the same meaning. An MQTT request
 is published on `<topic>/<route>`, where `<topic>` is the `mqtt.topic`
-of the configuration.
+of the configuration. The three routes that write a resource are the
+exception: `set-parameters`, `set-properties` and `set-peers` are
+published one level under the topic that reads it, on
+`<topic>/parameters/set`, `<topic>/properties/set` and
+`<topic>/peers/set` (see [Request Topics](#request-topics)).
 
 | HTTP                   | MQTT route       | Request body                        | Success |
 | :--------------------- | :--------------- | :---------------------------------- | :------ |
@@ -86,6 +98,8 @@ of the configuration.
 | `GET /fsm`             | `fsm`            |                                     | 200     |
 | `GET /parameters`      | `parameters`     |                                     | 200     |
 | `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                | 200     |
+| `GET /properties`      | `properties`     |                                     | 200     |
+| `PUT /properties`      | `set-properties` | `{"free-beds": 3}`                  | 200     |
 | `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}` | 202     |
 | `GET /peers`           | `peers`          |                                     | 200     |
 | `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`             | 200     |
@@ -177,7 +191,7 @@ curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
 | `id`           | the identity of the DT, `id` in the configuration                                                            |
 | `attributes`   | the `attributes` of the configuration; `{}` without any                                                      |
 | `commands`     | the permitted commands, which `POST /` may run                                                               |
-| `stateMachine` | whether a state machine file is loaded                                                                       |
+| `stateMachine` | whether a state machine is loaded; `false` without a file and for a file without states                      |
 | `manager`      | the `manager.commands` of the state machine file; the commands meant for the Manager, a subset of `commands` |
 | `peers`        | the ids of the enabled [peers](#peers), in the order of the configuration; `[]` without any                  |
 | `publicKey`    | the public key that verifies the runner's [signatures](#signatures); `null` without `auth.key`               |
@@ -230,13 +244,28 @@ Before the first transition, `machine` is
 `command` is `null`, as in the first
 [state notification](#state-notifications).
 
-| Field        | Meaning                                                                  |
-| :----------- | :----------------------------------------------------------------------- |
-| `id`         | the identity of the DT                                                   |
-| `time`       | the time the document was built                                          |
-| `machine`    | the reply of [GET /fsm](#get-fsm), or `null` without a state machine     |
-| `parameters` | the value of each [parameter](#parameters); `{}` without a state machine |
-| `command`    | the latest command, or `null` before the first one                       |
+From version 0.11.0 the document also has `properties`, between
+`parameters` and `command`, which the recording predates. For the demo
+it is, once `open` has written the four free beds:
+
+```json
+{
+  "properties": {
+    "free-beds": { "value": 4, "time": "2026-11-22T19:59:17.857Z" }
+  }
+}
+```
+
+| Field        | Meaning                                                                                                   |
+| :----------- | :-------------------------------------------------------------------------------------------------------- |
+| `id`         | the identity of the DT                                                                                    |
+| `time`       | the time the document was built                                                                           |
+| `machine`    | the reply of [GET /fsm](#get-fsm), or `null` without a state machine                                      |
+| `parameters` | the value of each [parameter](#parameters); `{}` without a state machine file                             |
+| `properties` | the latest `value` of each [property](#properties) and the `time` of its write; `{}` without declarations |
+| `command`    | the latest command, or `null` before the first one                                                        |
+
+The `value` and `time` of a property are `null` until its first write.
 
 `command` has the `name` of the command, its `status`, `receivedAt` and
 `finishedAt`. Its status is `running` until the script finishes, then
@@ -682,8 +711,9 @@ moment. A stop takes no request key: a repeat finds nothing running.
 
 ## State Machine
 
-These routes need a `stateMachine` in the configuration; without one,
-they answer `404` with `{"status": "no state machine", "state": null}`.
+These routes need a `stateMachine` in the configuration, whose file
+has states; without one, and for a file without states, they answer
+`404` with `{"status": "no state machine", "state": null}`.
 
 The machine is idle before its first transition and whenever the
 script of its current state has finished. On entering a state, the
@@ -745,7 +775,7 @@ The same request again gets the same reply and escalates nothing.
 | `busy`                | 409  | a transition request while the script of the state runs |
 | `no transition`       | 409  | the current state has no transition for the event       |
 | `script running`      | 409  | the script of the next state is still running           |
-| `no state machine`    | 404  | the configuration has no `stateMachine`                 |
+| `no state machine`    | 404  | no `stateMachine` key, or a file that has no states     |
 | `stopping`            | 503  | the runner is shutting down                             |
 
 A body without a `state` or an `event` gets the
@@ -802,13 +832,16 @@ restart of `open` when `scope` changes.
 ## Parameters
 
 Parameters are named values of the DT, declared in the state machine
-file. The scripts see them as `DT_PARAM_<NAME>` environment variables.
+file with a `type` of `string`, `number`, `integer` or `boolean` and,
+optionally, an `enum`, a `minimum` and a `maximum`. The scripts see
+them as `DT_PARAM_<NAME>` environment variables.
 No name has a meaning to the runner: a `fidelity` parameter, by which a
 Manager trades a DT's accuracy for computing power, is a convention
 between DT authors and Managers
 ([Pattern: Fidelity](../STATE-MACHINE.md#pattern-fidelity)).
-Without a state machine, both routes answer `404` with
-`{"status": "no state machine", "state": null}`.
+Without a state machine file, both routes answer `404` with
+`{"status": "no state machine", "state": null}`. A file without
+states, which only declares, is enough for them.
 
 ### GET /parameters
 
@@ -825,8 +858,8 @@ curl -s http://localhost:5100/parameters -H "Authorization: Bearer $JWS"
 {
   "scope": {
     "value": "single",
-    "type": "enum",
-    "values": ["single", "multi"],
+    "type": "string",
+    "enum": ["single", "multi"],
     "default": "single",
     "controllable": true
   },
@@ -838,25 +871,32 @@ curl -s http://localhost:5100/parameters -H "Authorization: Bearer $JWS"
   },
   "fidelity": {
     "value": "medium",
-    "type": "enum",
-    "values": ["low", "medium", "high"],
+    "type": "string",
+    "enum": ["low", "medium", "high"],
     "default": "medium",
     "controllable": true
   }
 }
 ```
 
+Each entry has the `value` and the declaration: `type`, `default`,
+`controllable` and, where declared, `enum`, `minimum` and `maximum`.
+Version 0.11.0 changed the reply for an enum, which was
+`"type": "enum"` with `"values"`. It is `"type": "string"` with
+`"enum"` also for a file that still declares `type: enum` with
+`values`, which loads until 0.12 with a warning in the log.
+
 ### PUT /parameters
 
 Sets the values of controllable parameters. The body maps parameter
 names to new values, which are strings, numbers or booleans. MQTT
-route: `set-parameters`.
+route: `set-parameters`, on the topic `<topic>/parameters/set`.
 
 The runner applies the whole body or none of it:
 
 1. It checks every entry. An unknown name, a parameter that is not
-   controllable or a value of the wrong type is refused with `400`,
-   and `message` lists every problem.
+   controllable or a value that does not fit the declaration is
+   refused with `400`, and `message` lists every problem.
 1. It stores the new values, so that a script that starts afterwards
    sees them. If the database fails, it stores none.
 1. It raises the `event` of each changed parameter, in the order of
@@ -903,10 +943,152 @@ and samples the beds every 100 ms instead of 500 ms; the run at entry
 2 ended `stopped` with its figures, as [GET /history](#get-history)
 shows.
 
+## Properties
+
+Properties are the latest values that the scripts and sensors of the
+DT hand the runner, such as a reading of the physical twin. The state
+machine file declares them with the types of JSON Schema, as a Thing
+Description of the W3C Web of Things uses them, and every number names
+its unit ([README](../README.md#properties)). The runner checks each
+value against its declaration, stores it, shows it and publishes it in
+the [state document](#get-state). It never interprets a value, and a
+write raises no event.
+
+Without a state machine file, both routes answer `404` with
+`{"status": "no state machine", "state": null}`. A file without states
+is enough for them, and a file that declares no property gives `{}`.
+
+The examples of this section are not from the recording. They are
+those of a runner whose file declares the `free-beds` of the demo and
+two more properties, as the sample
+[state-machine.yaml.sample](../config/state-machine.yaml.sample) does:
+
+```yaml
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
+  ward-status:
+    type: string
+    enum:
+      - open
+      - full
+      - closed
+  forecast:
+    type: array
+    items:
+      type: number
+      unit: beds
+```
+
+### GET /properties
+
+Returns the latest value of each property, the time of its write, who
+wrote it, and its declaration. MQTT route: `properties`. Every role
+may call it, the role `sensor` too.
+
+```bash
+curl -s http://localhost:5100/properties -H "Authorization: Bearer $JWS"
+```
+
+`200`, after a script wrote `free-beds` and before any other write:
+
+```json
+{
+  "free-beds": {
+    "value": 4,
+    "time": "2026-11-22T19:59:17.857Z",
+    "by": "script",
+    "type": "integer",
+    "minimum": 0,
+    "unit": "beds"
+  },
+  "ward-status": {
+    "value": null,
+    "time": null,
+    "by": null,
+    "type": "string",
+    "enum": ["open", "full", "closed"]
+  },
+  "forecast": {
+    "value": null,
+    "time": null,
+    "by": null,
+    "type": "array",
+    "items": { "type": "number", "unit": "beds" }
+  }
+}
+```
+
+| Field   | Meaning                                                                                                           |
+| :------ | :---------------------------------------------------------------------------------------------------------------- |
+| `value` | the latest value written; `null` until the first write, and when `null` was written                               |
+| `time`  | the runner's time at that write; `null` until the first write                                                     |
+| `by`    | the principal that wrote it, or `script`; `null` without access control and until the first write                 |
+| others  | the declaration: `type` and, as declared, `enum`, `minimum`, `maximum`, `unit`, `items`, `properties`, `required` |
+
+### PUT /properties
+
+Writes the latest values of properties. The body is a flat object of
+property names and values. MQTT route: `set-properties`, on the topic
+`<topic>/properties/set`. The roles `client`, `script` and `sensor`
+may call it; a `manager` may not (see [Roles](#roles)).
+
+```bash
+curl -s -X PUT http://localhost:5100/properties -H "Authorization: Bearer $JWS" \
+  --json '{"free-beds":3,"forecast":[3,2.5,2]}'
+```
+
+The reply is `200` with the body of `GET /properties`, where both
+properties have the new value, one `time` and the caller as `by`.
+
+The runner checks the whole body first, and changes nothing if any
+entry is not declared or does not fit its declaration. `message` lists
+every problem:
+
+```bash
+curl -s -X PUT http://localhost:5100/properties -H "Authorization: Bearer $JWS" \
+  --json '{"free-beds":-1,"ward-status":"shut","forecast":[1,"x"],"size":1}'
+```
+
+`400`:
+
+```json
+{
+  "message": [
+    "property free-beds: Too small: expected number to be >=0",
+    "property ward-status: Invalid option: expected one of \"open\"|\"full\"|\"closed\"",
+    "property forecast[1]: Invalid input: expected number, received string",
+    "property size is not declared"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+- `null` is accepted for every type and means that the value is not
+  known, for example while a sensor is offline. It is stored with its
+  `time` as any other value.
+- Writing the same value again updates its `time`, so a reader sees
+  that the feed is alive.
+- `{}` is `200` and changes nothing. A body that is not an object gets
+  the [validation error](#conventions). The route takes no request
+  key.
+- An object value may not have a member that its declaration lacks,
+  and must have the members that `required` lists.
+- A write changes the state document. Its
+  [state notification](#state-notifications) may wait for
+  `stateInterval`.
+- The runner keeps the latest value of each property in its database,
+  one row per name, and restores it with its `time` and `by` at the
+  next start. A stored value that no longer fits its declaration is
+  dropped with a warning in the log.
+
 ## Peers
 
-The configuration's `peers` section lists the DTs that this one is
-willing to interact with; nothing else is a peer. With MQTT, the runner
+The configuration's `relationships.peers` section lists the DTs that
+this one is willing to interact with; nothing else is a peer. With MQTT, the runner
 subscribes to the presence and state notifications of each enabled
 peer with a `topic`, on its own broker, and remembers what they told.
 A notification counts only as an [envelope](#notifications) of its
@@ -1014,7 +1196,7 @@ announced.
 ### PUT /peers
 
 Enables and disables peers of the configuration. The body maps peer ids
-to booleans. MQTT route: `set-peers`.
+to booleans. MQTT route: `set-peers`, on the topic `<topic>/peers/set`.
 
 The runner checks the whole body first. An unknown id or a value that
 is not a boolean is refused with `400`, and `message` lists every
@@ -1158,10 +1340,14 @@ auth:
     - name: alice
       role: client
       publicKey: 'o-YAagcjoyUxT2xcgULS22sCK6N_cJ-op8Jh7yukXMk'
+    - name: ward-gateway
+      role: sensor
+      publicKey: 'EPaCWNX3g6JgjqMMM1MUR-9sAKYZh-1fbF9Z9ATpgho'
 ```
 
-`publicKey` is an Ed25519 public key as the base64url of its 32 raw
-bytes, the `x` of its JWK (RFC 8037); the caller keeps the private key.
+`role` is `manager`, `client` or `sensor`. `publicKey` is an Ed25519
+public key as the base64url of its 32 raw bytes, the `x` of its JWK
+(RFC 8037); the caller keeps the private key.
 The demo's [tools/keygen.mjs](../demo/hospital/tools/keygen.mjs) writes
 a key pair, `NAME.key` in PKCS#8 PEM and `NAME.pub` in this encoding.
 `GET /health` and MQTT `health` stay open. The runner logs each
@@ -1248,30 +1434,40 @@ replay. Over MQTT the token is the request payload itself; see
 
 A `client` may call every route, and a `manager` reads, sets
 parameters, enables and disables peers and runs the `manager.commands`
-of the state machine file.
+of the state machine file. A manager tunes the parameters; it may read
+the properties but not write them, as they are what the DT observes.
+A `sensor` feeds property values from outside the runner, such as a
+gateway of the physical twin: it reads and writes the properties and
+calls nothing else.
 The runner's own scripts send `Authorization: Bearer $RUNNER_TOKEN`
 (see [Calls From Scripts](#calls-from-scripts)) and act in the role
 `script`. A principal's token is accepted from a script too, in the
 principal's role.
 
-| HTTP                   | MQTT route       | client | manager            | script |
-| :--------------------- | :--------------- | :----- | :----------------- | :----- |
-| `GET /health`          | `health`         | open   | open               | open   |
-| `GET /dt`              | `dt`             | yes    | yes                | yes    |
-| `GET /state`           | `state`          | yes    | yes                | yes    |
-| `GET /`                | `status`         | yes    | yes                | yes    |
-| `GET /history`         | `history`        | yes    | yes                | yes    |
-| `GET /metrics`         | `metrics`        | yes    | yes                | yes    |
-| `GET /fsm`             | `fsm`            | yes    | yes                | yes    |
-| `GET /parameters`      | `parameters`     | yes    | yes                | yes    |
-| `POST /`               | `execute`        | yes    | `manager.commands` | no     |
-| `POST /stop`           | `stop`           | yes    | no                 | no     |
-| `POST /fsm/transition` | `transition`     | yes    | no                 | no     |
-| `POST /fsm/event`      | `event`          | yes    | no                 | yes    |
-| `POST /escalate`       | `escalate`       | yes    | no                 | yes    |
-| `PUT /parameters`      | `set-parameters` | yes    | yes                | no     |
-| `GET /peers`           | `peers`          | yes    | yes                | yes    |
-| `PUT /peers`           | `set-peers`      | yes    | yes                | no     |
+| HTTP                   | MQTT route       | client | manager            | script | sensor |
+| :--------------------- | :--------------- | :----- | :----------------- | :----- | :----- |
+| `GET /health`          | `health`         | open   | open               | open   | open   |
+| `GET /dt`              | `dt`             | yes    | yes                | yes    | no     |
+| `GET /state`           | `state`          | yes    | yes                | yes    | no     |
+| `GET /`                | `status`         | yes    | yes                | yes    | no     |
+| `GET /history`         | `history`        | yes    | yes                | yes    | no     |
+| `GET /metrics`         | `metrics`        | yes    | yes                | yes    | no     |
+| `GET /fsm`             | `fsm`            | yes    | yes                | yes    | no     |
+| `GET /parameters`      | `parameters`     | yes    | yes                | yes    | no     |
+| `POST /`               | `execute`        | yes    | `manager.commands` | no     | no     |
+| `POST /stop`           | `stop`           | yes    | no                 | no     | no     |
+| `POST /fsm/transition` | `transition`     | yes    | no                 | no     | no     |
+| `POST /fsm/event`      | `event`          | yes    | no                 | yes    | no     |
+| `POST /escalate`       | `escalate`       | yes    | no                 | yes    | no     |
+| `PUT /parameters`      | `set-parameters` | yes    | yes                | no     | no     |
+| `GET /properties`      | `properties`     | yes    | yes                | yes    | yes    |
+| `PUT /properties`      | `set-properties` | yes    | no                 | yes    | yes    |
+| `GET /peers`           | `peers`          | yes    | yes                | yes    | no     |
+| `PUT /peers`           | `set-peers`      | yes    | yes                | no     | no     |
+
+The route names are those of the 403 message, over HTTP and MQTT
+alike, whatever the topic: a manager that writes a property gets
+`manager may not call set-properties`.
 
 ### Errors
 
@@ -1316,7 +1512,7 @@ the notifications of its [peers](#peers), and publishes the
 
 ### Request Topics
 
-A request is published on `<topic>/<route>`, with the JSON of the
+A request is published on the topic of its route, with the JSON of the
 matching HTTP request body as payload. The routes that read take no
 payload, and the runner ignores any, except `history`, whose payload is
 its query.
@@ -1334,11 +1530,40 @@ its query.
 | `<topic>/state`          | `GET /state`           | none                                  |
 | `<topic>/health`         | `GET /health`          | none                                  |
 | `<topic>/parameters`     | `GET /parameters`      | none                                  |
-| `<topic>/set-parameters` | `PUT /parameters`      | `{"<name>": <value>}`                 |
+| `<topic>/parameters/set` | `PUT /parameters`      | `{"<name>": <value>}`                 |
+| `<topic>/properties`     | `GET /properties`      | none                                  |
+| `<topic>/properties/set` | `PUT /properties`      | `{"<name>": <value>}`                 |
 | `<topic>/escalate`       | `POST /escalate`       | `{"reason": "<reason>"}`              |
 | `<topic>/peers`          | `GET /peers`           | none                                  |
-| `<topic>/set-peers`      | `PUT /peers`           | `{"<peer id>": <boolean>}`            |
+| `<topic>/peers/set`      | `PUT /peers`           | `{"<peer id>": <boolean>}`            |
 | `<topic>/metrics`        | `GET /metrics`         | none                                  |
+
+The topic of a route is `<topic>/<route>`, except for the three routes
+that write a resource. Their topic is one level under the topic that
+reads the resource, so that one resource is one subtree, which a
+broker can grant as a whole, such as `<topic>/properties/#` to a
+sensor:
+
+| Resource   | Read                 | Write                    | Write before 0.11        |
+| :--------- | :------------------- | :----------------------- | :----------------------- |
+| parameters | `<topic>/parameters` | `<topic>/parameters/set` | `<topic>/set-parameters` |
+| properties | `<topic>/properties` | `<topic>/properties/set` | none                     |
+| peers      | `<topic>/peers`      | `<topic>/peers/set`      | `<topic>/set-peers`      |
+
+- The write topics of before 0.11 still answer in 0.11, and 0.12 drops
+  them. There never was a `set-properties` topic. The runner logs one
+  warning at the first request on each old topic:
+
+  ```text
+  dtaas/hospital-1/set-parameters moved to dtaas/hospital-1/parameters/set; the old topic goes in 0.12
+  ```
+
+- The names `set` and `response` are reserved, as a write topic and a
+  default response topic sit under the read topic: the runner refuses
+  at startup a parameter, a property or a peer id of either name.
+- The route names do not change: `set-parameters`, `set-properties`
+  and `set-peers` in the [role table](#roles), in a 403 message and in
+  this document.
 
 ### Responses
 
@@ -1351,7 +1576,15 @@ publishes each response with QoS 1:
 - to the response topic of an MQTT 5 request, with its correlation
   data, when the request has a response topic;
 - otherwise to the request topic followed by `/response`, such as
-  `<topic>/execute/response`.
+  `<topic>/execute/response`, or `<topic>/parameters/set/response` for
+  a write.
+
+The default response topic of a write is thus two levels under its
+resource, and a subscription to `<topic>/+/response` does not match
+it. A client that writes subscribes to `<topic>/+/set/response` as
+well, or gives an MQTT 5 response topic of its own. A response to a
+request on an old write topic goes to that topic followed by
+`/response`, as before.
 
 The runner uses the default response topic instead when the requested
 one is empty, holds a wildcard, starts with `$`, or is one of its
@@ -1508,9 +1741,20 @@ notification as a one-line summary only.
 The runner sends its [state document](#get-state) whenever the
 document changes: when the machine enters a state, when the script of
 a state finishes, when a command starts or finishes, when a parameter
-changes, and once at startup. A document that differs from the last
-one sent only in its `time` is not sent again. `data` is the document,
-and `id` and `time` are its own.
+changes, when a [property](#properties) is written, and once at
+startup. A document that differs from the last one sent only in its
+`time` is not sent again. `data` is the document, and `id` and `time`
+are its own.
+
+A property may be written many times a second, so the runner holds a
+document whose only change is in property values, or in their times,
+until `stateInterval` milliseconds after the last state notification
+it sent. `stateInterval` is a key of the configuration: a whole
+number, `0` or more, and `1000` without the key. A fast feed thus
+gives one notification per interval, with the values of that moment.
+A change of the machine, the parameters or the command is never held:
+it is sent at once and carries the property values that were waiting.
+A document still held at shutdown is not sent.
 
 The first notification of the demo, at the startup of `hospital-1`:
 
@@ -1720,12 +1964,13 @@ retained --:--:-- hospital-2 verified offline (the will)
 
 ### Over a Webhook
 
-With a `notify.url` in the configuration, the runner posts each
-notification to it as `application/json`, or with `auth.key` as
-`application/jose`, the media type of a compact JWS (RFC 7515), with a
-5 s timeout. The `notify.token` bearer authenticates the runner to the
-webhook; the signature lets the receiver check every body, including
-those it stores or forwards. It
+With a `relationships.manager.notify.url` in the configuration, the
+runner posts each notification to it as `application/json`, or with
+`auth.key` as `application/jose`, the media type of a compact JWS
+(RFC 7515), with a 5 s timeout. The `token` of the same section, sent
+as a bearer, authenticates the runner to the webhook; the signature
+lets the receiver check every body, including those it stores or
+forwards. It
 retries after 1 s, 2 s and 4 s on a network error, a timeout or a `5xx`
 reply, and not on any other reply. Posts are independent, so they may
 arrive out of order; a receiver that needs a strict order uses MQTT. A
@@ -1876,7 +2121,9 @@ own address and the context of the DT in environment variables.
 | `DT_ENTRY`        | `1`                                                                        |
 | `DT_PARAM_<NAME>` | `DT_PARAM_SCOPE=single`, `DT_PARAM_CAPACITY=2`, `DT_PARAM_FIDELITY=medium` |
 
-Without a state machine, `DT_STATE` and `DT_ENTRY` are absent. The
+Without a state machine, `DT_STATE` and `DT_ENTRY` are absent. There
+is no variable for a [property](#properties): a script reads
+`GET $RUNNER_URL/properties`. The
 variables under `env` in the state machine file come too, such as
 `POLL_MS=500` of `open`. The script of `open` logged:
 
@@ -1940,6 +2187,32 @@ An event that a script raises is like any other: the machine follows
 the transition of its current state for it, even while the script that
 raised it still runs.
 
+### Write a Property
+
+A script writes [property](#properties) values with
+`PUT $RUNNER_URL/properties` and the same header, in the role
+`script`. `open.ps1` of the demo writes the number of free beds when
+it changes, with this helper of
+[scripts/ward.ps1](../demo/hospital/scripts/ward.ps1):
+
+```powershell
+function Send-FreeBeds($free) {
+  try {
+    Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" -Headers $RunnerHeaders `
+      -ContentType 'application/json' -Body (@{ 'free-beds' = $free } | ConvertTo-Json -Compress) | Out-Null
+  } catch { Write-WardLog "open   free-beds not written: $($_.Exception.Message)" }
+}
+```
+
+A write that fails is only logged, as the next sample writes again. In
+a shell script on Linux:
+
+```bash
+curl -s -X PUT "$RUNNER_URL/properties" \
+  -H "Authorization: Bearer $RUNNER_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"free-beds": 3}'
+```
+
 ## Example Session
 
 The recording, in order, as requests and what they did. Times are
@@ -1971,7 +2244,26 @@ shares. `hospital-1` is asked unless the request names `hospital-2`.
 
 ## Version
 
-This document describes runner version 0.10.0, which made
+This document describes runner version 0.11.0. It added
+[properties](#properties), the role `sensor`, `stateInterval`, the
+`relationships` section of the configuration and a state machine file
+without states. Three of its changes break a client of 0.10:
+
+- [GET /parameters](#get-parameters) shows an enum as
+  `"type": "string"` with `"enum"`, not `"type": "enum"` with
+  `"values"`.
+- The [state document](#get-state) has a `properties` member.
+- The names `set` and `response` are reserved for parameters,
+  properties and peer ids.
+
+Deprecated in 0.11 and removed in 0.12, each with a warning in the log
+until then: `notify` and `peers` at the top of the configuration,
+which moved under `relationships`
+([README](../README.md#relationships)); `type: enum` with `values` for
+a parameter; and the MQTT topics `<topic>/set-parameters` and
+`<topic>/set-peers` (see [Request Topics](#request-topics)).
+
+Version 0.10.0 made
 [GET /history](#get-history) return full records and added
 [GET /metrics](#get-metrics); 0.9.0 added
 [access control](#access-control). The optional

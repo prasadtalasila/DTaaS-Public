@@ -139,7 +139,7 @@ export default [
   {
     say: 'The Manager accepts the proposal: scope multi raises scope-changed, a stop: true self-transition.',
   },
-  { run: `mq1 set-parameters '{"scope":"multi"}'` },
+  { run: `mq1 parameters/set '{"scope":"multi"}'` },
   { wait: overflowLogged(2) },
   {
     say: 'fidelity follows the convention of STATE-MACHINE.md: high samples the beds five times as often.',

@@ -62,6 +62,15 @@ function Send-Runner($path, $body) {
   } catch { [int]$_.Exception.Response.StatusCode }
 }
 
+# Hands the runner the number of free beds, as the property free-beds;
+# the next sample writes again after a write that failed
+function Send-FreeBeds($free) {
+  try {
+    Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" -Headers $RunnerHeaders `
+      -ContentType 'application/json' -Body (@{ 'free-beds' = $free } | ConvertTo-Json -Compress) | Out-Null
+  } catch { Write-WardLog "open   free-beds not written: $($_.Exception.Message)" }
+}
+
 # Where overflow goes: the nearest peer of GET /peers that is online and
 # open, as "<id> at <distance> km", or none
 function Get-Overflow {

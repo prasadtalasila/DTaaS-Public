@@ -18,8 +18,8 @@ const DEFINITION = `
 events: [restart, scope-changed]
 parameters:
   scope:
-    type: enum
-    values: [single, multi]
+    type: string
+    enum: [single, multi]
     default: single
     controllable: true
     event: scope-changed
@@ -35,8 +35,8 @@ states:
 
 const scope = (value: string) => ({
   value,
-  type: 'enum',
-  values: ['single', 'multi'],
+  type: 'string',
+  enum: ['single', 'multi'],
   default: 'single',
   controllable: true,
 });

@@ -65,6 +65,10 @@ back to _create_, and the `stop` event is refused as an undeclared
 event. The parameters requests set `scope` to `multi`, which raises
 `scope-changed`: in _execute_, that restarts the _execute_ script.
 
+The properties requests read and write the
+[properties](../README.md#properties). The test state machine declares
+one, `free-beds`, which is `null` until its first write.
+
 The peers requests show and switch the peer `hospital-2`, which
 `config/runner.test.yaml` lists; the state machine subscribes to its
 state `full` with the event `neighbour-full`. With the `mqtt` section,
@@ -73,6 +77,11 @@ would, a retained state document in state `full`, which takes
 _execute_ to _create_; `peerOpen` publishes `open`, after which a
 `full` raises the event again. `set-peers` disables the peer, and
 `PUT /peers` with `true` enables it.
+
+The MQTT requests that write, `set-parameters`, `set-properties` and
+`set-peers`, publish one level under the topic that reads, on
+`parameters/set`, `properties/set` and `peers/set`, and their
+responses come on `parameters/set/response` and so on.
 
 The command requests with input run _echo-input_, which writes its
 input back, so the reply carries it in `result.stdout`; _fail_ shows a
