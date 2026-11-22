@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Command discharge: frees the bed of the patient of the input on stdin,
+# {"patient": "p-1"}, and raises the event beds-free over HTTP, which
+# reopens a full hospital
+. "$(dirname "$0")/ward.sh"
+patient=$(jq -r '.patient' <<< "$(cat)")
+ward=$(remove_patient "$patient")
+if [[ -z $ward ]]; then
+  echo "no patient $patient" >&2
+  exit 4
+fi
+echo "$patient left $ward"
+code=$(send_runner 'fsm/event' '{"event": "beds-free"}')
+echo "raised event beds-free, reply $code"

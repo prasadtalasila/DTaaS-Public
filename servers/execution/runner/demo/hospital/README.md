@@ -8,37 +8,41 @@ Two runners manage the digital twins (DTs) of two hospitals,
 `hospital-1` and `hospital-2`, which are peers of each other; the
 person at the terminal plays the DT Manager of the network.
 
-The recording is two [asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/)
-files on one clock, which end together:
+There are two recordings, each of two
+[asciicast v2](https://docs.asciinema.org/manual/asciicast/v2/) files
+on one clock, which end together: the Manager's terminal, which types
+to both runners, and the notifications of both DTs as an MQTT
+subscriber to `dtaas/+/notify/+` receives them, one line each. A video
+shows the two side by side, the Manager on the left (H.264, 1966×918,
+stored in Git LFS).
 
-- [demo-windows-manager.cast](demo-windows-manager.cast), the
-  Manager's terminal, which types to both runners;
-- [demo-windows-network.cast](demo-windows-network.cast), the
-  notifications of both DTs as an MQTT subscriber to
-  `dtaas/+/notify/+` receives them, one line each.
+| Recording | Manager                                                | Notifications                                          | Video                                | Length     | Runner                                           |
+| :-------- | :----------------------------------------------------- | :----------------------------------------------------- | :----------------------------------- | :--------- | :----------------------------------------------- |
+| Linux     | [demo-linux-manager.cast](demo-linux-manager.cast)     | [demo-linux-network.cast](demo-linux-network.cast)     | [demo-linux.mp4](demo-linux.mp4)     | 4 min 33 s | 0.11.0, with the class of issue 21               |
+| Windows   | [demo-windows-manager.cast](demo-windows-manager.cast) | [demo-windows-network.cast](demo-windows-network.cast) | [demo-windows.mp4](demo-windows.mp4) | 6 min 23 s | 0.10.0, `feature/distributed-demo` at `0885d759` |
 
-Each is about 6 min 23 s long; the Manager's has about 88 kB, the
-network's about 9 kB. [demo-windows.mp4](demo-windows.mp4) shows the
-two side by side, the Manager on the left (H.264, 1966×918, about
-5 MB, stored in Git LFS). Both were recorded on Windows against runner
-version 0.10.0 (`feature/distributed-demo` at `0885d759`), with access
-control and signed notifications on. The recording predates version
-0.11.0: the files of this folder now use the `relationships` layout of
-`runner.yaml`, the property `free-beds` and the MQTT topic
-`parameters/set`, none of which it shows. Both runners now also name
-one state machine file, the class of the two hospitals, where the
-recording shows a file for each. The same story recorded on
-Linux, with the scripts running as a second account (`scripts.user`),
-is to follow as `demo-linux-*`.
+Both were recorded with access control and signed notifications on.
+
+The Linux recording shows the files of this folder as they are: the
+`relationships` layout of `runner.yaml`, one state machine file as the
+class of both hospitals, the property `free-beds`, and the MQTT topic
+`parameters/set`. Its scripts are the shell scripts of
+[scripts](scripts), which need `jq` and `curl`, and they run as the
+account of the runner. The same story with the scripts running as a
+second account (`scripts.user`) is to follow.
+
+The Windows recording predates version 0.11.0 and shows none of that:
+it has a state machine file for each hospital, the flat `peers` key,
+and the topic `set-parameters`. Its scripts are the `.ps1` files.
 
 ## Play
 
-Open `demo-windows.mp4` in any video player, or play a cast in a
-terminal, the two in two terminals side by side:
+Open `demo-linux.mp4` or `demo-windows.mp4` in any video player, or
+play a cast in a terminal, the two in two terminals side by side:
 
 ```bash
-asciinema play demo-windows-manager.cast
-asciinema play demo-windows-network.cast
+asciinema play demo-linux-manager.cast
+asciinema play demo-linux-network.cast
 ```
 
 Or in a web page, with
@@ -72,7 +76,8 @@ machine file, [hospital.fsm.yaml](hospital.fsm.yaml), which is the
 class `urn:dtaas:demo:hospital` of the two DTs
 ([CLASS-INSTANCE-INTERFACE.md](../../CLASS-INSTANCE-INTERFACE.md)). It
 has three states, each running the script of the same name in
-[scripts](scripts):
+[scripts](scripts): `open.ps1` on Windows, and the shell script `open`
+on Linux, which do the same:
 
 | State    | Script       | Meaning                                                                                      |
 | :------- | :----------- | :------------------------------------------------------------------------------------------- |
@@ -123,36 +128,40 @@ Three parameters are declared:
 
 One property is declared: `free-beds`, an integer of unit `beds`, the
 free beds of all wards. `open` writes it with `PUT /properties`
-(`Send-FreeBeds` of [scripts/ward.ps1](scripts/ward.ps1)) at its start
+(`Send-FreeBeds` of [scripts/ward.ps1](scripts/ward.ps1), `send_free_beds`
+of [scripts/ward.sh](scripts/ward.sh)) at its start
 and whenever a sample gives another number, and writes `0` before it
 raises `full`. The Manager and the peer read it in `GET /properties`
 and in the state document; the runner never reads it.
 
 ## Sections
 
-The times are those of the casts and of the video.
+The times are those of the casts and of the video of each recording.
+The features are described as the Windows recording shows them; the
+Linux one adds `GET /properties` after the state document, and the
+free beds of each state notification on the right.
 
-| Time | Section                                       | Features                                                                                                         |
-| ---: | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| 0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers       |
-| 0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)          |
-| 0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role        |
-| 1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                         |
-| 1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state` |
-| 1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                          |
-| 1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                 |
-| 2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                              |
-| 2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures    |
-| 3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                  |
-| 4:03 | Script raises an event; escalation on failure | `full` raised over HTTP; `full` finds no open peer; `$failure` without a transition escalates                    |
-| 4:29 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                                                    |
-| 4:46 | MQTT request/response with input              | MQTT `execute` and `fsm`, verified                                                                               |
-| 4:59 | Disable and enable a peer                     | `PUT /peers`; the retained `full` counts again after the enable                                                  |
-| 5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                           |
-| 5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                    |
-| 5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                 |
-| 6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                              |
-| 6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                              |
+| Linux | Windows | Section                                       | Features                                                                                                         |
+| ----: | ------: | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  0:00 |    0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers       |
+|  0:33 |    0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)          |
+|  0:50 |    0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role        |
+|  1:03 |    1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                         |
+|  1:08 |    1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state` |
+|  1:27 |    1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                          |
+|  1:35 |    1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                 |
+|  1:58 |    2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                              |
+|  2:17 |    2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures    |
+|  2:42 |    3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                  |
+|  2:59 |    4:03 | Script raises an event; escalation on failure | `full` raised over HTTP; `full` finds no open peer; `$failure` without a transition escalates                    |
+|  3:15 |    4:29 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                                                    |
+|  3:26 |    4:46 | MQTT request/response with input              | MQTT `execute` and `fsm`, verified                                                                               |
+|  3:34 |    4:59 | Disable and enable a peer                     | `PUT /peers`; the retained `full` counts again after the enable                                                  |
+|  3:48 |    5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                           |
+|  3:58 |    5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                    |
+|  4:09 |    5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                 |
+|  4:19 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                              |
+|  4:23 |    6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                              |
 
 ## Assumptions
 
@@ -186,7 +195,8 @@ node demo/hospital/tools/check-cast.mjs
 overrides the shell) with real output and simulated typing, and writes
 `demo-windows-manager.cast` and `demo-windows-network.cast`, or
 `demo-linux-*` on Linux. A recording takes about three minutes on
-Windows, as each PowerShell script needs seconds to start. Everything
+Windows, as each PowerShell script needs seconds to start, and about
+one minute on Linux. Everything
 the run writes goes to `run/`, which git ignores; `run/transcript.txt`
 has each command with its output, and `run/notify.jsonl` each
 notification as it came. `check-cast.mjs` checks every pair of casts
@@ -200,9 +210,11 @@ each notification arrived, which the clock turns into a time of the
 network cast. Gaps longer than 2 s are then shortened in both casts
 together, so that they stay in step and end at the same time.
 
-On Linux the runner starts the state scripts by their bare names, so it
-needs shell versions of the `.ps1` scripts in `scripts/`, which the
-Linux recording adds.
+On Linux the runner starts a script by its bare name, so `scripts/`
+has a shell version of each `.ps1` script: `open`, `full`, `closed`,
+`admit` and `discharge`, with the helpers of `ward.sh`. They need
+`bash`, `jq` and `curl`. The steps name the script of the platform
+where they show one, and their narration differs in two lines.
 
 ### Keys, Access Control and Signatures
 
@@ -273,9 +285,11 @@ folder (in WSL, under `/mnt/c/...`):
 bash tools/to-mp4.sh windows # or linux
 ```
 
-It checks each cast with `asciinema convert`, writing its plain-text
-transcript to `run/demo-windows-*.txt`, renders `run/demo-windows-*.gif`
+With asciinema 3 it checks each cast with `asciinema convert`, writing
+its plain-text transcript to `run/demo-windows-*.txt`; with an older
+asciinema it says so and goes on, as `check-cast.mjs` checks the casts
+too. It renders `run/demo-windows-*.gif`
 at font size 16 with an idle limit of 60 s, so that agg keeps the gaps
 as `record.mjs` set them, and writes `demo-windows.mp4` with libx264 at
 CRF 32. The conversion took 14 minutes in WSL under `/mnt/c`, most of it in
-agg.
+agg, and 3 minutes on Linux.

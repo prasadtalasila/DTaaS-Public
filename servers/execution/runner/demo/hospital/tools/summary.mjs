@@ -17,10 +17,16 @@ function command(data) {
   return data.command ? `${data.command.name}:${data.command.status}` : '-';
 }
 
+// The free beds that open wrote, once it has written them
+function beds(data) {
+  const value = data.properties?.['free-beds']?.value;
+  return value === null || value === undefined ? '' : ` beds=${value}`;
+}
+
 function state(data) {
   const { scope, fidelity } = data.parameters ?? {};
   const parameters = `scope=${scope} fidelity=${fidelity}`;
-  return `${machine(data)} | ${command(data)} | ${parameters}`;
+  return `${machine(data)} | ${command(data)} | ${parameters}${beds(data)}`;
 }
 
 function presence(data, time) {

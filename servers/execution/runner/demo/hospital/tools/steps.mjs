@@ -3,7 +3,19 @@
 // dt1 and mq1 ask hospital-1, dt2 and mq2 hospital-2 (tools/shell.sh).
 // This file holds the setup and the features of one DT; steps-peers.mjs
 // the rest, from the first peer event on.
-import later, { H1, H2, admit, overflowLogged } from './steps-peers.mjs';
+import later, {
+  H1,
+  H2,
+  WINDOWS,
+  admit,
+  overflowLogged,
+} from './steps-peers.mjs';
+
+// The admit script of the platform, and how to show its escalation
+const ADMIT = WINDOWS ? 'admit.ps1' : 'admit';
+const SHOW_ESCALATION = WINDOWS
+  ? 'grep -n -A2 "reason =" scripts/admit.ps1'
+  : 'grep -n -A4 "escalation=" scripts/admit | head -n 5';
 import { logHas } from './waits.mjs';
 
 export default [
@@ -34,7 +46,7 @@ export default [
     say: 'hospital-2 runs the same class, with one bed per ward and no neighbour:',
   },
   {
-    run: `grep -n -E 'stateMachine|capacity|relationship' runner.yaml runner-2.yaml`,
+    run: `grep -n -E 'stateMachine|capacity|relationship:' runner.yaml runner-2.yaml`,
   },
   {
     say: 'dt1 and dt2 are curl, signed as alice; mq1 and mq2 are MQTT requests, signed as manager-1.',
@@ -61,7 +73,9 @@ export default [
   { chapter: 'Descriptor, health and access control' },
   { run: 'dt1 /dt' },
   {
-    say: 'Health is open to anyone; scripts is null, as Windows runs no script user.',
+    say: WINDOWS
+      ? 'Health is open to anyone; scripts is null, as Windows runs no script user.'
+      : 'Health is open to anyone; scripts is null, as runner.yaml names no script user.',
   },
   { run: 'dt1 /health' },
   {
@@ -91,6 +105,10 @@ export default [
   },
   { run: `cat run/${H1}/ward.log` },
   { run: 'dt1 /state' },
+  {
+    say: 'open wrote the property free-beds; the runner checks, keeps and publishes it, and never reads it.',
+  },
+  { run: 'dt1 /properties' },
 
   { chapter: 'Peers' },
   {
@@ -104,7 +122,7 @@ export default [
 
   { chapter: 'Command input and request keys' },
   {
-    say: 'The Manager admits p-1; the input reaches admit.ps1 on stdin. A request key makes it idempotent.',
+    say: `The Manager admits p-1; the input reaches ${ADMIT} on stdin. A request key makes it idempotent.`,
   },
   {
     run: `dt1 / -H 'Idempotency-Key: admit-p-1' --json ${admit('p-1', 'cardiology')}`,
@@ -128,9 +146,9 @@ export default [
   },
   { run: `dt1 / --json ${admit('p-3', 'cardiology')}` },
   {
-    say: 'admit.ps1 also POSTed $RUNNER_URL/escalate with a reason and a proposal (right):',
+    say: `${ADMIT} also POSTed $RUNNER_URL/escalate with a reason and a proposal (right):`,
   },
-  { run: 'grep -n -A2 "reason =" scripts/admit.ps1' },
+  { run: SHOW_ESCALATION },
   {
     say: 'GET / shows the last command; a script that ends before the first sample has no resources.',
   },

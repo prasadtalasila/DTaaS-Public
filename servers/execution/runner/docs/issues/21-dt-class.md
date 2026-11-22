@@ -182,8 +182,15 @@ As built:
       clean.
 - [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
-- [ ] The demo runs with the one file. `pwsh` was not on the machine
-      that built this. Check: `node tools/record.mjs` on Windows.
+- [x] The demo runs with the one file on Linux, with shell versions
+      of its scripts: both hospitals start from `hospital.fsm.yaml`,
+      hospital-2 with one bed per ward, and only hospital-1 follows
+      its neighbour. Check: `node tools/record.mjs`, then
+      `node tools/check-cast.mjs`; `run/transcript.txt` has no failed
+      command.
+- [ ] The demo runs on Windows. The `.ps1` scripts changed in issue
+      19 and are unrun, as `pwsh` was not on the machine that built
+      this. Check: `node tools/record.mjs` on Windows.
 
 ## Learnings
 
@@ -206,6 +213,14 @@ As built:
 - **The demo prints its files by line number.** `steps.mjs` shows
   ranges of `hospital.fsm.yaml`; issue 19 had already shifted them
   without anyone noticing, and this issue set them again.
+- **Running the demo found what reading it had not.** The recorder
+  ran clean at once, but its transcript showed a `grep` for
+  `relationship` that also matched `relationships:`, no step that
+  showed a property, and a video script that stopped with a usage
+  error under asciinema 2.
+- **The hold shows in the demo.** The first state notification of an
+  `open` has no free beds: the write comes within the interval, and
+  its notification a second later.
 - **Room was made by moving a whole function.** `definition.ts` was
   at 249 lines, and `fsm.service.ts` reached 250 with one more
   import. `loadDefinition` moved to `load.ts`, which also took the
