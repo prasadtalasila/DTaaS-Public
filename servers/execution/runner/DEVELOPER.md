@@ -64,13 +64,17 @@ _execute_ scripts, which `runner.test.yaml.sample` permits and names
 with its `stateMachine` key. A `config/runner.test.yaml` copied from
 an older sample stops the runner at startup, as it lacks the required
 `id`, permits only _create_ or lists no peer `hospital-2`, which the
-file's subscription names; copy the sample again. The file also
+file's subscription names; copy the sample again. A copy with `peers`
+at the top level, as before version 0.11.0, still starts, with a
+warning that the key moved to `relationships.peers`. The file also
 declares three parameters, for trying out the parameters requests, one
 of them the `fidelity` of the
 [fidelity pattern](STATE-MACHINE.md#pattern-fidelity), and
 subscribes to the state `full` of the peer `hospital-2`, for trying out
 [peer events](README.md#peer-events) with the `peerFull` request of
-`api/dev.mqtt.http`. The
+`api/dev.mqtt.http`. It declares no
+[property](README.md#properties); `config/state-machine.yaml.sample`
+does. The
 [state machine design](docs/state-machine-design.md) explains the file
 and the decisions behind it.
 

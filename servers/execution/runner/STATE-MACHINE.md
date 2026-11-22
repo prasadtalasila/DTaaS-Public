@@ -51,10 +51,14 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
   name on Linux, which must be executable, and a PowerShell script with
   the `.ps1` extension on Windows, such as _create.ps1_. A folder may
   hold both.
-- `mqtt` and `notify` sections add an MQTT API and a webhook; see
-  [MQTT](#mqtt) and [Watch the State](#watch-the-state).
-- A `peers` section lists the DTs this one follows; see
+- An `mqtt` section adds an MQTT API, and `notify` under
+  `relationships.manager` a webhook; see [MQTT](#mqtt) and
+  [Watch the State](#watch-the-state).
+- `peers` under `relationships` lists the DTs this one follows; see
   [Subscriptions to Peers](#subscriptions-to-peers).
+- Before version 0.11.0, `notify` and `peers` were at the top of the
+  file. Both still load there in 0.11, with a warning, and go in 0.12
+  ([README](README.md#relationships)).
 
 ## Write the State Machine File
 
@@ -82,8 +86,10 @@ states:
 - A state without transitions may be left empty, as in `terminate:`.
 - `events` lists the events that clients may send. Leave it out when
   only completion events move the machine.
-- State, event and parameter names have up to 64 letters, digits, `_`,
-  `.` or `-`, and start with a letter or digit.
+- State, event, parameter and property names have up to 64 letters,
+  digits, `_`, `.` or `-`, and start with a letter or digit.
+- `states` may be left out too, for a DT that only declares; see
+  [A File Without States](#a-file-without-states).
 
 ### Completion Events
 
@@ -137,26 +143,39 @@ events:
   - scope-changed
 parameters:
   scope:
-    type: enum
-    values:
+    type: string
+    enum: # optional; the values that the parameter may take
       - single
       - multi
     default: single
     controllable: true # a client may change it
     event: scope-changed # raised when a request changes the value
   capacity:
-    type: number
+    type: integer
+    minimum: 1 # optional, as maximum
     default: 20 # not controllable: shared with the Manager, read only
+states:
+  execute:
+    transitions:
+      scope-changed: # restarts execute with the new value
+        state: execute
+        stop: true
 ```
 
-- `type` is `string`, `number`, `boolean` or `enum`; an `enum` lists
-  its `values`.
-- `default` is required and must fit the type. YAML reads `20` as a
-  number, so a `string` parameter needs quotes, as in `'20'`.
+- `type` is `string`, `number`, `integer` or `boolean`, as in JSON
+  Schema.
+- `enum` lists the values that a `string`, `number` or `integer` may
+  take, and `minimum` and `maximum` bound a `number` or an `integer`.
+  A parameter takes no `unit` and no other keyword.
+- `default` is required and must fit the declaration. YAML reads `20`
+  as a number, so a `string` parameter needs quotes, as in `'20'`.
 - `controllable` is `false` unless given.
 - `event`, if given, must be in `events`.
 - Two names that become the same variable name, such as `a-b` and
-  `A_B`, are refused.
+  `A_B`, are refused, and so are the names `set` and `response`.
+- Before version 0.11.0 an enum was written `type: enum` with a list
+  of `values`. That spelling still loads in 0.11, with a warning in
+  the log, and goes in 0.12; write `type: string` with `enum`.
 
 The runner never restarts a script on its own. A script keeps the
 values it started with. To make a change take effect at once, give the
@@ -164,6 +183,103 @@ parameter an `event` whose transition restarts the script, as a
 self-transition with `stop: true` does.
 [Pattern: Fidelity](#pattern-fidelity) uses such a parameter to let a
 Manager trade accuracy for computing power.
+
+### Properties
+
+Properties are the latest values that your scripts, or a sensor
+outside the runner, hand the runner: a reading of the physical twin,
+or a figure computed from it. A parameter goes from the Manager to the
+scripts; a property goes from the scripts to the Manager and the
+peers. The runner checks, stores, shows and publishes the values. It
+never interprets them.
+
+```yaml
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds # every number names its unit
+  ward-status:
+    type: string
+    enum:
+      - open
+      - full
+      - closed
+  forecast: # free beds in each of the next hours
+    type: array
+    items:
+      type: number
+      unit: beds
+  position:
+    type: object
+    properties:
+      latitude:
+        type: number
+        unit: deg
+      longitude:
+        type: number
+        unit: deg
+    required:
+      - latitude
+      - longitude
+```
+
+The types are those of JSON Schema, as a W3C Web of Things Thing
+Description uses them:
+
+| Keyword                  | Applies to                    | Needed            |
+| :----------------------- | :---------------------------- | :---------------- |
+| `type`                   | every value                   | yes               |
+| `enum`                   | `string`, `number`, `integer` | no                |
+| `minimum`, `maximum`     | `number`, `integer`           | no                |
+| `unit`                   | `number`, `integer`           | yes               |
+| `items`                  | `array`                       | yes               |
+| `properties`, `required` | `object`                      | `properties` only |
+
+- `type` is `string`, `number`, `integer`, `boolean`, `object` or
+  `array`. The runner accepts no other keyword.
+- Every `number` and `integer` names its `unit`, also inside an object
+  or an array, so that a reader of the value never has to guess it.
+  Write `unit: '1'` for a number without a dimension. The other types
+  take no `unit`.
+- An array declares its `items`, and an object its `properties`. A
+  member of an object is optional unless `required` lists it; a member
+  that is not declared is refused.
+- There is no `default`. A property is `null` until its first write.
+- A name may not be both a parameter and a property, nor be `set` or
+  `response`.
+
+Scripts and sensors write the values with `PUT /properties`; see
+[Read and Write Properties](#read-and-write-properties). A write
+raises no event. Scripts get no `DT_PROP_` variable: a value copied
+when a script starts would be stale during a long run.
+
+### A File Without States
+
+A DT that only runs commands with `POST /` may still declare
+parameters, properties and manager commands. Leave `states` out:
+
+```yaml
+parameters:
+  capacity:
+    type: integer
+    default: 20
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
+manager:
+  commands:
+    - create
+```
+
+Such a DT has no machine. `GET /fsm` and the transition and event
+requests answer `404` `no state machine`, as without a file, and
+`GET /dt` shows `"stateMachine": false`. The parameter and property
+requests work. The file may not have `events` or `subscriptions`,
+which nothing would take; the runner refuses it with
+`events need states`.
 
 ### Environment
 
@@ -247,9 +363,10 @@ enforced.
 ### Subscriptions to Peers
 
 A DT can react to its peers, the DTs that the operator lists under
-`peers` in _runner.yaml_ ([README](README.md#peers)). Each subscription
-names a peer, a condition on what the peer last reported, and the
-event that the runner raises when the condition turns true:
+`relationships.peers` in _runner.yaml_ ([README](README.md#peers)).
+Each subscription names a peer, a condition on what the peer last
+reported, and the event that the runner raises when the condition
+turns true:
 
 ```yaml
 events:
@@ -306,6 +423,14 @@ problem, when:
 - `$success` and `$failure` transitions alone form a loop;
 - a name breaks the naming rule, a parameter, `env` or `escalation`
   entry is invalid, or a manager command is not permitted;
+- a property has a keyword that the runner does not know or that does
+  not apply to its type, a number without a `unit`, an array without
+  `items` or an object without `properties`, an `enum` value of another
+  type, a `minimum` above its `maximum`, or a `required` name that is
+  not among its `properties`;
+- a name is both a parameter and a property, or a parameter or a
+  property is named `set` or `response`;
+- the file has `events` or `subscriptions` but no `states`;
 - a subscription has a key other than `peer`, `when` and `event`, or
   misses one; its `when` has no condition, both or another key; its
   `peer` is not listed in _runner.yaml_; its `event` is not in
@@ -364,7 +489,7 @@ transition:
 | `busy`                | 409  | a transition request while the script of the state runs   |
 | `no transition`       | 409  | the current state has no transition for the event         |
 | `script running`      | 409  | the script of the next state is still running from before |
-| `no state machine`    | 404  | _runner.yaml_ has no `stateMachine`                       |
+| `no state machine`    | 404  | no `stateMachine` key, or a file that has no states       |
 | `stopping`            | 503  | the runner is shutting down                               |
 
 A body without `state` or `event` is refused before these checks with
@@ -463,19 +588,24 @@ subscription reacts to notices and has no timeout.
 {
   "scope": {
     "value": "single",
-    "type": "enum",
-    "values": ["single", "multi"],
+    "type": "string",
+    "enum": ["single", "multi"],
     "default": "single",
     "controllable": true
   },
   "capacity": {
     "value": 20,
-    "type": "number",
+    "type": "integer",
+    "minimum": 1,
     "default": 20,
     "controllable": false
   }
 }
 ```
+
+An enum shows as `"type": "string"` with `"enum"`, also when the file
+still spells it `type: enum`. Before version 0.11.0 the reply had
+`"type": "enum"` and `"values"`.
 
 `PUT /parameters` with `{"scope": "multi"}` sets controllable
 parameters. The runner checks the whole body first; on any problem it
@@ -494,9 +624,76 @@ parameter in the order of the file, and answers `200` with the body of
 `GET /parameters`. An event that the machine refuses is only logged;
 the new value stands. A value equal to the current one raises no event.
 Both routes answer `404` with `{"status": "no state machine", "state":
-null}` without a state machine. A script reads the current values with
-`GET $RUNNER_URL/parameters`; its `DT_PARAM_` variables keep the values
-it started with.
+null}` without a state machine file. A script reads the current values
+with `GET $RUNNER_URL/parameters`; its `DT_PARAM_` variables keep the
+values it started with.
+
+### Read and Write Properties
+
+`PUT /properties` hands the runner the latest values, as a flat object
+of property names and values. A script sends it to `RUNNER_URL` with
+the token of `RUNNER_TOKEN`, as it raises an event:
+
+```sh
+curl -sS -o /dev/null -X PUT -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $RUNNER_TOKEN" -d '{"free-beds": 3}' \
+  "$RUNNER_URL/properties"
+```
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }
+Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" `
+  -Headers $headers -ContentType 'application/json' `
+  -Body '{"free-beds": 3}' | Out-Null
+```
+
+The runner checks the whole body first. If a name is not declared or a
+value does not fit its declaration, it changes nothing and answers
+`400`, listing every problem:
+
+```json
+{
+  "message": [
+    "property free-beds: Too small: expected number to be >=0",
+    "property size is not declared"
+  ],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+Otherwise it stores the values and answers `200` with the body of
+`GET /properties`, each property with its latest value, the time of
+the write, who wrote it, and its declaration:
+
+```json
+{
+  "free-beds": {
+    "value": 3,
+    "time": "2026-10-26T11:22:43.120Z",
+    "by": "script",
+    "type": "integer",
+    "minimum": 0,
+    "unit": "beds"
+  }
+}
+```
+
+- `null` is a value of every type and means "not known", for example
+  while a sensor is offline.
+- Writing the same value again updates `time`, so a reader sees that
+  the feed is alive. `{}` is `200` and changes nothing.
+- `by` is the name of the principal that wrote the value, `script` for
+  a script of the runner, or `null` without access control.
+- A write raises no event. A script that wants the machine to react
+  raises an event as well.
+- With access control, the roles `client`, `script` and `sensor` may
+  write, and every role may read. A `manager` may not write: it tunes
+  the parameters, and must not write what the DT observes. A `sensor`
+  is a principal of _runner.yaml_ that feeds values from outside the
+  runner; it may call these two routes only.
+- Both routes answer `404` `no state machine` without a state machine
+  file.
 
 ### Stop a Script
 
@@ -542,18 +739,19 @@ lists the events of the file in alphabetical order.
 
 `GET /state` returns the whole DT in one document: its `id`, the
 `time`, the body of `GET /fsm` as `machine` (or `null` without a state
-machine), the parameter values, and the latest command without its
-logs. `GET /` returns the latest command with its logs, exit code and
-resources, and `GET /history` every command with its status, exit
-code, times and resources, the state scripts included. `GET /metrics`
+machine), the parameter values, the latest value and write time of
+each property, and the latest command without its logs. `GET /`
+returns the latest command with its logs, exit code and resources, and
+`GET /history` every command with its status, exit code, times and
+resources, the state scripts included. `GET /metrics`
 counts the entries into each state, the seconds spent there, the
 scripts that finished, the transition and event requests, the commands
 by status, their resources and the escalations since the runner
 started.
 
-With a `notify` section in _runner.yaml_, or with MQTT, the runner
-sends the state document whenever it changes, as a notification of kind
-`state`:
+With a `notify` section under `relationships.manager` in
+_runner.yaml_, or with MQTT, the runner sends the state document
+whenever it changes, as a notification of kind `state`:
 
 ```json
 {
@@ -565,6 +763,13 @@ sends the state document whenever it changes, as a notification of kind
 ```
 
 `data` is the whole state document of `GET /state`, shortened here.
+
+A fast feed of property values does not flood the Manager. A document
+whose only change is in property values waits until `stateInterval`
+milliseconds, a key of _runner.yaml_ that is `1000` unless given, have
+passed since the last state notification. A change of the machine, a
+parameter or the command is sent at once, with the property values
+that were waiting.
 
 Over MQTT the notifications go to `<topic>/notify/<kind>`, where `kind`
 is `state`, `escalation` or `presence`; the last state document and the
@@ -615,7 +820,8 @@ nothing, so its repeat is checked again. The runner keeps the latest
 
 With a `database` in _runner.yaml_ the runner stores the state, the
 entry count and the script status at each entry and each script exit,
-and the latest parameter values at each change. When it starts again:
+the latest parameter values at each change, and the latest value of
+each property at each write. When it starts again:
 
 - A state whose script was running comes back with status
   `interrupted`. The runner does not run the script again, as it may
@@ -631,11 +837,14 @@ and the latest parameter values at each change. When it starts again:
   removed parameter or enum value, or a parameter no longer
   controllable, is dropped with a warning; the parameter starts at its
   default. A restored value raises no event.
+- Each property comes back with its value, and the time and the writer
+  of its last write. A stored value that no longer fits its
+  declaration is dropped with a warning, and the property is `null`.
 - Without `stateMachine`, the runner logs the stored state and keeps it
   for a later start with the state machine.
 
-Without a database file, the runner starts with no state and the
-default values.
+Without a database file, the runner starts with no state, the default
+values of the parameters, and every property `null`.
 
 ### Shut Down
 
@@ -661,10 +870,19 @@ topic of the request, or else to the request topic followed by
 | `<topic>/fsm`            | `GET /fsm`             | ignored                  |
 | `<topic>/state`          | `GET /state`           | ignored                  |
 | `<topic>/parameters`     | `GET /parameters`      | ignored                  |
-| `<topic>/set-parameters` | `PUT /parameters`      | `{"scope": "multi"}`     |
+| `<topic>/parameters/set` | `PUT /parameters`      | `{"scope": "multi"}`     |
+| `<topic>/properties`     | `GET /properties`      | ignored                  |
+| `<topic>/properties/set` | `PUT /properties`      | `{"free-beds": 3}`       |
 | `<topic>/stop`           | `POST /stop`           | `{"name": "execute"}`    |
 | `<topic>/escalate`       | `POST /escalate`       | `{"reason": "capacity"}` |
 | `<topic>/execute`        | `POST /`               | `{"name": "create"}`     |
+
+A topic that writes is one level under the topic that reads, so the
+default response topic of a write is `<topic>/parameters/set/response`.
+A subscription to `<topic>/+/response` does not match it: subscribe to
+`<topic>/+/set/response` as well, or give an MQTT 5 response topic.
+Before version 0.11.0 the write topic was `<topic>/set-parameters`; it
+still answers in 0.11, with a warning in the log, and goes in 0.12.
 
 MQTT has no status codes, so the `status` in the body is the outcome.
 Over MQTT 5, the request key is the `idempotency-key` user property.
@@ -702,8 +920,8 @@ events:
   - scope-changed
 parameters:
   scope:
-    type: enum
-    values:
+    type: string
+    enum:
       - single
       - multi
     default: single
@@ -825,8 +1043,8 @@ parameters:
   # the shared-policy parameter: a patient goes to the requested ward
   # only (single), or to any ward with a free bed (multi)
   scope:
-    type: enum
-    values:
+    type: string
+    enum:
       - single
       - multi
     default: single
@@ -840,14 +1058,22 @@ parameters:
   # how often open samples the beds, from the cheapest to the most
   # accurate (STATE-MACHINE.md, Pattern: Fidelity)
   fidelity:
-    type: enum
-    values:
+    type: string
+    enum:
       - low
       - medium
       - high
     default: medium
     controllable: true
     event: fidelity-changed
+# the latest values that the scripts hand the runner, for the Manager
+# and the peers; the runner never reads them
+properties:
+  # the free beds of all wards, which open writes at each sample
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
 env:
   HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
 escalation:
@@ -921,7 +1147,8 @@ As above, `transition` starts the machine and `(stop)` marks
 - _open_ reads `GET $RUNNER_URL/peers` and logs where overflow goes:
   the nearest peer that is online and in state `open`, or none. It then
   samples the beds every `POLL_MS` milliseconds, times 4, 1 or 0.2 by
-  `fidelity` ([Pattern: Fidelity](#pattern-fidelity)), and raises
+  `fidelity` ([Pattern: Fidelity](#pattern-fidelity)), writes their
+  number as the property `free-beds` when it changes, and raises
   `full` over `RUNNER_URL` once none is free.
 - _full_ reads the same list. With an open peer to take the overflow,
   it succeeds; without one it fails, and with `onFailure` the runner
@@ -932,7 +1159,9 @@ As above, `transition` starts the machine and `(stop)` marks
 - The Manager runs `admit` and `discharge` with `POST /` and an
   `input` object; `discharge` raises `beds-free`.
 
-The requests of the recording to `hospital-1`, with their replies:
+The requests of the recording to `hospital-1`, with their replies.
+The recording predates version 0.11.0, so it shows neither `free-beds`
+nor the write topic `parameters/set`:
 
 | Request                                                             | Reply                                                                                                                                                    |
 | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -964,10 +1193,10 @@ and the [resources](README.md#resources) that the runner reports.
 ### The Convention
 
 1. A DT that can trade accuracy for computing power declares a
-   parameter named `fidelity`, of type `enum`, with
+   parameter named `fidelity`, of type `string` with an `enum`, with
    `controllable: true`, a `default` and an `event`.
-1. You choose the `values`. List them from the cheapest to the most
-   accurate, so that a Manager that knows none of the names can step one
+1. You choose the `enum` values. List them from the cheapest to the
+   most accurate, so that a Manager that knows none of the names can step one
    value down or up.
 1. The event, by custom `fidelity-changed`, has a self-transition with
    `stop: true` in each state whose script must restart to use a new
@@ -986,8 +1215,8 @@ events:
   - fidelity-changed
 parameters:
   fidelity:
-    type: enum
-    values:
+    type: string
+    enum:
       - low
       - medium
       - high
@@ -1034,14 +1263,14 @@ compare runs on the same platform.
 ### What a Manager Does
 
 A Manager finds the DTs that offer the trade in `GET /parameters`: a
-controllable `enum` named `fidelity`, whose `values` give the order.
+controllable parameter named `fidelity`, whose `enum` gives the order.
 
 ```json
 {
   "fidelity": {
     "value": "medium",
-    "type": "enum",
-    "values": ["low", "medium", "high"],
+    "type": "string",
+    "enum": ["low", "medium", "high"],
     "default": "medium",
     "controllable": true
   }
@@ -1049,8 +1278,8 @@ controllable `enum` named `fidelity`, whose `values` give the order.
 ```
 
 To shed load, it sends `PUT /parameters` with `{"fidelity": "low"}`, or
-the same body over the MQTT route `set-parameters`. The runner stores
-the value and raises `fidelity-changed`; in _simulate_, the
+the same body on the MQTT topic `<topic>/parameters/set`. The runner
+stores the value and raises `fidelity-changed`; in _simulate_, the
 self-transition stops the script and starts it again as a new entry,
 with `DT_PARAM_FIDELITY=low`. `GET /fsm` and `GET /state` show the new
 entry. The reply of `PUT` is the same whatever the event did (see

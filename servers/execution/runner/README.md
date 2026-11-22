@@ -105,6 +105,24 @@ _state-machine.yaml_ in `location` with the `stateMachine` key (see
 [State Machine](#state-machine)). A _runner.yaml_ of an earlier version
 needs both changes.
 
+Version 0.11.0 added [properties](#properties), the role `sensor`, the
+[relationships](#relationships) section and `stateInterval`. It breaks
+three things:
+
+- [GET /parameters](#parameters-requests) shows an enum as
+  `"type": "string"` with `"enum"`, where it showed `"type": "enum"`
+  with `"values"`.
+- The [state document](#get-request-to-state) has a `properties`
+  member.
+- The names `set` and `response` are reserved: no parameter, property
+  or peer id may take them.
+
+Three spellings of earlier versions still work in 0.11, each with a
+warning in the log, and go in 0.12: `notify` and `peers` at the top of
+_runner.yaml_ ([Relationships](#relationships)), `type: enum` with
+`values` for a [parameter](#parameters), and the MQTT topics
+`<topic>/set-parameters` and `<topic>/set-peers` ([MQTT API](#mqtt-api)).
+
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
 
@@ -150,10 +168,11 @@ database: 'runner.db'
 
 With a database file, the history, the status of the last command,
 the request keys of [repeated requests](#repeated-requests), the
-[state machine](#restarts), the [parameter values](#parameters) and
-the switches of [PUT /peers](#peers-requests) survive a restart of the
-runner. No script survives one: a command that
-was running when the runner stopped is `interrupted` after the restart.
+[state machine](#restarts), the [parameter values](#parameters), the
+latest [property values](#properties) and the switches of
+[PUT /peers](#peers-requests) survive a restart of the runner. No
+script survives one: a command that was running when the runner
+stopped is `interrupted` after the restart.
 The runner creates the directory of the database file if needed. Give
 each runner a database file of its own.
 
@@ -201,15 +220,59 @@ without it:
 stopGrace: 5000
 ```
 
+### Relationships
+
+The optional `relationships` section names the other parties of the
+digital twin in its network: the Manager that it notifies, and the
+[peers](#peers) that it follows.
+
+```yaml
+relationships:
+  manager:
+    notify: # optional; the webhook of the Manager
+      url: 'https://manager.example.org/dt-events'
+  peers: # optional; the digital twins that this one follows
+    - id: 'hospital-2'
+      topic: 'dtaas/hospital-2'
+```
+
+Both keys are optional, and so is `notify` under `manager`. `auth` and
+`scripts` are not relationships and stay at the top of the file.
+
+Before version 0.11.0 the two sections were at the top of
+_runner.yaml_:
+
+| Before 0.11 | From 0.11                      |
+| :---------- | :----------------------------- |
+| `notify`    | `relationships.manager.notify` |
+| `peers`     | `relationships.peers`          |
+
+- Version 0.11 loads either layout. For each old key the runner logs
+  one warning at startup:
+
+  ```text
+  runner.yaml: notify moved to relationships.manager.notify; the old key goes in 0.12
+  ```
+
+- A section set in both places stops the runner at startup, with
+  `peers and relationships.peers are both set`.
+- A problem in an old key is reported at its new path, such as
+  `at relationships.peers[0].topic`.
+- Version 0.12 removes the old keys. To migrate, indent each section
+  under its new path; its content does not change.
+
 ### Webhook
 
 The runner posts its [notifications](#notifications) to a webhook
-when the configuration has a `notify` section:
+when the configuration has a `notify` section under
+`relationships.manager`:
 
 ```yaml
-notify:
-  url: 'https://manager.example.org/dt-events' # http:// or https://
-  token: 'secret' # optional; sent as Authorization: Bearer <token>
+relationships:
+  manager:
+    notify:
+      url: 'https://manager.example.org/dt-events' # http:// or https://
+      token: 'secret' # optional; sent as Authorization: Bearer <token>
 ```
 
 The runner posts its [presence](#presence) at startup and, at
@@ -221,6 +284,21 @@ type `application/jose`. The token still authenticates the runner to
 the webhook; the signature lets the receiver check every body,
 including those it stores or forwards.
 
+### State Interval
+
+A script or a sensor may write a [property](#properties) many times a
+second. The runner sends a state [notification](#notifications) whose
+only change is in property values at most once per `stateInterval`
+milliseconds, over MQTT and the webhook alike:
+
+```yaml
+stateInterval: 1000
+```
+
+The value is a whole number of milliseconds, `0` or more, and `1000`
+without the key. With `0` nothing is held. Any other change of the
+state document is sent at once, whatever the interval.
+
 ### Access Control
 
 With `principals` in an `auth` section, the runner answers only the
@@ -230,7 +308,7 @@ callers it lists, each in a role:
 auth:
   principals:
     - name: manager-1
-      role: manager # manager or client
+      role: manager # manager, client or sensor
       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
     - name: alice
       role: client
@@ -254,7 +332,12 @@ auth:
   [manager commands](#manager-commands). The
   runner's own scripts call it in the role `script` with the token in
   `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
-  may read, raise events and escalate.
+  may read, raise events, escalate and write
+  [properties](#properties).
+- A `sensor` feeds property values from outside the runner, such as a
+  gateway of the physical twin. It may read and write the properties
+  and call nothing else. A `manager` may read the properties but not
+  write them.
 - `GET /health` and MQTT `health` stay open, for liveness probes.
 - A request without a valid token gets `401`, and a role that may not
   call the route `403`. The runner logs each accepted request with its
@@ -311,23 +394,25 @@ Without `key` every payload is plain JSON, as before.
 
 ### Peers
 
-A digital twin lists the peers it is willing to interact with in an
-optional `peers` section; nothing else is a peer, and the runner
-discovers none:
+A digital twin lists the peers it is willing to interact with under
+`peers` in the optional [relationships](#relationships) section;
+nothing else is a peer, and the runner discovers none:
 
 ```yaml
-peers:
-  - id: 'hospital-2'
-    topic: 'dtaas/hospital-2' # its MQTT base topic, on this broker
-    url: 'http://localhost:5200' # its HTTP base URL
-    attributes: # optional; strings, numbers or booleans
-      distance: 12.4
-    enabled: true # optional; true by default
-    publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA' # optional
+relationships:
+  peers:
+    - id: 'hospital-2'
+      topic: 'dtaas/hospital-2' # its MQTT base topic, on this broker
+      url: 'http://localhost:5200' # its HTTP base URL
+      attributes: # optional; strings, numbers or booleans
+        distance: 12.4
+      enabled: true # optional; true by default
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA' # optional
 ```
 
 - `id` follows the pattern of the runner's `id`, is unique, and is not
-  the runner's own.
+  the runner's own. It is not `set` or `response` either, which are
+  topic levels under the MQTT topic of the peers.
 - A peer has a `topic`, a `url` or both. `topic` follows the rules of
   `mqtt.topic`; it is unique and not the runner's own.
 - `attributes` describe the relationship, such as a distance, with the
@@ -451,8 +536,10 @@ and gets `HOME`, `USER` and `LOGNAME` of that account and `PATH` set to
 For a script that the state machine runs, `DT_STATE` and `DT_ENTRY` name
 the state it enters and the number of that entry. For a script of `POST
 /` they name the current state and entry, or are empty and `0` before
-the first transition. Without a state machine a script gets only
-`RUNNER_URL`, `DT_ID` and, with access control, `RUNNER_TOKEN`.
+the first transition. Without a state machine file a script gets only
+`RUNNER_URL`, `DT_ID` and, with access control, `RUNNER_TOKEN`; with a
+[file without states](#a-file-without-states) it gets the `DT_PARAM_`
+variables too, and neither `DT_STATE` nor `DT_ENTRY`.
 `RUNNER_URL` uses the port that the runner listens on. `RUNNER_TOKEN` is
 drawn anew at each start and is unset without `auth.principals`. The
 state machine file may [declare more variables](#declared-environment).
@@ -536,8 +623,9 @@ stateMachine: 'scripts/state-machine.yaml'
 ```
 
 The file holds the events and the states, and may declare
-[parameters](#parameters), an [environment](#declared-environment)
-and the conditions that [escalate](#escalation):
+[parameters](#parameters), [properties](#properties), an
+[environment](#declared-environment) and the conditions that
+[escalate](#escalation):
 
 ```yaml
 events: # the events that clients may send
@@ -681,13 +769,16 @@ events:
   - scope-changed
 parameters:
   scope:
-    type: enum
-    values: [single, multi]
+    type: string
+    enum: # optional; the values that the parameter may take
+      - single
+      - multi
     default: single
     controllable: true # a Manager may change it
     event: scope-changed # raised when the value changes
   capacity:
-    type: number
+    type: integer
+    minimum: 1 # optional, as maximum
     default: 20
     controllable: false
 states:
@@ -700,20 +791,28 @@ states:
       scope-changed: { state: execute, stop: true }
 ```
 
-- `type` is `string`, `number`, `boolean` or `enum`. An `enum` has
-  `values`, a non-empty list of strings.
-- `default` is required and must have the type of the parameter; the
-  default of an `enum` must be one of its `values`. YAML reads `20` as
-  a number, so a `string` parameter needs quotes, as in `'20'`. A
-  `number` parameter refuses `"20"`, a string, and `.inf` and `.nan`.
+- `type` is `string`, `number`, `integer` or `boolean`, the scalar
+  types of JSON Schema. A parameter takes no `unit`: it is a setting of
+  a policy, not a measurement.
+- `enum`, a non-empty list, gives the values that a `string`, `number`
+  or `integer` parameter may take. `minimum` and `maximum` bound a
+  `number` or an `integer`. No other keyword is accepted.
+- `default` is required and must fit the declaration: its type, its
+  `enum` and its bounds. YAML reads `20` as a number, so a `string`
+  parameter needs quotes, as in `'20'`. A `number` parameter refuses
+  `"20"`, a string, and `.inf` and `.nan`.
+- Before version 0.11.0 an enum was written `type: enum` with
+  `values: [single, multi]`. That spelling still loads in 0.11, with a
+  warning in the log that names the parameters, and goes in 0.12.
 - `controllable` is `false` unless given. Only controllable parameters
   can be [set over the API](#parameters-requests); the others are
   configuration that the digital twin shares with a Manager.
 - `event`, if given, must be in `events`. The runner raises it when a
   request changes the value.
-- Parameter names follow the rules of state and event names. Two names
-  that differ only in case or in `.`, `-` and `_`, such as `a-b` and
-  `A_B`, are refused, as both become the variable name `DT_PARAM_A_B`.
+- Parameter names follow the rules of state and event names, and are
+  not `set` or `response`. Two names that differ only in case or in
+  `.`, `-` and `_`, such as `a-b` and `A_B`, are refused, as both
+  become the variable name `DT_PARAM_A_B`.
 
 The runner never restarts a script on its own. A script that is
 running keeps the values it started with. A DT author who wants a
@@ -732,6 +831,118 @@ No parameter name has a meaning to the runner. A DT that lets its
 Manager trade accuracy for computing power declares a `fidelity`
 parameter by convention, as
 [STATE-MACHINE.md](STATE-MACHINE.md#pattern-fidelity) describes.
+
+### Properties
+
+The state machine file may declare properties: the latest values that
+the scripts and sensors of the digital twin hand the runner, such as a
+reading of the physical twin or a figure computed from it. A parameter
+is set by a Manager for the scripts to read; a property is written by a
+script or a sensor for the Manager and the peers to read. The runner
+checks each value against its declaration, stores it, shows it and
+publishes it. It never interprets a value.
+
+```yaml
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds # every number names its unit
+  ward-status:
+    type: string
+    enum:
+      - open
+      - full
+      - closed
+  forecast: # free beds in each of the next hours
+    type: array
+    items:
+      type: number
+      unit: beds
+  position:
+    type: object
+    properties:
+      latitude:
+        type: number
+        unit: deg
+      longitude:
+        type: number
+        unit: deg
+    required:
+      - latitude
+      - longitude
+```
+
+The types are those of JSON Schema, as a Thing Description of the W3C
+Web of Things uses them:
+
+| Keyword                  | Applies to                    | Needed            |
+| :----------------------- | :---------------------------- | :---------------- |
+| `type`                   | every value                   | yes               |
+| `enum`                   | `string`, `number`, `integer` | no                |
+| `minimum`, `maximum`     | `number`, `integer`           | no                |
+| `unit`                   | `number`, `integer`           | yes               |
+| `items`                  | `array`                       | yes               |
+| `properties`, `required` | `object`                      | `properties` only |
+
+- `type` is `string`, `number`, `integer`, `boolean`, `object` or
+  `array`. No other keyword of JSON Schema is accepted, and a keyword
+  on a type that it does not apply to is refused.
+- Every `number` and `integer` names its `unit`, a non-empty string,
+  also inside an object or an array. Write `unit: '1'` for a number
+  without a dimension. The runner does not read the unit.
+- `items` declares every element of an array, and `properties` the
+  members of an object. A member is optional unless `required` lists
+  it, and an object refuses a member that is not declared.
+- A property has no `default`: its value is `null` until the first
+  write.
+- Property names follow the rules of state and event names, and are
+  not `set` or `response`. A name may not be both a parameter and a
+  property.
+
+A script or a sensor writes values with
+[PUT /properties](#properties-requests), and anyone may read them with
+`GET /properties`, in the [state document](#get-request-to-state) and
+in its [notifications](#notifications). A write raises no event: a
+script that wants the machine to react raises an event itself. Scripts
+get no variable for a property, as a value copied at the start of a
+script would be stale during a long run; a script reads
+`GET ${RUNNER_URL}/properties`.
+
+The runner keeps the latest value of each property in its
+[database](#command-history), and restores it with its time when it
+starts again. A stored value that no longer fits its declaration is
+dropped with a warning in the log, and the property is `null` again.
+There is no history of values.
+
+### A File Without States
+
+`states` is optional. A file without states only declares
+`parameters`, `properties` and `manager.commands`, for a digital twin
+that runs commands and needs no machine:
+
+```yaml
+parameters:
+  capacity:
+    type: integer
+    default: 20
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
+manager:
+  commands:
+    - create
+```
+
+The digital twin then has no state machine: [GET /fsm](#state-machine-requests)
+and the transition and event routes answer `no state machine`,
+[GET /dt](#get-request-to-dt) shows `"stateMachine": false`, and the
+[parameters](#parameters-requests) and
+[properties](#properties-requests) routes work. Such a file is refused
+if it has `events` or `subscriptions`, with `events need states`, as
+nothing would take the events.
 
 ### Declared Environment
 
@@ -837,7 +1048,14 @@ try {
 
 A script reads the current parameter values with
 `GET ${RUNNER_URL}/parameters`; its `DT_PARAM_` variables keep the
-values it started with.
+values it started with. It writes [property](#properties) values with
+`PUT ${RUNNER_URL}/properties` and the same header:
+
+```sh
+curl -sS -o /dev/null -X PUT -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $RUNNER_TOKEN" -d '{"free-beds": 3}' \
+  "$RUNNER_URL/properties"
+```
 
 ### Escalation
 
@@ -897,9 +1115,9 @@ subscriptions:
   a state of the peer's machine, and `online: true` or `online: false`.
 - The runner does not start when an entry has an unknown or a missing
   key, `when` has no condition or both, `peer` is not listed under
-  `peers` (enabled or not), `event` is not under `events`, or two
-  entries have the same `peer`, `when` and `event`. The same `peer`
-  and `when` may raise two events, in file order.
+  `relationships.peers` (enabled or not), `event` is not under
+  `events`, or two entries have the same `peer`, `when` and `event`.
+  The same `peer` and `when` may raise two events, in file order.
 - The runner keeps, for each subscription, whether its condition held
   in the last notice of the peer, and raises the event only when it
   turns from not holding, or unknown, to holding. The first notice
@@ -975,9 +1193,10 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
-The runner serves sixteen routes. Four run and stop commands, three
+The runner serves eighteen routes. Four run and stop commands, three
 drive the [state machine](#state-machine-requests), two read and set
-its [parameters](#parameters-requests), one
+its [parameters](#parameters-requests), two read and write its
+[properties](#properties-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
 [its state](#get-request-to-state), one its [health](#health), one
 [metrics](#metrics), one
@@ -1159,7 +1378,8 @@ Describes the digital twin that the runner serves, from its
 
 `attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
 permitted commands, `stateMachine` tells whether a state machine
-is loaded, `manager` lists the
+is loaded, which a [file without states](#a-file-without-states) does
+not give, `manager` lists the
 [manager commands](#manager-commands), `peers` the ids of the
 enabled [peers](#peers) in the order of _runner.yaml_, `[]` without
 any, and `publicKey` the public key of the
@@ -1181,6 +1401,9 @@ status 200 whether or not a state machine is loaded:
     "events": ["restart"]
   },
   "parameters": {},
+  "properties": {
+    "free-beds": { "value": 3, "time": "2026-10-25T09:59:59.120Z" }
+  },
   "command": {
     "name": "execute",
     "status": "running",
@@ -1195,7 +1418,10 @@ status 200 whether or not a state machine is loaded:
 - `machine` is the body of [GET /fsm](#state-machine-requests), or
   `null` without a state machine.
 - `parameters` holds the value of each [parameter](#parameters), and
-  is `{}` without a state machine.
+  is `{}` without a state machine file.
+- `properties` holds the latest `value` of each
+  [property](#properties) and the `time` of its write, both `null`
+  until the first write. It is `{}` without declared properties.
 - `command` is the latest command, or `null` before the first one. Its
   `status` is `running` until it finishes, and then `valid`, `failed`,
   `invalid`, `stopped` or `interrupted` as in
@@ -1308,7 +1534,7 @@ after the request, or `null` before the first transition.
 | `busy`                | 409         | a transition request while the script of the state runs |
 | `no transition`       | 409         | the current state has no transition for the event       |
 | `script running`      | 409         | the script of the next state is still running           |
-| `no state machine`    | 404         | _runner.yaml_ has no `stateMachine`                     |
+| `no state machine`    | 404         | no `stateMachine` key, or a file that has no states     |
 | `stopping`            | 503         | the runner is shutting down                             |
 
 A request body without a `state` or `event` gets the validation error
@@ -1362,22 +1588,29 @@ parameter, without its `event`:
 {
   "scope": {
     "value": "multi",
-    "type": "enum",
-    "values": ["single", "multi"],
+    "type": "string",
+    "enum": ["single", "multi"],
     "default": "single",
     "controllable": true
   },
   "capacity": {
     "value": 20,
-    "type": "number",
+    "type": "integer",
+    "minimum": 1,
     "default": 20,
     "controllable": false
   }
 }
 ```
 
-Without a state machine, both routes answer `404` with the body of
-`GET /fsm`, `{"status": "no state machine", "state": null}`.
+Version 0.11.0 changed this reply: an enum is `"type": "string"` with
+`"enum"`, also for a parameter that the file still declares as
+`type: enum` with `values`. Before, the reply had `"type": "enum"` and
+`"values"`.
+
+Without a state machine file, both routes answer `404` with the body
+of `GET /fsm`, `{"status": "no state machine", "state": null}`. A
+[file without states](#a-file-without-states) is enough for them.
 
 The body of `PUT /parameters` maps parameter names to new values,
 which are strings, numbers or booleans. The runner applies the whole
@@ -1415,6 +1648,93 @@ an object of such values gets the validation error of `POST /`.
 ```bash
 curl http://localhost:5000/parameters
 curl -X PUT http://localhost:5000/parameters   -H 'Content-Type: application/json' -d '{"scope": "multi"}'
+```
+
+#### Properties Requests
+
+Two routes read and write the [properties](#properties).
+
+| REST API Route            | HTTP Method | Request Body       | Comment                                 |
+| :------------------------ | :---------- | :----------------- | :-------------------------------------- |
+| localhost:port/properties | GET         |                    | Returns the properties and their values |
+| localhost:port/properties | PUT         | `{"free-beds": 3}` | Writes the latest values of properties  |
+
+`GET /properties` returns the latest value of each property, the time
+of its write, who wrote it, and its declaration:
+
+```http
+{
+  "free-beds": {
+    "value": 3,
+    "time": "2026-10-25T09:59:59.120Z",
+    "by": "script",
+    "type": "integer",
+    "minimum": 0,
+    "unit": "beds"
+  },
+  "ward-status": {
+    "value": null,
+    "time": null,
+    "by": null,
+    "type": "string",
+    "enum": ["open", "full", "closed"]
+  }
+}
+```
+
+- `value` and `time` are `null` until the first write. `time` is the
+  runner's clock at the write.
+- `by` is the name of the [principal](#access-control) that wrote the
+  value, `script` for a script of the runner, or `null` without access
+  control and before the first write.
+
+The body of `PUT /properties` is a flat object of property names and
+their new values. The runner applies the whole body or none of it:
+
+1. It checks every entry. A name that is not declared or a value that
+   does not fit its declaration is refused with `400`, and `message`
+   lists every problem:
+
+   ```http
+   {
+     "message": [
+       "property free-beds: Too small: expected number to be >=0",
+       "property size is not declared"
+     ],
+     "error": "Bad Request",
+     "statusCode": 400
+   }
+   ```
+
+1. It stores the values with one `time` and the caller as `by`, and
+   then shows them.
+
+The reply is then `200` with the body of `GET /properties`.
+
+- `null` fits every declaration and means that the value is not known,
+  for example while a sensor is offline. It gets a `time` as any other
+  value.
+- Writing the same value again updates its `time`, which shows that
+  the feed is alive.
+- `{}` is `200` and changes nothing. A body that is not an object gets
+  the validation error of `POST /`. The route takes no
+  `Idempotency-Key`.
+- A write raises no event and starts no script. It changes the
+  [state document](#get-request-to-state), whose
+  [notification](#notifications) may wait for the
+  [state interval](#state-interval).
+- With [access control](#access-control), a `client`, a `sensor` and
+  the runner's scripts may write; a `manager` gets
+  `403 manager may not call set-properties`. Every role may read.
+
+Without a state machine file, both routes answer `404` with
+`{"status": "no state machine", "state": null}`; a
+[file without states](#a-file-without-states) is enough for them. With
+a file that declares no property, `GET /properties` answers `{}`.
+
+```bash
+curl http://localhost:5000/properties
+curl -X PUT http://localhost:5000/properties   -H 'Content-Type: application/json' -d '{"free-beds": 3}'
 ```
 
 #### Peers Requests
@@ -1610,11 +1930,25 @@ JSON as the matching HTTP request and response; with a
 | `<topic>/health`         | GET /health           | ignored                                    |
 | `<topic>/stop`           | POST /stop            | `{"name": "<command name>"}`               |
 | `<topic>/parameters`     | GET /parameters       | ignored                                    |
-| `<topic>/set-parameters` | PUT /parameters       | `{"<name>": <value>}`                      |
+| `<topic>/parameters/set` | PUT /parameters       | `{"<name>": <value>}`                      |
+| `<topic>/properties`     | GET /properties       | ignored                                    |
+| `<topic>/properties/set` | PUT /properties       | `{"<name>": <value>}`                      |
 | `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                   |
 | `<topic>/metrics`        | GET /metrics          | ignored                                    |
 | `<topic>/peers`          | GET /peers            | ignored                                    |
-| `<topic>/set-peers`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
+| `<topic>/peers/set`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
+
+A topic that writes is one level under the topic that reads the same
+resource: `<topic>/parameters/set`, `<topic>/properties/set` and
+`<topic>/peers/set`. So a broker can grant a sensor
+`<topic>/properties/#` alone. The names `set` and `response` are
+therefore reserved: no parameter, property or peer id may take them.
+Before version 0.11.0 the write topics were `<topic>/set-parameters`
+and `<topic>/set-peers`. The runner still answers them in 0.11, with
+one warning in its log at the first request on each, and drops them in
+0.12. The routes keep their names in the 403 replies of
+[access control](#access-control): `set-parameters`, `set-properties`
+and `set-peers`.
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on
@@ -1631,7 +1965,13 @@ The runner publishes each response with QoS 1:
 - to the response topic of an MQTT 5 request, along with its
   correlation data, when the request has a response topic;
 - otherwise to the request topic followed by `/response`,
-  for example `<topic>/execute/response`.
+  for example `<topic>/execute/response`, and
+  `<topic>/parameters/set/response` for a write.
+
+A subscription to `<topic>/+/response` does not match the default
+response topic of a write, which is one level deeper. A client that
+writes subscribes to `<topic>/+/set/response` as well, or gives an
+MQTT 5 response topic.
 
 The runner uses the default response topic instead when the
 requested one is empty, holds a wildcard, starts with `$`,
@@ -1671,8 +2011,8 @@ mosquitto_pub -h localhost -V mqttv5 -t 'dtaas/user1/runner/execute' \
 ```
 
 With [principals](#access-control) in the `auth` section, the payload
-of each request but `health` is a signed token that holds the request topic and the
-JSON above as its `body`; a plain payload gets the `401` body of the
+of each request but `health` is a signed token that holds the request
+topic and the JSON above as its `body`; a plain payload gets the `401` body of the
 HTTP API, and a refused role the `403` body, on the response topic.
 [API.md](api/API.md#mqtt-access-control) describes the envelope.
 
@@ -1689,9 +2029,19 @@ not on the same computer.
 The runner sends its [state document](#get-request-to-state) whenever
 the document changes: when the state machine enters a state, when the
 script of a state finishes, when a command starts or finishes, when a
-parameter changes, and once at startup. A document that differs from the
-last one sent only in its `time` is not sent again. Each notification is
-one JSON object:
+parameter changes, when a [property](#properties) is written, and once
+at startup. A document that differs from the last one sent only in its
+`time` is not sent again.
+
+A document that differs from the last one sent only in its property
+values, or in their times, waits until the
+[state interval](#state-interval) has passed since that one, so a fast
+feed gives one notification per interval, with the values of that
+moment. Any other change, of the machine, the parameters or the
+command, is sent at once and carries the property values that were
+held. At shutdown a held document is not sent.
+
+Each notification is one JSON object:
 
 ```json
 {

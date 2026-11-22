@@ -29,6 +29,11 @@ parameters:
     default: medium
     controllable: true
     event: fidelity-changed
+properties:
+  free-beds:
+    type: integer
+    minimum: 0
+    unit: beds
 states:
   create:
     transitions:

@@ -30,7 +30,8 @@ notifications (02, 03), command input and outcome (05), escalation
 restarts (09), stopping scripts (10), full history and metrics (11),
 the health route (12), peers (13), access control (15a), signed
 output (15b), peer events (16), script resources (17a), the
-process tree (17b) and scripts as a second account (18). Their
+process tree (17b), scripts as a second account (18), and properties
+with the grouped `runner.yaml` (19). Their
 files are in
 [docs/issues](issues/README.md).
 
@@ -44,7 +45,8 @@ state machine.
 
 `main.ts` starts the runner in this order, and the order matters:
 
-1. `Config.loadConfig` reads `runner.yaml`.
+1. `Config.loadConfig` reads `runner.yaml`; `toLayout` first moves the
+   keys of before 0.11 to their paths under `relationships` (D42).
 1. `FsmService.load()` reads and checks the state machine file, before
    the database opens, so that an invalid file stops the runner before
    it touches the database.
@@ -56,7 +58,7 @@ state machine.
    `onModuleInit` and `onApplicationBootstrap` hooks.
    `DescriptorService` starts the metrics and loads `Peers`, which
    signals each enabled peer, so that `PeerWatch` follows its notify
-   topics; the `Notifier`
+   topics, and restores the stored values of `Properties`; the `Notifier`
    subscribes to changes and sends the startup state document, which is
    thus the restored one. `PeerEventsService` declares the subscriptions
    of the loaded file; the first notice of a peer needs I/O, so it
@@ -69,13 +71,16 @@ state machine.
 | Unit                         | Responsibility                                                         |
 | :--------------------------- | :--------------------------------------------------------------------- |
 | `fsm/definition.ts`          | read, parse and check the state machine file into a `Definition`       |
-| `fsm/name.ts`                | name pattern of states, events, parameters and ids                     |
+| `fsm/name.ts`                | name pattern of states, events, parameters and ids; reserved names     |
 | `fsm/completion-cycle.ts`    | finds a loop of completion transitions                                 |
 | `fsm/parameters.ts`          | parameter schema and checks; `Parameters` holds and changes values     |
+| `fsm/value-schema.ts`        | the JSON Schema keywords of a declaration, and the check of a value    |
+| `fsm/properties.ts`          | property schema and checks; `Properties` keeps the latest values       |
+| `fsm/proto.ts`               | finds a `__proto__` key in the parsed file, which zod would skip       |
 | `fsm/script-context.ts`      | `env` schema and checks; `RunnerContext` builds a script environment   |
 | `fsm/manager.ts`             | schema and check of the manager commands                               |
 | `fsm/escalation.ts`          | escalation section; `Escalations` raises triggers and requests         |
-| `fsm/state-machine.ts`       | pure machine: current state, entry count, next state                   |
+| `fsm/state-machine.ts`       | pure machine: current state, entry count, next state; `machineOf`      |
 | `fsm/requests.ts`            | answers transition and event requests, with their request keys         |
 | `fsm/recent-replies.ts`      | bounded store of replies to repeated requests                          |
 | `fsm/script-outcome.ts`      | runs a state's script; `failed` if it can not start                    |
@@ -88,14 +93,17 @@ state machine.
 | `fsm/fsm.service.ts`         | `FsmService`: runs scripts, raises completion events, replies          |
 | `fsm/fsm.controller.ts`      | HTTP routes `/fsm`, `/fsm/transition`, `/fsm/event`                    |
 | `parameters.controller.ts`   | HTTP routes `GET` and `PUT /parameters`                                |
+| `properties.controller.ts`   | HTTP routes `GET` and `PUT /properties`                                |
 | `dto/fsm.dto.ts`             | request schemas, reply bodies, status codes, `ScriptStatus`            |
 | `dto/state.dto.ts`           | the state document and its latest command                              |
 | `dto/history.dto.ts`         | history query schema and records                                       |
 | `dto/metrics.dto.ts`         | the reply of `GET /metrics`                                            |
 | `dto/parameters.dto.ts`      | parameters body schema and document                                    |
+| `dto/properties.dto.ts`      | properties body schema, document and the entry of the state document   |
+| `config/layout.ts`           | `toLayout`: moves the `runner.yaml` keys of before 0.11 (D42)          |
 | `descriptor.service.ts`      | builds `GET /dt`, `GET /state`, `GET /metrics`; forwards signals       |
 | `peers/peers.ts`             | `Peers`: the listed peers, their switches and their last notices       |
-| `peers/peers.config.ts`      | the `peers` schema of `runner.yaml`, unique and not the runner         |
+| `peers/peers.config.ts`      | the `relationships.peers` schema, unique and not the runner            |
 | `peers/peer-watch.ts`        | `PeerWatch`: follows enabled peers' notices on the broker              |
 | `peers/peer-notice.ts`       | `readNotice`: checks a peer's envelope, and its JWS with a key         |
 | `peers/peers.controller.ts`  | HTTP routes `GET` and `PUT /peers`                                     |
@@ -105,16 +113,19 @@ state machine.
 | `auth/roles.ts`              | `ROUTE_ROLES` of HTTP and MQTT; the manager command check              |
 | `auth/jws.ts`, `claims.ts`   | compact JWS parsing and verification, and the claims of a token        |
 | `auth/signer.ts`             | `Signer`: plain JSON, or a JWS with `auth.key`                         |
-| `notify/webhook.client.ts`   | posts notifications to `notify.url`, with retries                      |
+| `notify/webhook.client.ts`   | posts notifications to the `notify.url` of the Manager, with retries   |
 | `health.service.ts`          | the reply of `GET /health`                                             |
 | `notify/changes.ts`          | `Changes`: a plain signal of a possible change of the document         |
 | `notify/notifier.service.ts` | sends state, escalation and presence notifications                     |
+| `notify/state-hold.ts`       | `StateHold`: holds documents that differ in property values only       |
 | `mqtt/*`                     | the request topics of the routes, and the notification topics          |
+| `mqtt/request-topics.ts`     | `RequestTopics`: topic to route, with the write topics of before 0.11  |
 | `execa-manager.service.ts`   | runs, joins and stops commands; closes the database at shutdown        |
-| `queue.service.ts`           | SQLite: commands, request keys, parameters, machine, peer switches     |
+| `queue.service.ts`           | SQLite: commands, request keys, parameters, machine, peers, properties |
 | `queue.machine.ts`           | the SQL of the `machine` row and of marking commands interrupted       |
 | `queue.history.ts`           | the SQL of a command record, of the history and of command counts      |
 | `queue.peers.ts`             | the SQL of the switches of `PUT /peers`                                |
+| `queue.properties.ts`        | the SQL of the latest value of each property                           |
 | `resources/*`                | measures the CPU time, peak memory and processes of each script's tree |
 | `scripts/*`                  | the `scripts` section, its startup checks and the `setpriv` launch     |
 
@@ -123,8 +134,9 @@ state machine.
 `MachineStore`. Each was kept out of the Nest container so that no
 constructor reaches Qlty's limit of four parameters and no dependency
 cycle forms; `DescriptorService` forwards the signals of `FsmService`
-and `Queue` to the `Notifier`, and owns `Metrics` and `Peers` for the
-same reason.
+and `Queue` to the `Notifier`, and owns `Metrics`, `Peers` and
+`Properties` for the same reason. `Properties` signals each write
+through its own `Changes`, which `DescriptorService` forwards too.
 `PeerEventsService` is the one injectable that receives both
 `FsmService` and `DescriptorService`; it owns `PeerEvents` and
 registers with `Peers` in its constructor, as `PeerWatch` does.
@@ -213,18 +225,22 @@ states:
   by the runner when the script of the current state exits (D5, D19).
 - A transition value is a state name, or `{ state, stop: true }`, which
   stops the script of the state left before the next one runs (D20).
-- `parameters` declares the parameters of the DT (D21, D22), `env` the
-  variables of the scripts (D23), `escalation` the triggers the runner
-  escalates by itself (D25), `manager.commands` the commands a
-  Manager may submit (D24), and `subscriptions` the events that the
-  notices of listed peers raise (D34).
+- `parameters` declares the parameters of the DT (D21, D22),
+  `properties` the values that scripts and sensors write (D37, D38),
+  `env` the variables of the scripts (D23), `escalation` the triggers
+  the runner escalates by itself (D25), `manager.commands` the
+  commands a Manager may submit (D24), and `subscriptions` the events
+  that the notices of listed peers raise (D34).
+- `states` may be left out. The file then only declares `parameters`,
+  `properties` and `manager.commands`, and the DT has no machine (D41).
 
 ### Validation
 
 `loadDefinition` refuses the file, and the runner does not start, when:
 
-- it holds a key other than `events`, `states`, `parameters`, `env`,
-  `escalation`, `manager` and `subscriptions`, a state a key other than
+- it holds a key other than `events`, `states`, `parameters`,
+  `properties`, `env`, `escalation`, `manager` and `subscriptions`, a
+  state a key other than
   `transitions` and `env`, `escalation` a key other than the booleans
   `onFailure` and `onNoTransition`, or `manager` a key other than
   `commands`;
@@ -242,9 +258,24 @@ states:
 - `$success` and `$failure` transitions alone form a cycle
   (`completion-cycle.ts`, D11). `$stopped` is left out: it follows only
   a stop from outside, so a loop through it can not run by itself;
-- a parameter has a bad name or `__proto__`, an unknown `type`, a
-  `default` not of that type (a finite number for `number`, one of
-  `values` for `enum`), an `event` not in `events`, or another key;
+- a parameter has a bad name or `__proto__`, a `type` other than
+  `string`, `number`, `integer` and `boolean`, a key other than `type`,
+  `enum`, `minimum`, `maximum`, `default`, `controllable` and `event`,
+  a keyword that does not apply to its type, a `default` that does not
+  fit the declaration (a finite number for `number`, one of `enum`,
+  within the bounds), or an `event` not in `events`. `type: enum` with
+  `values` is read as `type: string` with `enum`, with a warning, until
+  0.12 (D38);
+- a property has a bad name or, at any depth, `__proto__`; a `type`
+  other than those and `object` and `array`; a keyword other than those
+  of `value-schema.ts`, or one that does not apply to its type; a
+  `number` or `integer` without `unit`, an `array` without `items` or an
+  `object` without `properties`, also nested; an `enum` value not of
+  the type, a `minimum` above the `maximum`, or a `required` name that
+  is not among the `properties` (D38);
+- a name is both a parameter and a property, or a parameter or a
+  property is named `set` or `response` (D43);
+- the file has no states but has `events` or `subscriptions` (D41);
 - two parameter names give the same variable name, `DT_PARAM_`
   followed by the name in upper case with `.` and `-` as `_`;
 - an `env` name does not match `^[A-Z][A-Z0-9_]*$` or starts with `DT_`
@@ -263,15 +294,20 @@ states:
   to `loadDefinition`.
 
 `events` may be left out, and a state without transitions may be left
-empty. Without `stateMachine` the machine is off, and its routes answer
-`404` to well-formed requests. The error names the file and every
+empty. Without `stateMachine`, and with a file without states, the
+machine is off, and its routes answer `404` to well-formed requests.
+`runner.yaml` is checked alike by `config.schema.ts`, after `toLayout`:
+a section set under its old key and its new path, a peer id `set` or
+`response`, and a `stateInterval` that is not a whole number of `0` or
+more stop the runner (D40, D42, D43). The error names the file and every
 problem; js-yaml errors and an empty file are wrapped to name the file.
 
 ## Lifecycle
 
 `FsmService` keeps the machine (`StateMachine`, or `undefined` without
-a file), the `status` of the current state's script, and `stopping`,
-set by `beforeApplicationShutdown`.
+a file and for a file without states, D41), the `status` of the
+current state's script, and `stopping`, set by
+`beforeApplicationShutdown`.
 
 ```mermaid
 stateDiagram-v2
@@ -326,7 +362,7 @@ state after the request or `null`:
 | `busy`                | 409  | a transition request while the state's script runs   |
 | `no transition`       | 409  | the current state has no transition for the event    |
 | `script running`      | 409  | the script of the target state is still running      |
-| `no state machine`    | 404  | `runner.yaml` has no `stateMachine`                  |
+| `no state machine`    | 404  | no `stateMachine` key, or a file without states      |
 | `stopping`            | 503  | the runner is shutting down                          |
 
 `FSM_STATUS_CODES` in `dto/fsm.dto.ts` maps each status to its code;
@@ -341,11 +377,22 @@ malformed body or request key gets the `Validation Failed` response of
 - `GET /fsm` returns `StateMachine.describe(status)`:
   `{ state, status, entry, events }`, with the events sorted.
 - `GET /state` (`DescriptorService.state`) joins the machine, or
-  `null`, with the id, the parameter values and the latest command.
+  `null`, with the id, the parameter values, the `{ value, time }` of
+  each property and the latest command.
 - `PUT /parameters` checks the whole body (`Parameters.check`), stores
   the changes in one transaction, commits them, emits a change, and
   raises each declared event once, in declaration order, through
   `Requests.raise`, which logs a refusal and never escalates (D22).
+- `PUT /properties` checks the whole body (`Properties.set`), where
+  `null` fits every declaration, stores the values in one row each with
+  one `time` and the caller as `by`, applies them and emits a change.
+  It raises no event and needs no machine, only the declarations
+  (D37). `GET /properties` answers `404` `no state machine` without a
+  file, as `GET /parameters` does.
+- Over MQTT, `RequestTopics` maps each topic to its route: a write
+  route to `<base>/<resource>/set`, and until 0.12 the old
+  `set-parameters` and `set-peers` topics too, with one warning at the
+  first request on each (D43).
 - `POST /stop` belongs to the command API: `ExecaManager.stop` stops
   the named command or all, and resolves once they have exited (D18).
   The machine follows `$stopped` when the stopped script is the current
@@ -384,7 +431,7 @@ malformed body or request key gets the `Validation Failed` response of
 
 ## Persistence
 
-`Queue` keeps five tables in one SQLite database, in memory unless
+`Queue` keeps six tables in one SQLite database, in memory unless
 `runner.yaml` names a file:
 
 | Table          | Rows                                                                 |
@@ -394,11 +441,19 @@ malformed body or request key gets the `Validation Failed` response of
 | `parameters`   | each parameter change, with its value as JSON and its time           |
 | `machine`      | one row (`id` 1): the state (`NULL` unstarted), entry, script status |
 | `peers`        | each switch of `PUT /peers`; a peer's latest overrides the file      |
+| `properties`   | one row per property: its latest value as JSON, its time and `by`    |
 
 `CREATE TABLE IF NOT EXISTS` never changes an existing file, so new
 columns come from a guarded `ALTER TABLE` (as 05's `exit_code` and
-15a's `by`) and new tables from the schema itself (as 09's `machine`
-and 13's `peers`).
+15a's `by`) and new tables from the schema itself (as 09's `machine`,
+13's `peers` and 19's `properties`).
+
+A write of a property replaces its row (an upsert), so the table does
+not grow with the rate of the writes, and there is no history of
+values. `DescriptorService.onModuleInit` loads the rows into
+`Properties` with their stored `time` and `by`, and warns once about
+the values that no longer fit their declarations, which are dropped
+(D37). Without a state machine file nothing is loaded.
 
 `MachineStore.save` writes the machine with `INSERT OR REPLACE` at each
 entry, with status `running`, and at each script exit. A failed write
@@ -465,12 +520,12 @@ proposal to derive the events from the transitions was declined (D4).
 | D13 | `Idempotency-Key` replays the reply in memory, for accepted requests                           | MQTT QoS 1 can deliver a request twice, which would apply an event twice. The header and user property have the names of `POST /`, but the keys are a namespace of their own, apart from the keys of `POST /` in the database. It keeps the last 256 accepted replies; a refused request changed nothing and is checked again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | D14 | Stop accepting requests in `beforeApplicationShutdown`                                         | `ExecaManager` closes the database in `onApplicationShutdown`; a completion must not start a script after that.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | D15 | 202 Accepted for accepted requests                                                             | The script has started, not finished.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones                          | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them. Amended by issue 03: notifications go two levels down, on `<base>/notify/<kind>`. The runner subscribes to its exact request topics, so a notification is never taken for a request. Amended by issue 13: it also follows its peers' notify topics (D31).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| D17 | A required `id`, and one strict schema for all of `runner.yaml`                                | Added by issue 01. A Manager and the runner's notifications must name the DT, and the port or base topic does not. The `id` follows the name pattern of states. An unknown key of `runner.yaml` is an error, as in the state machine file.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| D16 | MQTT topics `transition`, `event` and `fsm` next to the existing ones                          | One level under the base topic, so the `<topic>/+/response` subscription of the README covers them. Amended by issue 03: notifications go two levels down, on `<base>/notify/<kind>`. The runner subscribes to its exact request topics, so a notification is never taken for a request. Amended by issue 13: it also follows its peers' notify topics (D31). Amended by issue 19: the three write routes are one level under their read topics (D43).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| D17 | A required `id`, and one strict schema for all of `runner.yaml`                                | Added by issue 01. A Manager and the runner's notifications must name the DT, and the port or base topic does not. The `id` follows the name pattern of states. An unknown key of `runner.yaml` is an error, as in the state machine file. Amended by issue 19: `notify` and `peers` moved under `relationships` (D42).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | D18 | A stop sends `SIGTERM`, then `SIGKILL` after `stopGrace` (5 s)                                 | execa's `forceKillAfterDelay` gives a script time to clean up and still ends one that ignores `SIGTERM`. `POST /stop` answers once the processes have exited, so a following request of the same command starts it afresh.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | D19 | A run ends `success`, `failed` or `stopped` (`RunOutcome`)                                     | A boolean can not tell a deliberate stop from a crash. A run is `stopped` only when the runner's own stop reached the process; a kill from outside stays a failure, and a deliberate stop never counts as a crash for escalation (06).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | D20 | `$stopped` completion event and transitions with `stop: true`                                  | `$stopped` lets the DT author choose what follows a stop; without a `$stopped` transition the machine stays idle. A stop transition enters its target before the old script exits, so the reply does not wait (D9) and the old completion is stale; a self-transition with `stop: true` restarts the script.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| D21 | Parameters are declared in the state machine file                                              | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| D21 | Parameters are declared in the state machine file                                              | Added by issue 04 (S4). The DT author knows which settings the scripts read and which a Manager may change; `runner.yaml` is the operator's file. Parameters thus need a state machine file, and a DT without one has none. Amended by issue 19: the file may have no states, so that a DT without a machine can declare (D41), and the types are those of JSON Schema (D38).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | D22 | A parameter change raises only its declared event                                              | Added by issue 04 (S6). The runner never restarts a script on its own; a DT author who wants a restart links the parameter to an event with a self-transition and `stop: true`. A body is checked whole, stored, applied, and then its events are raised once each in declaration order. The reply does not depend on the events.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | D23 | Scripts get the runner's context as environment variables                                      | Added by issue 08. Every script language reads its environment, and nothing goes on the command line. Values are those at the script's start (S6). A declared `env` interpolates only runner variables, so a file means the same on every host. Events return over HTTP through `RUNNER_URL`, not stdout (open question 13).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | D24 | The commands a Manager may submit are listed in the state machine file                         | Added by issue 05 (S4). The DT author knows which scripts a Manager may run, as with parameters (D21). The list is shown on `GET /dt`. Enforced by issue 15a (D29): with `auth`, a principal in the role `manager` gets 403 for any other command.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -478,7 +533,7 @@ proposal to derive the events from the transitions was declined (D4).
 | D26 | Presence: an online notice per connect, an offline notice, a will                              | Added by issue 07. A Manager learns of a runner without asking. The online notice carries the descriptor and is published on each connect, as the broker keeps only the last; the webhook hears it once. The graceful end at shutdown drops the will, which covers a crash, a kill or a lost connection with `time: null`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | D27 | Command input goes to stdin, is not stored, and a failed script is told from a refused command | Added by issue 05. Stdin keeps input off the command line of a remote execution service. The input may hold personal data and nothing reads it back. A permitted script that fails is `failed` (200, with its result); `invalid command` (400) stays for a command that is not permitted. The machine's `ScriptStatus` keeps `invalid` for a failed script.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | D28 | A script running at a restart is `interrupted`, not run again                                  | Added by issue 09. No script survives a restart, and a rerun could repeat a side effect or loop in a crash. The machine is idle in its state (D7), so a transition or an event moves it on; a stored state the file no longer has starts the machine afresh with its entry count.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth.principals` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| D29 | Callers are listed principals with keys and roles                                              | Added by issue 15a (S9 to S11). Without `auth.principals` nothing changes. With it, each request but `health` carries a JWS bound to the DT, the request and one minute; over MQTT the payload is the JWS. `runner.yaml` holds public keys only. One `ROUTE_ROLES` serves HTTP and MQTT; scripts use `RUNNER_TOKEN`. Amended by issue 19: a third role of principals, `sensor`, calls only the property routes (D39).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | D30 | Full history records, and metrics as counters in memory                                        | Added by issue 11 (S14). A Manager measures a DT network from the outcomes of commands with their times, so `GET /history` returns the stored records with `since` and `limit`; `since` is compared to the second, as times are stored. `GET /metrics` counts from the signals that `FsmService` already has (`onChange`, `onAnswer`, `onEscalation`) and from a query of the commands above the highest id of the start, so nothing new is stored and a restart resets the counters. Metrics stay out of the state document, so a counter sends no notification. `escalations` is top level, as `POST /escalate` needs no machine (D25).                                                                                                                                                                                                                                                                                                                                |
 | D31 | A DT lists its peers in `runner.yaml`, and the runner follows their notices                    | Added by issue 13 (S8). No runner can read the relation `R` of the network, so the operator lists the peers by base topic and URL. The runner follows their presence and state notices, verified by a `publicKey`; a notice raises no event of its own. `PUT /peers` only switches listed peers, stored in `Queue`; `GET /dt` shows the enabled ones. Amended by issue 16: a subscription turns a notice into an event (D34).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | D32 | Outbound messages are a JWS of today's JSON when `auth.key` is set                             | Added by issue 15b (S12, S15). A receiver with the DT's public key checks the origin and integrity of each notification, MQTT response and will. A compact JWS of the unchanged JSON needs no canonical JSON and works over MQTT 3.1.1, which has no user properties. No `exp`, so a retained notice stays verifiable. HTTP replies stay JSON.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -486,6 +541,13 @@ proposal to derive the events from the transitions was declined (D4).
 | D34 | Peer subscriptions raise events of the file when a condition on a peer turns true              | Added by issue 16 (S13). P2's peer-to-peer coordination needs a mechanism, and events are what moves a DT. A subscription names a listed peer, one condition on its `state` or `online`, and an event; the runner raises the event when the condition turns true, so a peer that keeps reporting `full` raises one event, which bounds the rate. The event takes a client's path without a request key, escalating as one (D25). A change seen before the first transition is not replayed; a state reads `GET /peers` at entry. Disabling a peer forgets its conditions.                                                                                                                                                                                                                                                                                                                                                                                                |
 | D35 | With `scripts.user`, scripts run as a second account through `setpriv`                         | Added by issue 18. A hostile DT author, or a caller who abuses a script through its input, must not reach `runner.yaml`, the key, the database or the runner's environment. On Linux the runner, started unprivileged with `CAP_SETUID`, `CAP_SETGID` and `CAP_KILL` ambient, starts each script through `setpriv`, which sets the account and clears every capability, in the run directory and with an allow-listed environment. It checks its rights and the layout at startup and refuses to start on any mismatch; it never changes a mode. Without the setting nothing changes.                                                                                                                                                                                                                                                                                                                                                                                    |
 | D36 | Script resources cover the process tree, found afresh at each sample                           | Added by issue 17b. A script that starts a simulator works below the direct child, and on Windows the direct child is always `powershell.exe`, so D33 under-reported. Each sample walks the tree down from the direct child: on Linux through `/proc/<pid>/task/*/children`, or a scan of every `stat` where the kernel lacks those files, chosen once per runner process; on Windows from one CIM query of `Win32_Process`, whose rows give the figures too, in the one sampler per run of D33. Only world-readable files are read, so a script of another account is measured alike. A process is named by its pid and start time; the CPU time is the sum of the last value of every process seen, the peak the largest sum of one sample and never below the kernel peak of one process, and `processes` the largest tree. The tree is measured, not managed: a stop still signals the direct child only (D18). No version change, as `processes` is an added field. |
+| D37 | Declared properties, which scripts and sensors write and the runner never interprets           | Added by issue 19. P1's state of a DT is `(x_i, λ_i, θ_i)`, and the state document had the machine and the parameters but nothing for `x_i`, the state mirrored from the physical twin, which only the scripts know. They hand the runner the latest values with `PUT /properties`; the runner checks each against its declaration, stamps it with `time` and `by`, stores the latest in one row per name, shows it and publishes it in the state document. It never reads a value: a write raises no event, there is no `DT_PROP_*` variable, as a copy would go stale in a long run, and no `default`, so a property is `null` until written. `null` is a value of every type, for a value that is not known. A first plan's `source: sensed` or `computed` key was dropped, as nothing acted on it.                                                                                                                                                                   |
+| D38 | Values are declared with JSON Schema types; a property number names its unit, a parameter none | Added by issue 19 (C2). `type`, `enum`, `minimum`, `maximum`, `items`, `properties` and `required` are the part of JSON Schema that a Thing Description of the W3C Web of Things uses, so a declaration maps to one; `value-schema.ts` builds the zod check from them, without a new dependency, and refuses any other keyword. `unit` is required on every `number` and `integer` of a property, nested ones too, with `'1'` for a number without a dimension, so that a missing unit is always an error. Parameters take the scalar part and no unit: a parameter is a setting of a policy, not a measurement. Amends D21: an enum is `type: string` with `enum`, which changes the reply of `GET /parameters`; `type: enum` with `values` loads in 0.11 with a warning.                                                                                                                                                                                               |
+| D39 | A role `sensor` may call only the property routes and `health`                                 | Added by issue 19 (S9, S10). A feeder outside the runner, such as a gateway of the physical twin, needs a credential that can do nothing else. `set-properties` is open to `client`, `script` and `sensor`, and not to `manager`: a Manager tunes `θ_i` and must not write `x_i`. Every role reads `properties`. Amends D29.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| D40 | A state notification that differs in property values only waits for `stateInterval`            | Added by issue 19. A feed may write many times a second, and each write changes the state document (D37). `StateHold` holds a document whose only change is in `properties` until `stateInterval` ms (1000) after the last one sent; a change of the machine, the parameters or the command is sent at once with the held values, so control changes are never delayed. The setting is in `runner.yaml`, as rates are the operator's call.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| D41 | A state machine file may have no states, and then only declares                                | Added by issue 19. Amends D21: the declarations live in the DT author's file, which needed a state, so a DT that only runs commands could have neither parameters nor properties. `states` is optional; `machineOf` gives no machine for such a file, so the machine routes answer `no state machine` and `GET /dt` shows `stateMachine: false`, as without a file. `events` and `subscriptions` are refused without states, as nothing would take them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| D42 | `notify` and `peers` of `runner.yaml` are grouped under `relationships`                        | Added by issue 19, which took in issue 20. Amends D17 and S4 of [docs/issues](issues/README.md): the operator's file had twelve top-level keys of three kinds, and the keys that say who the DT deals with move to `relationships.manager.notify` and `relationships.peers`. `mqtt` stays, as it carries the API too, and so do `auth` and `scripts`. `toLayout` moves an old key before the schema runs, so the code knows one layout and a problem is reported at the new path; 0.11 warns for each old key and refuses a section set twice, and 0.12 drops the old keys.                                                                                                                                                                                                                                                                                                                                                                                              |
+| D43 | An MQTT write topic is under its read topic; `set` and `response` are reserved names           | Added by issue 19. Amends D16: `parameters/set`, `properties/set` and `peers/set` make one resource one subtree, which a broker can grant as `<base>/properties/#` to a sensor. A read stays the bare noun, and all three resources follow one pattern. The route names of `ROUTE_ROLES` and of the 403 messages do not change. The default response topic of a write is two levels down, so `<topic>/+/response` no longer matches it. No parameter, property or peer id may be `set` or `response`, which leaves room for a topic per name. `set-parameters` and `set-peers` answer in 0.11 with one warning each (`RequestTopics`) and go in 0.12.                                                                                                                                                                                                                                                                                                                    |
 
 ## Assumptions
 
@@ -513,6 +575,8 @@ proposal to derive the events from the transitions was declined (D4).
   no event either (D31). Amended by issue 16: the runner also raises an
   event by itself when the condition of a subscription to a listed peer
   turns true; the event takes the path of a client's event (D34).
+  Amended by issue 19: a write of a property raises no event; a script
+  that wants the machine to react raises one itself (D37).
 - A5: A script that is permitted but missing fails when it runs, and
   raises `$failure`. The runner does not check that scripts exist at
   startup, as on Windows it runs the `.ps1` version.
@@ -544,8 +608,11 @@ proposal to derive the events from the transitions was declined (D4).
   logged, at debug level for `no transition` and as a warning
   otherwise; the parameter change stands.
 - A failed write of the machine is logged; the reply stands. A stored
-  state or parameter value that the file no longer allows is dropped
-  with a warning at startup.
+  state, parameter value or property value that the file no longer
+  allows is dropped with a warning at startup.
+- A `runner.yaml` key, a parameter enum or an MQTT write topic of
+  before 0.11 is taken with a warning, once per key, per file or per
+  topic (D38, D42, D43).
 - A webhook or broker failure never fails a request: notifications are
   queued or retried, and logged.
 
@@ -561,24 +628,31 @@ tests of the state machine:
   `fsm.manager.spec.ts`, `fsm.subscriptions.spec.ts`), the pure units
   (`fsm.state-machine`, `fsm.peer-events`,
   `fsm.recovery`, `fsm.recent-replies`, `fsm.parameters*`,
+  `fsm.value-schema`, `fsm.properties*`, `fsm.stateless`,
   `fsm.escalation`, `fsm.machine-store`, `fsm.metrics`), and the service
   (`fsm.service*.spec.ts`: each status, completion events, stale
   completions, stop transitions, shutdown, request keys, parameters,
   escalation, script environment, restore, peer events), with
   `peer-events.service.spec.ts` for the wiring to `Peers`.
 - Integration, with a real SQLite: `queue.machine.spec.ts`,
-  `queue.migration.spec.ts`, `queue.history.spec.ts`, and the manager's
+  `queue.migration.spec.ts`, `queue.history.spec.ts`,
+  `queue.properties.spec.ts`, `config.layout.spec.ts`, and the manager's
   shutdown and restart behaviour in `execa-manager.restart.spec.ts`.
 - End to end, with the Nest module and real scripts in a temporary
   folder (`test/e2e/fsm.util.ts`): `fsm.spec.ts`, `fsm.stop.spec.ts`,
-  `parameters.spec.ts`, `escalation.spec.ts`, `script-context.spec.ts`,
+  `parameters.spec.ts`, `properties.spec.ts`,
+  `properties.access.spec.ts`, `mqtt.write-topics.spec.ts`,
+  `escalation.spec.ts`, `script-context.spec.ts`,
   `state.spec.ts`, `history.spec.ts`, `metrics.spec.ts`,
   `peer-events.spec.ts`, which follows a peer on a local aedes broker,
   and
   `restart.spec.ts`, which restarts a runner on
   its database file with `startStoredRunner`.
-- Around the machine: access control in `auth.*.spec.ts` (unit) and
-  `test/e2e/auth*.spec.ts`; peers in `peers*.spec.ts`,
+- Around the machine: the layout of `runner.yaml` in
+  `config.layout.spec.ts`, the hold of notifications in
+  `notify.state-hold.spec.ts` and `notifier.properties.spec.ts`, the
+  request topics in `mqtt.request-topics.spec.ts`; access control in
+  `auth.*.spec.ts` (unit) and `test/e2e/auth*.spec.ts`; peers in `peers*.spec.ts`,
   `peer-notice*.spec.ts`, `peer-watch.spec.ts`, `queue.peers.spec.ts`
   and `test/e2e/mqtt.peers*.spec.ts`; signed output in `signer.spec.ts`,
   `mqtt.signed.spec.ts`, `webhook.signed.spec.ts`,
@@ -613,4 +687,6 @@ that do not type-check, so run
 ## Out of Scope
 
 Guards, actions, timers, hierarchical or parallel states; more than
-one machine per runner.
+one machine per runner. Reading a property value: no transition,
+subscription or escalation depends on one, and the runner keeps no
+history of values (D37).
