@@ -397,11 +397,11 @@ Part B:
 
 Both parts:
 
-- [x] `yarn build` and `yarn test` pass (1353 tests, against 1162
+- [x] `yarn build` and `yarn test` pass (1354 tests, against 1162
       before), `yarn syntax` is clean, and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean.
-- [ ] Documents updated. Check: markdownlint and prettier from the
+- [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
 - [ ] The demo runs with the new files. `pwsh` was not on the machine
       that built this, so `open.ps1` and `ward.ps1` are unrun. Check:
