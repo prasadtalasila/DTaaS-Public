@@ -56,6 +56,10 @@ Two suggestions are affected:
 - **W7** overlaps the types of the properties, which are those of JSON
   Schema.
 
+**W8** is built, in [issue 21](issues/21-dt-class.md): a peer of
+`runner.yaml` takes a `relationship`, and a subscription may name it
+in place of a peer.
+
 The dependencies between the suggestions are in the
 [issues](issues/README.md#proposed-work).
 
