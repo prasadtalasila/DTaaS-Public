@@ -84,6 +84,7 @@ describe('Runner MQTT presence end-to-end tests', () => {
             'fail',
             'busy',
           ],
+          class: null,
           stateMachine: false,
           manager: { commands: [] },
           peers: [],

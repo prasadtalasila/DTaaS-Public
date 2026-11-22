@@ -9,6 +9,8 @@ commands:  # list of permitted scripts
   - execute
   - terminate
 # stateMachine: 'scripts/state-machine.yaml'  # optional, relative to this file
+# parameters:  # optional; values of parameters of the state machine file
+#   capacity: 3  # for this digital twin, in place of the defaults of the file
 # database: 'runner.db'  # optional; keeps the command history in a file
 # stopGrace: 5000  # optional; milliseconds from SIGTERM to SIGKILL on a stop
 # stateInterval: 1000  # optional; milliseconds between state notifications
@@ -40,6 +42,7 @@ commands:  # list of permitted scripts
 #       attributes:  # optional; facts that the runner never reads
 #         distance: 12.4
 #       enabled: true  # optional; PUT /peers overrides it
+#       relationship: 'neighbour'  # optional; subscriptions may name it
 #       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'  # optional
 # scripts:  # optional, Linux only; runs the scripts as a second account
 #   user: 'dt-script'  # a name or a uid of /etc/passwd

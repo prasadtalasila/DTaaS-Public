@@ -75,6 +75,7 @@ export default class DescriptorService implements OnModuleInit {
       id: this.config.getId(),
       attributes: this.config.getAttributes(),
       commands: this.config.permitCommands(),
+      class: this.fsm.declared()?.dtClass ?? null,
       stateMachine: this.fsm.check() !== undefined,
       manager: { commands: this.fsm.declared()?.managerCommands ?? [] },
       peers: this.peerList.enabledIds(),

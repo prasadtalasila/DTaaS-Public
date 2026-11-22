@@ -145,11 +145,13 @@ export default class Peers {
     this.listeners.forEach((listener) => listener(peer, enabled));
   }
 
-  private entry({ id, topic, url, attributes }: PeerConfig): PeerDto {
+  private entry(peer: PeerConfig): PeerDto {
+    const { id, topic, url, attributes, relationship } = peer;
     return {
       topic: topic ?? null,
       url: url ?? null,
       attributes,
+      relationship: relationship ?? null,
       enabled: this.isEnabled(id),
       ...(this.received.get(id) ?? UNKNOWN),
     };

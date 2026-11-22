@@ -1,7 +1,7 @@
-import { readFileSync, statSync } from 'node:fs';
 import { Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
+import { classSchema, DtClass } from './class.js';
 import completionCycle from './completion-cycle.js';
 import { Escalation, escalationSchema } from './escalation.js';
 import { managerProblems, managerSchema } from './manager.js';
@@ -42,6 +42,8 @@ export type Transition = { state: string; stop: boolean };
 export type Transitions = ReadonlyMap<string, Transition>;
 
 export type Definition = {
+  // the class that the file defines, if it names one
+  dtClass?: DtClass;
   events: ReadonlySet<string>;
   states: ReadonlyMap<string, Transitions>;
   parameters: Declarations;
@@ -72,6 +74,7 @@ const stateSchema = z
 
 const fileSchema = z
   .object({
+    class: classSchema,
     events: z.array(nameSchema).default([]),
     // a file without states only declares parameters and properties
     states: z.record(nameSchema, stateSchema).default({}),
@@ -104,6 +107,7 @@ const toTransitions = (
 
 function toDefinition({ events, states, ...sections }: File): Definition {
   return {
+    dtClass: sections.class,
     events: new Set(events),
     states: new Map(
       Object.entries(states).map(([state, value]) => [
@@ -229,21 +233,4 @@ export function parseDefinition(
   }
   warnOldEnums(content, file);
   return definition;
-}
-
-// No file means no state machine; a file that runner.yaml names must
-// exist
-export function loadDefinition(
-  file: string | undefined,
-  known: Known,
-): Definition | undefined {
-  if (file === undefined) {
-    return undefined;
-  }
-  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
-    throw new Error(
-      `State machine file ${file} does not exist or is not a file`,
-    );
-  }
-  return parseDefinition(readFileSync(file, 'utf8'), file, known);
 }

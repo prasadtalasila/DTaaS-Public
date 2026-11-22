@@ -22,6 +22,7 @@ const entry = (enabled: boolean) => ({
     topic: 'dtaas/hospital-2',
     url: null,
     attributes: {},
+    relationship: null,
     enabled,
     online: null,
     descriptor: null,

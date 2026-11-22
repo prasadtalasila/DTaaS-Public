@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { publicKeySchema } from '../auth/auth.config.js';
 import { attributesSchema } from '../config/attributes.js';
-import { resourceNameSchema } from '../fsm/name.js';
+import { nameSchema, resourceNameSchema } from '../fsm/name.js';
 import { baseTopic } from '../mqtt/mqtt.config.js';
 
 // A peer that the DT is willing to interact with: its MQTT base topic
@@ -14,6 +14,9 @@ const peerSchema = z
     url: z.url({ protocol: /^https?$/ }).optional(),
     attributes: attributesSchema.default({}),
     enabled: z.boolean().default(true),
+    // optional; what the peer is to this DT, such as neighbour, which
+    // the subscriptions of the state machine file may name
+    relationship: nameSchema.optional(),
     // the key that signs the peer's notices, in the encoding of auth
     publicKey: publicKeySchema.optional(),
   })

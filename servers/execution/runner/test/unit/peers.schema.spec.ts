@@ -45,6 +45,16 @@ describe('Peers in the runner configuration', () => {
     expect(configSchema.parse(config).relationships.peers).toEqual([]);
   });
 
+  it('Should accept a relationship, and refuse one that is no name', () => {
+    const peer = { ...hospital2, relationship: 'neighbour' };
+    const config = configSchema.parse(withPeers(peer));
+
+    expect(config.relationships.peers[0].relationship).toBe('neighbour');
+    expect(problems(withPeers({ ...hospital2, relationship: '../x' }))).toMatch(
+      /at relationships.peers\[0\].relationship/,
+    );
+  });
+
   it('Should accept a peer with only a url, a key and no attributes', () => {
     const peer = { id: 'hospital-3', url: 'https://h3', publicKey: KEY };
 

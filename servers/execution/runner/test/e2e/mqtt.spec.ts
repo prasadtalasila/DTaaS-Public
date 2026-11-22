@@ -157,6 +157,7 @@ describe('Runner MQTT end-to-end tests', () => {
       id: 'test-runner',
       attributes: {},
       commands: ['create', 'loop', 'ignore-term', 'echo-input', 'fail', 'busy'],
+      class: null,
       stateMachine: false,
       manager: { commands: [] },
       peers: [],

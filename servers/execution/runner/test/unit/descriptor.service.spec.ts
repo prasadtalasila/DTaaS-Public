@@ -63,7 +63,11 @@ function createService(
   };
   const fsm = {
     check: () => state,
-    declared: () => state && { managerCommands: ['execute'] },
+    declared: () =>
+      state && {
+        managerCommands: ['execute'],
+        dtClass: { id: 'urn:dtaas:hospital', version: '1.0.0' },
+      },
     parameters: () => values && { values: () => values },
     onChange: jest.fn(),
     onAnswer: jest.fn(),
@@ -91,6 +95,7 @@ describe('Descriptor service', () => {
       id: 'hospital-1',
       attributes: { city: 'Aarhus' },
       commands: ['create', 'execute'],
+      class: { id: 'urn:dtaas:hospital', version: '1.0.0' },
       stateMachine: true,
       manager: { commands: ['execute'] },
       peers: [],
@@ -98,13 +103,12 @@ describe('Descriptor service', () => {
     });
   });
 
-  it('Should list no manager commands without a state machine', () => {
-    const { manager, stateMachine } = createService(
-      undefined,
-      undefined,
-    ).describe();
+  it('Should list no manager commands or class without a state machine', () => {
+    const described = createService(undefined, undefined).describe();
+    const { manager, stateMachine } = described;
 
     expect([manager, stateMachine]).toEqual([{ commands: [] }, false]);
+    expect(described.class).toBeNull();
   });
 
   it('Should give the public key of the signing key', () => {

@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { loadDefinition, parseDefinition } from 'src/fsm/definition';
+import { parseDefinition } from 'src/fsm/definition';
+import { loadDefinition } from 'src/fsm/load';
 
 const known = { commands: ['create', 'execute', 'terminate'], peers: [] };
 

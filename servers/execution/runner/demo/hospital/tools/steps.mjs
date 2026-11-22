@@ -22,16 +22,20 @@ export default [
   { say: 'runner-2.yaml is the same for hospital-2, which lists hospital-1:' },
   { run: `grep -E '^(id|port|stateMachine):|- id:' runner-2.yaml` },
   {
-    say: 'The state machine file: events, and the parameters scope, capacity and fidelity.',
+    say: 'The state machine file is the class of both hospitals: events, and the parameters scope, capacity and fidelity.',
   },
-  { run: 'head -n 39 hospital.fsm.yaml' },
+  { run: 'head -n 45 hospital.fsm.yaml' },
   {
-    say: 'Subscriptions turn a change at the peer hospital-2 into an event of hospital-1.',
+    say: 'The property free-beds, and subscriptions that turn a change at a neighbour into an event.',
   },
-  { run: 'sed -n 40,58p hospital.fsm.yaml' },
-  { run: 'tail -n +59 hospital.fsm.yaml' },
-  { say: 'hospital-2 has one bed per ward and no subscriptions:' },
-  { run: 'diff hospital.fsm.yaml hospital-2.fsm.yaml' },
+  { run: 'sed -n 46,73p hospital.fsm.yaml' },
+  { run: 'tail -n +74 hospital.fsm.yaml' },
+  {
+    say: 'hospital-2 runs the same class, with one bed per ward and no neighbour:',
+  },
+  {
+    run: `grep -n -E 'stateMachine|capacity|relationship' runner.yaml runner-2.yaml`,
+  },
   {
     say: 'dt1 and dt2 are curl, signed as alice; mq1 and mq2 are MQTT requests, signed as manager-1.',
   },

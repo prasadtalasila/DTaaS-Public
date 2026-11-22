@@ -7,13 +7,15 @@ export const peersBodySchema = z.record(z.string(), z.unknown());
 
 export type PeersBody = z.infer<typeof peersBodySchema>;
 
-// A peer in GET /peers: what runner.yaml lists, whether it is enabled,
+// A peer in GET /peers: what runner.yaml lists, with its relationship
+// to this DT or null, whether it is enabled,
 // and what its notices said. online, descriptor and state are null
 // until a notice tells them; the runner does not check their shape.
 export type PeerDto = {
   topic: string | null;
   url: string | null;
   attributes: Attributes;
+  relationship: string | null;
   enabled: boolean;
   online: boolean | null;
   descriptor: unknown;

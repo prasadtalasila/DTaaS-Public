@@ -1,10 +1,15 @@
-# A sample state machine of a digital twin, the hospital-1 twin of
+# A sample state machine file: the class of the hospital twins of
 # demo/hospital. Name it in runner.yaml with
 #   stateMachine: 'state-machine.yaml'
 # Every state runs the script of the same name, so runner.yaml must
 # permit open, full and closed, and the Manager's commands admit and
-# discharge, under commands; the subscriptions need a peer hospital-2
-# under relationships.peers. STATE-MACHINE.md describes every key.
+# discharge, under commands. The subscriptions follow the peers that
+# runner.yaml gives the relationship neighbour. STATE-MACHINE.md
+# describes every key, and CLASS-INSTANCE-INTERFACE.md what belongs in
+# this file and what in runner.yaml.
+class:  # optional; the kind of twin that this file defines, shown in /dt
+  id: 'urn:dtaas:demo:hospital'  # up to 200 characters, without spaces
+  version: '1.0.0'  # up to 64 characters; the runner never compares it
 events:  # the events a client, a script or a subscription may raise
   - full
   - beds-free
@@ -26,7 +31,7 @@ parameters:  # optional; values that scripts read as DT_PARAM_<NAME>
   capacity:  # beds per ward; a Manager may read but not change it
     type: integer
     minimum: 1  # optional, as maximum; for numbers and integers
-    default: 2
+    default: 2  # an instance sets its own under parameters in runner.yaml
     controllable: false
   fidelity:  # how often open samples the beds (STATE-MACHINE.md)
     type: string
@@ -63,11 +68,11 @@ manager:  # optional; the commands that the role manager may run
     - admit
     - discharge
 subscriptions:  # optional; events raised when a condition on a peer turns true
-  - peer: hospital-2
+  - relationship: neighbour  # or peer: <id>, for one peer of runner.yaml
     when:
       state: full
     event: neighbour-full
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       online: false
     event: neighbour-down

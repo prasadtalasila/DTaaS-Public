@@ -14,7 +14,8 @@ import { EscalateBody, EscalateReplyDto } from '../dto/escalation.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import { scriptBase } from '../scripts/launch.js';
-import { CompletionEvent, Definition, loadDefinition } from './definition.js';
+import { CompletionEvent, Definition } from './definition.js';
+import { loadConfigured } from './load.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import MachineStore from './machine-store.js';
 import Parameters from './parameters.js';
@@ -23,7 +24,6 @@ import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine, { machineOf } from './state-machine.js';
 import StopChain from './stop-chain.js';
-import { known } from './subscriptions.js';
 
 // Moves the digital twin between the states of its state machine, and
 // runs the script of each state it enters. A transition request starts
@@ -70,8 +70,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   load(): void {
-    const file = this.config.getStateMachine();
-    const definition = loadDefinition(file, known(this.config));
+    const definition = loadConfigured(this.config);
     this.definition = definition;
     this.machine = machineOf(definition);
     this.params = definition && new Parameters(definition.parameters);
