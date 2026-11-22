@@ -20,6 +20,8 @@ The recording predates version 0.11.0, which this document describes.
 The replies of [GET /parameters](#get-parameters) are shown as 0.11
 gives them, the state documents of the recording lack the `properties`
 member, and the examples of [properties](#properties) are not from the
+recording. The descriptors are shown with the `class` member and the
+peers with the `relationship` member, which 0.11 added after the
 recording.
 
 ## The Demo Setup
@@ -41,8 +43,10 @@ gives the addresses that the examples use:
 | Manager commands   | `admit`, `discharge`                           | the same                   |
 | Peers              | `hospital-2`, 12.4 km away                     | `hospital-1`, 12.4 km away |
 
-The state machine,
-[demo/hospital/hospital.fsm.yaml](../demo/hospital/hospital.fsm.yaml), has
+Both runners name one state machine file,
+[demo/hospital/hospital.fsm.yaml](../demo/hospital/hospital.fsm.yaml),
+the class `urn:dtaas:demo:hospital` of the two DTs
+([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)). It has
 three states, `open`, `full` and `closed`, each running the script of
 the same name. It declares the events `full`, `beds-free`,
 `scope-changed`, `fidelity-changed`, `close`, `reopen`,
@@ -52,8 +56,13 @@ which the Manager may read only; and `fidelity`, of values `low`,
 `medium` and `high`, which sets how often `open` samples the beds. It
 declares one property, `free-beds`, an integer of unit `beds`, which
 `open` writes when the number of free beds changes. Its
-subscriptions raise `neighbour-full` when `hospital-2` is `full` and
-`neighbour-down` when it goes offline. The scripts run on Windows in
+subscriptions raise `neighbour-full` when a peer of the relationship
+`neighbour` is `full` and `neighbour-down` when it goes offline. The
+configuration of `hospital-1` gives `hospital-2` that relationship.
+That of `hospital-2`,
+[demo/hospital/runner-2.yaml](../demo/hospital/runner-2.yaml), sets
+`capacity` to 1 and gives `hospital-1` no relationship, so `hospital-2`
+follows no one. The scripts run on Windows in
 PowerShell, so their output ends lines with `\r\n`.
 
 The demo runs with [access control](#access-control) and
@@ -179,6 +188,7 @@ curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
     "wards": 2
   },
   "commands": ["open", "full", "closed", "admit", "discharge"],
+  "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
   "stateMachine": true,
   "manager": { "commands": ["admit", "discharge"] },
   "peers": ["hospital-2"],
@@ -191,10 +201,16 @@ curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
 | `id`           | the identity of the DT, `id` in the configuration                                                            |
 | `attributes`   | the `attributes` of the configuration; `{}` without any                                                      |
 | `commands`     | the permitted commands, which `POST /` may run                                                               |
+| `class`        | the `id` and `version` of the `class` section of the state machine file; `null` without the section or file  |
 | `stateMachine` | whether a state machine is loaded; `false` without a file and for a file without states                      |
 | `manager`      | the `manager.commands` of the state machine file; the commands meant for the Manager, a subset of `commands` |
 | `peers`        | the ids of the enabled [peers](#peers), in the order of the configuration; `[]` without any                  |
 | `publicKey`    | the public key that verifies the runner's [signatures](#signatures); `null` without `auth.key`               |
+
+`class` names the kind of DT that the state machine file defines, and
+came with version 0.11.0. The runner never interprets the `id` and
+never compares versions
+([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)).
 
 ### GET /state
 
@@ -834,7 +850,10 @@ restart of `open` when `scope` changes.
 Parameters are named values of the DT, declared in the state machine
 file with a `type` of `string`, `number`, `integer` or `boolean` and,
 optionally, an `enum`, a `minimum` and a `maximum`. The scripts see
-them as `DT_PARAM_<NAME>` environment variables.
+them as `DT_PARAM_<NAME>` environment variables. The configuration
+may give a parameter the value of this DT, under `parameters`, in place
+of the `default` of the file
+([README](../README.md#parameters)).
 No name has a meaning to the runner: a `fidelity` parameter, by which a
 Manager trades a DT's accuracy for computing power, is a convention
 between DT authors and Managers
@@ -865,7 +884,8 @@ curl -s http://localhost:5100/parameters -H "Authorization: Bearer $JWS"
   },
   "capacity": {
     "value": 2,
-    "type": "number",
+    "type": "integer",
+    "minimum": 1,
     "default": 2,
     "controllable": false
   },
@@ -881,6 +901,11 @@ curl -s http://localhost:5100/parameters -H "Authorization: Bearer $JWS"
 
 Each entry has the `value` and the declaration: `type`, `default`,
 `controllable` and, where declared, `enum`, `minimum` and `maximum`.
+`default` is the value that `parameters` of the configuration gives
+the parameter, else the `default` of the state machine file; it is
+also the `value` until a request changes it. `hospital-2`, whose
+configuration sets `capacity` to 1, shows `"value": 1` and
+`"default": 1`.
 Version 0.11.0 changed the reply for an enum, which was
 `"type": "enum"` with `"values"`. It is `"type": "string"` with
 `"enum"` also for a file that still declares `type: enum` with
@@ -1101,9 +1126,13 @@ through a `subscriptions` entry of the state machine file, when the
 entry's condition on the peer's `state` or `online` turns true; the
 event then takes the path of [POST /fsm/event](#post-fsmevent) without
 a request key, and nothing replies
-([README](../README.md#peer-events)). In the demo, `hospital-1`
-subscribes to the state `full` and to `online: false` of `hospital-2`,
-and the runner logs each event it raises:
+([README](../README.md#peer-events)). An entry names one peer by its
+`id`, or a `relationship`, which the configuration gives to peers; the
+runner then follows every peer of that relationship. In the demo, the
+state machine file subscribes to the state `full` and to
+`online: false` of the relationship `neighbour`, which the
+configuration of `hospital-1` gives `hospital-2`, and the runner logs
+each event it raises:
 
 ```text
 Raised neighbour-full on state full of peer hospital-2: entered open
@@ -1128,6 +1157,7 @@ transition of both hospitals:
     "topic": "dtaas/hospital-2",
     "url": "http://localhost:5200",
     "attributes": { "distance": 12.4 },
+    "relationship": "neighbour",
     "enabled": true,
     "online": true,
     "descriptor": {
@@ -1140,6 +1170,7 @@ transition of both hospitals:
         "wards": 2
       },
       "commands": ["open", "full", "closed", "admit", "discharge"],
+      "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
       "peers": ["hospital-1"],
@@ -1175,15 +1206,16 @@ transition of both hospitals:
 }
 ```
 
-| Field        | Meaning                                                                            |
-| :----------- | :--------------------------------------------------------------------------------- |
-| `topic`      | the peer's MQTT base topic; `null` without one                                     |
-| `url`        | the peer's HTTP base URL; `null` without one                                       |
-| `attributes` | the peer's `attributes` in the configuration, such as a distance; `{}` without any |
-| `enabled`    | whether the runner follows the peer and lists it in [GET /dt](#get-dt)             |
-| `online`     | the `online` of the peer's last presence notice                                    |
-| `descriptor` | the descriptor of the peer's last online notice; an offline notice keeps it        |
-| `state`      | the `data` of the peer's last state notification                                   |
+| Field          | Meaning                                                                                 |
+| :------------- | :-------------------------------------------------------------------------------------- |
+| `topic`        | the peer's MQTT base topic; `null` without one                                          |
+| `url`          | the peer's HTTP base URL; `null` without one                                            |
+| `attributes`   | the peer's `attributes` in the configuration, such as a distance; `{}` without any      |
+| `relationship` | the peer's `relationship` in the configuration, such as `neighbour`; `null` without one |
+| `enabled`      | whether the runner follows the peer and lists it in [GET /dt](#get-dt)                  |
+| `online`       | the `online` of the peer's last presence notice                                         |
+| `descriptor`   | the descriptor of the peer's last online notice; an offline notice keeps it             |
+| `state`        | the `data` of the peer's last state notification                                        |
 
 `online`, `descriptor` and `state` are `null` until a notification
 tells them, and stay `null` without MQTT, for a disabled peer and for
@@ -1226,6 +1258,7 @@ A body that is not an object gets the [validation error](#conventions).
     "topic": "dtaas/hospital-2",
     "url": "http://localhost:5200",
     "attributes": { "distance": 12.4 },
+    "relationship": "neighbour",
     "enabled": false,
     "online": null,
     "descriptor": null,
@@ -1886,6 +1919,7 @@ carries the [descriptor](#get-dt):
         "wards": 2
       },
       "commands": ["open", "full", "closed", "admit", "discharge"],
+      "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
       "stateMachine": true,
       "manager": { "commands": ["admit", "discharge"] },
       "peers": ["hospital-2"],
@@ -2247,7 +2281,12 @@ shares. `hospital-1` is asked unless the request names `hospital-2`.
 This document describes runner version 0.11.0. It added
 [properties](#properties), the role `sensor`, `stateInterval`, the
 `relationships` section of the configuration and a state machine file
-without states. Three of its changes break a client of 0.10:
+without states. It also added the `class` section of the state machine
+file, the `parameters` of the configuration and subscriptions by
+`relationship` ([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)):
+[GET /dt](#get-dt) and the [presence](#presence) notice gained `class`,
+and [GET /peers](#get-peers) gained `relationship`. Three of its
+changes break a client of 0.10:
 
 - [GET /parameters](#get-parameters) shows an enum as
   `"type": "string"` with `"enum"`, not `"type": "enum"` with

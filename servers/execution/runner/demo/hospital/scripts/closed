@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# State closed: admissions are closed
+. "$(dirname "$0")/ward.sh"
+write_ward_log "closed entry $DT_ENTRY: admissions closed ($HINT)"

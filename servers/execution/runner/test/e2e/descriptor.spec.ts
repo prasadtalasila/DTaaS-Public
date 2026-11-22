@@ -39,6 +39,7 @@ describe('Runner descriptor end-to-end tests', () => {
         id: 'dt-1',
         attributes: {},
         commands: ['create', 'execute'],
+        class: null,
         stateMachine: false,
         manager: { commands: [] },
         peers: [],
@@ -50,7 +51,8 @@ describe('Runner descriptor end-to-end tests', () => {
   it('Should describe a runner with attributes, a state machine and peers', async () => {
     writeFileSync(
       join(dir, 'dt.yaml'),
-      'states:\n  create:\nmanager:\n  commands:\n    - execute\n',
+      "class: {id: 'urn:dtaas:hospital', version: '1.0.0'}\n" +
+        'states:\n  create:\nmanager:\n  commands:\n    - execute\n',
     );
     app = await startRunnerWith(
       dir,
@@ -69,6 +71,7 @@ describe('Runner descriptor end-to-end tests', () => {
         id: 'hospital-1',
         attributes: { city: 'Aarhus', beds: 120, open: true },
         commands: ['create', 'execute'],
+        class: { id: 'urn:dtaas:hospital', version: '1.0.0' },
         stateMachine: true,
         manager: { commands: ['execute'] },
         peers: ['hospital-2'],

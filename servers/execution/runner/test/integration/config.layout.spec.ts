@@ -102,6 +102,23 @@ describe('Layouts of runner.yaml', () => {
     );
   });
 
+  it('Should read the parameter values of the instance, none by default', async () => {
+    const plain = await load(BASE);
+    const set = await load(
+      `${BASE}parameters: {capacity: 1, scope: multi, open: true}\n`,
+    );
+
+    expect(plain.getParameters()).toEqual({});
+    expect(set.getParameters()).toEqual({
+      capacity: 1,
+      scope: 'multi',
+      open: true,
+    });
+    await expect(load(`${BASE}parameters: {capacity: [1]}\n`)).rejects.toThrow(
+      /at parameters.capacity/,
+    );
+  });
+
   it('Should name the new path of a problem in an old key', async () => {
     await expect(load(`${BASE}peers:\n  - {id: dt-2}\n`)).rejects.toThrow(
       /needs a topic or a url[\s\S]*at relationships.peers\[0\]/,

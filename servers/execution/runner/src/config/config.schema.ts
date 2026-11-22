@@ -25,6 +25,11 @@ export const configSchema = z
     id: nameSchema,
     attributes: attributesSchema.default({}),
     stateMachine: z.string().min(1).optional(),
+    // optional; the values of parameters of the state machine file for
+    // this instance, in place of its defaults
+    parameters: z
+      .record(nameSchema, z.union([z.string(), z.number(), z.boolean()]))
+      .optional(),
     port: z.int().min(0).max(65535),
     location: z.string(),
     commands: z.array(z.string()),

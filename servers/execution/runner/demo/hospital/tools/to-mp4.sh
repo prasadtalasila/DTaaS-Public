@@ -2,8 +2,9 @@
 # Converts the two casts of a platform into one video, side by side:
 # asciinema checks each cast and writes its plain-text transcript, agg
 # renders each as a GIF, and ffmpeg joins the two with hstack and
-# encodes H.264. Needs asciinema 3, agg and ffmpeg with libx264 on the
-# PATH or in ~/.local/bin, on Linux or in WSL; see README.md.
+# encodes H.264. Needs agg and ffmpeg with libx264 on the PATH or in
+# ~/.local/bin, on Linux or in WSL, and asciinema 3 for the transcript;
+# see README.md.
 #
 #   bash tools/to-mp4.sh [windows|linux]   writes demo-<platform>.mp4
 set -euo pipefail
@@ -15,7 +16,12 @@ mkdir -p run
 
 for pane in manager network; do
   name=demo-$platform-$pane
-  asciinema convert --overwrite "$name.cast" "run/$name.txt"
+  # asciinema 2 has no convert; tools/check-cast.mjs checks the casts too
+  if asciinema convert --help > /dev/null 2>&1; then
+    asciinema convert --overwrite "$name.cast" "run/$name.txt"
+  else
+    echo "asciinema 3 not found: no transcript of $name.cast" >&2
+  fi
   # record.mjs already capped the gaps of both casts at 2 s on their
   # shared clock; an idle limit above any gap keeps agg from changing them
   agg --font-size 16 --theme asciinema --idle-time-limit 60 \

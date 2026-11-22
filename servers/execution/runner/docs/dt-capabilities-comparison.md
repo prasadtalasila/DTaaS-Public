@@ -18,6 +18,13 @@ take the types of JSON Schema, and every number names its unit. A
 property is not marked as sensed or computed, as the plan of issue 19
 had it when this was written.
 
+[Issue 21](issues/21-dt-class.md) has built C1 and C3. The state
+machine file is a class with an id and a version, and `runner.yaml`
+sets the values of one instance. It does so with typed values under
+`parameters`, not with the placeholders that C3 proposed;
+[CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md) gives
+the reasons.
+
 The hospital twin of `demo/hospital` serves as the running example.
 Runner citations give `file:line` under `servers/execution/runner/`;
 WLDT citations follow [wldt-research-notes.md](wldt-research-notes.md).

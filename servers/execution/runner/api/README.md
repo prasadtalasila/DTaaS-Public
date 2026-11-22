@@ -57,8 +57,11 @@ topic match the `@broker` and `@topic` variables of `dev.mqtt.http`.
 Stop the broker with `docker stop mosquitto`.
 
 The `dt` request returns the descriptor of the digital twin, with the
-`id` of `config/runner.test.yaml`. The state machine requests at the
-end of both files use `test/data/scripts/state-machine.yaml`, which
+`id` of `config/runner.test.yaml`. Its `class` is `null`, as the test
+state machine file has no `class` section
+([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)). The
+state machine requests at the end of both files use
+`test/data/scripts/state-machine.yaml`, which
 `config/runner.test.yaml` names with `stateMachine`. A transition to
 _create_ runs _create_ and then _execute_; the `restart` event goes
 back to _create_, and the `stop` event is refused as an undeclared
@@ -70,8 +73,10 @@ The properties requests read and write the
 one, `free-beds`, which is `null` until its first write.
 
 The peers requests show and switch the peer `hospital-2`, which
-`config/runner.test.yaml` lists; the state machine subscribes to its
-state `full` with the event `neighbour-full`. With the `mqtt` section,
+`config/runner.test.yaml` lists without a `relationship`, so the reply
+shows `"relationship": null`; the state machine subscribes to its
+state `full` by its `id`, with the event `neighbour-full`. With the
+`mqtt` section,
 the `peerFull` request of `dev.mqtt.http` publishes, as that peer
 would, a retained state document in state `full`, which takes
 _execute_ to _create_; `peerOpen` publishes `open`, after which a

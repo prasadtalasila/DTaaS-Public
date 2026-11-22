@@ -73,8 +73,11 @@ of them the `fidelity` of the
 subscribes to the state `full` of the peer `hospital-2`, for trying out
 [peer events](README.md#peer-events) with the `peerFull` request of
 `api/dev.mqtt.http`. It declares no
-[property](README.md#properties); `config/state-machine.yaml.sample`
-does. The
+[property](README.md#properties) and names no
+[class](README.md#class-and-instance), so `GET /dt` shows
+`"class": null`; `config/state-machine.yaml.sample` does both, and
+subscribes by `relationship` where the test file names its peer by
+`id`. The
 [state machine design](docs/state-machine-design.md) explains the file
 and the decisions behind it.
 

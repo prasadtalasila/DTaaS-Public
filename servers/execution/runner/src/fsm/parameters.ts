@@ -71,7 +71,7 @@ export const variableName = (name: string): string =>
   `DT_PARAM_${name.toUpperCase().replaceAll(/[.-]/g, '_')}`;
 
 // Why the value does not fit the declaration, after the subject
-const valueProblems = (
+export const valueProblems = (
   subject: string,
   declaration: Declaration,
   value: unknown,

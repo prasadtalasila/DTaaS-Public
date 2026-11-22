@@ -164,6 +164,17 @@ describe('Runner properties end-to-end tests', () => {
     ]);
   });
 
+  it('Should run the class with the parameter values of the instance', async () => {
+    dir = digitalTwin('parameters:\n  beds: {type: integer, default: 2}');
+    appendFileSync(join(dir, 'runner.yaml'), 'parameters: {beds: 1}\n');
+    app = await startRunner(join(dir, 'runner.yaml'));
+    const { body } = await http().get('/parameters');
+    const state = await http().get('/state');
+
+    expect(body.beds).toMatchObject({ value: 1, default: 1 });
+    expect(state.body.parameters).toEqual({ beds: 1 });
+  });
+
   it('Should keep the values and their times across a restart', async () => {
     dir = digitalTwin(DEFINITION);
     appendFileSync(join(dir, 'runner.yaml'), 'database: runner.db\n');

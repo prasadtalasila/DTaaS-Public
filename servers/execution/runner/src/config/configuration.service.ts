@@ -165,6 +165,12 @@ export default class Config {
     return this.configValues.stateMachine;
   }
 
+  // The parameter values of this instance, which replace the defaults
+  // of the state machine file
+  getParameters(): Record<string, string | number | boolean> {
+    return this.configValues.parameters ?? {};
+  }
+
   getDatabase(): string | undefined {
     return this.configValues.database;
   }

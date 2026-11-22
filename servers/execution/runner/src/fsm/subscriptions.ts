@@ -1,21 +1,44 @@
 import { z } from 'zod';
 import type Config from '../config/configuration.service.js';
 import type { NoticeKind } from '../peers/peers.js';
+import type { InstanceValues } from './class.js';
 import { nameSchema } from './name.js';
 
+// The ids of the peers that runner.yaml gives each relationship
+export type Bound = Record<string, string[]>;
+
 // What a definition is checked against: the commands that runner.yaml
-// permits, the ids of the peers it lists, and whether the scripts run
-// as a second account
+// permits, the ids of the peers it lists, whether the scripts run as a
+// second account, and what it sets for this instance: the values of
+// parameters and the peers of each relationship
 export type Known = {
   commands: string[];
   peers: string[];
   separated?: boolean;
+  parameters?: InstanceValues;
+  relationships?: Bound;
 };
+
+type Related = { id: string; relationship?: string };
+
+const boundPeers = (peers: Related[]): Bound =>
+  Object.fromEntries(
+    peers
+      .filter(({ relationship }) => relationship !== undefined)
+      .map(({ relationship }) => [
+        relationship,
+        peers
+          .filter((peer) => peer.relationship === relationship)
+          .map(({ id }) => id),
+      ]),
+  );
 
 export const known = (config: Config): Known => ({
   commands: config.permitCommands(),
   peers: config.getPeers().map(({ id }) => id),
   separated: config.getScriptUser() !== undefined,
+  parameters: config.getParameters(),
+  relationships: boundPeers(config.getPeers()),
 });
 
 // Exactly one condition on the latest notice of a peer
@@ -29,11 +52,21 @@ const whenSchema = z.union(
 
 export type When = z.infer<typeof whenSchema>;
 
-const subscriptionSchema = z.strictObject({
-  peer: nameSchema,
-  when: whenSchema,
-  event: nameSchema,
-});
+// A subscription names one peer by its id, or a relationship, which
+// each instance binds to peers in runner.yaml; a class that several
+// instances share can name no id
+const subscriptionSchema = z
+  .strictObject({
+    peer: nameSchema.optional(),
+    relationship: nameSchema.optional(),
+    when: whenSchema,
+    event: nameSchema,
+  })
+  .refine(
+    ({ peer, relationship }) =>
+      (peer === undefined) !== (relationship === undefined),
+    'must name a peer or a relationship, and not both',
+  );
 
 export type Subscription = z.infer<typeof subscriptionSchema>;
 
@@ -48,11 +81,43 @@ export function condition(when: When): string {
   return `online ${when.online}`;
 }
 
-const keyOf = ({ peer, when, event }: Subscription): string =>
-  JSON.stringify([peer, condition(when), event]);
+const keyOf = ({ peer, relationship, when, event }: Subscription): string =>
+  JSON.stringify([peer, relationship, condition(when), event]);
 
-const label = (subscription: Subscription): string =>
-  `subscription to peer ${subscription.peer}`;
+const label = ({ peer, relationship }: Subscription): string =>
+  peer === undefined
+    ? `subscription to relationship ${relationship}`
+    : `subscription to peer ${peer}`;
+
+// The subscriptions of one instance: each that names a relationship
+// becomes one for every peer that runner.yaml gives the relationship,
+// and none without such a peer. A peer reached twice is followed once.
+export function bind(
+  subscriptions: Subscription[],
+  bound: Bound,
+): Subscription[] {
+  const each = subscriptions.flatMap((subscription) => {
+    const { peer, relationship = '' } = subscription;
+    const peers = peer === undefined ? (bound[relationship] ?? []) : [peer];
+    return peers.map((id) => ({ ...subscription, peer: id }));
+  });
+  const keys = each.map(({ peer, when, event }) =>
+    JSON.stringify([peer, condition(when), event]),
+  );
+  return each.filter((_, index) => keys.indexOf(keys[index]) === index);
+}
+
+// The relationships of the subscriptions that no peer has
+export const unbound = (
+  subscriptions: Subscription[],
+  bound: Bound,
+): string[] => [
+  ...new Set(
+    subscriptions
+      .flatMap(({ relationship }) => relationship ?? [])
+      .filter((relationship) => !Object.hasOwn(bound, relationship)),
+  ),
+];
 
 type Section = { events: ReadonlySet<string>; subscriptions: Subscription[] };
 
@@ -63,8 +128,9 @@ export function subscriptionProblems(
 ): string[] {
   const keys = subscriptions.map(keyOf);
   const unlisted = subscriptions
-    .filter(({ peer }) => !peers.includes(peer))
-    .map(({ peer }) => `subscription to unlisted peer ${peer}`);
+    .flatMap(({ peer }) => peer ?? [])
+    .filter((peer) => !peers.includes(peer))
+    .map((peer) => `subscription to unlisted peer ${peer}`);
   const undeclared = subscriptions
     .filter(({ event }) => !events.has(event))
     .map((each) => `${label(each)} raises undeclared event ${each.event}`);

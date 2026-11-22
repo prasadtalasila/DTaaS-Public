@@ -1,6 +1,10 @@
-# The state machine of the digital twin of hospital-1. The hospital is
-# open for admissions, full, or closed; each state runs the script of
-# the same name in scripts/.
+# The class of the hospital twins: both hospital-1 and hospital-2 run
+# this file, each with the values and the peers of its own runner.yaml.
+# A hospital is open for admissions, full, or closed; each state runs
+# the script of the same name in scripts/.
+class:
+  id: 'urn:dtaas:demo:hospital'
+  version: '1.0.0'
 events:
   - full
   - beds-free
@@ -21,9 +25,11 @@ parameters:
     default: single
     controllable: true
     event: scope-changed
-  # beds per ward, which the Manager may read but not change
+  # beds per ward, which the Manager may read but not change; an
+  # instance sets its own under parameters in runner.yaml
   capacity:
-    type: number
+    type: integer
+    minimum: 1
     default: 2
     controllable: false
   # how often open samples the beds, from the cheapest to the most
@@ -54,13 +60,14 @@ manager:
   commands:
     - admit
     - discharge
-# events that the runner raises when a peer changes
+# events that the runner raises when a neighbour changes: a peer that
+# runner.yaml gives the relationship neighbour
 subscriptions:
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       state: full
     event: neighbour-full
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       online: false
     event: neighbour-down

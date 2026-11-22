@@ -2,6 +2,8 @@
 // events, the escalations, history, metrics, stop and shutdown
 import { fsmIs, logHas } from './waits.mjs';
 
+// Windows runs <name>.ps1 of scripts/, and Linux the script <name>
+export const WINDOWS = process.platform === 'win32';
 export const H1 = 'hospital-1';
 export const H2 = 'hospital-2';
 export const admit = (patient, ward) =>
@@ -83,7 +85,9 @@ export default [
 
   { chapter: 'Stop' },
   {
-    say: 'A stop sends SIGTERM, then SIGKILL after stopGrace; on Windows PowerShell ends at once.',
+    say: WINDOWS
+      ? 'A stop sends SIGTERM, then SIGKILL after stopGrace; on Windows PowerShell ends at once.'
+      : 'A stop sends SIGTERM to the script and its children, then SIGKILL after stopGrace.',
   },
   { run: 'grep stopGrace runner.yaml' },
   { run: `dt1 /stop --json '{"name":"open"}'` },

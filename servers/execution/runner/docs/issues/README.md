@@ -34,6 +34,7 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done        | #99  |
 | [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review   | #97  |
 | [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
+| [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -86,6 +87,15 @@ new layout. The issue removes the non-goal "a script that mirrors
 physical-twin state into the state document": its scripts write the
 values, and the runner only holds them.
 
+The fourth round, planned on 2026-11-22:
+
+```text
+19 properties, 13 peers, 16 peer-events ─> 21 dt-class
+```
+
+21 takes C1, C3 and W8 of the [proposed work](#proposed-work): the
+state machine file becomes a class that several instances share.
+
 ## Proposed Work
 
 Recorded on 2026-11-22. The research documents propose more work than
@@ -111,14 +121,11 @@ _inferred_ when it follows from what the proposal changes.
 | W5  | DT lifecycle as its own axis                | M    | none                              | stated                       |                             |
 | W6  | Script-declared sync with the physical twin | S    | 19                                | inferred                     | the "PT mirroring" non-goal |
 | W7  | `type` and `contentType` on declarations    | S    | 19                                | inferred                     | the input schema non-goal   |
-| W8  | Named relationships on peers                | S    | none                              | stated                       |                             |
 | W9  | Domain event notifications                  | M    | none                              | stated                       |                             |
 | W10 | Wait for a state revision (long poll)       | S/M  | W1                                | stated                       | the SSE non-goal            |
 | W11 | Overhead benchmark                          | M    | none                              | stated                       |                             |
-| C1  | Model identity                              | S    | none                              | stated                       |                             |
-| C3  | Model separate from instance                | M    | 19                                | inferred                     | amending S4                 |
 | C4  | Export the descriptor (TD, then DTDL)       | M    | 19, C7; C5 for DTDL               | C7 stated, the rest inferred |                             |
-| C5  | Typed relationships                         | M    | W8, C1                            | W8 stated, C1 inferred       |                             |
+| C5  | Typed relationships                         | M    | 21                                | stated                       |                             |
 | C7  | One endpoint per affordance                 | M    | 19                                | inferred                     |                             |
 | C8  | Simulation-time convention                  | S    | 19                                | inferred                     |                             |
 | A   | XState as the engine behind today's YAML    | L    | none                              | stated                       | adopting XState             |
@@ -128,24 +135,24 @@ _inferred_ when it follows from what the proposal changes.
 | BRC | Simulation bridge client script             | –    | 19                                | stated                       |                             |
 | SIM | Native `simulations` key                    | –    | 19, BRC, fixes in the bridge      | stated                       | D2 and S6                   |
 
-C2, the types of the properties, is part of 19. C6 of the comparison is
+C2, the types of the properties, is part of 19. C1, C3 and W8 are
+issue [21](21-dt-class.md). C6 of the comparison is
 a decision to keep telemetry streams out, so it is no work. TMR, BRC
 and SIM carry no size in their source.
 
 ```text
 19 ─┬─> W6
     ├─> W7
-    ├─> C3
+    ├─> 21 ─> C5 ─> C4 (its DTDL half)
     ├─> C8
     ├─> C7 ──────────┬─> C4
     ├────────────────┘
     └─> BRC ─> SIM
 
 W1 ─> W10
-W8, C1 ─> C5 ─> C4 (its DTDL half)
 A ─> B
 
-W2, W3, W4, W5, W9, W11, C1, AUG, TMR: no open dependency
+W2, W3, W4, W5, W9, W11, AUG, TMR: no open dependency
 ```
 
 Orders that block nothing but save rework:
@@ -158,8 +165,8 @@ Orders that block nothing but save rework:
   question of both.
 - W5 before W6: where the sync flag lives is open, and the lifecycle
   axis is one candidate.
-- C1 before C3 and C4, and W9 before C4: the exported description
-  names the model and lists the domain events.
+- 21 and W9 before C4: the exported description names the class and
+  lists the domain events.
 - W1 and W10 before AUG: a function then computes on one revision of
   the state, and a stateful function gets updates without polling.
 - A after W1, W3 and W5: the engine change re-maps the machine and its
@@ -225,6 +232,7 @@ open) or `done`.
 | S17 | Values are declared with the types and keywords of JSON Schema, as a WoT Thing Description uses them. Every number of a property names its unit; a parameter takes none.                                   |
 | S18 | A fourth role, `sensor`, may write and read the properties and nothing else. A `manager` may read them, never write them. Amends S10.                                                                      |
 | S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
+| S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
 
 ## Lessons for Every Issue
 

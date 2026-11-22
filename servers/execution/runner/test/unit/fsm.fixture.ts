@@ -91,6 +91,7 @@ export function createService(file: string | undefined, user?: ScriptUser) {
     getId: () => 'dt-1',
     getStateMachine: () => file,
     permitCommands: () => ['create', 'execute', 'terminate'],
+    getParameters: () => ({}),
     getPeers: () => PEERS,
     getScriptUser: () => user,
   } as unknown as Config;

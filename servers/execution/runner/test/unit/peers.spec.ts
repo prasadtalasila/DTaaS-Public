@@ -39,6 +39,12 @@ describe('Peers', () => {
     peers.onEnabled(({ id }, enabled) => signals.push([id, enabled]));
   });
 
+  it('Should show the relationship of a peer that has one', () => {
+    peers.load([{ ...LIST[0], relationship: 'neighbour' }], store);
+
+    expect(peers.document()[LIST[0].id].relationship).toBe('neighbour');
+  });
+
   it('Should list nothing before it is loaded', () => {
     expect(peers.document()).toEqual({});
     expect(peers.enabledIds()).toEqual([]);
@@ -55,6 +61,7 @@ describe('Peers', () => {
         topic: 'dtaas/hospital-2',
         url: null,
         attributes: { distance: 12.4 },
+        relationship: null,
         enabled: true,
         ...unknown,
       },

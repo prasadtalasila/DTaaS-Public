@@ -403,8 +403,11 @@ Both parts:
       clean.
 - [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
-- [ ] The demo runs with the new files. `pwsh` was not on the machine
-      that built this, so `open.ps1` and `ward.ps1` are unrun. Check:
+- [x] The demo runs with the new files on Linux, where `open` writes
+      `free-beds` and the state documents carry it. Check:
+      `node tools/record.mjs`, recorded with issue 21.
+- [ ] The demo runs on Windows. `pwsh` was not on the machine that
+      built this, so `open.ps1` and `ward.ps1` are unrun. Check:
       `node tools/record.mjs` on Windows.
 - [ ] `qlty check --upstream` and the checks of the pull request.
 

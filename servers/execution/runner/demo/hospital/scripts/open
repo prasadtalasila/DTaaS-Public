@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# State open, admitting patients: logs the script context and where
+# overflow goes, then samples the beds, writes their number as the
+# property free-beds when it changes, and raises the event full over
+# HTTP once every bed is taken. The fidelity sets how often it samples.
+. "$(dirname "$0")/ward.sh"
+case $DT_PARAM_FIDELITY in
+  low) factor=4 ;;
+  high) factor=0.2 ;;
+  *) factor=1 ;;
+esac
+interval=$(awk -v ms="$POLL_MS" -v factor="$factor" 'BEGIN { printf "%d", ms * factor }')
+seconds=$(awk -v ms="$interval" 'BEGIN { print ms / 1000 }')
+write_ward_log "open   DT_ID=$DT_ID DT_STATE=$DT_STATE DT_ENTRY=$DT_ENTRY"
+write_ward_log "open   DT_PARAM_SCOPE=$DT_PARAM_SCOPE DT_PARAM_CAPACITY=$DT_PARAM_CAPACITY POLL_MS=$POLL_MS"
+write_ward_log "open   HINT=$HINT RUNNER_URL=$RUNNER_URL"
+write_ward_log "open   fidelity $DT_PARAM_FIDELITY: beds sampled every $interval ms"
+write_ward_log "open   overflow to $(get_overflow)"
+free=$(free_beds)
+written=-1
+while [[ $free -gt 0 ]]; do
+  if [[ $free -ne $written ]]; then
+    send_free_beds "$free"
+    written=$free
+  fi
+  sleep "$seconds"
+  free=$(free_beds)
+done
+send_free_beds 0
+code=$(send_runner 'fsm/event' '{"event": "full"}')
+write_ward_log "open   no free bed left: raised event full, reply $code"

@@ -121,6 +121,7 @@ export const dt = {
   id: 'hospital-1',
   attributes: { city: 'Aarhus' },
   commands: ['create'],
+  class: null,
   stateMachine: true,
   manager: { commands: [] },
   publicKey: null,

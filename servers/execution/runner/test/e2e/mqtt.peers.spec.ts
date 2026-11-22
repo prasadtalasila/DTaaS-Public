@@ -104,6 +104,7 @@ describe('Runner peers over MQTT', () => {
       topic: PEER.topic,
       url: null,
       attributes: { distance: 12.4 },
+      relationship: null,
       enabled: true,
       online: true,
       descriptor,

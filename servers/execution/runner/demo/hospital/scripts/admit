@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Command admit: books a bed for the patient of the input on stdin,
+# {"patient": "p-1", "ward": "cardiology"}, in that ward, or under the
+# multi scope in any ward. Without a bed, it escalates to the Manager,
+# proposing the multi scope if it is not yet in use, and fails.
+. "$(dirname "$0")/ward.sh"
+request=$(cat)
+patient=$(jq -r '.patient' <<< "$request")
+wanted=$(jq -r '.ward' <<< "$request")
+echo "$DT_ID in state $DT_STATE#$DT_ENTRY, scope $DT_PARAM_SCOPE"
+ward=$(find_bed "$wanted" "$DT_PARAM_SCOPE")
+if [[ -z $ward ]]; then
+  escalation=$(jq -nc --arg reason "no $wanted bed for $patient" '{reason: $reason}')
+  if [[ $DT_PARAM_SCOPE == single ]]; then
+    escalation=$(jq -c '.proposal = {scope: "multi"}' <<< "$escalation")
+  fi
+  code=$(send_runner 'escalate' "$escalation")
+  echo "no free bed for $patient; escalated: $code" >&2
+  exit 3
+fi
+add_patient "$ward" "$patient"
+echo "$patient admitted to $ward"

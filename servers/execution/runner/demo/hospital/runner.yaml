@@ -36,5 +36,7 @@ relationships:
     - id: 'hospital-2'
       topic: 'dtaas/hospital-2'
       url: 'http://localhost:5200'
+      # the subscriptions of the class follow the neighbours
+      relationship: neighbour
       attributes:
         distance: 12.4
