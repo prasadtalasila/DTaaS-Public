@@ -19,6 +19,22 @@ they start with `core/`, which is under `src/main/java/it/wldt/`.
 Runner paths are under `servers/execution/runner/`. Statements marked
 _inference_ are this document's reading.
 
+## Since These Notes
+
+Runner 0.11.0 ([issue 19](issues/19-properties.md)) built the
+properties that these notes rely on, with three differences from what
+they assume:
+
+- **No computed kind.** A property is not marked as sensed or
+  computed. "A computed property" below reads as a property that a
+  script computed.
+- **Units.** Every number names its unit, so `free-beds-in-2h` is
+  declared with `unit: beds`.
+- **The hold is built.** The coalescing of streaming frames is the
+  `stateInterval` of `runner.yaml`.
+
+The `PUT /properties` call of the examples is as built.
+
 ## WLDT's Augmentation Functions
 
 Augmentation functions arrived in WLDT 0.7.0. They are Java plug-ins

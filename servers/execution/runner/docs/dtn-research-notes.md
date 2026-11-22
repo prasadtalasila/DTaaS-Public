@@ -21,6 +21,20 @@ citations give `file:line` under `servers/execution/runner/`. Statements
 marked _inference_ are this document's reading, not something a source
 says.
 
+## Since These Notes
+
+Runner 0.11.0 ([issue 19](issues/19-properties.md)) changed what these
+notes describe:
+
+- **The mirrored state `x_i` has a place.** The notes say the runner
+  has no `x_i`, and item 2 leaves it out. The state document now has
+  `properties`: the latest values that scripts and sensors write. Open
+  question 9 is answered in part: a forecast is a property like any
+  other, and exogenous triggers stay out.
+- **`runner.yaml`.** `notify` and `peers` are under `relationships`.
+- **MQTT.** The write topics are `<base>/parameters/set` and
+  `<base>/peers/set`.
+
 ## Suggestions at a Glance
 
 The order is a priority. P1 defines a concrete interface between a DT

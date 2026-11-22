@@ -13,6 +13,11 @@ How accurately can each of these technologies represent a digital twin
 [The Web of Things](#the-web-of-things), the W3C's Thing Description
 and Scripting API, follows as a fourth point of comparison.
 
+Runner 0.11.0 has built issue 19, with suggestion C2: the properties
+take the types of JSON Schema, and every number names its unit. A
+property is not marked as sensed or computed, as the plan of issue 19
+had it when this was written.
+
 The hospital twin of `demo/hospital` serves as the running example.
 Runner citations give `file:line` under `servers/execution/runner/`;
 WLDT citations follow [wldt-research-notes.md](wldt-research-notes.md).

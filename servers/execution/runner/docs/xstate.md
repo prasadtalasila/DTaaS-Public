@@ -8,7 +8,8 @@ the runner would import at runtime.
 
 Runner citations give `file:line` under `servers/execution/runner/`.
 Decision numbers (D1 to D36) are those of
-[state-machine-design.md](state-machine-design.md). Statements marked
+[state-machine-design.md](state-machine-design.md), which has since
+grown to D43. Statements marked
 _inference_ are this document's reading.
 
 ## How DT Authors Use the Runner Today

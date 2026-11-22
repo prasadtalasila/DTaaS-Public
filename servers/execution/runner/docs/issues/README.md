@@ -178,6 +178,9 @@ Orders that block nothing but save rework:
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
+- An issue file records what was built. Its examples keep the
+  configuration layout, the types and the MQTT topics of its time;
+  [19-properties.md](19-properties.md) lists what 0.11.0 renamed.
 - No pull request changes files outside `servers/execution/runner`,
   other than by merging `feature/distributed-demo`. Documentation
   elsewhere that a feature makes stale, such as

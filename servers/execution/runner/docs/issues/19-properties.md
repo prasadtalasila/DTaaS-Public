@@ -410,6 +410,8 @@ Both parts:
 
 ## Learnings
 
+About zod:
+
 - **A record key hides its message.** zod reports a refused key of a
   record as `Invalid key in record`, whatever the refinement says. The
   reserved names are therefore checked with the cross-checks, which
@@ -418,6 +420,21 @@ Both parts:
   union of string, number and boolean answered `Invalid input` for
   `.nan`. The default is now any value, checked against the
   declaration, which says `expected number, received NaN`.
+- **Report one cause once.** An `enum` on a boolean gave two problems:
+  the keyword does not apply, and its values are no booleans. The
+  values of a declaration are now checked only when its keywords are
+  in place, and a default only when its declaration is sound.
+- **A recursive schema needs getters.** `items` and `properties` refer
+  to the schema itself, which zod 4 takes as getters of the object.
+  Spreading such an object into another calls the getters at once, so
+  the parameters share only the scalar keywords.
+- **Move old keys before the schema.** `layout.ts` rewrites the parsed
+  file, so the schema and every getter know one layout. A problem in
+  an old key is then reported at its new path, which the warning beside
+  it explains.
+
+About the behaviour:
+
 - **`<base>/+/response` misses the write replies.** The MQTT test
   client subscribed with one wildcard level and saw no reply on
   `parameters/set/response`. Clients written against 0.10 have the
@@ -425,14 +442,59 @@ Both parts:
 - **A write without a state machine file must answer as the read.**
   The first `Properties.set` answered `400 not declared` there, while
   `PUT /parameters` answers `404`; a test that sent `{}` hid it.
+- **Compare the document without its properties.** The hold needs to
+  know whether anything but a property value changed. Two strings of
+  the document, one of them without `properties`, answer that with no
+  knowledge of who signalled the change.
+- **A timer must not keep the runner alive.** The timer of a held
+  notification is unreferenced, and cancelled when the shutdown
+  begins.
+- **A file without states still restores.** `MachineStore` runs with
+  it as with any definition, and stores an unstarted machine; only
+  `machineOf` knows that there is none.
+
+About the limits of the tools:
+
 - **Line limits shape the design.** `fsm.service.ts`,
   `definition.ts`, `queue.service.ts` and `mqtt.service.ts` were all
   within ten lines of 250. `Properties` went to the descriptor
-  service, `inTransaction` to `queue.schema.ts`, and the topic table
-  out of the MQTT service.
+  service, as `Peers` had, `inTransaction` to `queue.schema.ts`, and
+  the topic table out of the MQTT service.
+- **Test files hit the limit too.** Three new or grown test files
+  passed 250 lines and were split by concern: the declarations of the
+  properties, their access control, and the write topics.
 - **`mqtt.broker.spec.ts` has no room.** It is at 248 lines, so the
   write topics are not in it. They were run once by hand against
   Mosquitto 2 in Docker, with a test that was then removed.
+- **Coverage finds dead defaults.** Three `??` defaults for states
+  that the checks before them exclude showed as uncovered branches.
+  They were removed, not tested.
+- **eslint flags a key dropped by destructuring.** Taking `event` out
+  of a declaration to keep the rest leaves `event` unused; the
+  declaration is filtered by key instead.
+- **`yarn` may be missing.** The machine had Node and no yarn;
+  `npx yarn@1` runs the scripts of `package.json` unchanged.
+
+About the documents:
+
+- **A line that starts with a number and a full stop is a list.**
+  prettier joined "... more work than" and "19. None of it ..." into
+  one long line, which markdownlint then refused.
+- **Keep the width of a table cell.** A shorter link in the widest
+  cell of a column makes prettier re-pad every row. A link of the same
+  length, here with an anchor, leaves the table alone.
+- **Load the examples.** Every YAML example of the documents was
+  loaded with the built schema. Four older fragments in `README.md`
+  and `STATE-MACHINE.md` look like whole files and do not load alone;
+  the one on peer events now also fails with
+  `subscriptions need states`.
+- **Research notes are dated.** They keep what they said of 0.10.0,
+  and each got a short section, "Since These Notes", for what 0.11
+  changed. The earlier issue files keep the layout and the topics of
+  their time.
 - **The demo appends to its config.** `configs.mjs` writes the peer's
   public key as the last line of `runner.yaml`, with a fixed indent,
   which the new layout deepened by two spaces.
+- **The recordings are older than the code.** The casts show the flat
+  layout, `set-parameters` and no `free-beds`, and the documents say
+  so where they quote them.

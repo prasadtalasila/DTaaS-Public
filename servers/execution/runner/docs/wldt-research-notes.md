@@ -39,6 +39,26 @@ The full maps behind these notes are in two companion files:
   concept model, adapters and guides, the paper's architecture and
   evaluation, how the design evolved, and a glossary.
 
+## Since These Notes
+
+Runner 0.11.0 ([issue 19](issues/19-properties.md)) took one thing from
+WLDT that these notes list under
+[What Not to Copy](#what-not-to-copy): a state of the physical twin.
+Scripts and sensors write declared properties, and the runner holds
+and publishes the latest value of each. The rest of that entry stands:
+the runner has no adapters, no shadowing function and no pipeline, and
+it never interprets a value.
+
+Two suggestions are affected:
+
+- **W6** no longer borders on a non-goal, as the non-goal "a script
+  that mirrors physical-twin state" is gone.
+- **W7** overlaps the types of the properties, which are those of JSON
+  Schema.
+
+The dependencies between the suggestions are in the
+[issues](issues/README.md#proposed-work).
+
 ## Suggestions at a Glance
 
 The table is ordered by priority. The first group fixes concrete gaps
