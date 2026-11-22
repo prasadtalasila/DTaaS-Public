@@ -41,6 +41,7 @@ describe('GET /state', () => {
         time: expect.stringMatching(ISO_TIME),
         machine: null,
         parameters: {},
+        properties: {},
         command: null,
       },
     ]);

@@ -1,16 +1,18 @@
 import { readFileSync } from 'fs';
 import path from 'node:path';
 import * as yaml from 'js-yaml';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Keyv from 'keyv';
 import { z } from 'zod';
 import {
   configDefault,
   ConfigValues,
+  DEFAULT_STATE_INTERVAL,
   DEFAULT_STOP_GRACE,
 } from './config.interface.js';
 import { Attributes } from './attributes.js';
 import { configSchema } from './config.schema.js';
+import { toLayout } from './layout.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
 import { AuthConfig } from '../auth/auth.config.js';
@@ -21,6 +23,8 @@ import { NotifyConfig } from '../notify/notify.config.js';
 import { PeerConfig } from '../peers/peers.config.js';
 import { ScriptsConfig } from '../scripts/scripts.config.js';
 import { checkSeparation, ScriptUser } from '../scripts/separation.js';
+
+const logger = new Logger('Config');
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -42,11 +46,11 @@ const field = (value: unknown, key: string): unknown =>
 // zod skips a __proto__ key of a record without an error, so look for
 // one among the attributes of the runner and of each peer first
 function protoProblem(content: unknown): string | undefined {
-  const peers = field(content, 'peers');
+  const peers = field(field(content, 'relationships'), 'peers');
   const attributes = [
     ['attributes', field(content, 'attributes')],
     ...(Array.isArray(peers) ? peers : []).map((peer, index) => [
-      `peers.${index}.attributes`,
+      `relationships.peers.${index}.attributes`,
       field(peer, 'attributes'),
     ]),
   ];
@@ -54,11 +58,20 @@ function protoProblem(content: unknown): string | undefined {
   return found && `✖ __proto__ is not a valid name\n  → at ${found[0]}`;
 }
 
-function parseConfig(content: unknown, file: string): ConfigValues {
-  const problem = protoProblem(content);
-  if (problem !== undefined) {
+// The problem of a __proto__ key or of a section set in both layouts
+const layoutProblem = (content: unknown, problems: string[]) =>
+  protoProblem(content) ?? problems.map((problem) => `✖ ${problem}`).join('\n');
+
+// Takes the layout of before 0.11 too, with a warning for each old key
+function parseConfig(source: unknown, file: string): ConfigValues {
+  const { content, warnings, problems } = toLayout(source);
+  const problem = layoutProblem(content, problems);
+  if (problem !== '') {
     throw invalid(file, problem);
   }
+  warnings.forEach((warning) =>
+    logger.warn(`${file}: ${warning}; the old key goes in 0.12`),
+  );
   const result = configSchema.safeParse(content);
   if (!result.success) {
     throw invalid(file, z.prettifyError(result.error));
@@ -164,13 +177,17 @@ export default class Config {
     return this.configValues.stopGrace ?? DEFAULT_STOP_GRACE;
   }
 
+  getStateInterval(): number {
+    return this.configValues.stateInterval ?? DEFAULT_STATE_INTERVAL;
+  }
+
   getNotify(): NotifyConfig | undefined {
-    return this.configValues.notify;
+    return this.configValues.relationships.manager?.notify;
   }
 
   // The peers in the order of runner.yaml, with the enabled of the file
   getPeers(): PeerConfig[] {
-    return this.configValues.peers;
+    return this.configValues.relationships.peers;
   }
 
   // The account and the directory of the scripts; undefined without

@@ -1,6 +1,17 @@
 import type { FsmStateDto, ScriptStatus } from '../dto/fsm.dto.js';
 import { Definition, Transition } from './definition.js';
 
+// A file without states declares parameters and properties only, so
+// it has no machine, just as no file has none
+export const machineOf = (
+  definition?: Definition,
+  state?: string,
+  entry?: number,
+): StateMachine | undefined =>
+  definition === undefined || definition.states.size === 0
+    ? undefined
+    : new StateMachine(definition, state, entry);
+
 // The current state of a digital twin and the transitions out of it.
 // Each entry into a state has a number, so that the completion of the
 // script of an earlier entry can be told apart. A machine restored after

@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { MACHINE_SCHEMA } from './queue.machine.js';
 import { PEERS_SCHEMA } from './queue.peers.js';
+import { PROPERTIES_SCHEMA } from './queue.properties.js';
 
 // by is the principal that submitted a command: a name of runner.yaml,
 // script, or NULL without access control and for a state's script.
@@ -35,7 +36,20 @@ export const SCHEMA = `
     changed_at TEXT NOT NULL
   );
   ${MACHINE_SCHEMA};
-  ${PEERS_SCHEMA}`;
+  ${PEERS_SCHEMA};
+  ${PROPERTIES_SCHEMA}`;
+
+// Runs the work in one transaction, which an error rolls back
+export function inTransaction(db: DatabaseSync, work: () => void): void {
+  db.exec('BEGIN');
+  try {
+    work();
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
 
 // Adds a column that the commands table of an older version lacks
 function addColumn(db: DatabaseSync, column: string, type: string): void {

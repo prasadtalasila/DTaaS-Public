@@ -18,6 +18,7 @@ import WebhookClient from './notify/webhook.client.js';
 import Notifier from './notify/notifier.service.js';
 import AccessGuard from './auth/access.guard.js';
 import PeersController from './peers/peers.controller.js';
+import PropertiesController from './properties.controller.js';
 import PeerWatch from './peers/peer-watch.js';
 import PeerEventsService from './fsm/peer-events.service.js';
 
@@ -29,6 +30,7 @@ import PeerEventsService from './fsm/peer-events.service.js';
     HealthController,
     ParametersController,
     PeersController,
+    PropertiesController,
   ],
   providers: [
     ExecaManager,

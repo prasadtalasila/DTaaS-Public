@@ -53,7 +53,7 @@ export function writeConfigs() {
   for (const [id, { file, config }] of Object.entries(RUNNERS)) {
     const peer = Object.keys(RUNNERS).find((other) => other !== id);
     const text = readFileSync(file, 'utf8');
-    const peerKey = `    publicKey: '${keys[peer]}'\n`;
+    const peerKey = `      publicKey: '${keys[peer]}'\n`;
     writeFileSync(config, text + peerKey + auth(id, principals));
   }
 }

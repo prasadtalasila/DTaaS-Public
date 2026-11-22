@@ -12,8 +12,8 @@ const DEFINITION = `
 events: [done]
 parameters:
   scope:
-    type: enum
-    values: [single, multi]
+    type: string
+    enum: [single, multi]
     default: single
 env:
   HINT: '\${DT_ID}-\${DT_PARAM_SCOPE}'

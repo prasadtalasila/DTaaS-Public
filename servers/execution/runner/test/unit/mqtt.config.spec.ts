@@ -10,6 +10,7 @@ import {
   mqttConfigSchema,
   mqttRoutes,
   notifyTopic,
+  OLD_TOPICS,
   presenceWill,
   requestTopic,
 } from 'src/mqtt/mqtt.config';
@@ -92,11 +93,23 @@ describe('MQTT configuration', () => {
     );
   });
 
-  it('Should serve the peers one level under the base topic', () => {
-    expect(mqttRoutes).toEqual(expect.arrayContaining(['peers', 'set-peers']));
-    expect(requestTopic('dtaas/runner', 'set-peers')).toBe(
-      'dtaas/runner/set-peers',
+  it.each([
+    ['parameters', 'set-parameters'],
+    ['peers', 'set-peers'],
+    ['properties', 'set-properties'],
+  ] as const)('Should write the %s under their read topic', (read, write) => {
+    expect(mqttRoutes).toEqual(expect.arrayContaining([read, write]));
+    expect(requestTopic('dtaas/runner', read)).toBe(`dtaas/runner/${read}`);
+    expect(requestTopic('dtaas/runner', write)).toBe(
+      `dtaas/runner/${read}/set`,
     );
+  });
+
+  it('Should keep the write topics of before 0.11, but for properties', () => {
+    expect(OLD_TOPICS).toEqual({
+      'set-parameters': 'set-parameters',
+      'set-peers': 'set-peers',
+    });
   });
 
   it('Should give a retained will that says the runner is offline', () => {

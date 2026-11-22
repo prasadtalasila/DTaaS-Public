@@ -138,6 +138,7 @@ describe('Descriptor service', () => {
       time: '2026-10-25T10:00:00.000Z',
       machine: null,
       parameters: {},
+      properties: {},
       command: null,
     });
   });

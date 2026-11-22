@@ -1,4 +1,5 @@
 import { readFileSync, statSync } from 'node:fs';
+import { Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import completionCycle from './completion-cycle.js';
@@ -7,9 +8,16 @@ import { managerProblems, managerSchema } from './manager.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
+  oldEnums,
   parameterProblems,
   parametersSchema,
 } from './parameters.js';
+import {
+  PropertyDeclarations,
+  propertiesSchema,
+  propertyProblems,
+} from './properties.js';
+import { field, hasProtoKey } from './proto.js';
 import { type Env, envProblems, envSchema } from './script-context.js';
 import {
   Known,
@@ -19,6 +27,7 @@ import {
 } from './subscriptions.js';
 
 export { nameSchema } from './name.js';
+export { hasOwnProto } from './proto.js';
 
 // Raised by the runner, not by clients, when the script of a state exits
 export const COMPLETION_EVENTS = ['$success', '$failure', '$stopped'] as const;
@@ -36,6 +45,7 @@ export type Definition = {
   events: ReadonlySet<string>;
   states: ReadonlyMap<string, Transitions>;
   parameters: Declarations;
+  properties: PropertyDeclarations;
   env: Env;
   // the env of each state, apart from its transitions
   stateEnv: ReadonlyMap<string, Env>;
@@ -63,12 +73,10 @@ const stateSchema = z
 const fileSchema = z
   .object({
     events: z.array(nameSchema).default([]),
-    states: z
-      .record(nameSchema, stateSchema)
-      .refine((states) => Object.keys(states).length > 0, {
-        message: 'must have at least one state',
-      }),
+    // a file without states only declares parameters and properties
+    states: z.record(nameSchema, stateSchema).default({}),
     parameters: parametersSchema,
+    properties: propertiesSchema,
     env: envSchema,
     escalation: escalationSchema,
     manager: managerSchema,
@@ -104,6 +112,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
       ]),
     ),
     parameters: new Map(Object.entries(sections.parameters)),
+    properties: new Map(Object.entries(sections.properties)),
     env: sections.env,
     stateEnv: new Map(
       Object.entries(states).map(([state, value]) => [state, value?.env ?? {}]),
@@ -139,6 +148,15 @@ function transitionProblems(
   return [...targets, ...undeclared, ...stops];
 }
 
+// Without states nothing raises an event or takes one
+function statelessProblems(definition: Definition): string[] {
+  const { states, events, subscriptions } = definition;
+  const idle = { events: events.size, subscriptions: subscriptions.length };
+  return Object.entries(idle)
+    .filter(([, count]) => states.size === 0 && count > 0)
+    .map(([section]) => `${section} need states`);
+}
+
 // The problems of the states and transitions of a definition
 function crossCheck(definition: Definition, known: Known): string[] {
   const problems: string[] = [];
@@ -154,38 +172,19 @@ function crossCheck(definition: Definition, known: Known): string[] {
   }
   return [
     ...problems,
+    ...statelessProblems(definition),
     ...parameterProblems(definition),
+    ...propertyProblems(definition),
     ...envProblems(definition, known.separated),
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
   ];
 }
 
+const logger = new Logger('StateMachineFile');
+
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid state machine in ${file}:\n${problems}`);
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-// The value of a key of a parsed YAML mapping
-const field = (value: unknown, key: string): unknown =>
-  isRecord(value) ? value[key] : undefined;
-
-export const hasOwnProto = (value: unknown): boolean =>
-  isRecord(value) && Object.hasOwn(value, '__proto__');
-
-// zod skips a __proto__ key of a record without an error, so look for
-// one among the states, the events of their transitions, the
-// parameters and the env of the file and of each state
-function hasProtoKey(content: unknown): boolean {
-  const states = field(content, 'states');
-  const values = isRecord(states) ? Object.values(states) : [];
-  const nested = ['transitions', 'env'].flatMap((key) =>
-    values.map((state) => field(state, key)),
-  );
-  const top = ['parameters', 'env'].map((key) => field(content, key));
-  return [states, ...nested, ...top].some(hasOwnProto);
-}
 
 function readYaml(text: string, file: string): unknown {
   let content: unknown;
@@ -200,6 +199,17 @@ function readYaml(text: string, file: string): unknown {
   return content;
 }
 
+// type: enum with values is the spelling of before 0.11
+function warnOldEnums(content: unknown, file: string): void {
+  const names = oldEnums(field(content, 'parameters'));
+  if (names.length > 0) {
+    logger.warn(
+      `${file}: parameters ${names.join(', ')} use type enum with values; ` +
+        'write type string with enum, as the old spelling goes in 0.12',
+    );
+  }
+}
+
 // Throws an error that names the file and every problem of an invalid
 // definition
 export function parseDefinition(
@@ -207,7 +217,8 @@ export function parseDefinition(
   file: string,
   known: Known,
 ): Definition {
-  const result = fileSchema.safeParse(readYaml(text, file));
+  const content = readYaml(text, file);
+  const result = fileSchema.safeParse(content);
   if (!result.success) {
     throw invalid(file, z.prettifyError(result.error));
   }
@@ -216,6 +227,7 @@ export function parseDefinition(
   if (problems.length > 0) {
     throw invalid(file, problems.map((problem) => `✖ ${problem}`).join('\n'));
   }
+  warnOldEnums(content, file);
   return definition;
 }
 

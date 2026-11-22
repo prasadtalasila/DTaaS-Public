@@ -5,45 +5,57 @@ import {
   ParametersDto,
   ParameterValue,
 } from '../dto/parameters.dto.js';
-import { nameSchema } from './name.js';
+import { nameSchema, reservedProblems } from './name.js';
+import {
+  scalarKeywords,
+  SCALAR_TYPES,
+  schemaProblems,
+  validator,
+  valueProblems as fitProblems,
+} from './value-schema.js';
 
-// The values of each type, for defaults and for new values; an enum
-// value is also one of the values of its declaration
-const VALUES = {
-  string: z.string(),
-  number: z.number(),
-  boolean: z.boolean(),
-  enum: z.string(),
-};
+type Mapping = Record<string, unknown>;
 
-const shared = {
-  controllable: z.boolean().default(false),
-  event: nameSchema.optional(),
-};
+const isMapping = (value: unknown): value is Mapping =>
+  typeof value === 'object' && value !== null;
 
-const parameterSchema = z.discriminatedUnion('type', [
+// An enum as written before 0.11: its own type, with its values
+const isOldEnum = (value: unknown): value is Mapping =>
+  isMapping(value) && value.type === 'enum';
+
+// The JSON Schema spelling of an old enum: a string with an enum,
+// which is empty, and so refused, without values
+function modern(value: unknown): unknown {
+  if (!isOldEnum(value)) {
+    return value;
+  }
+  const { values = [], ...rest } = value;
+  return { ...rest, type: 'string', enum: values };
+}
+
+// The parameters of a parsed section that spell an enum the old way,
+// which goes in 0.12
+export const oldEnums = (section: unknown): string[] =>
+  Object.entries(isMapping(section) ? section : {})
+    .filter(([, value]) => isOldEnum(value))
+    .map(([name]) => name);
+
+const isSet = (value: unknown): boolean =>
+  value !== undefined && value !== null;
+
+// A scalar of JSON Schema, without a unit: a parameter is a setting of
+// a policy, not a measurement
+const parameterSchema = z.preprocess(
+  modern,
   z.strictObject({
-    type: z.literal('string'),
-    default: VALUES.string,
-    ...shared,
+    type: z.enum(SCALAR_TYPES),
+    ...scalarKeywords,
+    // checked against the declaration, which names what it expects
+    default: z.custom<ParameterValue>(isSet, 'needs a default'),
+    controllable: z.boolean().default(false),
+    event: nameSchema.optional(),
   }),
-  z.strictObject({
-    type: z.literal('number'),
-    default: VALUES.number,
-    ...shared,
-  }),
-  z.strictObject({
-    type: z.literal('boolean'),
-    default: VALUES.boolean,
-    ...shared,
-  }),
-  z.strictObject({
-    type: z.literal('enum'),
-    values: z.array(z.string()).min(1),
-    default: VALUES.enum,
-    ...shared,
-  }),
-]);
+);
 
 export const parametersSchema = z
   .record(nameSchema, parameterSchema)
@@ -58,20 +70,12 @@ export type Declarations = ReadonlyMap<string, Declaration>;
 export const variableName = (name: string): string =>
   `DT_PARAM_${name.toUpperCase().replaceAll(/[.-]/g, '_')}`;
 
-const valueSchema = (declaration: Declaration): z.ZodType =>
-  declaration.type === 'enum'
-    ? z.enum(declaration.values)
-    : VALUES[declaration.type];
-
 // Why the value does not fit the declaration, after the subject
 const valueProblems = (
   subject: string,
   declaration: Declaration,
   value: unknown,
-): string[] =>
-  (valueSchema(declaration).safeParse(value).error?.issues ?? []).map(
-    ({ message }) => `${subject}: ${message}`,
-  );
+): string[] => fitProblems(subject, validator(declaration), value);
 
 // The names that share the variable name of an earlier name
 function collisions(names: string[]): string[] {
@@ -92,6 +96,10 @@ type Section = { events: ReadonlySet<string>; parameters: Declarations };
 // not see
 export function parameterProblems({ events, parameters }: Section): string[] {
   const entries = [...parameters];
+  const declared = entries.flatMap(([name, declaration]) =>
+    schemaProblems(`parameter ${name}`, declaration, { units: false }),
+  );
+  // a default is checked against a sound declaration only
   const defaults = entries.flatMap(([name, declaration]) =>
     valueProblems(
       `parameter ${name} default`,
@@ -105,16 +113,19 @@ export function parameterProblems({ events, parameters }: Section): string[] {
       ([name, { event }]) =>
         `parameter ${name} raises undeclared event ${event}`,
     );
-  return [...defaults, ...undeclared, ...collisions([...parameters.keys()])];
+  return [
+    ...(declared.length > 0 ? declared : defaults),
+    ...undeclared,
+    ...reservedProblems('parameter', [...parameters.keys()]),
+    ...collisions([...parameters.keys()]),
+  ];
 }
 
 // A declaration as GET /parameters shows it; the event stays internal
-const describe = (declaration: Declaration): Omit<ParameterDto, 'value'> => ({
-  type: declaration.type,
-  ...(declaration.type === 'enum' && { values: declaration.values }),
-  default: declaration.default,
-  controllable: declaration.controllable,
-});
+const describe = (declaration: Declaration) =>
+  Object.fromEntries(
+    Object.entries(declaration).filter(([key]) => key !== 'event'),
+  ) as Omit<ParameterDto, 'value'>;
 
 export type ParameterChanges = {
   changes: ReadonlyMap<string, ParameterValue>;

@@ -56,8 +56,9 @@ describe('Runner descriptor end-to-end tests', () => {
       dir,
       `id: hospital-1\n${BASE}stateMachine: dt.yaml\n` +
         'attributes: {city: Aarhus, beds: 120, open: true}\n' +
-        'peers:\n  - {id: hospital-2, topic: dtaas/hospital-2}\n' +
-        '  - {id: hospital-3, url: "http://h3", enabled: false}\n',
+        'relationships:\n  peers:\n' +
+        '    - {id: hospital-2, topic: dtaas/hospital-2}\n' +
+        '    - {id: hospital-3, url: "http://h3", enabled: false}\n',
     );
 
     const { status, body } = await supertest(app.getHttpServer()).get('/dt');

@@ -22,13 +22,8 @@ import {
   responseTopic,
 } from './mqtt-request.js';
 import settles from './settles.js';
-import {
-  clientOptions,
-  MqttRoute,
-  mqttRoutes,
-  notifyTopic,
-  requestTopic,
-} from './mqtt.config.js';
+import { clientOptions, MqttRoute, notifyTopic } from './mqtt.config.js';
+import RequestTopics from './request-topics.js';
 
 export type MqttConnect = (url: string, options: IClientOptions) => MqttClient;
 
@@ -48,7 +43,7 @@ export default class MqttService implements BeforeApplicationShutdown {
 
   private client: MqttClient | undefined;
 
-  private routes = new Map<string, MqttRoute>();
+  private routes = new RequestTopics();
 
   private readonly connects = new Changes();
 
@@ -67,9 +62,7 @@ export default class MqttService implements BeforeApplicationShutdown {
     if (options === undefined) {
       return;
     }
-    this.routes = new Map(
-      mqttRoutes.map((route) => [requestTopic(options.topic, route), route]),
-    );
+    this.routes = new RequestTopics(options.topic);
     const client = this.connect(
       options.url,
       clientOptions(options, this.config.getId(), this.config.getSigner()),

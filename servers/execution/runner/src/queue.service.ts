@@ -20,7 +20,9 @@ import {
   toStoredMachine,
 } from './queue.machine.js';
 import { INSERT_PEER, PEER_SWITCHES, toSwitches } from './queue.peers.js';
-import { createSchema } from './queue.schema.js';
+import type { PropertyRow } from './fsm/properties.js';
+import { storedProperties, upsertProperties } from './queue.properties.js';
+import { createSchema, inTransaction } from './queue.schema.js';
 import {
   COMMAND_COUNTS,
   HISTORY,
@@ -41,18 +43,6 @@ const STATUS: Record<RunOutcome, string> = {
   failed: 'failed',
   stopped: 'stopped',
 };
-
-// Runs the work in one transaction, which an error rolls back
-function inTransaction(db: DatabaseSync, work: () => void): void {
-  db.exec('BEGIN');
-  try {
-    work();
-    db.exec('COMMIT');
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
-}
 
 // Keeps the received commands and their results in SQLite, in memory
 // unless open() names a database file
@@ -219,6 +209,15 @@ export default class Queue {
   // The latest switch of each peer that PUT /peers changed
   peerSwitches(): Map<string, boolean> {
     return toSwitches(this.db.prepare(PEER_SWITCHES).all());
+  }
+
+  // Replaces the latest values of one request together, or none of them
+  saveProperties(rows: PropertyRow[]): void {
+    inTransaction(this.db, () => upsertProperties(this.db, rows));
+  }
+
+  storedProperties(): PropertyRow[] {
+    return storedProperties(this.db);
   }
 
   // The machine of the state machine service, which no change signals

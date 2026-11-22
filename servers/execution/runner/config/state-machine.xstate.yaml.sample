@@ -10,8 +10,8 @@
 #   guards:  paramEquals, below
 parameters:
   scope:
-    type: enum
-    values:
+    type: string
+    enum:
       - single
       - multi
     default: single
@@ -22,8 +22,8 @@ parameters:
     default: 2
     controllable: false
   fidelity:
-    type: enum
-    values:
+    type: string
+    enum:
       - low
       - medium
       - high

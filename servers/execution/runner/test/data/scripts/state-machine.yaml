@@ -8,8 +8,8 @@ events:
   - fidelity-changed
 parameters:
   scope:
-    type: enum
-    values: [single, multi]
+    type: string
+    enum: [single, multi]
     default: single
     controllable: true
     # raised when the value changes
@@ -21,8 +21,8 @@ parameters:
   # the fidelity pattern of STATE-MACHINE.md: values from the cheapest to
   # the most accurate
   fidelity:
-    type: enum
-    values:
+    type: string
+    enum:
       - low
       - medium
       - high

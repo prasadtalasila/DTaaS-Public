@@ -23,6 +23,7 @@ import { healthReport } from '../dto/health.dto.js';
 import { historyQuerySchema } from '../dto/history.dto.js';
 import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import { PeersBody, peersBodySchema } from '../dto/peers.dto.js';
+import { PropertiesBody, propertiesBodySchema } from '../dto/properties.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
@@ -90,6 +91,10 @@ export default class MqttRequestHandler {
     ),
     peers: () => this.descriptor.peers().document(),
     'set-peers': this.whenValid(peersBodySchema, (body) => this.setPeers(body)),
+    properties: () => this.propertyDocument(),
+    'set-properties': this.whenValid(propertiesBodySchema, (body, request) =>
+      this.setProperties(body, request.principal?.name),
+    ),
   };
 
   // The role comes before the body, as Nest runs guards before pipes. A
@@ -154,6 +159,20 @@ export default class MqttRequestHandler {
     return problems.length > 0
       ? new BadRequestException(problems).getResponse()
       : this.parameterDocument();
+  }
+
+  private propertyDocument(): unknown {
+    return (
+      this.descriptor.properties().document() ??
+      fsmReply('no state machine', undefined)
+    );
+  }
+
+  private setProperties(body: PropertiesBody, by?: string): unknown {
+    const problems = this.descriptor.properties().set(body, by);
+    return problems.length > 0
+      ? new BadRequestException(problems).getResponse()
+      : this.propertyDocument();
   }
 
   private setPeers(body: PeersBody): unknown {

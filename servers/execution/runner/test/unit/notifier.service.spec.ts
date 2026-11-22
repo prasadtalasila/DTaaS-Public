@@ -14,6 +14,7 @@ const document = (time: string, state: string | null = null) => ({
   time,
   machine: state === null ? null : { state, status: 'running' },
   parameters: {},
+  properties: {},
   command: null,
 });
 
@@ -51,6 +52,7 @@ function setup() {
   const escalations: EscalationListener[] = [];
   const source = {
     describe: () => descriptor,
+    stateInterval: () => 1000,
     state: () => current,
     onChange: (listener: () => void) => listeners.push(listener),
     onEscalation: (listener: EscalationListener) => escalations.push(listener),

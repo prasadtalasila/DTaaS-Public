@@ -40,6 +40,7 @@ function createService(start: FsmStateDto | undefined) {
   const changes = new Changes();
   const fsm = {
     check: () => machine,
+    declared: () => undefined,
     onChange: jest.fn((listener: () => void) => changes.on(listener)),
     onAnswer: jest.fn<(listener: AnswerListener) => void>(),
     onEscalation: jest.fn<(listener: EscalationListener) => void>(),

@@ -65,9 +65,8 @@ describe('State machine definition', () => {
     expectInvalid('states: {create: {after: execute}}', 'after');
   });
 
-  it('Should refuse a file without states', () => {
-    expectInvalid('events: [start]', 'states');
-    expectInvalid('states: {}', 'at least one state');
+  it('Should refuse events without states', () => {
+    expectInvalid('events: [start]', 'events need states');
   });
 
   it.each([
@@ -205,8 +204,8 @@ describe('State machine file', () => {
       'execute',
     ]);
     expect(definition?.parameters.get('fidelity')).toEqual({
-      type: 'enum',
-      values: ['low', 'medium', 'high'],
+      type: 'string',
+      enum: ['low', 'medium', 'high'],
       default: 'medium',
       controllable: true,
       event: 'fidelity-changed',

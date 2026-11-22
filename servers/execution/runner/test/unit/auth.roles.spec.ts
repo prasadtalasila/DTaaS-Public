@@ -5,26 +5,28 @@ import { authorize, listedCommand, ROUTE_ROLES } from 'src/auth/roles';
 import { MqttRoute, mqttRoutes } from 'src/mqtt/mqtt.config';
 
 // The role table of the spec: open, yes, no, or manager.commands
-const TABLE: Record<MqttRoute, [string, string, string]> = {
-  health: ['open', 'open', 'open'],
-  dt: ['yes', 'yes', 'yes'],
-  state: ['yes', 'yes', 'yes'],
-  status: ['yes', 'yes', 'yes'],
-  history: ['yes', 'yes', 'yes'],
-  metrics: ['yes', 'yes', 'yes'],
-  fsm: ['yes', 'yes', 'yes'],
-  parameters: ['yes', 'yes', 'yes'],
-  execute: ['yes', 'listed', 'no'],
-  stop: ['yes', 'no', 'no'],
-  transition: ['yes', 'no', 'no'],
-  event: ['yes', 'no', 'yes'],
-  escalate: ['yes', 'no', 'yes'],
-  'set-parameters': ['yes', 'yes', 'no'],
-  peers: ['yes', 'yes', 'yes'],
-  'set-peers': ['yes', 'yes', 'no'],
+const TABLE: Record<MqttRoute, [string, string, string, string]> = {
+  health: ['open', 'open', 'open', 'open'],
+  dt: ['yes', 'yes', 'yes', 'no'],
+  state: ['yes', 'yes', 'yes', 'no'],
+  status: ['yes', 'yes', 'yes', 'no'],
+  history: ['yes', 'yes', 'yes', 'no'],
+  metrics: ['yes', 'yes', 'yes', 'no'],
+  fsm: ['yes', 'yes', 'yes', 'no'],
+  parameters: ['yes', 'yes', 'yes', 'no'],
+  execute: ['yes', 'listed', 'no', 'no'],
+  stop: ['yes', 'no', 'no', 'no'],
+  transition: ['yes', 'no', 'no', 'no'],
+  event: ['yes', 'no', 'yes', 'no'],
+  escalate: ['yes', 'no', 'yes', 'no'],
+  'set-parameters': ['yes', 'yes', 'no', 'no'],
+  peers: ['yes', 'yes', 'yes', 'no'],
+  'set-peers': ['yes', 'yes', 'no', 'no'],
+  properties: ['yes', 'yes', 'yes', 'yes'],
+  'set-properties': ['yes', 'no', 'yes', 'yes'],
 };
 
-const ROLES: Role[] = ['client', 'manager', 'script'];
+const ROLES: Role[] = ['client', 'manager', 'script', 'sensor'];
 
 const cases = mqttRoutes.flatMap((route) =>
   ROLES.map((role, column) => [route, role, TABLE[route][column]] as const),

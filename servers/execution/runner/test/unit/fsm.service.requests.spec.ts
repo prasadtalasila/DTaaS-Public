@@ -85,7 +85,7 @@ describe('State machine service requests', () => {
     const WITH_PARAMETER = `
 events: [stop, reset]
 parameters:
-  scope: {type: enum, values: [single, multi], default: single, controllable: true, event: stop}
+  scope: {type: string, enum: [single, multi], default: single, controllable: true, event: stop}
 states:
   create: {transitions: {$success: execute}}
   execute: {transitions: {stop: create}}`;
