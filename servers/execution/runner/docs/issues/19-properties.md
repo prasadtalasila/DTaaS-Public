@@ -1,425 +1,438 @@
-# 19 Properties: Latest Sensed and Computed Values
+# 19 and 20: DT Properties and the Grouped runner.yaml
 
-- Status: planned
-- Depends on: 04 (the declaration and storage pattern), 15a (the new
-  role), 20 (the `runner.yaml` layout its settings go into)
+- Status: in progress. The code, tests and documents are on the branch
+  `runner/19-properties-and-config`; no pull request is open yet.
+- Depends on: 04 (the declaration and storage pattern), 15a (the roles)
 - PR: none yet
-- Research note: none in the DTN notes' table. It reopens item 2 of
-  [dtn-research-notes.md](../dtn-research-notes.md#2-one-state-document-r1)
-  (the mirrored state `x_i`) and answers open question 9 there. It
-  follows WLDT's properties
-  ([wldt-research-notes.md](../wldt-research-notes.md)).
+- Research note: item 2 and open question 9 of
+  [dtn-research-notes.md](../dtn-research-notes.md) (the mirrored state
+  `x_i`), the properties of
+  [wldt-research-notes.md](../wldt-research-notes.md), and C2 of
+  [dt-capabilities-comparison.md](../dt-capabilities-comparison.md).
+
+This file replaces the separate issues 19 (properties) and 20 (the
+sections of `runner.yaml`), which the owner merged on 2026-11-22. It
+also carries C2, the types of the properties.
 
 ## Spec
 
 P1 writes a DT's state as `s_i = (x_i, λ_i, θ_i)`: the state mirrored
 from the physical twin (PT), the active policy, and the shared
-parameters. The state document has `machine` (`λ_i`, 02) and
-`parameters` (`θ_i`, 04), but nothing for `x_i`. Only the scripts
-know the PT. This issue lets them hand the runner the latest values
-they sensed or computed. The runner holds the values, checks them
-against their declarations, stores them, and shows and publishes them.
-It never interprets them.
+parameters. The state document had `machine` (`λ_i`, 02) and
+`parameters` (`θ_i`, 04), but nothing for `x_i`. Only the scripts know
+the PT. This issue lets them hand the runner the latest values they
+sensed or computed. The runner checks the values against their
+declarations, stores them, and shows and publishes them. It never
+interprets them.
+
+The issue adds a role and a setting to `runner.yaml`, which had grown
+to twelve top-level keys. Part A groups the file first.
+
+### Part A: the layout of runner.yaml
+
+The operator's settings are of three kinds: what runs, who the DT
+deals with, and security. The keys of the second kind move under a new
+key, `relationships`:
+
+```yaml
+id: 'hospital-1'
+port: 5100
+location: 'scripts'
+commands:
+  - open
+stateMachine: 'hospital.fsm.yaml'
+database: 'runner.db'
+stateInterval: 1000
+mqtt:
+  url: 'mqtt://localhost:1883'
+  topic: 'dtaas/hospital-1'
+relationships:
+  manager:
+    notify:
+      url: 'https://manager.example.org/dt-events'
+      token: 'secret'
+  peers:
+    - id: 'hospital-2'
+      topic: 'dtaas/hospital-2'
+auth:
+  principals:
+    - name: 'ward-gateway'
+      role: 'sensor'
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+scripts:
+  user: 'dt-script'
+  runDirectory: '/var/lib/dt/hospital-1/run'
+```
+
+| Before 0.11 | From 0.11                      |
+| :---------- | :----------------------------- |
+| `notify`    | `relationships.manager.notify` |
+| `peers`     | `relationships.peers`          |
+
+The schema of each moved section does not change. `mqtt` stays at the
+top, because it carries the API as well as the notifications.
+
+`auth` and `scripts` stay where they are. The first plan moved both
+under a `security` key. The owner kept `scripts` at the top, as it
+says as whom the scripts run, which belongs to "what runs". A
+`security` key would then only have renamed `auth`, so it was dropped.
+
+Migration:
+
+- Version 0.11 accepts either layout. A file with an old key starts
+  with one warning for each, which names the old key and its new path.
+- A section set in both places, such as `peers` and
+  `relationships.peers`, is a startup error.
+- A problem in an old key is reported at its new path.
+- Version 0.12 removes the old keys.
+
+### Part B: properties
 
 A property differs from a parameter in who writes it:
 
-| Value                        | Written by                                   | Read by  | Example           |
-| :--------------------------- | :------------------------------------------- | :------- | :---------------- |
-| uncontrollable parameter     | the DT author, as `default`                  | everyone | `capacity`        |
-| controllable parameter       | a Manager or client (04)                     | everyone | `scope`           |
-| property, `source: sensed`   | a script, or a feeder with the role `sensor` | everyone | `free-beds`       |
-| property, `source: computed` | a script                                     | everyone | `free-beds-in-2h` |
+| Value                    | Written by                                   | Example     |
+| :----------------------- | :------------------------------------------- | :---------- |
+| uncontrollable parameter | the DT author, as `default`                  | `capacity`  |
+| controllable parameter   | a Manager or client (04)                     | `scope`     |
+| property                 | a script, or a feeder with the role `sensor` | `free-beds` |
 
-### Declaration
+The first plan told sensed from computed properties with a `source`
+key. The owner dropped it: the runner never acted on it, the line
+between the two is blurred (an occupancy is computed from sensed
+values), and a label that nothing checks can be wrong.
 
-Properties are declared in the state machine file, the DT author's
-file (S4, D21), next to `parameters`:
+#### Declaration
+
+Properties are declared in the state machine file, in YAML, next to
+`parameters`. The types are those of JSON Schema, as a Thing
+Description of the Web of Things uses them (C2):
 
 ```yaml
 properties:
   free-beds:
-    type: number
-    source: sensed
-  occupancy:
-    type: number
-    source: sensed
-    unit: '%'
-  free-beds-in-2h:
-    type: number
-    source: computed
+    type: integer
+    minimum: 0
+    unit: beds
+  ward-status:
+    type: string
+    enum:
+      - open
+      - full
+      - closed
+  forecast:
+    type: array
+    items:
+      type: number
+      unit: beds
 ```
 
-The keys of a property:
+| Keyword                  | Applies to                    | Needed            |
+| :----------------------- | :---------------------------- | :---------------- |
+| `type`                   | every value                   | yes               |
+| `enum`                   | `string`, `number`, `integer` | no                |
+| `minimum`, `maximum`     | `number`, `integer`           | no                |
+| `unit`                   | `number`, `integer`           | yes               |
+| `items`                  | `array`                       | yes               |
+| `properties`, `required` | `object`                      | `properties` only |
 
-- **`type`**: `string`, `number`, `boolean` or `enum`, with `values`.
-  These are the value types of 04, with the same checks.
-- **`source`**: `sensed` (the default) or `computed`. It lets a
-  Manager tell a measured value from a simulated one. The runner shows
-  `source` and never acts on it.
-- **`unit`**: optional. It is stored and shown, never interpreted.
+`type` is `string`, `number`, `integer`, `boolean`, `object` or
+`array`. No other keyword of JSON Schema is accepted, and the runner
+builds its check from these with zod, without a new dependency.
 
 Rules:
 
+- Every number names its unit, also inside an object or an array. A
+  number without a dimension is written with `unit: '1'`, so that a
+  missing unit is always an error.
 - There is no `default`. A property is `null` until its first write.
-- Names follow the name pattern of states and parameters, and a name
-  may not be both a parameter and a property.
-- Properties need a state machine file. A DT without one has none,
-  just as it has no parameters (D21).
+- A name may not be both a parameter and a property.
+- The names `set` and `response` are reserved, for parameters,
+  properties and peers alike (see [MQTT topics](#mqtt-topics)).
 
-### Writing values
+#### Parameters share the types
 
-`PUT /properties` (HTTP) and `<base>/set-properties` (MQTT) take a flat
-object of names to values, such as `{"free-beds": 1, "occupancy": 80}`.
-The runner:
+Parameters use the scalar part of the same vocabulary: `string`,
+`number`, `integer` and `boolean`, with `enum`, `minimum` and
+`maximum`. A parameter takes no unit: it is a setting of a policy, not
+a measurement.
 
-1. Checks the whole body first, and changes nothing if any entry has a
-   problem. Every problem is listed in the `400` reply. A problem is a
-   property that is not declared or a value of the wrong type. `null`
-   is accepted for every type and marks the value as unknown, for
-   example while a sensor is offline.
-2. Stamps each written property with `time`, the runner's clock at the
-   write, and `by`, the principal name or `script`.
-3. Stores the values, keeping only the latest per name, then applies
-   them.
-4. Raises no event. A script that wants the machine to react to a
-   value raises an event itself with `POST /fsm/event`, as it does
-   today.
+An enum is therefore written as JSON Schema writes it:
 
-Rewriting the same value still updates `time`, so a feed that keeps
-writing shows that it is alive. On success the reply is `200` with the
-document of `GET /properties`. `{}` is `200` and changes nothing.
+```yaml
+# before 0.11
+scope:
+  type: enum
+  values:
+    - single
+    - multi
+  default: single
+# from 0.11
+scope:
+  type: string
+  enum:
+    - single
+    - multi
+  default: single
+```
 
-Who may write:
+The old spelling loads in 0.11, with one warning that names the
+parameters, and goes in 0.12. `GET /parameters` shows the new spelling
+for both, which changes its reply.
 
-| Role      | `set-properties` | Why                                                                 |
-| :-------- | :--------------- | :------------------------------------------------------------------ |
-| `script`  | yes              | Scripts know the PT; HTTP only, as for every script call (S11)      |
-| `sensor`  | yes (new role)   | A gateway or flow outside the runner feeds values over HTTP or MQTT |
-| `client`  | yes              | Tests and manual operation; `client` may call every route (S10)     |
-| `manager` | no               | A Manager tunes `θ_i`. It should not be able to fake `x_i`          |
+#### A file without states
 
-The new role `sensor` may call only `properties`, `set-properties` and
-`health`. Its principals are listed in `runner.yaml` like any other
-(S9), so the operator decides who may feed a DT.
+The declarations live in the state machine file because it is the DT
+author's file (S4, D21). The file needed at least one state, so a DT
+that only runs commands could have neither parameters nor properties.
+`states` is now optional. A file without states declares `parameters`,
+`properties` and `manager.commands`, and the DT has no machine:
+`GET /fsm` and the transition and event routes answer
+`no state machine`, as they do without a file. Such a file is refused
+if it has `events` or `subscriptions`, which have nothing to act on.
 
-### Reading values
+#### Writing
 
-`GET /properties` and `<base>/properties` are open to every role. They
-answer `200`, or `404` without a state machine, like `GET /parameters`:
+`PUT /properties` takes a flat object of names to values, such as
+`{"free-beds": 1}`. The runner:
+
+1. checks the whole body, and changes nothing if any entry is not
+   declared or does not fit; every problem is listed in the `400`;
+2. accepts `null` for every type, as "not known", for example while a
+   sensor is offline;
+3. stamps each written property with `time`, the runner's clock, and
+   `by`, the principal name, `script`, or `null` without access
+   control;
+4. stores the latest value of each name, then applies it;
+5. raises no event. A script that wants the machine to react raises
+   an event itself, as today.
+
+Writing the same value again updates `time`, so a feed shows that it
+is alive. `{}` is `200` and changes nothing.
+
+| Role      | `set-properties` | Why                                                  |
+| :-------- | :--------------- | :--------------------------------------------------- |
+| `script`  | yes              | Scripts know the PT; over HTTP only, as always (S11) |
+| `sensor`  | yes (new role)   | A gateway outside the runner feeds values            |
+| `client`  | yes              | Tests and manual operation (S10)                     |
+| `manager` | no               | A Manager tunes `θ_i`; it must not fake `x_i`        |
+
+The role `sensor` may call only `properties`, `set-properties` and
+`health`. Its principals are listed in `runner.yaml` like the others
+(S9).
+
+#### Reading
+
+`GET /properties` is open to every role. It answers `404` without a
+state machine file, like `GET /parameters`:
 
 ```json
 {
   "free-beds": {
     "value": 1,
-    "time": "2026-11-20T10:15:02.120Z",
+    "time": "2026-11-22T10:15:02.120Z",
     "by": "script",
-    "type": "number",
-    "source": "sensed"
-  },
-  "free-beds-in-2h": {
-    "value": null,
-    "time": null,
-    "by": null,
-    "type": "number",
-    "source": "computed"
+    "type": "integer",
+    "minimum": 0,
+    "unit": "beds"
   }
 }
 ```
 
-Scripts read properties with `GET $RUNNER_URL/properties`. There is no
-`DT_PROP_*` variable: a value copied when the script starts would go
-stale during a long run.
+There is no `DT_PROP_*` variable: a value copied when a script starts
+would go stale during a long run.
 
-### State document and notifications
+#### State document and notifications
 
 The state document gains a `properties` map of each name to
 `{value, time}`.
 
-A state notification whose only difference from the last one sent is
-in property values is held back. It is sent once `stateInterval`
-milliseconds have passed since the last state notification. The
-setting goes in `runner.yaml`, because rates are the operator's call,
-and defaults to `1000`. A change of machine, parameters or command is
-sent at once, and carries any properties that were held back. A fast
-feed therefore produces at most one notification per interval, while
+A state notification whose only change is in property values is held
+until `stateInterval` milliseconds after the last state notification.
+The setting is in `runner.yaml`, because rates are the operator's
+call, and defaults to `1000`. A change of machine, parameters or
+command is sent at once and carries the values that were held. A fast
+feed therefore gives at most one notification per interval, and
 control changes are never delayed.
 
-### Persistence
+#### Persistence
 
 A `properties` table holds one row per name: the value as JSON, `time`
-and `by`. Each write is an upsert, so the table never grows with the
-write rate. At restart, the stored values are restored with their
-original `time`, so a reader sees how old they are. A stored value
-that no longer fits its declaration is dropped with a warning, as for
-parameters (09). There is no history of values; the latest value is
-all the runner keeps.
+and `by`. Each write replaces the row, so the table does not grow with
+the write rate. At a restart the values come back with their original
+`time`. A stored value that no longer fits its declaration is dropped
+with a warning. There is no history of values.
 
-### Example: the hospital
+### MQTT topics
 
-The `open` script of `demo/hospital` already counts free beds as it
-samples them. It would write the count on each sample:
+The first plan named the write topic `<base>/set-properties`, after
+`set-parameters` and `set-peers`. The owner asked for
+`<base>/properties/set` and `<base>/properties/get`. The hierarchy is
+right: one resource is one subtree, and a broker can grant a sensor
+`<base>/properties/#`. Two things were changed in it:
 
-```powershell
-$body = @{ 'free-beds' = (Get-FreeBeds) } | ConvertTo-Json -Compress
-Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" `
-  -Headers $RunnerHeaders -ContentType 'application/json' -Body $body
-```
+- **No `get`.** Every read of the runner is the bare noun, such as
+  `<base>/parameters` and `<base>/state`.
+- **All three resources.** One resource with its own pattern would be
+  worse than either pattern.
 
-```sh
-curl -sf -X PUT "$RUNNER_URL/properties" \
-  -H "Authorization: Bearer $RUNNER_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"free-beds": 1}'
-```
+| Resource   | Read                | Write                   | Write before 0.11       |
+| :--------- | :------------------ | :---------------------- | :---------------------- |
+| properties | `<base>/properties` | `<base>/properties/set` | none                    |
+| parameters | `<base>/parameters` | `<base>/parameters/set` | `<base>/set-parameters` |
+| peers      | `<base>/peers`      | `<base>/peers/set`      | `<base>/set-peers`      |
 
-A Manager then sees `free-beds: 1` in `hospital-1`'s state document,
-not only the state name `open`.
+- The old write topics answer in 0.11, with one warning at their
+  first use, and go in 0.12.
+- The route names of the role table do not change (`set-parameters`,
+  `set-peers`, `set-properties`), as HTTP and MQTT share them.
+- `set` and `response` are reserved names, because a write topic and
+  its default response topic sit under the read topic. That leaves
+  room for a topic per name, `<base>/properties/<name>` (C7).
+- The default response topic of a write is two levels under the
+  resource, such as `<base>/parameters/set/response`. A subscription
+  to `<base>/+/response` does not match it; a client adds
+  `<base>/+/set/response`, or names a response topic with MQTT 5.
 
-### The Hospital's State Machine File
+### Not in this issue
 
-The whole file of `hospital-1` with properties, as
-`demo/hospital/hospital.fsm.yaml` would become. Only the `properties`
-section is new; the rest is today's file with comments. yamllint
-passes on it.
-
-```yaml
-# The state machine of hospital-1, as proposed by issue 19. The only
-# new section is properties; everything else is today's file.
-events:
-  - full
-  - beds-free
-  - scope-changed
-  - fidelity-changed
-  - close
-  - reopen
-  - neighbour-full
-  - neighbour-down
-parameters:
-  # set by a Manager: a patient goes to the requested ward only
-  # (single), or to any ward with a free bed (multi)
-  scope:
-    type: enum
-    values:
-      - single
-      - multi
-    default: single
-    controllable: true
-    event: scope-changed
-  # set by the DT author only: beds per ward
-  capacity:
-    type: number
-    default: 2
-    controllable: false
-  # set by a Manager: how often open samples the beds
-  fidelity:
-    type: enum
-    values:
-      - low
-      - medium
-      - high
-    default: medium
-    controllable: true
-    event: fidelity-changed
-# new (issue 19): the latest values the scripts hand the runner; null
-# until first written, never interpreted by the runner
-properties:
-  # written by open at each sample, and by admit and discharge
-  free-beds:
-    type: number
-    source: sensed
-  # written with free-beds: taken beds over all beds
-  occupancy:
-    type: number
-    source: sensed
-    unit: '%'
-  # written by open: the nearest online peer with a free bed, or none
-  overflow-to:
-    type: string
-    source: computed
-  # written by open from a short admission forecast
-  free-beds-in-2h:
-    type: number
-    source: computed
-env:
-  HINT: '${DT_ID}/${DT_STATE}#${DT_ENTRY} scope=${DT_PARAM_SCOPE}'
-escalation:
-  onFailure: true
-  onNoTransition: true
-manager:
-  commands:
-    - admit
-    - discharge
-subscriptions:
-  - peer: hospital-2
-    when:
-      state: full
-    event: neighbour-full
-  - peer: hospital-2
-    when:
-      online: false
-    event: neighbour-down
-states:
-  # samples the beds, writes the properties, raises full at zero
-  open:
-    env:
-      POLL_MS: 500
-    transitions:
-      full: full
-      scope-changed:
-        state: open
-        stop: true
-      fidelity-changed:
-        state: open
-        stop: true
-      # restarts open, which recomputes overflow-to from GET /peers
-      neighbour-full:
-        state: open
-        stop: true
-      neighbour-down:
-        state: open
-        stop: true
-      close:
-        state: closed
-        stop: true
-      $stopped: closed
-  # waits for a discharge; writes free-beds as beds free up
-  full:
-    transitions:
-      beds-free: open
-  # writes null to the sensed properties: nothing is measured
-  closed:
-    transitions:
-      reopen: open
-```
-
-What each kind of value does in it:
-
-| Value                            | Kind                           | Changed by                         | Effect on the machine                                   |
-| :------------------------------- | :----------------------------- | :--------------------------------- | :------------------------------------------------------ |
-| `scope`, `fidelity`              | controllable parameter (`θ_i`) | a Manager, with `PUT /parameters`  | raises its event, which restarts `open`                 |
-| `capacity`                       | uncontrollable parameter       | the DT author, by editing the file | none; scripts read `DT_PARAM_CAPACITY`                  |
-| `free-beds`, `occupancy`         | sensed property (`x_i`)        | scripts, with `PUT /properties`    | none; `open` raises `full` itself when `free-beds` is 0 |
-| `overflow-to`, `free-beds-in-2h` | computed property              | the `open` script                  | none; published for the Manager and peers               |
-| `open`, `full`, `closed`         | machine state (`λ_i`)          | events and transitions             | the machine itself                                      |
-
-Script changes the comments assume:
-
-- **`open`** already computes the overflow target (`Get-Overflow` in
-  `ward.ps1`) and counts free beds (`Get-FreeBeds`). It would write
-  both.
-- **`admit` and `discharge`** would write `free-beds` and `occupancy`,
-  so the values stay current in `full`, where nothing samples.
-- **`closed`** would write `null` to the sensed properties. The runner
-  never clears a value itself, so this is a convention for the
-  scripts.
-- **The forecast behind `free-beds-in-2h`** does not exist yet. It
-  stands for a `computed` value; the demo could fill it with a naive
-  estimate or leave it `null`.
-
-The operator's `runner.yaml`, in the layout of
-[20](20-config-sections.md), adds the notification interval and,
-optionally, a feeder of sensed values:
-
-```yaml
-stateInterval: 1000
-security:
-  principals:
-    - name: 'ward-gateway'
-      role: 'sensor'
-      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
-```
-
-### Not in This Issue
-
-- **Intermediate simulation data.** Series, checkpoints, traces and
-  hand-offs between scripts stay in the run directory (18) or in an
-  external store. Only results that a Manager or peer should see
-  become properties, as their latest value.
-- **A sampler script** kept alive by the runner, outside the machine.
-  This was decided against on 2026-11-20. Sensing lives in state
-  scripts or in a `sensor` feeder.
-- **The runner reading PT protocols itself**, such as a mapping from
-  MQTT topics to properties. That would make the runner a physical
-  adapter.
-- **Peer subscriptions on property values**, for example
-  `when: {property: free-beds, equals: 0}`.
-- **A `json` type** for structured computed results, such as a short
-  forecast series.
+- **Intermediate simulation data.** Series, checkpoints and traces
+  stay in the run directory (18) or in an external store.
+- **A sampler script** kept alive by the runner, outside the machine
+  (decided against on 2026-11-20).
+- **The runner reading PT protocols itself**, which would make it a
+  physical adapter.
+- **Peer subscriptions on property values.**
+- **Telemetry streams** (C6): a property keeps its latest value only.
 - **Knowing which script wrote a value.** Every script shares one
-  `RUNNER_TOKEN` (S11), so `by` is `script` and the runner cannot tell
-  which state or entry wrote it.
+  `RUNNER_TOKEN` (S11), so `by` is `script`.
+- **A unit on parameters.**
 
 ## Plan
 
-1. `src/fsm/properties.ts` (new):
-   - the zod schema of the section, reusing the value schemas of
-     `parameters.ts`;
-   - `propertyProblems(definition)` for the cross-checks: `values` for
-     an `enum`, and no name shared with a parameter;
-   - a plain class `Properties` with `values()`, `document()`,
-     `check(body)` and `commit(changes)`, modelled on `Parameters`.
-2. `src/fsm/definition.ts`: the section in `fileSchema`, `Definition`
-   and `toDefinition`. The file is at 237 lines, so first move the
-   `hasProtoKey` helpers to `src/fsm/proto.ts`.
-3. `src/queue.properties.ts` (new): the table and its upsert, kept
-   beside `queue.service.ts` (241 lines) in the way
-   `queue.machine.ts` and `queue.peers.ts` already are. Add a guarded
-   migration, with a test that opens a database of the earlier version.
-4. `src/fsm/fsm.service.ts` is at 249 lines, so it does not grow.
-   `Properties` belongs to a new `PropertiesService`, which takes the
-   definition from `FsmService.declared()` and the `Queue`. Restore
-   runs after `FsmService.restore()` in `src/main.ts`.
-5. `src/auth/auth.config.ts`: add `sensor` to the principal roles.
-   `src/auth/roles.ts`: add `properties` (every role, `sensor`
-   included) and `set-properties` (`client`, `script`, `sensor`), and
-   allow `sensor` on `health`.
-6. `src/properties.controller.ts` (new), plus the two MQTT routes in
-   `src/mqtt/mqtt.config.ts` and `src/mqtt/mqtt-request.handler.ts`.
-7. `src/descriptor.service.ts` and `src/dto/state.dto.ts`: add the
-   `properties` map. `src/notify/notifier.service.ts`: hold back
-   notifications whose only change is in properties, using
-   `stateInterval` from `src/config/config.schema.ts`.
-8. Documentation:
-   - `README.md` and `STATE-MACHINE.md`: a Properties section;
-   - `api/API.md` and `api/*.http`: the routes and the role;
-   - `SECURITY-MODEL.md`: the `sensor` role;
-   - `docs/state-machine-design.md`: new decisions for the declaration
-     and writers, the role, and the notification interval;
-   - `config/state-machine.yaml.sample` and `config/runner.yaml.sample`:
-     an example of each new key;
-   - `docs/issues/README.md`: the non-goal "a script that mirrors
-     physical-twin state into the state document" was dropped when this
-     issue was planned; mark 19 done in the status table.
-9. `demo/hospital`: `open.ps1` writes `free-beds`. Re-record the casts
-   only if the issue owner asks.
+As built. Part A:
+
+1. `src/config/layout.ts` (new): moves the old keys of the parsed file
+   to their new paths, and returns a warning for each and a problem
+   for each section set twice.
+2. `src/config/config.schema.ts`: the `relationships` object and
+   `stateInterval`. `src/config/configuration.service.ts`: the getters
+   read the new paths, so their consumers do not change.
+3. `src/mqtt/mqtt.config.ts`: the write topics and the table of the
+   old ones. `src/mqtt/request-topics.ts` (new): the request topics of
+   a runner and the warning at the first use of an old one.
+4. The samples, the demo configs and the test configs in the new
+   layout; `demo/hospital/tools/configs.mjs` indents the peer key.
+
+Part B:
+
+1. `src/fsm/value-schema.ts` (new): the vocabulary, the problems of a
+   declaration that zod can not see, and the check built from one.
+2. `src/fsm/parameters.ts`: the shared vocabulary and the old enum.
+   `src/fsm/name.ts`: the reserved names.
+3. `src/fsm/properties.ts` (new): the section, its cross-checks, and
+   the plain class `Properties`, loaded like `Peers`.
+4. `src/fsm/definition.ts`: the section and optional states; the
+   `__proto__` helpers moved to `src/fsm/proto.ts` to make room.
+   `machineOf` in `src/fsm/state-machine.ts` gives no machine without
+   states.
+5. `src/queue.properties.ts` (new): the table and its upsert.
+6. `src/descriptor.service.ts` owns `Properties`, as it owns `Peers`,
+   so that no constructor grows.
+7. `src/auth/auth.config.ts` and `src/auth/roles.ts`: the role and the
+   two routes. `src/properties.controller.ts` (new) and
+   `src/mqtt/mqtt-request.handler.ts`: the routes.
+8. `src/notify/state-hold.ts` (new) and
+   `src/notify/notifier.service.ts`: the hold of notifications.
+9. `demo/hospital`: `free-beds` in both state machine files, written
+   by `open.ps1`.
+10. The documents: `README.md`, `STATE-MACHINE.md`, `api/API.md`,
+    `api/*.http`, `SECURITY-MODEL.md`, `docs/state-machine-design.md`.
 
 ## Tasks
 
-- [ ] The schema accepts the example, and rejects an unknown `source`,
-      an `enum` without `values`, and a name shared with a parameter.
+Part A:
+
+- [x] The new layout loads, the old layout loads with one warning for
+      each moved key, and a section set in both places is refused.
+      Check: `test/unit/config.layout.spec.ts`.
+- [x] Every getter returns the same value for both layouts. Check:
+      `test/integration/config.layout.spec.ts`.
+- [x] The write topics sit under the read topics, the old ones answer
+      with one warning, and properties have no old topic. Check:
+      `test/unit/mqtt.request-topics.spec.ts`,
+      `test/e2e/mqtt.write-topics.spec.ts`.
+- [x] Samples, demo and test configs use the new layout. Check:
+      `yarn test`; yamllint from the repository root.
+
+Part B:
+
+- [x] The vocabulary accepts each type and keyword, names every
+      misplaced or missing one, and checks values at any depth. Check:
+      `test/unit/fsm.value-schema.spec.ts`.
+- [x] Parameters take the new types, and the old enum loads with a
+      warning. Check: `test/unit/fsm.parameters.schema.spec.ts`.
+- [x] The section rejects a number without a unit, a reserved name and
+      a name shared with a parameter. Check:
+      `test/unit/fsm.properties.schema.spec.ts`.
+- [x] `Properties` rejects a whole body if any entry is bad, accepts
+      `null`, stamps `time` and `by`, and restores what still fits.
       Check: `test/unit/fsm.properties.spec.ts`.
-- [ ] `Properties.check` rejects a whole body if any entry is bad,
-      accepts `null`, and stamps `time` and `by`. Check:
-      `test/unit/fsm.properties.spec.ts`.
-- [ ] The table keeps one row per name, the migration opens an earlier
-      database, and restore keeps the original `time`. Check:
+- [x] A file without states loads and has no machine. Check:
+      `test/unit/fsm.stateless.spec.ts`.
+- [x] The table keeps one row per name, opens a database of 0.10.0,
+      and keeps the values across a restart. Check:
       `test/integration/queue.properties.spec.ts`.
-- [ ] The roles: `manager` gets `403` on `set-properties`; `sensor`
-      gets `403` on every other route except `properties` and
-      `health`. Check: `test/unit/auth.roles.spec.ts`,
-      `test/e2e/properties.spec.ts`.
-- [ ] `GET` and `PUT /properties` and the MQTT routes behave as
-      specified, including `404` without a machine. Check:
-      `test/e2e/properties.spec.ts`, `test/e2e/mqtt.spec.ts`,
-      `test/e2e/mqtt.broker.spec.ts`.
-- [ ] Notifications that change only properties are held to one per
+- [x] `manager` gets `403` on `set-properties`; `sensor` gets `403` on
+      every route but the property routes and `health`. Check:
+      `test/unit/auth.roles.spec.ts`,
+      `test/e2e/properties.access.spec.ts`.
+- [x] The HTTP and MQTT routes behave as specified, with `404` without
+      a state machine file. Check: `test/e2e/properties.spec.ts`,
+      `test/unit/mqtt-request.properties.spec.ts`,
+      `test/e2e/mqtt.spec.ts`.
+- [x] Notifications that change only properties are held to one per
       `stateInterval`, and a machine change is sent at once with the
-      held values. Check: `test/unit/notifier.properties.spec.ts`.
-- [ ] Documents and samples updated. Check: markdownlint and yamllint
-      from the repository root.
-- [ ] `yarn build` and `yarn test` pass, `npx tsc --noEmit
-  --noUnusedLocals --noUnusedParameters` is clean, and no function
-      crosses the Qlty thresholds.
+      held values. Check: `test/unit/notify.state-hold.spec.ts`,
+      `test/unit/notifier.properties.spec.ts`.
+
+Both parts:
+
+- [x] `yarn build` and `yarn test` pass (1353 tests, against 1162
+      before), `yarn syntax` is clean, and
+      `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
+      clean.
+- [ ] Documents updated. Check: markdownlint and prettier from the
+      repository root.
+- [ ] The demo runs with the new files. `pwsh` was not on the machine
+      that built this, so `open.ps1` and `ward.ps1` are unrun. Check:
+      `node tools/record.mjs` on Windows.
+- [ ] `qlty check --upstream` and the checks of the pull request.
 
 ## Learnings
 
-To be written by the pull request that implements this issue.
+- **A record key hides its message.** zod reports a refused key of a
+  record as `Invalid key in record`, whatever the refinement says. The
+  reserved names are therefore checked with the cross-checks, which
+  name the reason.
+- **A union hides the type it expected.** A `default` declared as a
+  union of string, number and boolean answered `Invalid input` for
+  `.nan`. The default is now any value, checked against the
+  declaration, which says `expected number, received NaN`.
+- **`<base>/+/response` misses the write replies.** The MQTT test
+  client subscribed with one wildcard level and saw no reply on
+  `parameters/set/response`. Clients written against 0.10 have the
+  same subscription, which the documents now say.
+- **A write without a state machine file must answer as the read.**
+  The first `Properties.set` answered `400 not declared` there, while
+  `PUT /parameters` answers `404`; a test that sent `{}` hid it.
+- **Line limits shape the design.** `fsm.service.ts`,
+  `definition.ts`, `queue.service.ts` and `mqtt.service.ts` were all
+  within ten lines of 250. `Properties` went to the descriptor
+  service, `inTransaction` to `queue.schema.ts`, and the topic table
+  out of the MQTT service.
+- **`mqtt.broker.spec.ts` has no room.** It is at 248 lines, so the
+  write topics are not in it. They were run once by hand against
+  Mosquitto 2 in Docker, with a test that was then removed.
+- **The demo appends to its config.** `configs.mjs` writes the peer's
+  public key as the last line of `runner.yaml`, with a fixed indent,
+  which the new layout deepened by two spaces.
