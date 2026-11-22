@@ -106,8 +106,12 @@ _state-machine.yaml_ in `location` with the `stateMachine` key (see
 needs both changes.
 
 Version 0.11.0 added [properties](#properties), the role `sensor`, the
-[relationships](#relationships) section and `stateInterval`. It breaks
-three things:
+[relationships](#relationships) section and `stateInterval`. It also
+added the `class` section of the state machine file, the `parameters`
+key of _runner.yaml_ and subscriptions by `relationship`
+([Class and Instance](#class-and-instance)), which add `class` to
+[GET /dt](#get-request-to-dt) and `relationship` to
+[GET /peers](#peers-requests). It breaks three things:
 
 - [GET /parameters](#parameters-requests) shows an enum as
   `"type": "string"` with `"enum"`, where it showed `"type": "enum"`
@@ -407,6 +411,7 @@ relationships:
       attributes: # optional; strings, numbers or booleans
         distance: 12.4
       enabled: true # optional; true by default
+      relationship: 'neighbour' # optional; what the peer is to this DT
       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA' # optional
 ```
 
@@ -418,6 +423,11 @@ relationships:
 - `attributes` describe the relationship, such as a distance, with the
   rules of the runner's own [attributes](#digital-twin). The runner
   never reads them.
+- `relationship` is one name, with the rules of state and event names.
+  It says what the peer is to this digital twin, and several peers may
+  have the same one. A [subscription](#peer-events) of the state
+  machine file that names the relationship follows every peer that has
+  it.
 - `publicKey` is the key with which the peer signs its notifications,
   in the encoding of [access control](#access-control).
 
@@ -680,6 +690,47 @@ _execute_ has `stop` above. Otherwise only a
 script hangs, and only when the state has no `$stopped` transition;
 with one, the machine moves on and is busy again.
 
+### Class and Instance
+
+The state machine file is a class: it defines a kind of digital twin,
+with its declarations and its behaviour, and the DT author writes it
+together with the scripts. _runner.yaml_ describes one instance of the
+class, and the operator writes it: the `id`, the port, the paths, the
+keys, the peers and the values of this digital twin. Several runners
+may name the same state machine file.
+
+The optional `class` section of the file names the class:
+
+```yaml
+class:
+  id: 'urn:dtaas:demo:hospital'
+  version: '1.0.0'
+```
+
+- `id` has 1 to 200 characters and `version` 1 to 64, both without
+  spaces. Both are required when the section is present.
+- `version` is a string, so quote it: YAML reads `1.0` as a number,
+  which the runner refuses.
+- [GET /dt](#get-request-to-dt) and the [presence](#presence) notice
+  show the section as `class`, and `null` without it. The runner never
+  interprets the id and never compares versions.
+
+Three things of a class take their value in the _runner.yaml_ of each
+instance:
+
+- A [parameter](#parameters) takes the value that `parameters` of
+  _runner.yaml_ gives it, in place of the `default` of the file.
+- A [subscription](#peer-events) to a `relationship` follows the
+  [peers](#peers) that _runner.yaml_ gives that relationship.
+- Every state of the class and every entry of its
+  [manager commands](#manager-commands) must be in `commands` of
+  _runner.yaml_, or the runner does not start, with a line such as
+  `state open is not a permitted command`.
+
+The state machine file has no placeholders and no templates: the runner
+reads it as it is. [CLASS-INSTANCE-INTERFACE.md](CLASS-INSTANCE-INTERFACE.md)
+gives the full account of class, instance and interface.
+
 ### Stopping Scripts
 
 The runner stops a script on a [stop request](#post-request-to-stop)
@@ -814,6 +865,33 @@ states:
   `.`, `-` and `_`, such as `a-b` and `A_B`, are refused, as both
   become the variable name `DT_PARAM_A_B`.
 
+_runner.yaml_ may set the value of a parameter for its
+[instance](#class-and-instance), under `parameters`:
+
+```yaml
+stateMachine: 'scripts/state-machine.yaml'
+parameters:
+  capacity: 30
+```
+
+- Each value replaces the `default` of that parameter for this digital
+  twin. Any declared parameter may be set, controllable or not; the
+  values are strings, numbers or booleans.
+- The runner checks the values against the declarations when it starts.
+  A name that the file does not declare, or a value that does not fit
+  its declaration, stops the runner, and the error names every problem:
+
+  ```text
+  Invalid parameters in runner.yaml for /home/dt/scripts/state-machine.yaml:
+  ✖ parameter beds is not declared
+  ✖ parameter capacity: Too small: expected number to be >=1
+  ```
+
+- `parameters` without a `stateMachine` key stops the runner with
+  `The parameters of runner.yaml need a stateMachine file`.
+- [GET /parameters](#parameters-requests) shows the value of the
+  instance as `default`.
+
 The runner never restarts a script on its own. A script that is
 running keeps the values it started with. A DT author who wants a
 change to take effect at once links the parameter to an event whose
@@ -825,7 +903,10 @@ The runner records each change, with its time, in its
 starts again. A stored value of a parameter that is no longer declared,
 no longer controllable, or that no longer fits its declaration, such as
 a removed enum value, is dropped with a warning in the log, and the
-parameter starts at its default. A restored value raises no event.
+parameter starts at its default. A restored value raises no event. A
+stored value of a controllable parameter also wins over a value of
+`parameters` in _runner.yaml_, which is only the default of the
+instance.
 
 No parameter name has a meaning to the runner. A DT that lets its
 Manager trade accuracy for computing power declares a `fidelity`
@@ -918,8 +999,9 @@ There is no history of values.
 ### A File Without States
 
 `states` is optional. A file without states only declares
-`parameters`, `properties` and `manager.commands`, for a digital twin
-that runs commands and needs no machine:
+`parameters`, `properties` and `manager.commands`, and may name its
+[class](#class-and-instance), for a digital twin that runs commands and
+needs no machine:
 
 ```yaml
 parameters:
@@ -1101,11 +1183,11 @@ true:
 
 ```yaml
 subscriptions:
-  - peer: hospital-2 # the id of a peer of runner.yaml
+  - relationship: neighbour # a relationship of peers of runner.yaml
     when:
       state: full # the peer's last state document is in state full
     event: neighbour-full # one of the events of the file
-  - peer: hospital-2
+  - peer: hospital-2 # or the id of one peer of runner.yaml
     when:
       online: false # the peer's last presence notice is offline
     event: neighbour-down
@@ -1113,11 +1195,29 @@ subscriptions:
 
 - The section is optional. `when` holds exactly one of `state: <name>`,
   a state of the peer's machine, and `online: true` or `online: false`.
+- An entry names either `peer`, the id of one peer, or `relationship`,
+  and not both. A [class](#class-and-instance) that several instances
+  share should name a relationship, as each instance has its own peers.
+- When it starts, the runner binds each entry with a `relationship` to
+  every peer that `relationships.peers` gives that
+  [relationship](#peers): one subscription for each peer, so each peer
+  raises the event on its own change. A peer that an entry reaches both
+  by id and by relationship, with the same `when` and `event`, is
+  followed once.
+- A relationship that no peer has is not an error. Its entries are
+  idle, and the runner logs one line:
+
+  ```text
+  /home/dt/scripts/state-machine.yaml: no peer of runner.yaml has the relationship neighbour, so its subscriptions are idle
+  ```
+
 - The runner does not start when an entry has an unknown or a missing
-  key, `when` has no condition or both, `peer` is not listed under
+  key, names both a `peer` and a `relationship` or neither, `when` has
+  no condition or both, `peer` is not listed under
   `relationships.peers` (enabled or not), `event` is not under
-  `events`, or two entries have the same `peer`, `when` and `event`.
-  The same `peer` and `when` may raise two events, in file order.
+  `events`, or two entries have the same `peer` or `relationship`,
+  `when` and `event`. The same `peer` and `when` may raise two events,
+  in file order.
 - The runner keeps, for each subscription, whether its condition held
   in the last notice of the peer, and raises the event only when it
   turns from not holding, or unknown, to holding. The first notice
@@ -1369,6 +1469,7 @@ Describes the digital twin that the runner serves, from its
   "id": "hospital-1",
   "attributes": { "city": "Aarhus", "beds": 120 },
   "commands": ["create", "execute"],
+  "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
   "stateMachine": true,
   "manager": { "commands": ["execute"] },
   "peers": ["hospital-2"],
@@ -1377,7 +1478,10 @@ Describes the digital twin that the runner serves, from its
 ```
 
 `attributes` is `{}` when _runner.yaml_ has none, `commands` lists the
-permitted commands, `stateMachine` tells whether a state machine
+permitted commands, `class` is the [class](#class-and-instance) that
+the state machine file names, `null` when the file has no `class`
+section or the runner has no such file, `stateMachine` tells whether a
+state machine
 is loaded, which a [file without states](#a-file-without-states) does
 not give, `manager` lists the
 [manager commands](#manager-commands), `peers` the ids of the
@@ -1608,6 +1712,11 @@ Version 0.11.0 changed this reply: an enum is `"type": "string"` with
 `type: enum` with `values`. Before, the reply had `"type": "enum"` and
 `"values"`.
 
+`default` is the default of this digital twin: the value that
+`parameters` of _runner.yaml_ gives the parameter, else the `default`
+of the state machine file ([Parameters](#parameters)). It is also the
+`value` until a request changes it.
+
 Without a state machine file, both routes answer `404` with the body
 of `GET /fsm`, `{"status": "no state machine", "state": null}`. A
 [file without states](#a-file-without-states) is enough for them.
@@ -1755,6 +1864,7 @@ peers; here with the descriptor and the state document shortened:
     "topic": "dtaas/hospital-2",
     "url": "http://localhost:5200",
     "attributes": { "distance": 12.4 },
+    "relationship": "neighbour",
     "enabled": true,
     "online": true,
     "descriptor": { "id": "hospital-2", "peers": ["hospital-1"] },
@@ -1767,7 +1877,8 @@ peers; here with the descriptor and the state document shortened:
 [presence](#presence) and state notifications; an offline notice keeps
 the descriptor. `online`, `descriptor` and `state` are `null` until a
 notification tells them, and stay `null` without MQTT, for a disabled
-peer and for one without `topic`. An absent `topic` or `url` is `null`;
+peer and for one without `topic`. An absent `topic` or `url` is `null`,
+and so is `relationship` for a peer that _runner.yaml_ gives none;
 `publicKey` is not shown.
 
 The body of `PUT /peers` maps peer ids to booleans. The runner checks

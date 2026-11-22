@@ -25,7 +25,9 @@ version 0.10.0 (`feature/distributed-demo` at `0885d759`), with access
 control and signed notifications on. The recording predates version
 0.11.0: the files of this folder now use the `relationships` layout of
 `runner.yaml`, the property `free-beds` and the MQTT topic
-`parameters/set`, none of which it shows. The same story recorded on
+`parameters/set`, none of which it shows. Both runners now also name
+one state machine file, the class of the two hospitals, where the
+recording shows a file for each. The same story recorded on
 Linux, with the scripts running as a second account (`scripts.user`),
 is to follow as `demo-linux-*`.
 
@@ -65,10 +67,12 @@ them.
 two wards each, cardiology and maternity. Each runner reads its own
 configuration, [runner.yaml](runner.yaml) and
 [runner-2.yaml](runner-2.yaml), which list the other hospital under
-`relationships.peers` with a `distance` attribute. Their state machines,
-[hospital.fsm.yaml](hospital.fsm.yaml) and
-[hospital-2.fsm.yaml](hospital-2.fsm.yaml), have three states, each
-running the script of the same name in [scripts](scripts):
+`relationships.peers` with a `distance` attribute. Both name one state
+machine file, [hospital.fsm.yaml](hospital.fsm.yaml), which is the
+class `urn:dtaas:demo:hospital` of the two DTs
+([CLASS-INSTANCE-INTERFACE.md](../../CLASS-INSTANCE-INTERFACE.md)). It
+has three states, each running the script of the same name in
+[scripts](scripts):
 
 | State    | Script       | Meaning                                                                                      |
 | :------- | :----------- | :------------------------------------------------------------------------------------------- |
@@ -76,10 +80,19 @@ running the script of the same name in [scripts](scripts):
 | `full`   | `full.ps1`   | No free bed; succeeds when a peer is open to take overflow, else fails, which escalates      |
 | `closed` | `closed.ps1` | Admits nobody                                                                                |
 
-The two files differ in two places only: `hospital-2` has `capacity` 1,
-one bed per ward, so two admissions fill it, and only `hospital-1` has
-`subscriptions`. These raise `neighbour-full` when `hospital-2`
-reports state `full`, and `neighbour-down` when it goes offline. Both
+The two instances differ in their `runner.yaml` in two places only:
+
+- `runner-2.yaml` sets `capacity` to 1 under `parameters`, in place of
+  the 2 of the class, so `hospital-2` has one bed per ward and two
+  admissions fill it.
+- `runner.yaml` gives its peer `hospital-2` the `relationship`
+  `neighbour`, and `runner-2.yaml` gives `hospital-1` none.
+
+The `subscriptions` of the class follow the relationship `neighbour`:
+they raise `neighbour-full` when a neighbour reports state `full`, and
+`neighbour-down` when it goes offline. So `hospital-1` follows
+`hospital-2`, and `hospital-2`, without a neighbour, follows no one;
+its runner logs at startup that the subscriptions are idle. Both
 events are `stop: true` self-transitions of `open`, so its script
 starts again and logs the new place for overflow. `open` and `full`
 read that place from `GET $RUNNER_URL/peers`: the nearest peer that is
@@ -99,7 +112,9 @@ Three parameters are declared:
 - `scope` is the shared-policy parameter θ ∈ {single, multi} of the
   paper, controllable by the Manager; changing it raises
   `scope-changed`, a `stop: true` self-transition that restarts `open`.
-- `capacity`, the beds per ward, is declared but not controllable.
+- `capacity`, the beds per ward, is declared but not controllable. It
+  is an integer of at least 1, with the default 2, which `hospital-2`
+  replaces with 1.
 - `fidelity`, of values `low`, `medium` and `high`, follows the
   [fidelity convention](../../STATE-MACHINE.md#pattern-fidelity):
   `open` samples the beds every `POLL_MS` milliseconds times 4, 1 or

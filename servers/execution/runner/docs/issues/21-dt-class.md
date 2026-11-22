@@ -180,7 +180,7 @@ As built:
       before), `yarn syntax` is clean, and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean.
-- [ ] Documents updated. Check: markdownlint and prettier from the
+- [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
 - [ ] The demo runs with the one file. `pwsh` was not on the machine
       that built this. Check: `node tools/record.mjs` on Windows.

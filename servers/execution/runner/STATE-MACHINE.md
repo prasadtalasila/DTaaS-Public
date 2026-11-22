@@ -39,6 +39,8 @@ commands: # the scripts that may run; every state must be one
   - execute
   - terminate
 stateMachine: 'state-machine.yaml' # relative to this file, or absolute
+parameters: # optional; values of parameters of the file, for this DT
+  capacity: 30
 database: 'runner.db' # optional; keeps the machine across restarts
 stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
 ```
@@ -51,6 +53,8 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
   name on Linux, which must be executable, and a PowerShell script with
   the `.ps1` extension on Windows, such as _create.ps1_. A folder may
   hold both.
+- `parameters` gives parameters of the state machine file the values
+  of this DT; see [Parameters](#parameters).
 - An `mqtt` section adds an MQTT API, and `notify` under
   `relationships.manager` a webhook; see [MQTT](#mqtt) and
   [Watch the State](#watch-the-state).
@@ -59,6 +63,46 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
 - Before version 0.11.0, `notify` and `peers` were at the top of the
   file. Both still load there in 0.11, with a warning, and go in 0.12
   ([README](README.md#relationships)).
+
+## Class and Instance
+
+The state machine file is a **class**: the kind of DT, with its
+declarations and its behaviour. The DT author writes it together with
+the scripts. _runner.yaml_ describes one **instance** of the class,
+and the operator writes it: the `id`, the port, the paths, the keys,
+the peers and the values of this DT. Several runners may name the same
+state machine file, as the two hospitals of the
+[example](#example-hospital-bed-management) do.
+
+The optional `class` section of the file names the class:
+
+```yaml
+class:
+  id: 'urn:dtaas:demo:hospital'
+  version: '1.0.0'
+```
+
+- `id` has 1 to 200 characters and `version` 1 to 64, both without
+  spaces. Both are required when the section is present.
+- Quote the `version`: YAML reads `1.0` as a number, and the runner
+  takes a string only.
+- `GET /dt` and the presence notice show the section as `class`, and
+  `null` without it. The runner never interprets the id and never
+  compares versions.
+
+An instance sets three things of its class in _runner.yaml_:
+
+- `parameters` gives [parameters](#parameters) of the file their
+  values for this DT.
+- `relationship` of a peer binds the
+  [subscriptions](#subscriptions-to-peers) that name that relationship
+  to the peer.
+- `commands` must hold every state of the class and every one of its
+  [manager commands](#manager-commands).
+
+The file has no placeholders and no templates.
+[CLASS-INSTANCE-INTERFACE.md](CLASS-INSTANCE-INTERFACE.md) gives the
+full account of class, instance and interface.
 
 ## Write the State Machine File
 
@@ -177,6 +221,30 @@ states:
   of `values`. That spelling still loads in 0.11, with a warning in
   the log, and goes in 0.12; write `type: string` with `enum`.
 
+The `default` is that of the [class](#class-and-instance). An instance
+sets its own value under `parameters` in _runner.yaml_:
+
+```yaml
+parameters:
+  capacity: 30
+```
+
+- Each value replaces the `default` of that parameter for this DT. Any
+  declared parameter may be set, controllable or not.
+- The runner checks the values when it starts. A name that the file
+  does not declare, or a value that does not fit its declaration, stops
+  the runner:
+
+  ```text
+  Invalid parameters in runner.yaml for /home/dt/state-machine.yaml:
+  ✖ parameter beds is not declared
+  ✖ parameter capacity: Too small: expected number to be >=1
+  ```
+
+- `parameters` without `stateMachine` stops the runner with
+  `The parameters of runner.yaml need a stateMachine file`.
+- `GET /parameters` shows the value of the instance as `default`.
+
 The runner never restarts a script on its own. A script keeps the
 values it started with. To make a change take effect at once, give the
 parameter an `event` whose transition restarts the script, as a
@@ -257,7 +325,8 @@ when a script starts would be stale during a long run.
 ### A File Without States
 
 A DT that only runs commands with `POST /` may still declare
-parameters, properties and manager commands. Leave `states` out:
+parameters, properties and manager commands, and name its
+[class](#class-and-instance). Leave `states` out:
 
 ```yaml
 parameters:
@@ -364,20 +433,20 @@ enforced.
 
 A DT can react to its peers, the DTs that the operator lists under
 `relationships.peers` in _runner.yaml_ ([README](README.md#peers)).
-Each subscription names a peer, a condition on what the peer last
-reported, and the event that the runner raises when the condition
-turns true:
+Each subscription names a relationship or a peer, a condition on what
+the peer last reported, and the event that the runner raises when the
+condition turns true:
 
 ```yaml
 events:
   - neighbour-full
   - neighbour-down
 subscriptions:
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       state: full
     event: neighbour-full
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       online: false
     event: neighbour-down
@@ -389,7 +458,33 @@ states:
         stop: true
 ```
 
-- `peer` is the `id` of a peer of _runner.yaml_, enabled or not.
+The operator gives peers the relationship in _runner.yaml_:
+
+```yaml
+relationships:
+  peers:
+    - id: 'hospital-2'
+      topic: 'dtaas/hospital-2'
+      relationship: neighbour
+```
+
+- A subscription names either `relationship` or `peer`, and not both.
+- `relationship` is a name that _runner.yaml_ gives to peers, one name
+  for each peer. A [class](#class-and-instance) that several instances
+  share should use it, as each instance has its own peers. When it
+  starts, the runner binds the subscription to every peer with that
+  relationship, enabled or not: one subscription for each peer, so
+  each peer raises the event on its own change.
+- A relationship that no peer has is not an error. Its subscriptions
+  are idle, and the runner logs one line:
+
+  ```text
+  /home/dt/state-machine.yaml: no peer of runner.yaml has the relationship neighbour, so its subscriptions are idle
+  ```
+
+- `peer` is the `id` of one peer of _runner.yaml_, enabled or not, as
+  in `peer: hospital-2`. A peer that subscriptions reach both by id and
+  by relationship, with the same `when` and `event`, is followed once.
 - `when` holds exactly one condition. `state: <name>` holds when the
   peer's last state document has that `machine.state`; it is the
   peer's state, so it need not be one of yours. `online: true` or
@@ -431,11 +526,16 @@ problem, when:
 - a name is both a parameter and a property, or a parameter or a
   property is named `set` or `response`;
 - the file has `events` or `subscriptions` but no `states`;
-- a subscription has a key other than `peer`, `when` and `event`, or
-  misses one; its `when` has no condition, both or another key; its
-  `peer` is not listed in _runner.yaml_; its `event` is not in
-  `events`; or two subscriptions have the same `peer`, `when` and
-  `event`.
+- the `class` section has a key other than `id` and `version`, misses
+  one, or one of them has a space, is too long or is not a string;
+- a subscription has a key other than `peer`, `relationship`, `when`
+  and `event`, names both a `peer` and a `relationship` or neither, or
+  misses `when` or `event`; its `when` has no condition, both or
+  another key; its `peer` is not listed in _runner.yaml_; its `event`
+  is not in `events`; or two subscriptions have the same `peer` or
+  `relationship`, `when` and `event`;
+- `parameters` of _runner.yaml_ names a parameter that the file does
+  not declare, or gives a value that does not fit its declaration.
 
 ## Run the Machine
 
@@ -605,7 +705,9 @@ subscription reacts to notices and has no timeout.
 
 An enum shows as `"type": "string"` with `"enum"`, also when the file
 still spells it `type: enum`. Before version 0.11.0 the reply had
-`"type": "enum"` and `"values"`.
+`"type": "enum"` and `"values"`. `default` is the value that
+`parameters` of _runner.yaml_ gives the parameter, else the `default`
+of the file.
 
 `PUT /parameters` with `{"scope": "multi"}` sets controllable
 parameters. The runner checks the whole body first; on any problem it
@@ -836,7 +938,9 @@ each property at each write. When it starts again:
 - A stored parameter value that the file no longer allows, such as a
   removed parameter or enum value, or a parameter no longer
   controllable, is dropped with a warning; the parameter starts at its
-  default. A restored value raises no event.
+  default. A restored value raises no event. A stored value of a
+  controllable parameter wins over the value of `parameters` in
+  _runner.yaml_, which is the default of the instance.
 - Each property comes back with its value, and the time and the writer
   of its last write. A stored value that no longer fits its
   declaration is dropped with a warning, and the property is `null`.
@@ -1026,10 +1130,14 @@ network of hospitals steers. Its recording,
 [demo-windows-manager.cast](demo/hospital/demo-windows-manager.cast)
 and [demo-windows-network.cast](demo/hospital/demo-windows-network.cast)
 side by side in [demo-windows.mp4](demo/hospital/demo-windows.mp4),
-shows every request below. The state machine of `hospital-1` is
+shows every request below. Both hospitals run one
+[class](#class-and-instance),
 [hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml):
 
 ```yaml
+class:
+  id: 'urn:dtaas:demo:hospital'
+  version: '1.0.0'
 events:
   - full
   - beds-free
@@ -1050,9 +1158,11 @@ parameters:
     default: single
     controllable: true
     event: scope-changed
-  # beds per ward, which the Manager may read but not change
+  # beds per ward, which the Manager may read but not change; an
+  # instance sets its own under parameters in runner.yaml
   capacity:
-    type: number
+    type: integer
+    minimum: 1
     default: 2
     controllable: false
   # how often open samples the beds, from the cheapest to the most
@@ -1083,13 +1193,14 @@ manager:
   commands:
     - admit
     - discharge
-# events that the runner raises when a peer changes
+# events that the runner raises when a neighbour changes: a peer that
+# runner.yaml gives the relationship neighbour
 subscriptions:
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       state: full
     event: neighbour-full
-  - peer: hospital-2
+  - relationship: neighbour
     when:
       online: false
     event: neighbour-down
@@ -1123,8 +1234,18 @@ states:
       reopen: open
 ```
 
-[hospital-2.fsm.yaml](demo/hospital/hospital-2.fsm.yaml) is the same
-with `capacity` 1 and without `subscriptions`.
+The two instances differ in their _runner.yaml_ only.
+[runner.yaml](demo/hospital/runner.yaml) of `hospital-1` gives its peer
+`hospital-2` the relationship `neighbour`, so its subscriptions follow
+`hospital-2`. [runner-2.yaml](demo/hospital/runner-2.yaml) of
+`hospital-2` sets `capacity` to 1 and gives its peer no relationship,
+so its subscriptions are idle and `hospital-2` follows no one:
+
+```yaml
+stateMachine: 'hospital.fsm.yaml'
+parameters:
+  capacity: 1
+```
 
 ```mermaid
 stateDiagram-v2
@@ -1161,7 +1282,8 @@ As above, `transition` starts the machine and `(stop)` marks
 
 The requests of the recording to `hospital-1`, with their replies.
 The recording predates version 0.11.0, so it shows neither `free-beds`
-nor the write topic `parameters/set`:
+nor the write topic `parameters/set`, and each hospital has its own
+state machine file in it:
 
 | Request                                                             | Reply                                                                                                                                                    |
 | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
