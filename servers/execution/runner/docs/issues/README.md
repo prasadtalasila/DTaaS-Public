@@ -86,6 +86,85 @@ approval of its breaking change. 19 removes the non-goal "a script that
 mirrors physical-twin state into the state document": its scripts write
 the values, and the runner only holds them.
 
+## Proposed Work
+
+Recorded on 2026-11-22. The research documents propose more work than
+19 and 20. None of it has an issue file yet; a proposal gets a file,
+and a row in the status table, when it is planned. The ids are those
+of the source documents:
+
+- W1 to W11: [wldt-research-notes.md](../wldt-research-notes.md);
+- C1 to C8: [dt-capabilities-comparison.md](../dt-capabilities-comparison.md);
+- A and B: the XState options of [xstate.md](../xstate.md);
+- AUG, TMR, BRC and SIM: named here, for the unnumbered proposals of
+  [integrated-simulations.md](../integrated-simulations.md).
+
+A dependency is _stated_ when a source document gives it, and
+_inferred_ when it follows from what the proposal changes.
+
+| Id  | Proposal                                    | Size | Depends on                        | Basis                        | Needs the owner on          |
+| :-- | :------------------------------------------ | :--- | :-------------------------------- | :--------------------------- | :-------------------------- |
+| W1  | Revision number and change list on state    | S    | none                              | stated                       |                             |
+| W2  | Coalesce queued state notifications         | S    | none                              | stated                       |                             |
+| W3  | Durable transition and parameter timeline   | M    | none                              | stated                       |                             |
+| W4  | Script timings and delivery counters        | S    | none                              | stated                       |                             |
+| W5  | DT lifecycle as its own axis                | M    | none                              | stated                       |                             |
+| W6  | Script-declared sync with the physical twin | S    | 19                                | inferred                     | the "PT mirroring" non-goal |
+| W7  | `type` and `contentType` on declarations    | S    | C2                                | inferred                     | the input schema non-goal   |
+| W8  | Named relationships on peers                | S    | none                              | stated                       |                             |
+| W9  | Domain event notifications                  | M    | none                              | stated                       |                             |
+| W10 | Wait for a state revision (long poll)       | S/M  | W1                                | stated                       | the SSE non-goal            |
+| W11 | Overhead benchmark                          | M    | none                              | stated                       |                             |
+| C1  | Model identity                              | S    | none                              | stated                       |                             |
+| C2  | Standard types in issue 19                  | S    | part of 19, before its release    | stated                       |                             |
+| C3  | Model separate from instance                | M    | 20                                | inferred                     | amending S4                 |
+| C4  | Export the descriptor (TD, then DTDL)       | M    | 19, C2, C7; C5 for DTDL           | C7 stated, the rest inferred |                             |
+| C5  | Typed relationships                         | M    | W8, C1                            | W8 stated, C1 inferred       |                             |
+| C7  | One endpoint per affordance                 | M    | 19                                | inferred                     |                             |
+| C8  | Simulation-time convention                  | S    | 19                                | inferred                     |                             |
+| A   | XState as the engine behind today's YAML    | L    | none                              | stated                       | adopting XState             |
+| B   | XState-shaped configuration as data         | L    | A                                 | stated                       | the out-of-scope list       |
+| AUG | Commands that scripts may run               | S    | none                              | stated                       |                             |
+| TMR | Time triggers                               | –    | none, or B for its `after` timers | stated                       | a runner timer, or B        |
+| BRC | Simulation bridge client script             | –    | 19                                | stated                       |                             |
+| SIM | Native `simulations` key                    | –    | 19, BRC, fixes in the bridge      | stated                       | D2 and S6                   |
+
+C6 of the comparison is a decision to keep telemetry streams out, so
+it is no work. TMR, BRC and SIM carry no size in their source.
+
+```text
+20 ─┬─> 19 (with C2) ─┬─> W6
+    │                 ├─> W7
+    │                 ├─> C8
+    │                 ├─> C7 ──────────┬─> C4
+    │                 ├────────────────┘
+    │                 └─> BRC ─> SIM
+    └─> C3
+
+W1 ─> W10
+W8, C1 ─> C5 ─> C4 (its DTDL half)
+A ─> B
+
+W2, W3, W4, W5, W9, W11, C1, AUG, TMR: no open dependency
+```
+
+Orders that block nothing but save rework:
+
+- W2 after 19: both change how the notifier holds and merges state
+  notifications, and 19 already coalesces through `stateInterval`.
+- W4 before W2 and W9: W2 counts the escalations it drops and W9 is
+  rate-limited or counted, both through W4's counters.
+- W3 with W9: whether domain events enter the timeline is an open
+  question of both.
+- W5 before W6: where the sync flag lives is open, and the lifecycle
+  axis is one candidate.
+- C1 before C3 and C4, and W9 before C4: the exported description
+  names the model and lists the domain events.
+- W1 and W10 before AUG: a function then computes on one revision of
+  the state, and a stateful function gets updates without polling.
+- A after W1, W3 and W5: the engine change re-maps the machine and its
+  persistence, which is cheaper once the state document has settled.
+
 ## Delivery
 
 - One branch per file, named `runner/NN-slug`, pushed to the
