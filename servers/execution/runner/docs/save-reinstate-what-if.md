@@ -294,6 +294,13 @@ in the last saved state and waits there, as `interrupted`, until a
 caller sends an event or a transition. The runner starts no script by
 itself.
 
+A twin can so be taken out of execution and brought back: save it,
+shut the runner down, remove its files, and reinstate it later. It
+comes back with its state, values, history and timeline. It does not
+come back with what changed between the save and the shutdown, with
+what a script held in memory, or with what its peers last told it,
+and its properties are as old as they were.
+
 Three uses, which differ only in the `runner.yaml` that the operator
 gives:
 
@@ -526,7 +533,8 @@ auth:
 
 The tool signs each request as `replay`. Each also names who sent it
 to the twin, and its `seq` there. The replay twin records both, so
-its timeline says `manager-1` where the twin's did.
+its timeline says `manager-1` where the twin's did. It would run the
+same without them: they serve the comparison and the reader.
 
 **The notice of a peer.** Hospital-1 hears of hospital-2 by
 listening: hospital-2 announces that it is full, or gone. In a replay

@@ -203,6 +203,40 @@ The `id` of the instance may differ from that of the snapshot. That
 is how a twin moves to another host, and how [25](25-replay.md) makes
 a replay twin.
 
+### Taking a twin out of execution
+
+A twin can be saved, shut down, removed from its host, and reinstated
+later to go on:
+
+1. `POST /snapshot`, and keep the directory.
+2. Shut the runner down, and remove its database and its files.
+3. Later, on this host or another:
+   `runner -c runner.yaml --reinstate <snapshot>`.
+4. Send the twin an event or a transition. It waits in its saved
+   state as `interrupted`, and the script of that state does not
+   start by itself.
+
+What the twin has again: its state, its parameter values, its
+properties with the times they were written, its peer switches, its
+command history and its timeline. The entry numbers go on from where
+they were.
+
+What it does not have:
+
+- **Anything that changed between the save and the shutdown.** The
+  runner goes on after a save, and takes requests again. See
+  question 3.
+- **What a running script held in memory.** The script is ended at
+  the shutdown, as at any.
+- **What its peers last told it.** That is kept in memory. It comes
+  back when the peers' retained notices arrive, or with their next
+  ones.
+- **The replies kept for request keys, and the metrics**, which are
+  counted since a start.
+- **The time in between.** The properties are as old as they were,
+  and their times say so. The physical twin has moved on, and the
+  scripts of the class have to catch up with it.
+
 ### Roles
 
 The owner decided on 2026-11-23 on a fifth role, `operator`: whoever
@@ -279,6 +313,11 @@ an application that acts for the owner, and the tests.
 2. **How large may `scripts/` be?** The whole directory is copied at
    every save. A class with a simulator of some gigabytes makes every
    snapshot that large. The plan copies, and the documents say so.
+3. **Save and stop in one step?** To take a twin out of execution
+   without losing what happens after the save, the runner could shut
+   down at the end of a save, without taking requests again:
+   `POST /snapshot` with `{"stop": true}`. The plan does not have it
+   yet.
 
 ## Plan
 

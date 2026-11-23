@@ -1,7 +1,7 @@
 # 25 Replay and Compare a Twin
 
 - Status: planned. The shape of the tools was settled with the owner
-  on 2026-11-23; one assumption below awaits the owner's word.
+  on 2026-11-23.
 - Depends on: [22](22-timeline.md) (the inputs), [23](23-snapshot.md)
   (the snapshots), [24](24-what-if.md) (`DT_MODE`)
 - PR: none yet
@@ -108,10 +108,12 @@ What is sent, and what is not:
 | `notice` of a peer                                                     | `PUT /peers/<id>/notice`                  |
 | `event` or `properties` of a script, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
 
-Each request names the principal and the `seq` that it had in the
-twin. The replay twin records both in its own row, so its timeline says
-`manager-1` where the twin's did, and the two can be lined up row by
-row.
+The tool signs every request as one principal, `replay`. Each
+request also names the principal and the `seq` that it had in the
+twin, and the replay twin records both in its own row. The replay
+twin would run the same without them. They are there for the
+comparison, which lines two timelines up by that `seq`, and for a
+reader, who sees `manager-1` where the twin's timeline did.
 
 A replay twin is a reinstated twin with something changed: a
 parameter, with `--change`, or a property, with `--property`, such
@@ -224,24 +226,17 @@ snapshots: the operator. They need no principal of the twin.
 
 ### Decided
 
-| Question                   | Decision of 2026-11-23                                                       |
-| :------------------------- | :--------------------------------------------------------------------------- |
-| Who makes a replay twin    | The operator, with a tool; the runner of the twin starts none                |
-| Where the inputs come from | A later snapshot, not the live twin                                          |
-| What the tools talk to     | Snapshot directories; no URL of the twin and no key of it                    |
-| The parallel kind          | Not now                                                                      |
-| How time passes            | Time keeps its meaning, at a scale that the caller gives and the scripts get |
-| Its own issue              | Yes, apart from 24                                                           |
-| The first step             | The tool enters the saved state again when its script was running            |
-| The key of a replay twin   | The tool makes a fresh one for each run, and is its only principal           |
-
-### Assumed, for the owner to confirm
-
-1. **Who the first caller was** is carried in each request and
-   recorded by the replay twin, which trusts the tool for it. The
-   request itself is signed by the tool, as the principal `replay`;
-   a row of the replay twin then says `by: replay`, and beside it the
-   principal and the `seq` that the input had in the twin.
+| Question                   | Decision of 2026-11-23                                                                                            |
+| :------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| Who makes a replay twin    | The operator, with a tool; the runner of the twin starts none                                                     |
+| Where the inputs come from | A later snapshot, not the live twin                                                                               |
+| What the tools talk to     | Snapshot directories; no URL of the twin and no key of it                                                         |
+| The parallel kind          | Not now                                                                                                           |
+| How time passes            | Time keeps its meaning, at a scale that the caller gives and the scripts get                                      |
+| Its own issue              | Yes, apart from 24                                                                                                |
+| The first step             | The tool enters the saved state again when its script was running                                                 |
+| The key of a replay twin   | The tool makes a fresh one for each run, and is its only principal                                                |
+| Who the first caller was   | Each replayed request names the principal and the `seq` that it had in the twin, and the replay twin records them |
 
 ## Plan
 

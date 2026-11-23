@@ -1,8 +1,7 @@
 # 24 What-If Inside the Twin
 
 - Status: planned. The design was settled with the owner on
-  2026-11-23; how a result comes back is proposed, and awaits the
-  owner's word.
+  2026-11-23.
 - Depends on: [23](23-snapshot.md) (the save that makes the copy), 15a
   (access control)
 - PR: none yet
@@ -211,27 +210,24 @@ and a state without a transition for it would escalate.
 
 ### Decided
 
-| Question                  | Decision of 2026-11-23                                                             |
-| :------------------------ | :--------------------------------------------------------------------------------- |
-| The route                 | `POST /whatif`, and not `POST /`                                                   |
-| Who may ask               | A Manager, for a command that `manager.commands` lists too; a client               |
-| The copy                  | A snapshot in a temporary directory named by the time, with a copy of the database |
-| What a what-if may change | Nothing: no token, no address, no published result                                 |
-| The result                | What the script prints                                                             |
-| The reply                 | At once, with an id; the result later                                              |
-| Without access control    | Refused                                                                            |
+| Question                           | Decision of 2026-11-23                                                             |
+| :--------------------------------- | :--------------------------------------------------------------------------------- |
+| The route                          | `POST /whatif`, and not `POST /`                                                   |
+| Who may ask                        | A Manager, for a command that `manager.commands` lists too; a client               |
+| The copy                           | A snapshot in a temporary directory named by the time, with a copy of the database |
+| What a what-if may change          | Nothing: no token, no address, no published result                                 |
+| The result                         | What the script prints                                                             |
+| The reply                          | At once, with an id; the result later                                              |
+| Without access control             | Refused                                                                            |
+| How the result reaches the Manager | `GET /whatif/<id>`, and a notification on the webhook and over MQTT                |
 
 ### Open questions
 
-1. **How the result comes back.** `GET /whatif/<id>` and a
-   notification are proposed above. The owner asked whether it is a
-   file; it is the output of the script, which the runner stores and
-   serves.
-2. **Which tables may a what-if read?** A script that queries
+1. **Which tables may a what-if read?** A script that queries
    `state.db` depends on the tables of the runner. The documents
    would name a few as stable, the timeline and the properties among
    them, and leave the rest free to change.
-3. **How long is a result kept?** With the command history, which has
+2. **How long is a result kept?** With the command history, which has
    no limit now.
 
 ## Plan
