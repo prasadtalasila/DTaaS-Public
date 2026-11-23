@@ -106,10 +106,11 @@ The fifth round, planned on 2026-11-23:
 ```
 
 The owner asked for W3 as three things: a timeline to query, a twin
-that can be saved and reinstated, and what-if runs, both of a past
-period and of a scenario. Each is an issue, as each can be used
-without the next. 24 reopens the non-goal on forecasts and exogenous
-triggers.
+that an operator can save and reinstate, and what-if. Each is an
+issue, as each can be used without the next. 24 has two parts: a
+what-if command that a Manager runs inside the twin, and a fork that
+an operator starts and feeds. It reopens the non-goal on forecasts
+and exogenous triggers. 23 adds the role `operator` (S21).
 
 ## Proposed Work
 
@@ -249,6 +250,9 @@ open) or `done`.
 | S18 | A fourth role, `sensor`, may write and read the properties and nothing else. A `manager` may read them, never write them. Amends S10.                                                                      |
 | S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
+| S21 | A fifth role, `operator`, runs the twin and may copy it: reads, snapshots and `stop`. It can not steer the twin. A `manager` steers and can not copy. `client` keeps every right. Amends S10.              |
+| S22 | A DT is saved by a route that pauses the runner, outside the state machine. The runner saves what it knows, and scripts that the class names save what the scripts keep.                                   |
+| S23 | The runner starts no process for a what-if. A Manager runs a what-if command of the class on a private copy; an operator starts a fork as another runner. S1 and S2 stand.                                 |
 
 ## Lessons for Every Issue
 

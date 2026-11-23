@@ -512,7 +512,7 @@ and of these suggestions.
 | W9                  | Events are a part of `S_DT`, beside the properties, and are synchronised with them                                            |
 | W11                 | It measures a twin and its replica together: CPU, memory and network (FDT Fig. 10). A benchmark of forks would do the same    |
 | Issue 23            | The transferred state has no format in the paper; a snapshot would be one                                                     |
-| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 plans the first and the third                               |
+| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 plans all three for a fork, and a scenario inside the twin  |
 
 ### Lessons
 

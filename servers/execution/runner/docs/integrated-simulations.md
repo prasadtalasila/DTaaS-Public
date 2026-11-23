@@ -589,11 +589,11 @@ try a new function before it is deployed (FDT §4.2, Fig. 5). An
 orchestrator makes the replica, synchronises it, validates the
 function, and then promotes the function or drops it. Three patterns:
 
-| Pattern    | Where the inputs come from                                    | In issue 24               |
-| :--------- | :------------------------------------------------------------ | :------------------------ |
-| History    | Recorded data and "the production FDT's computational state"  | Looking back: a replay    |
-| Parallel   | The live data of the PT, as the production FDT receives it    | Not planned               |
-| Simulation | A synthetic environment, in the paper SimPy in real-time mode | Looking ahead: a scenario |
+| Pattern    | Where the inputs come from                                    | In issue 24                              |
+| :--------- | :------------------------------------------------------------ | :--------------------------------------- |
+| History    | Recorded data and "the production FDT's computational state"  | A replay, fed to a fork                  |
+| Parallel   | The live data of the PT, as the production FDT receives it    | The same feed, following the twin        |
+| Simulation | A synthetic environment, in the paper SimPy in real-time mode | A scenario, in the twin or fed to a fork |
 
 What the paper adds to the plan of issue 24:
 
@@ -621,22 +621,23 @@ What the paper adds to the plan of issue 24:
 - **Lesson 6: the simulated world sits next to the replica.** The
   simulation runs "within the same container" as the T-FDT, and
   feeds it over MQTT as a PT would (FDT §5.1.5). That is the mock of
-  the hospital that the owner proposed for issue 24: the scripts
-  talk to one address, which is the hospital for a twin and the mock
-  for a fork.
+  the hospital that the owner proposed for issue 24. As planned
+  there, the mock is a copy: the save script of the class copies what
+  the scripts keep, and a what-if runs on the copy.
 - **Lesson 7: real time at a factor is known ground.** SimPy's
   real-time mode ties simulated time to the clock by a factor. The
-  `speed` of issue 24 and `DT_TIME_SCALE` are the same idea, and the
-  mock can take the factor as it is.
+  speed of a replay in issue 24 and `DT_TIME_SCALE` are the same
+  idea.
 
 ### One Runner or Another
 
-A fork has to be started and fed by something. The owner decided for
-an API call to the runner of the twin, and noted that one runner
-managing parallel simulations is useful but complex. The paper does
-it the other way: the twin only hands over its data, and an
-orchestrator outside it starts and stops the replicas, as Docker
-containers (FDT §5.0.1, §5.1.5).
+A fork has to be started and fed by something. The first plan of
+issue 24 was an API call to the runner of the twin, and the owner
+noted that one runner managing parallel simulations is useful but
+complex. The paper does it the other way: the twin only hands over
+its data, and an orchestrator outside it starts and stops the
+replicas, as Docker containers (FDT §5.0.1, §5.1.5). Both ways are
+weighed here; what the owner decided follows the tables.
 
 **The runner of the twin starts its forks.**
 
@@ -670,11 +671,24 @@ starts the process. What is the same is everything else:
 
 If 2 and 3 use only the public API, they work from anywhere. The
 orchestrator of the paper is then a tool that does 1 to 3 against two
-hosts, and `POST /what-if` is the same three steps on one host, with
-limits, behind a section of `runner.yaml` that is off by default.
-_Inference_: built in that order, the simple way and the scalable way
-share their code, and the complex part, a runner that supervises
-processes, is small and last.
+hosts.
+
+**What the owner decided, on 2026-11-23.** The runner starts no
+process. The two needs are met apart:
+
+- **The operator starts a fork**, as another runner, from a snapshot,
+  and feeds and compares it with two tools of the package that use
+  the public API. This is the second table, with the orchestrator
+  left to the operator or the platform.
+- **The twin answers a what-if by itself with a script.** A command
+  that the class lists runs on a private copy of the twin, which the
+  save script of the class makes. It is what the first table wanted,
+  one call and no operator, without a second process to supervise.
+  It runs one script with a model, not the state machine.
+
+What the first table held against a runner that supervises forks
+does not arise. What it held for it is kept in the smaller form: one
+call, local data, and no network.
 
 ### What the Paper Leaves Open
 
@@ -686,8 +700,9 @@ processes, is small and last.
   named. Nothing says what a replica sees if the twin changes while
   it copies.
 - **Nothing keeps a replica from acting on the PT.** The "controlled
-  environment" is asserted. Issue 24 has a rule for it: no fork
-  without a mock.
+  environment" is asserted. Issue 24 has two rules for it: a
+  what-if inside the twin runs on a copy, and a fork is refused
+  unless its class allows one.
 - **Time is the time of the clock.** Only the simulation pattern has
   a notion of scaled time, and it is SimPy's.
 

@@ -624,14 +624,14 @@ WLDT authors' later work (see [Sources](#sources)), make this a
 capability of its own, and issues [22](issues/22-timeline.md) to
 [24](issues/24-what-if.md) plan it for the runner.
 
-| Capability                          | DTDL v4                                               | WoT                                                | WLDT with FDT                                                            | Runner                                                     |
-| :---------------------------------- | :---------------------------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :--------------------------------------------------------- |
-| The past of a twin                  | Not in the language; the platform keeps a history     | Not in the TD; a consumer records what it observes | `S_DT` at each timestamp, as a sequence; storage and queries in the core | The command history; _a timeline of every change (22)_     |
-| A twin as one document              | An instance of an Interface, exported by the platform | None: a TD describes, and holds no values          | Not defined: "computational state" is synchronised, with no format       | _A snapshot with a format number (23)_                     |
-| Moving work to another place        | None                                                  | None; a TD may point at another server             | Fluid functions offloaded between PT, edge and cloud                     | Commands, the simulation bridge; _a twin by snapshot (23)_ |
-| A second twin to try a change       | None                                                  | None                                               | A Test-FDT: history, parallel and simulation                             | _A fork: replay and scenario (24)_                         |
-| Keeping a trial from the real asset | Not applicable                                        | Not applicable                                     | A "controlled environment", not specified                                | _A fork needs a mock that its class names (24)_            |
-| Time in a trial                     | Not applicable                                        | Not applicable                                     | The clock; scaled only inside the simulator                              | _The clock, at a factor that scripts are given (24)_       |
+| Capability                          | DTDL v4                                               | WoT                                                | WLDT with FDT                                                            | Runner                                                      |
+| :---------------------------------- | :---------------------------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :---------------------------------------------------------- |
+| The past of a twin                  | Not in the language; the platform keeps a history     | Not in the TD; a consumer records what it observes | `S_DT` at each timestamp, as a sequence; storage and queries in the core | The command history; _a timeline of every change (22)_      |
+| A twin as one document              | An instance of an Interface, exported by the platform | None: a TD describes, and holds no values          | Not defined: "computational state" is synchronised, with no format       | _A snapshot: a document and the scripts' files (23)_        |
+| Moving work to another place        | None                                                  | None; a TD may point at another server             | Fluid functions offloaded between PT, edge and cloud                     | Commands, the simulation bridge; _a twin by snapshot (23)_  |
+| A second twin to try a change       | None                                                  | None                                               | A Test-FDT: history, parallel and simulation                             | _A fork that the operator starts; a command on a copy (24)_ |
+| Keeping a trial from the real asset | Not applicable                                        | Not applicable                                     | A "controlled environment", not specified                                | _A what-if runs on a copy that the class saves (24)_        |
+| Time in a trial                     | Not applicable                                        | Not applicable                                     | The clock; scaled only inside the simulator                              | _In a fork: the clock, at a factor for scripts (24)_        |
 
 _Italic_ is planned and not built.
 
@@ -645,8 +645,9 @@ What this adds to the verdicts:
   shows that history, parallel and simulation runs are worth having,
   and measures what they cost. It does not say what is transferred.
   The runner's state is small and explicit: a machine, parameters,
-  properties and peer switches. That makes a snapshot a short
-  document, and the paper's missing part the easy one here.
+  properties and peer switches. That makes the runner's part of a
+  snapshot a short document. What the scripts keep is saved by a
+  script that the class names, as only its author knows it.
 - **The runner's gap is the other way round.** It will have the
   document and the record, and has nothing like the fluid layer: it
   can not decide by itself where a computation runs. For the runner

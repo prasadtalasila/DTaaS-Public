@@ -42,12 +42,13 @@ What enters:
 
 What changes:
 
-| Kind    | When                        | Data                                                               |
-| :------ | :-------------------------- | :----------------------------------------------------------------- |
-| `start` | the runner starts           | the class, the instance values, and the whole state it starts with |
-| `entry` | the machine enters a state  | `state`, `entry`, and the `seq` of the row that caused it          |
-| `exit`  | the script of an entry ends | `entry`, the outcome, the id of its row in the command history     |
-| `stop`  | the runner shuts down       | nothing                                                            |
+| Kind       | When                               | Data                                                               |
+| :--------- | :--------------------------------- | :----------------------------------------------------------------- |
+| `start`    | the runner starts                  | the class, the instance values, and the whole state it starts with |
+| `entry`    | the machine enters a state         | `state`, `entry`, and the `seq` of the row that caused it          |
+| `exit`     | the script of an entry ends        | `entry`, the outcome, the id of its row in the command history     |
+| `snapshot` | a save ends ([23](23-snapshot.md)) | the `time` and the name of the snapshot                            |
+| `stop`     | the runner shuts down              | nothing                                                            |
 
 What is sent:
 
@@ -60,10 +61,11 @@ What is sent:
 change) or `completion` (with the `seq` of the exit).
 
 The `start` row holds the initial values: the machine as restored,
-every parameter and every property. With it, the state of the DT at
-any `seq` is the `start` row before it and the rows between, applied
-in order. [23](23-snapshot.md) builds a snapshot of any moment that
-way, not only of an entry.
+every parameter and every property. With it, what the runner knew of
+the DT at any `seq` is the `start` row before it and the rows
+between, applied in order. What the scripts kept at that moment is
+not in the rows: it exists only where a snapshot of
+[23](23-snapshot.md) took it.
 
 This reverses one line of issue 19, "there is no history of values":
 a property write is now a row. Two things keep the table from
@@ -93,7 +95,8 @@ first:
 | `count` | `true` answers the number of rows, and no rows       |
 
 A reader that wants everything asks again with `after` set to the last
-`seq` it has. Every role but `sensor` may read.
+`seq` it has. Every role but `sensor` may read, the `operator` of
+[23](23-snapshot.md) among them.
 
 ### Not in this issue
 
