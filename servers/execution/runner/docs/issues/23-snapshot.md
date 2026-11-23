@@ -206,10 +206,24 @@ a replay twin.
 ### Taking a twin out of execution
 
 A twin can be saved, shut down, removed from its host, and reinstated
-later to go on:
+later to go on. The owner decided on 2026-11-23 that a save can stop
+the runner in the same step, so that nothing changes after the
+snapshot:
 
-1. `POST /snapshot`, and keep the directory.
-2. Shut the runner down, and remove its database and its files.
+```http
+POST /snapshot
+{ "stop": true }
+```
+
+The runner saves as above. It then answers `201`, and shuts down
+without taking requests again: the scripts that run are stopped, as
+at any shutdown, and the offline notice is sent. If the save fails,
+the runner answers `500` and goes on running.
+
+The whole of it:
+
+1. `POST /snapshot` with `{"stop": true}`, and keep the directory.
+2. Remove the database and the files of the runner, or the host.
 3. Later, on this host or another:
    `runner -c runner.yaml --reinstate <snapshot>`.
 4. Send the twin an event or a transition. It waits in its saved
@@ -223,9 +237,6 @@ they were.
 
 What it does not have:
 
-- **Anything that changed between the save and the shutdown.** The
-  runner goes on after a save, and takes requests again. See
-  question 3.
 - **What a running script held in memory.** The script is ended at
   the shutdown, as at any.
 - **What its peers last told it.** That is kept in memory. It comes
@@ -236,6 +247,9 @@ What it does not have:
 - **The time in between.** The properties are as old as they were,
   and their times say so. The physical twin has moved on, and the
   scripts of the class have to catch up with it.
+
+A save without `stop` leaves the runner running. A twin that is shut
+down some time after such a save loses what changed in between.
 
 ### Roles
 
@@ -263,20 +277,20 @@ an application that acts for the owner, and the tests.
 
 ### API changes
 
-| Kind               | Change                                                                                                                        |
-| :----------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-| Route              | `POST /snapshot`: `201` with `time`, `seq`, `path`; `409` without a database or a directory; `500` when the save script fails |
-| Route              | `GET /snapshot`: the list                                                                                                     |
-| Route              | `DELETE /snapshot/<name>`: `204`, or `404`                                                                                    |
-| MQTT               | `<base>/snapshot` to list and `<base>/snapshot/set` to save, with the same replies; no topic to delete                        |
-| Reply              | `503` `saving` on every changing route while a save runs, with `Retry-After`                                                  |
-| Role               | `operator` in `auth.principals`, with the rights above; `403` messages name it                                                |
-| `runner.yaml`      | `snapshots.directory`, `snapshots.timeout`                                                                                    |
-| State machine file | `snapshot.save`, `snapshot.restore`, each a command of `runner.yaml`                                                          |
-| Script variable    | `DT_SNAPSHOT_DIR`, for the two scripts only                                                                                   |
-| Command line       | `--reinstate <directory>`                                                                                                     |
-| Timeline           | a `snapshot` row; a `start` row that names the snapshot it was reinstated from                                                |
-| Health             | `saving: true` while a save runs                                                                                              |
+| Kind               | Change                                                                                                                                                                     |
+| :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route              | `POST /snapshot`, with `{"stop": true}` to shut down after it: `201` with `time`, `seq`, `path`; `409` without a database or a directory; `500` when the save script fails |
+| Route              | `GET /snapshot`: the list                                                                                                                                                  |
+| Route              | `DELETE /snapshot/<name>`: `204`, or `404`                                                                                                                                 |
+| MQTT               | `<base>/snapshot` to list and `<base>/snapshot/set` to save, with the same replies; no topic to delete                                                                     |
+| Reply              | `503` `saving` on every changing route while a save runs, with `Retry-After`                                                                                               |
+| Role               | `operator` in `auth.principals`, with the rights above; `403` messages name it                                                                                             |
+| `runner.yaml`      | `snapshots.directory`, `snapshots.timeout`                                                                                                                                 |
+| State machine file | `snapshot.save`, `snapshot.restore`, each a command of `runner.yaml`                                                                                                       |
+| Script variable    | `DT_SNAPSHOT_DIR`, for the two scripts only                                                                                                                                |
+| Command line       | `--reinstate <directory>`                                                                                                                                                  |
+| Timeline           | a `snapshot` row; a `start` row that names the snapshot it was reinstated from                                                                                             |
+| Health             | `saving: true` while a save runs                                                                                                                                           |
 
 ### Not in this issue
 
@@ -292,17 +306,18 @@ an application that acts for the owner, and the tests.
 
 ### Decided
 
-| Question                      | Decision of 2026-11-23                                                                               |
-| :---------------------------- | :--------------------------------------------------------------------------------------------------- |
-| What the scripts keep         | The class names a save and a restore script                                                          |
-| Inside or outside the machine | Outside: a route with a pause, no save state                                                         |
-| Who saves                     | `operator` and `client`; not `manager`                                                               |
-| How snapshots are told apart  | By the time they were taken                                                                          |
-| What a snapshot holds         | The database, the configuration, the state machine file, the scripts, and what the save script wrote |
-| During a save                 | Requests that change the twin are refused                                                            |
-| What a reinstated twin has    | Everything in the database; it is in the last saved state                                            |
-| What a reinstated twin does   | It waits, as `interrupted`, for a caller                                                             |
-| Reinstating                   | At a start only, by the operator                                                                     |
+| Question                       | Decision of 2026-11-23                                                                               |
+| :----------------------------- | :--------------------------------------------------------------------------------------------------- |
+| What the scripts keep          | The class names a save and a restore script                                                          |
+| Inside or outside the machine  | Outside: a route with a pause, no save state                                                         |
+| Who saves                      | `operator` and `client`; not `manager`                                                               |
+| How snapshots are told apart   | By the time they were taken                                                                          |
+| What a snapshot holds          | The database, the configuration, the state machine file, the scripts, and what the save script wrote |
+| During a save                  | Requests that change the twin are refused                                                            |
+| What a reinstated twin has     | Everything in the database; it is in the last saved state                                            |
+| What a reinstated twin does    | It waits, as `interrupted`, for a caller                                                             |
+| Reinstating                    | At a start only, by the operator                                                                     |
+| Taking a twin out of execution | A save can stop the runner in the same step                                                          |
 
 ### Open questions
 
@@ -313,11 +328,6 @@ an application that acts for the owner, and the tests.
 2. **How large may `scripts/` be?** The whole directory is copied at
    every save. A class with a simulator of some gigabytes makes every
    snapshot that large. The plan copies, and the documents say so.
-3. **Save and stop in one step?** To take a twin out of execution
-   without losing what happens after the save, the runner could shut
-   down at the end of a save, without taking requests again:
-   `POST /snapshot` with `{"stop": true}`. The plan does not have it
-   yet.
 
 ## Plan
 
@@ -363,6 +373,11 @@ Provisional:
       each read answers, and a script that ends has its completion
       handled after. Check: `test/unit/snapshot.pause.spec.ts`,
       `test/e2e/snapshot.spec.ts`.
+- [ ] A save with `stop` answers, then shuts the runner down with
+      nothing changed after the snapshot; when the save fails the
+      runner goes on. A twin saved so, removed and reinstated has its
+      history and goes on at the next request. Check:
+      `test/e2e/snapshot.spec.ts`, `test/e2e/reinstate.spec.ts`.
 - [ ] A save script that fails or runs past the timeout leaves no
       directory, and the twin goes on. Check:
       `test/e2e/snapshot.spec.ts`.

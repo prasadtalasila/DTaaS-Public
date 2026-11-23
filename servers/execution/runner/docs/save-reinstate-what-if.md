@@ -263,12 +263,13 @@ The script of the current state is not stopped. What it holds in
 memory alone is not saved, which asks nothing new: a restart of the
 runner ends every script without a warning already.
 
-| Request                           | Reply                                                                                     |
-| :-------------------------------- | :---------------------------------------------------------------------------------------- |
-| `POST /snapshot`                  | `201` as above; `409` without a database or a directory; `500` when the save script fails |
-| `GET /snapshot`                   | `200`, a list of `{time, seq, path}`, oldest first                                        |
-| `DELETE /snapshot/<name>`         | `204`, or `404`                                                                           |
-| any changing route, during a save | `503` `{"status": "saving"}`, with `Retry-After`                                          |
+| Request                                | Reply                                                                                     |
+| :------------------------------------- | :---------------------------------------------------------------------------------------- |
+| `POST /snapshot`                       | `201` as above; `409` without a database or a directory; `500` when the save script fails |
+| `POST /snapshot` with `{"stop": true}` | The same, and the runner then shuts down                                                  |
+| `GET /snapshot`                        | `200`, a list of `{time, seq, path}`, oldest first                                        |
+| `DELETE /snapshot/<name>`              | `204`, or `404`                                                                           |
+| any changing route, during a save      | `503` `{"status": "saving"}`, with `Retry-After`                                          |
 
 ## Reinstating
 
@@ -294,12 +295,31 @@ in the last saved state and waits there, as `interrupted`, until a
 caller sends an event or a transition. The runner starts no script by
 itself.
 
-A twin can so be taken out of execution and brought back: save it,
-shut the runner down, remove its files, and reinstate it later. It
-comes back with its state, values, history and timeline. It does not
-come back with what changed between the save and the shutdown, with
-what a script held in memory, or with what its peers last told it,
-and its properties are as old as they were.
+### Out of Execution and Back
+
+A twin can be taken out of execution and brought back later:
+
+```http
+POST /snapshot
+{ "stop": true }
+```
+
+1. The runner saves, answers, and shuts down without taking another
+   request. Nothing changes after the snapshot.
+2. The operator removes the database and the files, or the host.
+3. Later, anywhere: `runner -c runner.yaml --reinstate <snapshot>`.
+4. A caller sends an event or a transition, and the twin goes on.
+
+| It comes back with                               | It comes back without                                 |
+| :----------------------------------------------- | :---------------------------------------------------- |
+| Its state and its entry count                    | What a running script held in memory                  |
+| Its parameter values and peer switches           | What its peers last told it, until they tell it again |
+| Its properties, with the times they were written | The replies kept for request keys                     |
+| Its command history and its timeline             | Its metrics, which count since a start                |
+
+The time in between is not made up for. The properties are as old as
+they were, the physical twin has moved on, and the scripts of the
+class have to catch up with it.
 
 Three uses, which differ only in the `runner.yaml` that the operator
 gives:
