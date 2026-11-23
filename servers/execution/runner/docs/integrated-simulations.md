@@ -533,6 +533,164 @@ end-to-end test.
    simulations stay with scripts until the bridge relays inputs over
    MQTT.
 
+## Fluid Digital Twins: Offloading and a Twin Beside Itself
+
+The WLDT authors extend the library into Fluid Digital Twins (FDT) in
+a later paper, cited as FDT with its section numbers (see
+[Sources](#sources)). Sections 2 to 4 were read for two things that
+issues [22](issues/22-timeline.md), [23](issues/23-snapshot.md) and
+[24](issues/24-what-if.md) plan: moving work between places, and
+running a second twin next to the first.
+
+### What Moves in the Paper
+
+Fluid computing moves **functions and data**, not a twin:
+
+- A function `f(x)` that runs on the physical twin (PT) can be
+  offloaded to the DT, and the DT can add functions that the PT never
+  had (FDT §2, Fig. 1).
+- Functions are chained into a **pipeline**, where the output of one
+  is the input of the next. Where each step runs is decided at run
+  time, from "processing speed, energy consumption, system workload"
+  (FDT §2.1).
+- Three kinds of function exist: computing, sensing and actuation, and
+  storage (FDT §3.1). Storage is a function of its own, so the others
+  hold no state.
+- Inside the DT, a **fluid layer** holds a registry of pipelines and
+  functions, with the language of each, and a pool of workers that
+  run them on function events (FDT §3, Fig. 4).
+
+Against the runner:
+
+| FDT                                 | Runner                                                                                                 |
+| :---------------------------------- | :----------------------------------------------------------------------------------------------------- |
+| A fluid function                    | A command: a script that takes input on stdin and answers on stdout                                    |
+| A pipeline                          | A script that runs commands in turn, as [above](#stateless-functions-as-commands-that-scripts-may-run) |
+| The registry, with languages        | `commands` of `runner.yaml`; a script is in any language                                               |
+| The pool of workers                 | One process per run, with its resource figures (17a, 17b)                                              |
+| Offloading to the edge or the cloud | The simulation bridge, or the same command on another runner of the class                              |
+| A function triggered every minute   | The time triggers that these notes [found missing](#recommendation-on-task-frameworks)                 |
+
+**Lesson 1: what is stateless moves for free.** The paper never
+transfers the state of a computation. It keeps functions stateless
+and makes storage explicit, so offloading is only "run this, with
+this input, over there". The runner's commands are the same. A
+command of a class can run on any runner that has the class and its
+scripts, with nothing saved first. Only what a state's script holds
+in memory, or in its run directory, needs the snapshot of issue 23.
+That is the argument for the rule of 23: keep what must survive in
+the properties.
+
+### A Twin Beside Itself
+
+The closest thing in the paper to saving a twin and starting another
+is the **Test-FDT** (T-FDT): a replica of a production FDT, made to
+try a new function before it is deployed (FDT §4.2, Fig. 5). An
+orchestrator makes the replica, synchronises it, validates the
+function, and then promotes the function or drops it. Three patterns:
+
+| Pattern    | Where the inputs come from                                    | In issue 24               |
+| :--------- | :------------------------------------------------------------ | :------------------------ |
+| History    | Recorded data and "the production FDT's computational state"  | Looking back: a replay    |
+| Parallel   | The live data of the PT, as the production FDT receives it    | Not planned               |
+| Simulation | A synthetic environment, in the paper SimPy in real-time mode | Looking ahead: a scenario |
+
+What the paper adds to the plan of issue 24:
+
+- **Lesson 2: a third kind, in parallel.** A fork that receives the
+  live inputs of the twin answers "what is the changed twin doing
+  right now?". It needs no recording of the future and no model of
+  the world, as the world answers for itself. With the timeline of
+  issue 22, a replayer that keeps asking for rows after the last one
+  is that feed.
+- **Lesson 3: the thing under test may be the class.** The paper
+  never tests a parameter. It tests a new function. For the runner,
+  that is a new version of the class: other scripts, or another state
+  machine. "Would version 1.1 have escalated last night?" is a replay
+  with another file, and it is how a class should be tried before
+  every instance takes it.
+- **Lesson 4: a run ends in a decision.** A T-FDT reports and is
+  deactivated, and the function is promoted or not. Nothing is merged
+  back. A fork is the same: its timeline is the answer, and the
+  Manager or the operator then changes the twin by the usual routes.
+- **Lesson 5: measure the run, not only its result.** The validation
+  result is "execution time, resource consumption, output accuracy"
+  (FDT §4.2). A comparison of two timelines should set the resource
+  figures of the scripts side by side too, which the command history
+  already holds.
+- **Lesson 6: the simulated world sits next to the replica.** The
+  simulation runs "within the same container" as the T-FDT, and
+  feeds it over MQTT as a PT would (FDT §5.1.5). That is the mock of
+  the hospital that the owner proposed for issue 24: the scripts
+  talk to one address, which is the hospital for a twin and the mock
+  for a fork.
+- **Lesson 7: real time at a factor is known ground.** SimPy's
+  real-time mode ties simulated time to the clock by a factor. The
+  `speed` of issue 24 and `DT_TIME_SCALE` are the same idea, and the
+  mock can take the factor as it is.
+
+### One Runner or Another
+
+A fork has to be started and fed by something. The owner decided for
+an API call to the runner of the twin, and noted that one runner
+managing parallel simulations is useful but complex. The paper does
+it the other way: the twin only hands over its data, and an
+orchestrator outside it starts and stops the replicas, as Docker
+containers (FDT §5.0.1, §5.1.5).
+
+**The runner of the twin starts its forks.**
+
+| For                                                                   | Against                                                                                                                |
+| :-------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| One call answers a question; a small deployment needs nothing else    | The fork runs on the host of the twin and takes its CPU. In the paper a replay drives the T-FDT to 100% (FDT Fig. 10a) |
+| The snapshot and the timeline are local, so nothing crosses a network | The work can not go where there is room for it, which is the point of fluid computing                                  |
+| The runner knows the class and can refuse one without a mock          | The runner becomes a supervisor: ports, directories, limits, orphans after a crash                                     |
+| One place has both timelines, so a comparison is one route            | A fault in a fork, or in the code that feeds it, is now inside the process that serves the twin                        |
+| The limits are the operator's, in one `runner.yaml`                   | It ends S1 and S2 as they stood, and a new version of the class can not be tried: the host has one install             |
+
+**Another runner is the fork**, started by an operator, a tool or the
+platform, and fed over the public API.
+
+| For                                                                                  | Against                                                                                                 |
+| :----------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
+| S1 and S2 stand: a runner serves a twin and starts nothing                           | Something else must orchestrate, which a single user does not have                                      |
+| The fork can run in the cloud, with more room, as the paper's FDT' does (FDT Fig. 2) | The snapshot and the timeline cross a network. In the paper the sync is the visible cost (FDT Fig. 10c) |
+| The twin is safe from the load and the faults of a fork                              | The inputs of commands leave the host of the twin, with the personal data in them                       |
+| It is the same step as moving a twin (issue 23), so one mechanism serves both        | The other host needs the class and its scripts, in the version wanted                                   |
+| A new version of the class is tried where it is installed                            | Two clocks: the times of two timelines need care before they are compared                               |
+| The DTaaS platform starts runners already                                            | A fork in parallel lags its twin by the time a row takes to travel                                      |
+
+**The two do not have to be chosen between.** What differs is who
+starts the process. What is the same is everything else:
+
+1. a fork is a runner started from a snapshot (issue 23);
+2. a feed reads the rows of one timeline, or a scenario, and sends
+   them to a runner over its public API;
+3. a comparison reads two timelines over their public APIs.
+
+If 2 and 3 use only the public API, they work from anywhere. The
+orchestrator of the paper is then a tool that does 1 to 3 against two
+hosts, and `POST /what-if` is the same three steps on one host, with
+limits, behind a section of `runner.yaml` that is off by default.
+_Inference_: built in that order, the simple way and the scalable way
+share their code, and the complex part, a runner that supervises
+processes, is small and last.
+
+### What the Paper Leaves Open
+
+- **The state that is transferred has no format.** "Computational
+  state" and "sync specs" are named and not defined. A snapshot with
+  a `format` number, and a timeline with a `seq`, are more than the
+  paper gives.
+- **Consistency during the sync is not treated.** "Master–slave" is
+  named. Nothing says what a replica sees if the twin changes while
+  it copies.
+- **Nothing keeps a replica from acting on the PT.** The "controlled
+  environment" is asserted. Issue 24 has a rule for it: no fork
+  without a mock.
+- **Time is the time of the clock.** Only the simulation pattern has
+  a notion of scaled time, and it is SimPy's.
+
 ## Sources
 
 - WLDT core at `0f76c6ba`: the `augmentation` package and
@@ -544,5 +702,11 @@ end-to-end test.
   `src/execa-manager.service.ts`, `SECURITY-MODEL.md`,
   `docs/issues/19-properties.md`, `demo/hospital`; `PROJECT.md` at
   the repository root.
+- FDT: Bedogni, Mamei, Picone, Pietri, Zambonelli, "Fluid Computing & Digital
+  Twins for intelligent interoperability in the IoT ecosystem", _Future
+  Generation Computer Systems_ 171 (2025) 107855,
+  doi:10.1016/j.future.2025.107855;
+  sections 2 to 4 for the design, and 5 for how it was run. Read from
+  the PDF that the owner supplied.
 - Simulation bridge at `52e7ba5`: the whole repository, mapped in
   [simulation-bridge-code-map.md](simulation-bridge-code-map.md).

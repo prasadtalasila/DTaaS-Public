@@ -5,8 +5,10 @@
 - Depends on: [22](22-timeline.md) (what happened),
   [23](23-snapshot.md) (a twin started from a saved moment)
 - PR: none yet
-- Research note: none. The owner asked for it with W3, on 2026-11-20,
-  and for both kinds below on 2026-11-23. It reopens the non-goal
+- Research note: the Fluid Digital Twins paper, read in
+  [integrated-simulations.md](../integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself).
+  The owner asked for the issue with W3, on 2026-11-20, and for both
+  kinds below on 2026-11-23. It reopens the non-goal
   "forecasts and exogenous triggers" of the
   [issues](README.md#non-goals).
 
@@ -198,7 +200,20 @@ differ.
 5. **How are two timelines compared?** As `GET /what-if/<n>/compare`
    of the runner of the twin, which has both, or left to the caller.
    The plan has the route, over `entry` rows only.
-6. **May a fork publish on the broker of the twin?** Its topic is
+6. **Is the fork fed over the public API only?** The paper has an
+   orchestrator outside the twin start its replicas. If the feed and
+   the comparison use nothing but the public API of a runner, they
+   work against a fork on another host as well, and `POST /what-if`
+   is a thin layer over them for the one-host case. The research
+   notes weigh both ways and recommend this, built before the layer.
+7. **A third kind, in parallel?** The paper also runs a replica on
+   the live inputs of its twin. With the timeline, that is a feed
+   that keeps reading the rows after the last one.
+8. **May the change be the class?** The paper tests a new function,
+   never a parameter. A fork could run another version of the state
+   machine file and its scripts, to try it before the instances take
+   it. On one host that needs a second `location` for the scripts.
+9. **May a fork publish on the broker of the twin?** Its topic is
    under the topic of the twin. A Manager that subscribes to
    `dtaas/+/notify/+` does not see it; one that subscribes to
    `dtaas/#` does. The plan publishes, with `fork` in every presence

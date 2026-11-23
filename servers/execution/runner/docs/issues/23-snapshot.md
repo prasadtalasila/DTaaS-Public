@@ -4,7 +4,10 @@
 - Depends on: [22](22-timeline.md) (the state at every row), 21 (the
   class that a saved twin belongs to)
 - PR: none yet
-- Research note: none. The owner asked for it with W3, on 2026-11-20.
+- Research note: lesson 1 of the Fluid Digital Twins paper, in
+  [integrated-simulations.md](../integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself),
+  bears on question 1. The owner asked for the issue with W3, on
+  2026-11-20.
 
 ## Spec
 
