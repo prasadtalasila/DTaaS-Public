@@ -1,9 +1,10 @@
-# 24 What-If: Inside the Twin, and in a Fork
+# 24 What-If Inside the Twin
 
 - Status: planned. The design was settled with the owner on
-  2026-11-23; the open questions below remain.
-- Depends on: [22](22-timeline.md) (what happened),
-  [23](23-snapshot.md) (the save, the copy and the reinstated twin)
+  2026-11-23; how a result comes back is proposed, and awaits the
+  owner's word.
+- Depends on: [23](23-snapshot.md) (the save that makes the copy), 15a
+  (access control)
 - PR: none yet
 - Research note: the Fluid Digital Twins paper, read in
   [integrated-simulations.md](../integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself).
@@ -13,31 +14,23 @@
 
 ## Spec
 
-Two parties ask what-if questions, and they get two answers:
+A Manager wants to ask a twin a question about a state that it is
+not in: "How many beds are free in two hours if hospital-2 goes
+down?" The twin answers by itself, with a script that its author
+wrote for the purpose, run on a private copy of the twin. Nothing of
+the twin changes, and no second runner is started.
 
-| Who          | Asks                                                                  | Gets                                          | Part |
-| :----------- | :-------------------------------------------------------------------- | :-------------------------------------------- | :--- |
-| The Manager  | "How many beds are free in two hours if hospital-2 goes down?"        | One script of the twin, run on a private copy | A    |
-| The operator | "What would the whole twin have done last night under scope `multi`?" | A second runner, a fork, fed the inputs       | B    |
+A question about how the whole state machine would have moved needs
+every script of the class to run again. That is a second twin, which
+the operator makes with the tools of [25](25-replay.md).
 
-Part A is one script with a model. It is quick, and the twin does it
-by itself. Part B runs the state machine and every script of the
-class again, and needs a second process, which the operator starts.
-The runner starts no process for either (S1 and S2 stand).
-
-### Part A: what-if inside the twin
-
-A what-if inside the twin is a command. It needs no route of its own:
-commands already have an input, an outcome, a row in the history,
-resource figures, request keys and a list of what a Manager may run.
-
-#### What the author writes
+### What the author writes
 
 ```yaml
 # the state machine file, the class
 snapshot:
-  save: save-state
-  restore: restore-state
+  save: save-script
+  restore: restore-script
 whatIf:
   commands:
     - forecast-beds
@@ -46,42 +39,26 @@ manager:
     - admit
     - discharge
     - forecast-beds
-properties:
-  free-beds:
-    type: integer
-    minimum: 0
-    unit: beds
-  free-beds-in-2h:
-    type: integer
-    minimum: 0
-    unit: beds
 ```
 
-- `whatIf.commands` are the commands that run on a private copy. Each
+- `whatIf.commands` are the commands that `POST /whatif` runs. Each
   must be a command of `runner.yaml`.
-- A Manager may run one only if `manager.commands` lists it too, as
-  for any command.
-- A result that others should see is a property, declared as usual.
-- The class needs `snapshot.save`: it is what makes the copy.
+- A Manager may run one only if `manager.commands` lists it as well.
+- The class needs `snapshot.save`, which makes the copy.
 
-And three scripts: `save-state` and `restore-state` of
-[23](23-snapshot.md), and the what-if script itself.
+And the script. It reads the copy and prints its answer:
 
 ```bash
 #!/usr/bin/env bash
 # forecast-beds: the free beds after a horizon, under a scenario
 scenario=$(cat)
 beds="$DT_WHATIF_DIR/files/ward.json"
-state="$DT_WHATIF_DIR/snapshot.json"
-free=$(simulate "$beds" "$state" "$scenario")
-curl -s -X PUT "$RUNNER_URL/properties" \
-  -H "Authorization: Bearer $RUNNER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d "{\"free-beds-in-2h\": $free}"
-echo "{\"free-beds\": $free}"
+database="$DT_WHATIF_DIR/state.db"
+free=$(simulate "$beds" "$database" "$scenario")
+echo "{\"free-beds\": $free, \"horizon\": \"PT2H\"}"
 ```
 
-#### What the operator writes
+### What the operator writes
 
 ```yaml
 # runner.yaml, the instance
@@ -91,20 +68,27 @@ commands:
   - closed
   - admit
   - discharge
-  - save-state
-  - restore-state
+  - save-script
+  - restore-script
   - forecast-beds
+database: 'run/hospital-1/hospital.db'
 snapshots:
   directory: 'run/hospital-1/snapshots'
+auth:
+  principals:
+    - name: 'manager-1'
+      role: 'manager'
+      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
 ```
 
-Nothing is new here beyond [23](23-snapshot.md): the copies go under
-the directory of the snapshots.
+Nothing is new here beyond [23](23-snapshot.md). Three things are
+needed, and a what-if is refused without any of them: a database
+file, a directory for snapshots, and access control.
 
-#### What the Manager sends
+### Asking
 
 ```http
-POST /
+POST /whatif
 {
   "name": "forecast-beds",
   "input": {
@@ -119,258 +103,181 @@ The input is the scenario. Its shape is the class's own, as for any
 command; `horizon`, `change` and `steps` are a convention that the
 documents will recommend.
 
-#### What the runner does
+The reply comes at once, as a simulation may take long:
+
+```json
+{ "id": 57, "name": "forecast-beds", "status": "running" }
+```
+
+`id` is the number of the run in the command history. The Manager
+keeps it to ask for the result.
+
+### What the runner does
 
 1. **It makes a private copy.** It saves the twin as in
    [23](23-snapshot.md), with the same pause, into a temporary
    directory named by the time,
-   `<snapshots>/what-if/20261123T101502120Z/`: `snapshot.json`, and
+   `<snapshots>/what-if/20261123T101502120Z/`. The copy is a
+   snapshot: the manifest, `state.db`, the two files, `scripts/`, and
    `files/` from the save script. No `snapshot` row is written, and
    the list of snapshots does not show it.
-2. **It runs the command**, with the input on stdin and two more
+2. **It answers `202`** with the `id`.
+3. **It runs the command**, with the input on stdin and two more
    variables: `DT_MODE=what-if`, and `DT_WHATIF_DIR`, the copy.
-3. **It answers as for any command**: the outcome and what the
-   script printed. The history and the timeline show the run, the
-   timeline with `mode: what-if`.
-4. **It removes the copy** when the script ends, however it ends.
-
-The script simulates on the copy. It never opens the files that the
-scripts of the states use, so it can not change the twin by mistake.
-The copy is also the mock: in the demo, `ward.json` stands for the
-hospital, and the what-if script admits and discharges in its copy.
+4. **It keeps what the script printed** as the result, with the
+   outcome, in the command history.
+5. **It tells that the run ended**, and **removes the copy**, however
+   the script ended.
 
 `DT_MODE` is `live` for every other script.
 
-#### Limits
+### The twin stays as it is
 
-- It is one script. The state machine does not run, and no other
-  script of the class does. A question about how the machine would
-  move is for Part B, or for a model of the machine in the script.
-- It is as fast as the script. Nothing replays in real time here, so
-  there is no time scale.
-- The twin pauses for as long as the save script takes, at each run.
-- Two runs of one command do not overlap: the second joins the
-  first, as for any command.
+The owner decided on 2026-11-23 that a what-if can not change the
+live twin. Four things see to that:
 
-### Part B: a fork, for the operator
+- **No token and no address.** The script gets neither `RUNNER_TOKEN`
+  nor `RUNNER_URL`. It can not raise an event, write a property or
+  escalate. It reads the copy.
+- **A copy of the database, not the database.** The script may read
+  `state.db` of its copy: the history, the timeline, the values. A
+  query on the file of the live twin could hold up the runner's own
+  writes, and could not be kept from writing.
+- **Access control must be on.** Without `auth.principals` every
+  route is open to any process of the host, and a missing token would
+  protect nothing. `POST /whatif` is then refused with `409`.
+- **The result is not published.** It is no property, and the state
+  document does not change.
 
-A fork is a second runner, started from a snapshot by the operator:
+What it costs: the twin pauses for the save at each what-if, and the
+database is copied each time, which takes longer as the timeline
+grows.
 
-```bash
-runner -c fork.yaml --reinstate snapshots/20261123T101502120Z --what-if --time-scale 60
-```
+### Getting the result
 
-`fork.yaml` is an instance like any other: its own `id`, port,
-database and topic. `--reinstate` is that of [23](23-snapshot.md).
-`--what-if` makes the runner a fork:
+What the script prints on stdout is the result. The runner captures
+it as it captures the output of every command, and stores it with
+the run. The Manager is on another host and can not read a file of
+the runner, so the runner hands the result over, in two ways:
 
-- **It says what it is.** `GET /dt` and the presence notice show
-  `fork: {of: "hospital-1", time: "2026-11-23T10:15:02.120Z"}`. A
-  Manager can not take a fork for a twin.
-- **Its scripts are told.** They get `DT_MODE=what-if`, `DT_FORK_OF`
-  and `DT_TIME_SCALE`. The restore script has given them their own
-  copy of the files, so a script that follows the mode acts on the
-  copy and not on the hospital.
-- **Its class must allow it.** `whatIf.fork: true` in the class.
-  Without it `--what-if` is refused: a class that was not written
-  with the mode in mind would act on the real hospital from a second
-  process.
-- **It reaches whom its operator lets it reach.** `fork.yaml` has its
-  own `relationships`. A fork with none follows no peer and notifies
-  no Manager.
+- **On request.** `GET /whatif/57` answers the run: its `status`,
+  and once it has ended its `exitCode`, its `result` and its resource
+  figures. `result` is the output parsed as JSON, or the text when it
+  is no JSON.
+- **By a notification.** When the run ends, the runner sends a
+  notification of a new kind, `whatif`, to `<base>/notify/whatif` and
+  to the webhook (S3, S7), with the `id`, the `name`, the outcome and
+  the result. It is not retained.
 
-A snapshot reinstated without `--what-if` is a second live twin. That
-is a move, or a mistake, and the operator's to tell apart.
-
-The class of a fork may be another version: `fork.yaml` names the
-state machine file and the scripts. That is how a new version of a
-class is tried before the instances take it.
-
-#### Feeding a fork
-
-A fork starts where the snapshot was taken and then does what it is
-told. A tool of the package, `runner-replay`, tells it. It reads and
-sends over the public API of the runners, so the twin and the fork
-may be on two hosts.
-
-| Kind     | The inputs are                                                | Command                                                  |
-| :------- | :------------------------------------------------------------ | :------------------------------------------------------- |
-| Replay   | The rows of the twin's timeline after the snapshot, to an end | `runner-replay --from <twin> --to <fork> --until <time>` |
-| Parallel | The same rows, and each new one as it is written              | `runner-replay --from <twin> --to <fork> --follow`       |
-| Scenario | A file of steps, each at a time after the start               | `runner-replay --scenario steps.yaml --to <fork>`        |
-
-- What is sent is what entered the twin: transitions, events of
-  clients, commands with their inputs, parameter and peer changes,
-  the notices of peers and the properties that a sensor wrote. What
-  the scripts of the twin raised or wrote is not sent: the scripts of
-  the fork do that again.
-- `--change` sets parameters in the fork before the first input, such
-  as `--change scope=multi`.
-- A replay shows what the twin would have decided, given what it was
-  told. It does not show what the world would have done. The beds
-  that were free last night were free under the old scope.
-
-#### Time
-
-A run keeps the meaning of time, at a scale. `--speed 60` plays an
-hour in a minute, `1` plays at the speed of the clock, and `0.5`
-takes twice as long. The tool divides the gap between two inputs by
-it. The fork is started with the same number as `--time-scale`, and
-gives it to its scripts as `DT_TIME_SCALE`, to divide their own waits
-by, as a convention like fidelity (17c). A script that ignores it
-samples at its usual rate while the inputs arrive faster.
-
-The timeline of a fork has real times. Each row also has `at`, the
-time that it stands for: the time of the snapshot, plus the real time
-since the start times the scale.
-
-#### Comparing
-
-`runner-compare <twin> <fork>` reads both timelines and lists, for
-each `entry` row, the state, the source, the properties and the
-resource figures of the script, lined up by `at`, and marks the first
-row where the two differ.
+An event was considered for this and left out: an event has a name
+and no data, it moves the state machine, which a what-if must not,
+and a state without a transition for it would escalate.
 
 ### Roles
 
-| Action                                      | `client` | `operator` | `manager`                       |
-| :------------------------------------------ | :------- | :--------- | :------------------------------ |
-| Run a what-if command (Part A)              | yes      | no         | if `manager.commands` lists it  |
-| Save a snapshot for a fork                  | yes      | yes        | no                              |
-| Start a fork: a shell on the host           | no       | yes        | no                              |
-| Read the timeline of the twin, to replay it | yes      | yes        | yes                             |
-| Send inputs to a fork                       | yes      | no         | parameters, peers, its commands |
-| Read the timeline of a fork, to compare     | yes      | yes        | yes                             |
-
-An operator feeds a fork as a `client` of it: the fork is the
-operator's, and `fork.yaml` lists the operator's key in that role.
+| Route           | `client` | `operator` | `manager`                                            | `script` | `sensor` |
+| :-------------- | :------- | :--------- | :--------------------------------------------------- | :------- | :------- |
+| `whatif`        | yes      | no         | commands in `whatIf.commands` and `manager.commands` | no       | no       |
+| `whatif-result` | yes      | yes        | yes                                                  | no       | no       |
 
 ### API changes
 
-| Kind               | Change                                                                                                                              |
-| :----------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| State machine file | `whatIf.commands`, each a command of `runner.yaml`; `whatIf.fork`, a boolean                                                        |
-| Script variables   | `DT_MODE` (`live` or `what-if`) for every script; `DT_WHATIF_DIR` for a what-if command; `DT_FORK_OF` and `DT_TIME_SCALE` in a fork |
-| Reply              | `POST /` of a what-if command: `409` `no snapshot directory`, and `500` when the copy fails                                         |
-| Reply              | `GET /dt` and the presence notice: `fork`, `null` for a twin                                                                        |
-| Timeline           | `mode` on a command row; `at` on every row of a fork                                                                                |
-| Command line       | `--what-if` and `--time-scale <factor>`, both only with `--reinstate`                                                               |
-| Package            | Two more commands: `runner-replay` and `runner-compare`                                                                             |
+| Kind               | Change                                                                                                                                                                   |
+| :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route              | `POST /whatif`: `202` with `id`; `400` for a command that `whatIf.commands` lacks; `409` without a database, a directory or access control; `503` `saving` during a save |
+| Route              | `GET /whatif/<id>`: the run; `404` for an id that is no what-if                                                                                                          |
+| MQTT               | `<base>/whatif/set` to ask, `<base>/whatif` with `{"id": 57}` for a result                                                                                               |
+| Notification       | kind `whatif`, on `<base>/notify/whatif` and the webhook                                                                                                                 |
+| State machine file | `whatIf.commands`                                                                                                                                                        |
+| Script variables   | `DT_MODE` (`live` or `what-if`) for every script; `DT_WHATIF_DIR` for a what-if; no `RUNNER_TOKEN` and no `RUNNER_URL` for a what-if                                     |
+| Timeline           | a `whatif` row with the command and its input; a `sent` row for the notification                                                                                         |
+| History            | `mode: what-if` on the run                                                                                                                                               |
 
-No route is added.
+### Limits
+
+- It is one script. The state machine does not run, and no other
+  script of the class does.
+- It is as fast as the script. Nothing replays in real time.
+- Two runs of one command do not overlap: the second joins the first,
+  as for any command.
 
 ### Not in this issue
 
-- A route that starts a fork, and any process that the runner starts
-  for a caller. The owner dropped `POST /what-if` on 2026-11-23.
-- A simulated clock in the runner: time is scaled, not stepped.
-- Trying a change in the twin itself, or running it backwards.
-- Forks of forks, and merging a fork into its twin.
-- The model of the physical twin, which is the author's, in the
-  scripts.
+- A second twin, and replays of a recorded period:
+  [25](25-replay.md).
+- Publishing a result as a property.
+- A model of the physical twin, which is the author's, in the script.
 - A Manager that decides from the result.
 
 ### Decided
 
-| Question                     | Decision of 2026-11-23                                                       |
-| :--------------------------- | :--------------------------------------------------------------------------- |
-| Who starts a fork            | The operator, as a second runner; the runner starts none                     |
-| What-if without the operator | A command of the class, run on a private copy that the save script makes     |
-| Who may ask                  | The Manager runs what-if commands; saving is the operator's and the client's |
-| The copy                     | A temporary directory, named by the time, removed after the run              |
-| How time passes in a fork    | Time keeps its meaning, at a scale that the caller gives and scripts get     |
-| Kinds of what-if             | A replay of a past period and a scenario of a coming one                     |
+| Question                  | Decision of 2026-11-23                                                             |
+| :------------------------ | :--------------------------------------------------------------------------------- |
+| The route                 | `POST /whatif`, and not `POST /`                                                   |
+| Who may ask               | A Manager, for a command that `manager.commands` lists too; a client               |
+| The copy                  | A snapshot in a temporary directory named by the time, with a copy of the database |
+| What a what-if may change | Nothing: no token, no address, no published result                                 |
+| The result                | What the script prints                                                             |
+| The reply                 | At once, with an id; the result later                                              |
+| Without access control    | Refused                                                                            |
 
 ### Open questions
 
-1. **May a what-if command change the twin?** It gets the token of
-   every script (S11), so it can raise an event or escalate. It
-   should only read and write properties. Either the documents say
-   so, or the runner mints a second token that can do no more. The
-   plan documents it.
-2. **Is the parallel kind wanted?** It costs one option of the tool,
-   `--follow`, once a replay exists. The plan has it.
-3. **Personal data on a second host.** A replay sends the inputs of
-   commands to the fork, and the demo's `admit` names a patient.
-   Should the tool be able to leave inputs out, or to replace them?
-4. **May a fork publish on the broker of the twin?** It is the
-   operator's `fork.yaml` that says. The documents will recommend a
-   topic that a Manager's subscription does not match.
-5. **Is one issue too large?** Part A is a few days on top of 23.
-   Part B is a week or more and can follow it as its own pull
-   request, or its own issue.
+1. **How the result comes back.** `GET /whatif/<id>` and a
+   notification are proposed above. The owner asked whether it is a
+   file; it is the output of the script, which the runner stores and
+   serves.
+2. **Which tables may a what-if read?** A script that queries
+   `state.db` depends on the tables of the runner. The documents
+   would name a few as stable, the timeline and the properties among
+   them, and leave the rest free to change.
+3. **How long is a result kept?** With the command history, which has
+   no limit now.
 
 ## Plan
 
-Provisional. Part A:
+Provisional:
 
 1. `src/fsm/class.ts`: `whatIf`, with the cross-checks: each command
    is permitted, and `snapshot.save` is named.
 2. `src/snapshot/snapshot.service.ts` of [23](23-snapshot.md): a save
    into a temporary directory, without a row and outside the list.
-3. `src/execa-manager.service.ts` is at 241 lines, so a new
-   `src/whatif/whatif.ts` wraps the run of a what-if command: the
-   copy, the two variables, and the removal in a `finally`.
-4. `src/fsm/script-context.ts`: `DT_MODE` for every script.
-5. `demo/hospital`: `forecast-beds`, and a step of the story where
-   the Manager asks.
-
-Part B:
-
-1. `src/config/commander.ts`, `src/main.ts`: `--what-if` and
-   `--time-scale`. `src/dto/descriptor.dto.ts`: `fork`.
-   `src/fsm/script-context.ts`: `DT_FORK_OF`, `DT_TIME_SCALE`. The
-   timeline: `at`.
-2. `src/tools/` (new), with two more `bin` entries in `package.json`:
-   - `inputs.ts`: the inputs of a stretch of a timeline, or of a
-     scenario file;
-   - `replay.ts`: sends them to a runner at their times over the
-     speed, signed as a principal;
-   - `compare.ts`: the `entry` rows of two timelines by `at`.
-3. `demo/hospital`: scripts that honour `DT_MODE` and
-   `DT_TIME_SCALE`, and a replay of the story under another scope.
-
-Documents, for both: a new `WHAT-IF.md` for authors, Managers and
-operators, `README.md`, `STATE-MACHINE.md`,
-`CLASS-INSTANCE-INTERFACE.md`, `SECURITY-MODEL.md`, `api/API.md`, and
-decisions in `docs/state-machine-design.md`.
+3. `src/whatif/whatif.service.ts` (new): the checks, the copy, the
+   run without a token or an address, the notification, and the
+   removal in a `finally`. `execa-manager.service.ts` is at 241 lines
+   and does not grow.
+4. `src/whatif.controller.ts` (new), the MQTT routes, the two rows of
+   `src/auth/roles.ts`, and the kind `whatif` in
+   `src/dto/notify.dto.ts`.
+5. `src/fsm/script-context.ts`: `DT_MODE` for every script.
+6. `demo/hospital`: `forecast-beds`, and a step of the story where
+   the Manager asks and reads the result.
+7. Documents: a new `WHAT-IF.md` for authors and Managers,
+   `README.md`, `STATE-MACHINE.md`, `SECURITY-MODEL.md`, `api/API.md`,
+   `api/*.http`, and decisions in `docs/state-machine-design.md`.
 
 ## Tasks
-
-Part A:
 
 - [ ] A class with `whatIf.commands` loads; one that names a command
       which is not permitted, or has no `snapshot.save`, is refused.
       Check: `test/unit/fsm.class.spec.ts`.
-- [ ] A what-if command runs with `DT_MODE=what-if` and a copy that
-      holds `snapshot.json` and what the save script wrote; the copy
-      is gone after a success, a failure and a stop. Check:
-      `test/e2e/whatif.spec.ts`.
-- [ ] No `snapshot` row is written and the list of snapshots is
-      unchanged; the timeline shows the command with its mode. Check:
+- [ ] `POST /whatif` answers `202` with an id, and is refused without
+      a database, a directory, access control, or a listed command.
+      Check: `test/e2e/whatif.spec.ts`.
+- [ ] The script runs with `DT_MODE=what-if` and a copy that holds a
+      database that opens, and without `RUNNER_TOKEN` and
+      `RUNNER_URL`; the copy is gone after a success, a failure and a
+      stop. Check: `test/e2e/whatif.spec.ts`.
+- [ ] The state document, the properties and the machine are the same
+      before and after a what-if. Check: `test/e2e/whatif.spec.ts`.
+- [ ] `GET /whatif/<id>` shows the run and its result, and a `whatif`
+      notification is sent once at the end. Check:
+      `test/e2e/whatif.spec.ts`, `test/unit/notifier.whatif.spec.ts`.
+- [ ] A `manager` may run a command listed in both places and no
+      other. Check: `test/unit/auth.roles.spec.ts`,
       `test/e2e/whatif.spec.ts`.
 - [ ] Every other script gets `DT_MODE=live`. Check:
       `test/unit/script-context.spec.ts`.
-- [ ] A `manager` may run a listed what-if command and not an
-      unlisted one. Check: `test/e2e/whatif.spec.ts`.
-
-Part B:
-
-- [ ] `--what-if` is refused without `--reinstate` and without
-      `whatIf.fork`; a fork shows `fork` in `/dt` and gives its
-      scripts the three variables. Check: `test/e2e/fork.spec.ts`.
-- [ ] `runner-replay` sends the inputs of a timeline in their order,
-      with the gaps over the speed, and not what scripts raised.
-      Check: `test/unit/tools.replay.spec.ts`.
-- [ ] A replay of a recorded run with no change gives a timeline that
-      `runner-compare` finds equal in its `entry` rows; with a change
-      it marks the first difference. Check:
-      `test/e2e/replay.spec.ts`.
-- [ ] A scenario file and `--follow` feed a fork. Check:
-      `test/e2e/replay.spec.ts`.
-
-Both parts:
-
 - [ ] Documents updated. Check: markdownlint and prettier from the
       repository root.
 - [ ] `yarn build` and `yarn test` pass, and

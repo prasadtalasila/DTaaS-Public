@@ -37,7 +37,8 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
 | [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | planned     |      |
 | [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | planned     |      |
-| [24-what-if.md](24-what-if.md)                         | What-if runs                | L    | planned     |      |
+| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | planned     |      |
+| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -102,15 +103,16 @@ state machine file becomes a class that several instances share.
 The fifth round, planned on 2026-11-23:
 
 ```text
-19 properties, 21 dt-class ─> 22 timeline ─> 23 snapshot ─> 24 what-if
+19 properties, 21 dt-class ─> 22 timeline ─> 23 snapshot ─> 24 what-if ─> 25 replay
 ```
 
 The owner asked for W3 as three things: a timeline to query, a twin
-that an operator can save and reinstate, and what-if. Each is an
-issue, as each can be used without the next. 24 has two parts: a
-what-if command that a Manager runs inside the twin, and a fork that
-an operator starts and feeds. It reopens the non-goal on forecasts
-and exogenous triggers. 23 adds the role `operator` (S21).
+that an operator can save and reinstate, and what-if. 23 adds the role
+`operator` (S21). What-if became two issues. In 24 a Manager asks the
+twin, which runs one script on a private copy. In 25 the operator
+replays a recorded period in a side twin, with two tools that work
+from snapshots. 24 reopens the non-goal on forecasts and exogenous
+triggers.
 
 ## Proposed Work
 
@@ -251,8 +253,8 @@ open) or `done`.
 | S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
 | S21 | A fifth role, `operator`, runs the twin and may copy it: reads, snapshots and `stop`. It can not steer the twin. A `manager` steers and can not copy. `client` keeps every right. Amends S10.              |
-| S22 | A DT is saved by a route that pauses the runner, outside the state machine. The runner saves what it knows, and scripts that the class names save what the scripts keep.                                   |
-| S23 | The runner starts no process for a what-if. A Manager runs a what-if command of the class on a private copy; an operator starts a fork as another runner. S1 and S2 stand.                                 |
+| S22 | A DT is saved by a route that pauses the runner, outside the state machine. A snapshot is a directory with the database, the configuration, the class and its scripts, and what the scripts keep.          |
+| S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a side twin, with tools. S1 and S2 stand.                   |
 
 ## Lessons for Every Issue
 
@@ -359,7 +361,7 @@ Out of scope for every file here, with what could reopen each:
 - The runner as Manager, or any runner-side policy evaluation such as
   P1's `γ_i` (open questions 5 and 6).
 - Forecasts and exogenous triggers (open question 9), in the twin
-  itself. [24](24-what-if.md) plans them for a fork of it.
+  itself. [24](24-what-if.md) plans them for a copy of it.
 - Server-sent events as a push transport (open question 2); the
   webhook of 03 covers HTTP.
 - A stdout line protocol for scripts to raise events (open question

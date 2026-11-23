@@ -6,7 +6,7 @@
 - PR: none yet
 - Research note: W3 of
   [wldt-research-notes.md](../wldt-research-notes.md). It is the base
-  of [23](23-snapshot.md) and [24](24-what-if.md).
+  of [23](23-snapshot.md), [24](24-what-if.md) and [25](25-replay.md).
 
 ## Spec
 
@@ -30,15 +30,16 @@ everything that it sends.
 
 What enters:
 
-| Kind         | When                                   | Data                                                              |
-| :----------- | :------------------------------------- | :---------------------------------------------------------------- |
-| `transition` | a client asks for a state              | `state`, and the reply                                            |
-| `event`      | anyone raises an event, a script too   | `event`, `source`, and the reply, also when it moves nothing      |
-| `command`    | a command is submitted with `POST /`   | `name`, its `input`, and the id of its row in the command history |
-| `parameters` | a caller sets parameters               | the names and the new values                                      |
-| `properties` | a script or a sensor writes properties | the names and the new values                                      |
-| `peers`      | a caller enables or disables a peer    | the ids and the switches                                          |
-| `notice`     | a notice of a followed peer arrives    | `peer`, `kind` (`state` or `presence`), and the notice            |
+| Kind         | When                                         | Data                                                              |
+| :----------- | :------------------------------------------- | :---------------------------------------------------------------- |
+| `transition` | a client asks for a state                    | `state`, and the reply                                            |
+| `event`      | anyone raises an event, a script too         | `event`, `source`, and the reply, also when it moves nothing      |
+| `command`    | a command is submitted with `POST /`         | `name`, its `input`, and the id of its row in the command history |
+| `parameters` | a caller sets parameters                     | the names and the new values                                      |
+| `properties` | a script or a sensor writes properties       | the names and the new values                                      |
+| `peers`      | a caller enables or disables a peer          | the ids and the switches                                          |
+| `notice`     | a notice of a followed peer arrives          | `peer`, `kind` (`state` or `presence`), and the notice            |
+| `whatif`     | a what-if is asked for ([24](24-what-if.md)) | `name`, its `input`, and the id of its run                        |
 
 What changes:
 
@@ -52,9 +53,9 @@ What changes:
 
 What is sent:
 
-| Kind   | When                            | Data                                                          |
-| :----- | :------------------------------ | :------------------------------------------------------------ |
-| `sent` | the runner sends a notification | its `kind` (`state`, `escalation`, `presence`) and its `data` |
+| Kind   | When                            | Data                                                                    |
+| :----- | :------------------------------ | :---------------------------------------------------------------------- |
+| `sent` | the runner sends a notification | its `kind` (`state`, `escalation`, `presence`, `whatif`) and its `data` |
 
 `source` of an event is who raised it: `client`, `script`, `peer`
 (with the `seq` of the notice), `parameter` (with the `seq` of the
@@ -122,7 +123,8 @@ A reader that wants everything asks again with `after` set to the last
    with their own shape and query. A new route keeps both simple. The
    plan assumes `/timeline`.
 2. **Personal data.** The input of a command is now stored, and the
-   demo's `admit` takes a patient. Every role but `sensor` may read
+   demo's `admit` takes a patient, and a snapshot carries the whole
+   table with it. Every role but `sensor` may read
    the timeline. Should `input` be shown to `client` only, as the
    logs of a command are?
 3. **Is `seq` the revision of W1?** Every change of the state

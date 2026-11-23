@@ -504,15 +504,15 @@ and of these suggestions.
 
 ### What It Means for the Suggestions
 
-| Suggestion or issue | What the paper says                                                                                                           |
-| :------------------ | :---------------------------------------------------------------------------------------------------------------------------- |
-| W3, now issue 22    | It defines the history of a twin as the sequence of its timed states. The owner's decision to record every change is the same |
-| W1                  | A replica that synchronises needs to know where it is in that sequence, which a revision gives                                |
-| W4                  | Validation reports execution time and resource use of each function, the figures that W4 and 17a give                         |
-| W9                  | Events are a part of `S_DT`, beside the properties, and are synchronised with them                                            |
-| W11                 | It measures a twin and its replica together: CPU, memory and network (FDT Fig. 10). A benchmark of forks would do the same    |
-| Issue 23            | The transferred state has no format in the paper; a snapshot would be one                                                     |
-| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 plans all three for a fork, and a scenario inside the twin  |
+| Suggestion or issue | What the paper says                                                                                                                       |
+| :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------- |
+| W3, now issue 22    | It defines the history of a twin as the sequence of its timed states. The owner's decision to record every change is the same             |
+| W1                  | A replica that synchronises needs to know where it is in that sequence, which a revision gives                                            |
+| W4                  | Validation reports execution time and resource use of each function, the figures that W4 and 17a give                                     |
+| W9                  | Events are a part of `S_DT`, beside the properties, and are synchronised with them                                                        |
+| W11                 | It measures a twin and its replica together: CPU, memory and network (FDT Fig. 10). A benchmark of forks would do the same                |
+| Issue 23            | The transferred state has no format in the paper; a snapshot would be one                                                                 |
+| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 plans a scenario inside the twin, and 25 a replay; not the parallel one |
 
 ### Lessons
 

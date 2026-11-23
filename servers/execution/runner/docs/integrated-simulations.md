@@ -592,7 +592,7 @@ function, and then promotes the function or drops it. Three patterns:
 | Pattern    | Where the inputs come from                                    | In issue 24                              |
 | :--------- | :------------------------------------------------------------ | :--------------------------------------- |
 | History    | Recorded data and "the production FDT's computational state"  | A replay, fed to a fork                  |
-| Parallel   | The live data of the PT, as the production FDT receives it    | The same feed, following the twin        |
+| Parallel   | The live data of the PT, as the production FDT receives it    | Not planned: it needs the live twin      |
 | Simulation | A synthetic environment, in the paper SimPy in real-time mode | A scenario, in the twin or fed to a fork |
 
 What the paper adds to the plan of issue 24:
@@ -676,15 +676,21 @@ hosts.
 **What the owner decided, on 2026-11-23.** The runner starts no
 process. The two needs are met apart:
 
-- **The operator starts a fork**, as another runner, from a snapshot,
-  and feeds and compares it with two tools of the package that use
-  the public API. This is the second table, with the orchestrator
-  left to the operator or the platform.
-- **The twin answers a what-if by itself with a script.** A command
-  that the class lists runs on a private copy of the twin, which the
-  save script of the class makes. It is what the first table wanted,
-  one call and no operator, without a second process to supervise.
-  It runs one script with a model, not the state machine.
+- **The operator replays in a side twin** (issue
+  [25](issues/25-replay.md)). A tool of the package starts another
+  runner from a snapshot, feeds it the inputs that a later snapshot
+  recorded, and a second tool compares the two timelines. Neither
+  contacts the twin. This is the second table, with the tool as the
+  orchestrator, and without its costs of a network: a snapshot holds
+  the database, the class and its scripts, so everything is in two
+  directories.
+- **The twin answers a what-if by itself with a script** (issue
+  [24](issues/24-what-if.md)). A command that the class lists runs on
+  a private copy of the twin, which the save script of the class
+  makes. It is what the first table wanted, one call and no operator,
+  without a second process to supervise. It runs one script with a
+  model, not the state machine, and it can change nothing: it gets no
+  token.
 
 What the first table held against a runner that supervises forks
 does not arise. What it held for it is kept in the smaller form: one
