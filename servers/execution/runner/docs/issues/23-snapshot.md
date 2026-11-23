@@ -1,7 +1,7 @@
 # 23 Save and Reinstate a DT
 
 - Status: planned. The open questions below are for the owner.
-- Depends on: [22](22-timeline.md) (the values at each entry), 21 (the
+- Depends on: [22](22-timeline.md) (the state at every row), 21 (the
   class that a saved twin belongs to)
 - PR: none yet
 - Research note: none. The owner asked for it with W3, on 2026-11-20.
@@ -50,11 +50,12 @@ It does not hold:
 ### Saving
 
 `GET /snapshot` answers the snapshot of this moment.
-`GET /snapshot?seq=412` answers the one of an earlier moment, which
-must be an `entry` row of the timeline: that is where the values were
-recorded. Any other `seq` is refused, with the nearest entries below
-and above it. Only a `client` may save, as a snapshot is a copy of
-the twin.
+`GET /snapshot?seq=412` answers the one of an earlier moment: the
+state after that row of the timeline, built from the `start` row
+before it and the rows between. `GET /snapshot?time=...` answers the
+one after the last row at or before that time. A `seq` or a time
+before the first row is refused. Only a `client` may save, as a
+snapshot is a copy of the twin.
 
 ### Reinstating
 
@@ -102,13 +103,17 @@ runner -c runner.yaml --reinstate snapshot.json
    The plan assumes the rule, and says so to authors. A twin with a
    large simulation state needs one of the other two.
 
-2. **What happens to the script.** The saved machine may be in a
-   state whose script was running. No script survives a move. The
-   runner never starts a script by itself (S6, D28), so by today's
-   rules the reinstated machine is in its state with the status
-   `interrupted`, and a caller moves it on. The other choice is an
-   option that enters the state again, as a new entry, so that the
-   twin works at once. The plan keeps today's rule.
+2. **What happens to the script.** The owner decided on 2026-11-23
+   that a reinstated twin goes to the state of the snapshot. That
+   leaves one thing to confirm. The saved machine may be in a state
+   whose script was running, and no script survives a move. Either:
+   - the machine is in the state with the status `interrupted`, and a
+     caller moves it on, as after any restart today (S6, D28); or
+   - the runner enters the state again, as a new entry, so that its
+     script runs and the twin works at once.
+
+   The plan keeps the first until the owner says which was meant.
+
 3. **At a start, or while running.** `--reinstate` needs a restart
    and an empty database. A route, `PUT /snapshot`, could replace the
    state of a running, idle runner. It is more to get wrong: the
@@ -124,7 +129,7 @@ Provisional, on the assumptions above:
 
 1. `src/dto/snapshot.dto.ts` (new): the document and its schema.
 2. `src/snapshot.ts` (new): builds a snapshot from the present state,
-   or from an `entry` row of the timeline.
+   or by applying the rows of the timeline from a `start` row on.
 3. `src/snapshot.controller.ts` (new), the MQTT route `snapshot`, and
    its row of `src/auth/roles.ts`.
 4. `src/config/commander.ts`: the option `--reinstate <file>`.
@@ -142,8 +147,8 @@ Provisional, on the assumptions above:
 - [ ] A snapshot of the present holds the machine, the parameters,
       the properties and the peer switches. Check:
       `test/unit/snapshot.spec.ts`.
-- [ ] A snapshot of an `entry` row holds the values of that moment,
-      and any other `seq` is refused with the nearest entries. Check:
+- [ ] A snapshot of an earlier `seq` or time equals the one that was
+      taken then, also across a restart of the runner. Check:
       `test/unit/snapshot.spec.ts`, `test/e2e/snapshot.spec.ts`.
 - [ ] A runner started with `--reinstate` shows the state of the
       snapshot, under its own `id`, and its timeline starts with the

@@ -1,6 +1,7 @@
 # 22 Durable Timeline
 
-- Status: planned. The open questions below are for the owner.
+- Status: planned. What is recorded was decided on 2026-11-23; the
+  open questions below are for the owner.
 - Depends on: 19 (properties), 21 (the class of a twin)
 - PR: none yet
 - Research note: W3 of
@@ -21,36 +22,61 @@ each thing that changed the DT or asked it to change.
 
 ### Rows
 
-Every row has `seq`, a number that only rises, `time`, `kind`, `by`
-(the principal, `script`, or `null`) and `data`, as JSON.
+Every row has `seq`, a number that only rises, `time`, to the
+millisecond, `kind`, `by` (the principal, `script`, or `null`) and
+`data`, as JSON. The owner decided on 2026-11-23 what is recorded:
+everything that enters the DT, everything that changes in it, and
+everything that it sends.
 
-| Kind         | When                                 | Data                                                               |
-| :----------- | :----------------------------------- | :----------------------------------------------------------------- |
-| `start`      | the runner starts                    | the class id and version, the instance values, what was restored   |
-| `entry`      | the machine enters a state           | `state`, `entry`, `cause`, and the parameters and properties then  |
-| `exit`       | the script of an entry ends          | `entry`, the outcome, and the id of its row in the command history |
-| `event`      | an event is raised and moves nothing | `event`, `state`, and the reply: `no transition`, `invalid event`  |
-| `parameters` | a parameter changes                  | the names and the new values                                       |
-| `command`    | a command is submitted with `POST /` | `name`, the id of its row in the command history                   |
-| `peers`      | a peer is enabled or disabled        | the ids and the switches                                           |
-| `stop`       | the runner shuts down                | nothing                                                            |
+What enters:
 
-`cause` of an entry says what led to it:
+| Kind         | When                                   | Data                                                              |
+| :----------- | :------------------------------------- | :---------------------------------------------------------------- |
+| `transition` | a client asks for a state              | `state`, and the reply                                            |
+| `event`      | anyone raises an event, a script too   | `event`, `source`, and the reply, also when it moves nothing      |
+| `command`    | a command is submitted with `POST /`   | `name`, its `input`, and the id of its row in the command history |
+| `parameters` | a caller sets parameters               | the names and the new values                                      |
+| `properties` | a script or a sensor writes properties | the names and the new values                                      |
+| `peers`      | a caller enables or disables a peer    | the ids and the switches                                          |
+| `notice`     | a notice of a followed peer arrives    | `peer`, `kind` (`state` or `presence`), and the notice            |
 
-| `cause.kind` | `cause.name`                                      |
-| :----------- | :------------------------------------------------ |
-| `transition` | none: a client asked for the state                |
-| `event`      | the event that a caller raised                    |
-| `completion` | `$success`, `$failure` or `$stopped`              |
-| `peer`       | the event, with the `peer` whose notice raised it |
-| `parameter`  | the event, with the `parameter` that changed      |
+What changes:
 
-An `entry` row carries the values of every parameter and property at
-that moment. Issue 19 keeps only the latest value of a property, on
-purpose: a history of every write would grow with the rate of a
-sensor. The values at each entry grow with the rate of transitions,
-and they are what [23](23-snapshot.md) needs to rebuild the DT at an
-entry.
+| Kind    | When                        | Data                                                               |
+| :------ | :-------------------------- | :----------------------------------------------------------------- |
+| `start` | the runner starts           | the class, the instance values, and the whole state it starts with |
+| `entry` | the machine enters a state  | `state`, `entry`, and the `seq` of the row that caused it          |
+| `exit`  | the script of an entry ends | `entry`, the outcome, the id of its row in the command history     |
+| `stop`  | the runner shuts down       | nothing                                                            |
+
+What is sent:
+
+| Kind   | When                            | Data                                                          |
+| :----- | :------------------------------ | :------------------------------------------------------------ |
+| `sent` | the runner sends a notification | its `kind` (`state`, `escalation`, `presence`) and its `data` |
+
+`source` of an event is who raised it: `client`, `script`, `peer`
+(with the `seq` of the notice), `parameter` (with the `seq` of the
+change) or `completion` (with the `seq` of the exit).
+
+The `start` row holds the initial values: the machine as restored,
+every parameter and every property. With it, the state of the DT at
+any `seq` is the `start` row before it and the rows between, applied
+in order. [23](23-snapshot.md) builds a snapshot of any moment that
+way, not only of an entry.
+
+This reverses one line of issue 19, "there is no history of values":
+a property write is now a row. Two things keep the table from
+growing with the rate of a sensor:
+
+- a write that changes no value makes no row, although it still moves
+  the `time` of the property;
+- the state notifications are already held to one per `stateInterval`,
+  so the `sent` rows are too.
+
+A feed that changes a value at every write still makes a row at every
+write. With no limit on the table, the operator of such a feed has to
+watch the size of the database.
 
 ### Reading
 
@@ -71,39 +97,34 @@ A reader that wants everything asks again with `after` set to the last
 
 ### Not in this issue
 
-- A history of every property write.
-- The raw notices of peers. See the open questions.
 - Metrics that survive a restart, which could later be computed from
   the timeline.
-- A revision number on the state document (W1). See the open
-  questions.
+- A limit on the rows, by number or by age. The owner decided on
+  2026-11-23 to have none for now; the command history has none
+  either.
 - Deleting or changing a row.
+- The webhook's retries, and whether a notification arrived.
+
+### Decided
+
+| Question               | Decision of 2026-11-23                                                                                                                                   |
+| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is recorded       | Commands with their inputs, the notices of peers, every change of the state, every event of every participant, what the DT sends, and the initial values |
+| How long rows are kept | No limit now                                                                                                                                             |
 
 ### Open questions
 
 1. **A route of its own, or `GET /history`?** The research note put
    the rows under `GET /history?kind=`. `/history` answers commands,
    with their own shape and query. A new route keeps both simple. The
-   plan below assumes `/timeline`.
-2. **What is an input?** For [24](24-what-if.md) to replay a night,
-   the timeline must hold everything that came from outside. Requests
-   are rows already. Three more things come from outside:
-   - the input of a command, such as the patient of `admit`;
-   - the notices of peers, which the scripts read with `GET /peers`;
-   - the property values that a `sensor` writes.
-
-   Each costs space, and the first may hold personal data. The plan
-   records none of them; 24 says what a replay loses without them.
-
-3. **How long are rows kept?** The table only grows, like the command
-   history, which is never pruned either. A limit in `runner.yaml`, by
-   rows or by age, could prune both. Without a decision, the plan
-   keeps every row.
-4. **Is `seq` the revision of W1?** W1 asks for a number on the state
-   document that rises with every change. `seq` rises with every row,
-   but a property write makes no row. Either the state document gets
-   its own counter, stored with each row, or W1 stays apart. The plan
-   keeps W1 apart.
+   plan assumes `/timeline`.
+2. **Personal data.** The input of a command is now stored, and the
+   demo's `admit` takes a patient. Every role but `sensor` may read
+   the timeline. Should `input` be shown to `client` only, as the
+   logs of a command are?
+3. **Is `seq` the revision of W1?** Every change of the state
+   document now makes a row, so the `seq` of the last row is a
+   revision. W1 could be closed by showing it in the state document.
 
 ## Plan
 
@@ -115,14 +136,17 @@ Provisional, on the assumptions above:
 2. `src/fsm/timeline.ts` (new): a plain class `Timeline` that builds
    the rows. `FsmService` is at 248 lines; it already signals each
    answer (`onAnswer`), each change (`onChange`) and each escalation.
-   The cause of an entry is not in those signals, so `Requests` and
+   The source of an event is not in those signals, so `Requests` and
    `enter` pass it on, which needs room made first.
-3. `src/descriptor.service.ts` owns `Timeline`, as it owns `Peers` and
+3. The other writers call `Timeline` where they already store:
+   `Parameters`, `Properties`, `Peers` (switches and notices),
+   `ExecaManager` (commands) and `Notifier` (what is sent).
+4. `src/descriptor.service.ts` owns `Timeline`, as it owns `Peers` and
    `Properties`, and writes the `start` and `stop` rows.
-4. `src/timeline.controller.ts` (new), `src/dto/timeline.dto.ts`
+5. `src/timeline.controller.ts` (new), `src/dto/timeline.dto.ts`
    (new), and the MQTT route in `src/mqtt/mqtt.config.ts`,
    `src/mqtt/mqtt-request.handler.ts` and `src/auth/roles.ts`.
-5. Documents: `README.md`, `STATE-MACHINE.md`, `api/API.md`,
+6. Documents: `README.md`, `STATE-MACHINE.md`, `api/API.md`,
    `api/*.http`, and decisions in `docs/state-machine-design.md`.
 
 ## Tasks
@@ -130,9 +154,12 @@ Provisional, on the assumptions above:
 - [ ] Each kind of row is written once, with its cause and caller, in
       the order things happened. Check:
       `test/unit/fsm.timeline.spec.ts`.
-- [ ] An `entry` row holds the parameters and properties of that
-      moment, and an `exit` row names its command. Check:
+- [ ] The `start` row holds the whole state, and the state at any
+      later `seq` follows from the rows. Check:
       `test/unit/fsm.timeline.spec.ts`.
+- [ ] A command row holds its input, a notice row the notice, and a
+      `sent` row the notification. A property write that changes no
+      value makes no row. Check: `test/unit/fsm.timeline.spec.ts`.
 - [ ] The table opens in a database of 0.11.0, and the rows survive a
       restart, which adds a `start` row. Check:
       `test/integration/queue.timeline.spec.ts`,

@@ -1,7 +1,7 @@
 # 24 What-If Runs
 
-- Status: planned. The open questions below are for the owner, and
-  the first three decide the shape of the issue.
+- Status: planned. Who starts a fork and how time passes were decided
+  on 2026-11-23; the open questions below are for the owner.
 - Depends on: [22](22-timeline.md) (what happened),
   [23](23-snapshot.md) (a twin started from a saved moment)
 - PR: none yet
@@ -26,29 +26,52 @@ never run backwards or put in a trial state.
 
 ### A fork
 
-A fork is an instance like any other (S2): its own `runner.yaml`,
-port, database and topic. It is started with the snapshot and one
-more option:
+A fork is an instance like any other: its own port, database and
+topic. The owner decided on 2026-11-23 that a caller asks the runner
+of the twin for it:
 
-```bash
-runner -c fork.yaml --reinstate snapshot.json --what-if
+```http
+POST /what-if
+{ "from": { "seq": 412 }, "until": { "seq": 980 },
+  "change": { "parameters": { "scope": "multi" } }, "speed": 60 }
 ```
 
-- **It says what it is.** `GET /dt` and its presence notice show
-  `fork: {of: "hospital-1", seq: 412}`. A Manager can not take a fork
-  for a twin.
-- **Its scripts are told.** They get `DT_MODE=what-if`, and
-  `DT_FORK_OF`. A script that would act on the physical twin does not,
-  and a script that reads a sensor takes a model or a recorded value.
-  In a twin that is not a fork, `DT_MODE` is `live`.
-- **Its class must allow it.** The class says `whatIf: true`. Without
-  that, `--what-if` is refused: a script written without the mode in
-  mind would act on the real hospital from a second process.
-- **It reaches nobody by default.** The fork takes the `relationships`
-  of its own `runner.yaml`, which the operator leaves empty or points
-  at other forks. It signs with its own key, or with none.
-- **Its machine starts idle**, as [23](23-snapshot.md) leaves it, and
-  the first input moves it.
+```json
+{
+  "id": "hospital-1.what-if-1",
+  "url": "http://127.0.0.1:5101",
+  "topic": "dtaas/hospital-1/what-if/1",
+  "status": "running"
+}
+```
+
+The runner writes the configuration of the fork, starts it as a
+process of its own from the snapshot of `from`, feeds it the inputs,
+and stops it at the end. `GET /what-if` lists the forks and
+`DELETE /what-if/<n>` stops one. The caller then reads the fork like
+any twin, at its `url`.
+
+This amends S1 and S2. One runner still serves one twin, but the
+runner of a twin now starts and feeds the runners of its forks. The
+operator allows that in `runner.yaml`, and it is off without it:
+
+```yaml
+whatIf:
+  directory: 'run/what-if'
+  ports: [5101, 5110]
+  most: 2
+```
+
+- **It says what it is.** `GET /dt` of a fork and its presence notice
+  show `fork: {of: "hospital-1", seq: 412}`. A Manager can not take a
+  fork for a twin.
+- **Its scripts are told.** They get `DT_MODE=what-if`, `DT_FORK_OF`
+  and `DT_TIME_SCALE`. In a twin that is not a fork, `DT_MODE` is
+  `live`.
+- **Its class must allow it.** See question 1.
+- **It reaches nobody.** A fork has no Manager webhook and follows no
+  peer. The notices of peers come from the recording or the scenario.
+- **It keeps its own time.** See [Time](#time).
 
 ### Looking back: replay
 
@@ -66,10 +89,11 @@ What a replay can and can not show:
   were free last night were free under scope `single`. A script in
   `what-if` mode has to model that, or the replay answers a narrower
   question than the one asked.
-- It replays only what the timeline holds. Without the inputs of
-  commands, `admit` runs with no patient. Without the notices of
-  peers, `GET /peers` in the fork knows no one. Question 2 of
-  [22](22-timeline.md) decides this.
+- It replays everything that entered the twin, as
+  [22](22-timeline.md) records all of it: the requests, the commands
+  with their inputs, the notices of peers and the property values
+  that a sensor wrote. What a script of the twin wrote or raised is
+  not replayed: the scripts of the fork do that again.
 
 ### Looking ahead: a scenario
 
@@ -93,102 +117,125 @@ steps:
         ward: cardiology
 ```
 
-The same replayer sends them. The scripts of the fork do the rest:
+It is the body of `POST /what-if`, in place of `until`. The same
+replayer sends its steps. The scripts of the fork do the rest:
 in `what-if` mode they model the physical twin, and write what they
 compute as properties, as they do when live.
+
+### Time
+
+The owner decided on 2026-11-23 that a what-if run keeps the meaning
+of time, at a scale. `speed` is the factor: `1` runs at the speed of
+the clock, `60` runs an hour in a minute, and `0.5` takes twice as
+long, to watch a fast sequence. The replayer divides the gap between
+two inputs by it.
+
+The runner can not make a script wait less. The scripts get the
+factor as `DT_TIME_SCALE` and divide their own waits by it, as a
+convention like fidelity (17c). A script that ignores it samples at
+its usual rate while the inputs arrive faster, and the run is wrong
+without saying so.
+
+The timeline of a fork records real times. Each row also has `at`,
+the time that it stands for: the time of the snapshot plus the real
+time since the start times `speed`. A comparison lines the rows of a
+fork up with those of the twin by `at`.
 
 ### Comparing
 
 The answer to a what-if question is the timeline of the fork, set
 against the timeline of the twin for a replay, or read by itself for
 a scenario. A comparison lists, for each `entry` row, the state, the
-cause and the properties, and marks the first row where the two
+source and the properties, and marks the first row where the two
 differ.
 
 ### Not in this issue
 
-- A simulated clock in the runner. A script that waits a minute waits
-  a minute; see question 3.
+- A simulated clock in the runner: time is scaled, not stepped.
 - Running a twin backwards, or trying a change in the twin itself.
 - Forks of forks, and merging a fork into its twin.
 - A model of the physical twin. That is the class author's, in the
-  scripts.
+  scripts; see question 1.
 - A Manager that decides from the result.
+
+### Decided
+
+| Question              | Decision of 2026-11-23                                                   |
+| :-------------------- | :----------------------------------------------------------------------- |
+| Who starts a fork     | A caller, with an API call to the runner of the twin                     |
+| How time passes       | Time keeps its meaning, at a scale that the caller gives and scripts get |
+| Both kinds of what-if | A replay of a past period, and a scenario of a coming one                |
 
 ### Open questions
 
-1. **Who starts a fork?** A fork is a process, a port and a
-   database. Three candidates:
-   - **The operator, by hand**, as above. Nothing new runs.
-   - **A tool of the package**, `runner-whatif`, that writes
-     `fork.yaml` beside the twin, starts the fork, feeds it and
-     stops it. One command per question.
-   - **The Manager, over the API of the twin**, such as
-     `POST /what-if`. The runner would then start processes for a
-     caller, which S1 and S2 have kept out, and which the platform
-     may want to own.
+1. **Must a class opt in, and what stands in for the hospital?** A
+   script acts on something outside the runner. In the demo, `admit`
+   writes a patient into `run/hospital-1/ward.json`, which stands for
+   the real hospital. In a fork, the same script must not write
+   there. Three ways to make sure:
+   - **The author writes the mode into the scripts**, and the class
+     says `whatIf: true`. Without it, `POST /what-if` is refused.
+   - **The class names a mock**, a second set of scripts or a second
+     target, and the runner swaps it in for a fork.
+   - **Nothing:** the runner forks any class, and trusts it.
 
-   The plan assumes the tool.
+   The owner asked for an example, and suggested a mock of the real
+   hospital; the reply to the owner has one. The plan assumes the
+   first until this is settled.
 
-2. **Where does the replayer live?** It reads one timeline and sends
-   requests to another runner, both over the public API. It can be a
-   part of the tool above, outside the runner, which keeps the runner
-   a managed twin and nothing more (S1). The plan assumes that.
-3. **How does time pass?** The recorded night took eight hours. A
-   replay can:
-   - keep the gaps, and take eight hours;
-   - divide the gaps by a factor, which scripts that sleep or sample
-     do not follow;
-   - send the next input as soon as the last was answered, which
-     changes what a sampling script sees between two inputs.
-
-   A scenario of an hour has the same problem. Scripts could be given
-   `DT_TIME_SCALE` to scale their own waits, as a convention like
-   fidelity (17c). The plan divides the gaps by a factor and passes
-   it to the scripts.
-
-4. **Must a class opt in?** `whatIf: true` protects the physical twin
-   from a class that was not written for forks. It also means that no
-   existing class can be forked until its author says so. The plan
-   requires it.
-5. **How are two timelines compared?** By `entry` rows only, or by
-   every row? As a route of the runner, a part of the tool, or left
-   to the Manager? The plan puts a comparison of `entry` rows in the
-   tool.
-6. **What ends a fork?** The horizon of the scenario, the last row of
-   the replay, or a caller. And what is kept: its database is the
-   answer. The plan stops the fork at the end and keeps the file.
-7. **May a fork follow real peers?** Looking ahead, a fork of
-   hospital-1 could follow the real hospital-2, or a fork of it, or a
-   scripted one. The first mixes a trial with the world. The plan
-   leaves `relationships` to the operator and documents the risk.
+2. **Who may ask for a fork?** A fork costs a process and runs the
+   scripts. The plan gives `POST /what-if` to `client` and `manager`,
+   within the `most` of `runner.yaml`.
+3. **As which account do the scripts of a fork run?** With
+   `scripts.user` (18), a fork needs a run directory of its own that
+   the script account can write. The plan makes one under
+   `whatIf.directory` at each fork, which the operator has to have
+   prepared as `PRIVILEGE-SETUP.md` describes.
+4. **What ends a fork, and what is kept?** The last input, plus a
+   time for the scripts to settle; or `DELETE`. Its database is the
+   answer, so the plan keeps the file until the caller deletes the
+   fork.
+5. **How are two timelines compared?** As `GET /what-if/<n>/compare`
+   of the runner of the twin, which has both, or left to the caller.
+   The plan has the route, over `entry` rows only.
+6. **May a fork publish on the broker of the twin?** Its topic is
+   under the topic of the twin. A Manager that subscribes to
+   `dtaas/+/notify/+` does not see it; one that subscribes to
+   `dtaas/#` does. The plan publishes, with `fork` in every presence
+   notice.
 
 ## Plan
 
 Provisional, on the assumptions above:
 
-1. `src/config/commander.ts`, `src/main.ts`: `--what-if`, refused
-   without `--reinstate` and without `whatIf: true` in the class.
-2. `src/fsm/class.ts`: `whatIf` in the class. `src/dto/descriptor.dto.ts`:
-   `fork`. `src/fsm/script-context.ts`: `DT_MODE`, `DT_FORK_OF` and
-   `DT_TIME_SCALE`.
-3. `src/whatif/` (new), a second `bin` of the package:
-   - `inputs.ts`: the requests of a timeline, or of a scenario file;
-   - `replayer.ts`: sends them to a runner, at their times over the
-     factor;
-   - `fork.ts`: writes the configuration of a fork, starts it and
-     stops it;
-   - `compare.ts`: the `entry` rows of two timelines, side by side.
-4. `demo/hospital`: `whatIf: true`, scripts that honour `DT_MODE`, and
-   one question of each kind in the story.
-5. Documents: a new `WHAT-IF.md` for authors and Managers, `README.md`,
-   `CLASS-INSTANCE-INTERFACE.md`, `api/API.md`, and decisions in
-   `docs/state-machine-design.md`.
+1. `src/config/config.schema.ts`: the `whatIf` section.
+   `src/fsm/class.ts`: `whatIf` in the class.
+2. `src/whatif/` (new):
+   - `inputs.ts`: the inputs of a stretch of the timeline, or of a
+     scenario;
+   - `fork.ts`: writes the configuration and the snapshot of a fork,
+     starts the process and stops it;
+   - `replayer.ts`: sends the inputs to a fork at their times over
+     `speed`;
+   - `forks.service.ts`: the forks of this runner and their limits;
+   - `compare.ts`: the `entry` rows of two timelines by `at`.
+3. `src/whatif.controller.ts` (new), the MQTT routes, and their rows
+   of `src/auth/roles.ts`.
+4. `src/config/commander.ts`, `src/main.ts`: the options that a fork
+   is started with, on top of `--reinstate` of [23](23-snapshot.md).
+   `src/dto/descriptor.dto.ts`: `fork`. `src/fsm/script-context.ts`:
+   `DT_MODE`, `DT_FORK_OF`, `DT_TIME_SCALE`. The timeline: `at`.
+5. `demo/hospital`: scripts that honour `DT_MODE` and
+   `DT_TIME_SCALE`, and one question of each kind in the story.
+6. Documents: a new `WHAT-IF.md` for authors and Managers,
+   `README.md`, `CLASS-INSTANCE-INTERFACE.md`, `SECURITY-MODEL.md`,
+   `api/API.md`, and decisions in `docs/state-machine-design.md` that
+   amend S1 and S2.
 
 ## Tasks
 
-To be written once the first three questions are settled: they decide
-whether the work is in the runner, in a tool, or in both.
+To be written once question 1 is settled, as it decides what a class
+and its scripts must provide.
 
 ## Learnings
 
