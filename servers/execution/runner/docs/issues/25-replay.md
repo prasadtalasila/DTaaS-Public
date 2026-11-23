@@ -1,7 +1,7 @@
 # 25 Replay and Compare a Twin
 
 - Status: planned. The shape of the tools was settled with the owner
-  on 2026-11-23; three assumptions below await the owner's word.
+  on 2026-11-23; two assumptions below await the owner's word.
 - Depends on: [22](22-timeline.md) (the inputs), [23](23-snapshot.md)
   (the snapshots), [24](24-what-if.md) (`DT_MODE`)
 - PR: none yet
@@ -218,6 +218,7 @@ snapshots: the operator. They need no principal of the twin.
 | The parallel kind          | Not now                                                                      |
 | How time passes            | Time keeps its meaning, at a scale that the caller gives and the scripts get |
 | Its own issue              | Yes, apart from 24                                                           |
+| The first step             | The tool enters the saved state again when its script was running            |
 
 ### Assumed, for the owner to confirm
 
@@ -225,9 +226,7 @@ snapshots: the operator. They need no principal of the twin.
    twin. It makes a key pair, lists it as the one principal of the
    side twin, and signs with it. Without that, any process of the
    host could send the side twin a request while it runs.
-2. **The first step.** The tool enters the saved state again when its
-   script was running, as above.
-3. **Who the first caller was** is carried in each request and
+2. **Who the first caller was** is carried in each request and
    recorded by the side twin, which trusts the tool for it.
 
 ## Plan
