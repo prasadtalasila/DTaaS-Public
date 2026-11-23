@@ -110,9 +110,11 @@ The owner asked for W3 as three things: a timeline to query, a twin
 that an operator can save and reinstate, and what-if. 23 adds the role
 `operator` (S21). What-if became two issues. In 24 a Manager asks the
 twin, which runs one script on a private copy. In 25 the operator
-replays a recorded period in a side twin, with two tools that work
+replays a recorded period in a replay twin, with two tools that work
 from snapshots. 24 reopens the non-goal on forecasts and exogenous
 triggers.
+[save-reinstate-what-if.md](../save-reinstate-what-if.md) sets the
+features of 22 to 25 side by side, with their formats.
 
 ## Proposed Work
 
@@ -254,7 +256,7 @@ open) or `done`.
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
 | S21 | A fifth role, `operator`, runs the twin and may copy it: reads, snapshots and `stop`. It can not steer the twin. A `manager` steers and can not copy. `client` keeps every right. Amends S10.              |
 | S22 | A DT is saved by a route that pauses the runner, outside the state machine. A snapshot is a directory with the database, the configuration, the class and its scripts, and what the scripts keep.          |
-| S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a side twin, with tools. S1 and S2 stand.                   |
+| S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a replay twin, with tools. S1 and S2 stand.                 |
 
 ## Lessons for Every Issue
 

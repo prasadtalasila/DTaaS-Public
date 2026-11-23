@@ -201,7 +201,7 @@ of commands.
 
 The `id` of the instance may differ from that of the snapshot. That
 is how a twin moves to another host, and how [25](25-replay.md) makes
-a side twin.
+a replay twin.
 
 ### Roles
 

@@ -676,7 +676,7 @@ hosts.
 **What the owner decided, on 2026-11-23.** The runner starts no
 process. The two needs are met apart:
 
-- **The operator replays in a side twin** (issue
+- **The operator replays in a replay twin** (issue
   [25](issues/25-replay.md)). A tool of the package starts another
   runner from a snapshot, feeds it the inputs that a later snapshot
   recorded, and a second tool compares the two timelines. Neither
