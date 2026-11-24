@@ -950,6 +950,66 @@ each property at each write. When it starts again:
 Without a database file, the runner starts with no state, the default
 values of the parameters, and every property `null`.
 
+### Trace a State
+
+`GET /timeline` tells why the machine is in its state. Each `entry`
+row names its `cause`, the `seq` of the row that led to it: a
+transition or event request, or the `exit` row of the script whose
+completion moved the machine. An event row names its `source`, and
+the `cause` of an event that a parameter or a peer raised. With access
+control, `by` names the caller. In this run, of a runner with access
+control on port 5077, `manager-1` set `scope`, whose event restarted
+`execute`:
+
+```bash
+curl -H "Authorization: Bearer $JWS" \
+  'http://localhost:5077/timeline?since=2026-11-24T08:22:06.240Z&until=2026-11-24T08:22:07Z'
+```
+
+```json
+[
+  {
+    "seq": 13,
+    "time": "2026-11-24T08:22:06.240Z",
+    "kind": "event",
+    "by": "manager-1",
+    "data": {
+      "event": "scope-changed",
+      "source": "parameter",
+      "cause": 12,
+      "reply": { "status": "accepted", "state": "execute" }
+    }
+  },
+  {
+    "seq": 14,
+    "time": "2026-11-24T08:22:06.240Z",
+    "kind": "entry",
+    "by": null,
+    "data": { "state": "execute", "entry": 4, "cause": 13 }
+  },
+  {
+    "seq": 15,
+    "time": "2026-11-24T08:22:06.250Z",
+    "kind": "exit",
+    "by": null,
+    "data": { "state": "execute", "entry": 4, "status": "valid", "run": 5 }
+  }
+]
+```
+
+Entry 4 came from row 13, an event that the change of row 12 raised.
+Row 15 is the end of its script, run 5 of `GET /history`. Every entry
+has one `exit` row, also when a stop or a later entry ended its script
+first. A script that the shutdown kept from starting is `stopped` in
+its exit row, while a restart shows its entry as `interrupted`: the
+first word tells what happened to the script, the second what the
+runner found when it started again.
+
+With a database file the timeline survives a restart: a `shutdown` row
+ends one run of the runner, and a `start` row with the restored state
+begins the next. The [README](README.md#get-request-to-timeline) gives
+the query.
+
 ### Shut Down
 
 On `SIGINT` or `SIGTERM` the runner stops taking transitions and events

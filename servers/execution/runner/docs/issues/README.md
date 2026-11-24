@@ -35,7 +35,7 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review   | #97  |
 | [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
 | [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
-| [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | planned     |      |
+| [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
 | [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | planned     |      |
 | [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | planned     |      |
 | [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
@@ -342,6 +342,18 @@ From implementing 15b:
 - A row of a Markdown table that is wider than its column makes
   prettier re-pad every row; keep a new decision within the widths of
   the table, or the rows of parallel issues conflict.
+
+From implementing 22:
+
+- A row of the timeline is written where the thing happens, not where
+  its result is stored: a script that a stop or a later entry made
+  stale is never stored, and its end was missed until the exit row
+  came from the end of the run.
+- Order is part of the record. Write a row before the signal that
+  notifies of it, and check the order in a test with a real `Queue`,
+  as a mock keeps any order.
+- The caller of a request is in `callerContext`; a new writer of rows
+  reads it there instead of taking the caller as a parameter.
 
 ## Deferred
 

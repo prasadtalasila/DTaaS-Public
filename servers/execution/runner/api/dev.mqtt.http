@@ -53,6 +53,18 @@ QoS: 1
 
 ###
 
+# @name timeline
+MQTT {{broker}}
+Subscribe: {{topic}}/timeline/response
+Publish: {{topic}}/timeline
+QoS: 1
+
+{"kind": "entry,exit", "limit": 10}
+=== wait-for-server
+{{ "" }}
+
+###
+
 # @name metrics
 MQTT {{broker}}
 Subscribe: {{topic}}/metrics/response

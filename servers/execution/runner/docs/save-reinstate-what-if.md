@@ -98,36 +98,42 @@ One table that only grows. Each row has a number, `seq`, that only
 rises, a `time` to the millisecond, a `kind`, `by` (the principal,
 `script`, or `null`) and `data`.
 
-| Group        | Kinds                                                                                     |
-| :----------- | :---------------------------------------------------------------------------------------- |
-| What enters  | `transition`, `event`, `command`, `whatif`, `parameters`, `properties`, `peers`, `notice` |
-| What changes | `start`, `entry`, `exit`, `snapshot`, `stop`                                              |
-| What is sent | `sent`                                                                                    |
+| Group        | Kinds                                                                                             |
+| :----------- | :------------------------------------------------------------------------------------------------ |
+| What enters  | `transition`, `event`, `command`, `stop`, `whatif`, `parameters`, `properties`, `peers`, `notice` |
+| What changes | `start`, `entry`, `exit`, `snapshot`, `shutdown`                                                  |
+| What is sent | `sent`                                                                                            |
 
-Two rows, as `GET /timeline` would answer them:
+Issue 22 built every kind but `snapshot` and `whatif`, which come with
+the save and the what-if. `stop` is a request to stop a script;
+`shutdown` is the end of a run of the runner. Two rows of a run of the
+built runner with access control:
 
 ```json
 [
   {
-    "seq": 431,
-    "time": "2026-11-22T22:10:04.118Z",
+    "seq": 11,
+    "time": "2026-11-24T08:22:05.130Z",
     "kind": "command",
-    "by": "manager-1",
-    "data": {
-      "name": "admit",
-      "input": { "patient": "p-7", "ward": "cardiology" },
-      "id": 58
-    }
+    "by": "alice",
+    "data": { "name": "echo-input", "input": { "patient": "p-7" }, "run": 4 }
   },
   {
-    "seq": 440,
-    "time": "2026-11-22T22:20:09.530Z",
+    "seq": 14,
+    "time": "2026-11-24T08:22:06.240Z",
     "kind": "entry",
-    "by": "script",
-    "data": { "state": "full", "entry": 8, "cause": 439 }
+    "by": null,
+    "data": { "state": "execute", "entry": 4, "cause": 13 }
   }
 ]
 ```
+
+`run` is the id of the run in the command history. The `cause` of an
+entry is the request row that led to it, here an event that a change
+of a parameter raised, or the `exit` row of the script whose
+completion did. Each entry has one `exit` row, with the status of its
+script. A request row holds its reply, and is never changed after the
+request.
 
 The `start` row holds the whole state that the runner starts with.
 So what the runner knew of the twin at any `seq` is the `start` row

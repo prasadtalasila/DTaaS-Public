@@ -17,8 +17,8 @@ export type StateScript = {
 // Runs the script of an entry and writes its exit row, as the run ends
 // and before it is stored, so that the row comes before the notice of
 // that end. A script that may no longer start, after shutdown or a
-// later entry, is stopped and has no run, and one that could not start,
-// as when the database is closed, failed; neither has an outcome.
+// later entry, is stopped and has no run or outcome; one that could not
+// start, as when the database is closed, is invalid with outcome failed.
 export default async function scriptOutcome(
   manager: ExecaManager,
   { state, entry, env, live, timeline }: StateScript,

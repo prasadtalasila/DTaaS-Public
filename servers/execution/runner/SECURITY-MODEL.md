@@ -100,7 +100,7 @@ The script token against a principal's request token:
 
 The routes of the role `script` are those of `ROUTE_ROLES` in
 `src/auth/roles.ts`: `GET /`, `/history`, `/dt`, `/state`, `/metrics`,
-`/fsm`, `/parameters`, `/properties` and `/peers`, plus
+`/fsm`, `/parameters`, `/properties`, `/peers` and `/timeline`, plus
 `POST /fsm/event`, `POST /escalate` and `PUT /properties`;
 `GET /health` needs no credential.
 
@@ -118,6 +118,16 @@ physical twin, thus holds a key that can neither run a command, drive
 the machine, set a parameter nor read the history. A `manager` may
 read the properties but not write them: it tunes the parameters, and
 must not write what the DT observes.
+
+The timeline of the database (issue 22) keeps every request with the
+name of its caller and its time, and the `input` of each command, which
+may name a person, such as the patient of the demo's `admit`. It keeps
+them without a limit, and no route deletes a row. `GET /timeline`
+serves the rows to every role but `sensor`, and the `input` only to a
+`client`; a `manager` and a script read the rows without it. Without
+access control every caller reads everything. The database file, and
+any copy of it, holds all of it, so whoever may read the file reads
+the inputs and the callers too.
 
 ### The Boundary Between Users
 
