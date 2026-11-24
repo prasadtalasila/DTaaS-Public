@@ -57,6 +57,7 @@ function createService(start: FsmStateDto | undefined) {
   const config = {
     getId: () => 'hospital-1',
     getPeers: () => [],
+    getSnapshots: () => undefined,
     getParameters: () => ({}),
   };
   const service = new DescriptorService(

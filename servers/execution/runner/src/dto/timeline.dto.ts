@@ -16,6 +16,7 @@ export const TIMELINE_KINDS = [
   'sent',
   'shutdown',
   'snapshot',
+  'whatif',
 ] as const;
 
 export type TimelineKind = (typeof TIMELINE_KINDS)[number];
@@ -60,14 +61,14 @@ export type TimelineRow = {
 
 export type TimelineCount = { count: number };
 
-// The rows as a caller may see them: the input of a command may name a
-// person, so only a client or an operator, or anyone without access
-// control, reads it
+// The rows as a caller may see them: the input of a command or a
+// what-if may name a person, so only a client or an operator, or anyone
+// without access control, reads it
 export const visibleRows = (rows: TimelineRow[], full: boolean) =>
   full
     ? rows
     : rows.map((row) =>
-        row.kind === 'command'
+        row.kind === 'command' || row.kind === 'whatif'
           ? { ...row, data: { ...row.data, input: undefined } }
           : row,
       );

@@ -93,9 +93,11 @@ describe('Script token end-to-end tests', () => {
       expect(reply.status).toBe(202);
       expect(fsm.environment('x').RUNNER_TOKEN).toBe(access.scriptToken);
       // a state's script has no caller, so its by is NULL
-      expect(enqueue.mock.calls).toEqual([
-        ['raise-event', undefined, undefined],
-        ['create', undefined, undefined],
+      expect(
+        enqueue.mock.calls.map(([name, , row]) => [name, row?.by]),
+      ).toEqual([
+        ['raise-event', undefined],
+        ['create', undefined],
       ]);
     },
     SCRIPT_TIMEOUT,

@@ -56,6 +56,7 @@ function createService(
     getParameters: () => ({}),
     getAttributes: () => ({ city: 'Aarhus' }),
     permitCommands: () => ['create', 'execute'],
+    getSnapshots: () => undefined,
     getPeers: () => [
       peer('hospital-2', true),
       peer('hospital-3', false),

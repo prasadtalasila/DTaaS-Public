@@ -20,6 +20,7 @@ const RETAINED: Record<NotifyKind, boolean> = {
   state: true,
   escalation: false,
   presence: true,
+  whatif: false,
 };
 
 // Sends the state document whenever it changes, the presence of the
@@ -52,6 +53,7 @@ export default class Notifier
     this.descriptor.onChange(() => this.sendState());
     this.mqtt.onConnect(() => this.announce());
     this.descriptor.onEscalation((data) => this.send('escalation', data));
+    this.descriptor.whatIfs().onEnd((data) => this.send('whatif', data));
   }
 
   // The presence and the state document at startup

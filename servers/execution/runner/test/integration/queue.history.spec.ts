@@ -116,7 +116,7 @@ describe('Queue history', () => {
   });
 
   it('returns the caller of a new command', () => {
-    queue.enqueue('admit', undefined, 'alice');
+    queue.enqueue('admit', undefined, { by: 'alice' });
 
     expect(queue.history({ limit: 1 })).toEqual([
       expect.objectContaining({ id: 5, status: 'running', by: 'alice' }),

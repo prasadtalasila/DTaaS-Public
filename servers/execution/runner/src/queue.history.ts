@@ -2,7 +2,16 @@ import type { HistoryEntryDto } from './dto/history.dto.js';
 import type { CommandCounts, ResourceTotals } from './dto/metrics.dto.js';
 import type { CommandStateStatus } from './dto/state.dto.js';
 import type { CommandRecord } from './interfaces/command.interface.js';
+import type { RunOutcome } from './interfaces/runner.interface.js';
 import type { ScriptResources } from './resources/resources.js';
+
+// The status of a finished command in the commands table; a command
+// that is not permitted keeps the default, invalid
+export const STORED_STATUS: Record<RunOutcome, string> = {
+  success: 'valid',
+  failed: 'failed',
+  stopped: 'stopped',
+};
 
 const RESOURCES =
   'cpu_seconds AS cpuSeconds, peak_rss_bytes AS peakRssBytes, processes';
@@ -14,6 +23,10 @@ export const RECORD = `SELECT id, name, status, stdout, stderr,
   strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
   strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt,
   finished_at IS NOT NULL AS finished FROM commands`;
+
+// The latest command, which GET / and the state document show; a
+// what-if run is not of the live twin
+export const ACTIVE = `${RECORD} WHERE mode IS NULL ORDER BY id DESC LIMIT 1`;
 
 export const RECORD_BY_KEY = `${RECORD} WHERE id =
   (SELECT command_id FROM request_keys WHERE request_key = ?)`;
@@ -29,10 +42,17 @@ export const HISTORY = `SELECT * FROM (
   SELECT id, name, ${STATUS} AS status, exit_code AS exitCode,
     strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
     strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt, by,
-    ${RESOURCES}
+    ${RESOURCES}, mode
   FROM commands
   WHERE :since IS NULL OR received_at >= datetime(:since)
   ORDER BY id DESC LIMIT :limit) ORDER BY id`;
+
+// One what-if run, as the history shows it, with its output
+export const WHAT_IF_RUN = `SELECT id, name, ${STATUS} AS status,
+  exit_code AS exitCode, stdout,
+  strftime('%Y-%m-%dT%H:%M:%fZ', received_at) AS receivedAt,
+  strftime('%Y-%m-%dT%H:%M:%fZ', finished_at) AS finishedAt, by,
+  ${RESOURCES} FROM commands WHERE id = ? AND mode = 'what-if'`;
 
 // The rows above an id, by status
 export const COMMAND_COUNTS = `SELECT ${STATUS} AS status,
@@ -50,7 +70,7 @@ export const RESOURCE_TOTALS = `SELECT name,
   WHERE id > ? AND (cpu_seconds IS NOT NULL OR peak_rss_bytes IS NOT NULL)
   GROUP BY name ORDER BY name`;
 
-const toResources = (row: Record<string, unknown>): ScriptResources => ({
+export const toResources = (row: Record<string, unknown>): ScriptResources => ({
   cpuSeconds: row.cpuSeconds as number | null,
   peakRssBytes: row.peakRssBytes as number | null,
   processes: row.processes as number | null,
@@ -87,6 +107,7 @@ export const toHistoryEntry = (
   finishedAt: row.finishedAt as string | null,
   by: row.by as string | null,
   resources: toResources(row),
+  ...(row.mode === 'what-if' && { mode: 'what-if' as const }),
 });
 
 // Every status, from the rows of COMMAND_COUNTS and the number of rows

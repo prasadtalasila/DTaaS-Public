@@ -184,7 +184,7 @@ describe('Access control end-to-end tests', () => {
     const { status } = await send(manager, { method: 'POST', path: '/', body });
 
     expect(status).toBe(200);
-    expect(enqueue).toHaveBeenCalledWith('create', undefined, 'manager-1');
+    expect(enqueue.mock.calls[0][2]?.by).toBe('manager-1');
   });
 
   // htu is the path without the query, as the runner receives it

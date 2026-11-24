@@ -113,7 +113,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     requestKey?: string,
     options?: CommandOptions,
   ): Promise<CommandResult> {
-    const id = this.commandQueue.enqueue(name, requestKey, options?.by);
+    const id = this.commandQueue.enqueue(name, requestKey, options);
     options?.onRun?.(id);
     const runner = this.createRunner(name);
     const result = this.finish(name, this.execute(id, runner, options));

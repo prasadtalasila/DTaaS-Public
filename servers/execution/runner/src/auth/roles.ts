@@ -1,5 +1,6 @@
 import { ForbiddenException, SetMetadata } from '@nestjs/common';
 import { MqttRoute, mqttRoutes } from '../mqtt/mqtt.config.js';
+import type { Definition } from '../fsm/definition.js';
 import { Principal, Role } from './auth.config.js';
 
 // The routes of HTTP alone: no MQTT topic deletes a snapshot
@@ -45,6 +46,9 @@ export const ROUTE_ROLES: Record<Route, RouteRoles> = {
   snapshots: OPERATORS,
   save: OPERATORS,
   'delete-snapshot': OPERATORS,
+  // a manager asks only for a command of manager.commands too
+  whatif: ['client', 'manager'],
+  'whatif-result': [...OPERATORS, 'manager'],
 };
 
 export const ACCESS_ROUTE = 'accessRoute';
@@ -53,7 +57,7 @@ export const ACCESS_ROUTE = 'accessRoute';
 export const AccessRoute = (route: Route) => SetMetadata(ACCESS_ROUTE, route);
 
 const managerExecutes = (role: Role, route: Route): boolean =>
-  role === 'manager' && route === 'execute';
+  role === 'manager' && (route === 'execute' || route === 'whatif');
 
 // Whether the body asks to execute one of manager.commands
 export const listedCommand = (
@@ -64,8 +68,27 @@ export const listedCommand = (
   return typeof name === 'string' && commands.includes(name);
 };
 
+// What a class lists for a manager: its commands, and the what-ifs
+export type ManagerLists = Pick<Definition, 'managerCommands' | 'whatIf'>;
+
+// Whether the body asks for one of manager.commands, and for a what-if
+// for one of whatIf.commands as well
+export function managerListed(
+  route: Route,
+  lists: ManagerLists | undefined,
+  body: unknown,
+): boolean {
+  const commands = lists?.managerCommands ?? [];
+  const whatIfs = lists?.whatIf?.commands ?? [];
+  return (
+    listedCommand(commands, body) &&
+    (route !== 'whatif' || listedCommand(whatIfs, body))
+  );
+}
+
 // Refuses the principal the route with a 403; listed tells whether the
-// command of an execute request is one of manager.commands
+// command of an execute or a what-if request is one that a manager may
+// ask for
 export function authorize(
   { role }: Principal,
   route: Route,

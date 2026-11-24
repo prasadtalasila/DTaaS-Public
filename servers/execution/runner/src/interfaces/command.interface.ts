@@ -30,9 +30,11 @@ type CommandRecord = {
 // What a command request passes on: the options of its script, the
 // caller that submitted it, which the queue stores, and listeners of
 // the run in the history that the request was given, called at once
-// unless refused, and of the end of a run, called before it is stored
+// unless refused, and of the end of a run, called before it is stored.
+// mode marks a what-if run.
 type CommandOptions = RunOptions & {
   by?: string;
+  mode?: 'what-if';
   onRun?: (id: number) => void;
   ended?: (outcome: RunOutcome, id: number) => void;
 };

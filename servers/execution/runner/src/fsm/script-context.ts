@@ -1,103 +1,17 @@
 import type { Server } from 'node:http';
-import { z } from 'zod';
 import type { ParameterValue } from '../dto/parameters.dto.js';
 import type { Definition } from './definition.js';
-import { type Inherited, refusedName } from '../scripts/launch.js';
+import type { Inherited } from '../scripts/launch.js';
+import { type Env, REFERENCE } from './declared-env.js';
 import Parameters, { variableName } from './parameters.js';
 
-// The variables of a script's environment, by name
-export type Env = Readonly<Record<string, string>>;
-
-// A declared name is upper case and leaves the runner's prefixes alone
-const VARIABLE = /^[A-Z][A-Z0-9_]*$/;
-
-const RESERVED = /^(DT|RUNNER)_/;
-
-// A reference to a runner variable in a declared value
-const REFERENCE = /\$\{([^}]*)\}/g;
-
-// Why a declared name is refused, if it is; zod reports a refused
-// record key only as an invalid key, so the names are checked apart
-function nameProblem(name: string): string | undefined {
-  if (!VARIABLE.test(name)) {
-    return 'must be upper-case letters, digits or _, from a letter';
-  }
-  return RESERVED.test(name) ? 'must not start with DT_ or RUNNER_' : undefined;
-}
-
-// The env of the state machine file and of a state; values become
-// strings
-export const envSchema = z
-  .record(
-    z.string(),
-    z.union([z.string(), z.number(), z.boolean()]).transform(String),
-  )
-  .superRefine((env, context) => {
-    Object.keys(env).forEach((name) => {
-      const message = nameProblem(name);
-      if (message !== undefined) {
-        context.addIssue({ code: 'custom', message, path: [name] });
-      }
-    });
-  })
-  .default({});
-
-// The runner variables that a declared value may interpolate, besides
-// the parameter variables
-export const RUNNER_VARIABLES = [
-  'RUNNER_URL',
-  'RUNNER_TOKEN',
-  'DT_ID',
-  'DT_STATE',
-  'DT_ENTRY',
-];
-
-export const knownNames = ({ parameters }: Definition): Set<string> =>
-  new Set([...RUNNER_VARIABLES, ...[...parameters.keys()].map(variableName)]);
-
-const references = (value: string): string[] =>
-  [...value.matchAll(REFERENCE)].map(([, name]) => name);
-
-// One problem for each unknown name that a value of the env refers to
-const unknownNames = (env: Env, known: Set<string>, owner: string) =>
-  Object.entries(env).flatMap(([name, value]) =>
-    references(value)
-      .filter((reference) => !known.has(reference))
-      .map((reference) => `${owner}${name} uses unknown variable ${reference}`),
-  );
-
-// With a script account, setpriv starts with capabilities but not in
-// secure-execution mode, so its loader would honour these names
-const refusedNames = (env: Env, owner: string) =>
-  Object.keys(env)
-    .filter(refusedName)
-    .map((name) => `${owner}${name} is refused with scripts.user`);
-
-// The problems of the env of a definition that its schema can not see,
-// and with a script account the names that the launch refuses
-export function envProblems(
-  definition: Definition,
-  separated = false,
-): string[] {
-  const known = knownNames(definition);
-  const envs: Array<[Env, string]> = [
-    [definition.env, 'env '],
-    ...[...definition.stateEnv].map(([state, env]): [Env, string] => [
-      env,
-      `state ${state} env `,
-    ]),
-  ];
-  const unknown = envs.flatMap(([env, owner]) =>
-    unknownNames(env, known, owner),
-  );
-  const refused = envs.flatMap(([env, owner]) => refusedNames(env, owner));
-  return [...unknown, ...(separated ? refused : [])];
-}
+export type { Env } from './declared-env.js';
 
 // What the environment of one script is built from. Without a state
 // machine there is no entry, definition or parameter value, and without
-// access control no token. inherited and platform default to those of
-// the runner process.
+// access control no token. whatIf is the copy of a what-if run, which
+// gets no address and no token. inherited and platform default to those
+// of the runner process.
 export type ScriptContext = {
   id: string;
   url?: string;
@@ -105,6 +19,7 @@ export type ScriptContext = {
   command: string;
   state?: string;
   entry?: number;
+  whatIf?: string;
   values?: Readonly<Record<string, ParameterValue>>;
   definition?: Definition;
   inherited?: Inherited;
@@ -123,12 +38,28 @@ const parameterVariables = (values: ScriptContext['values'] = {}): Env =>
     ]),
   );
 
-function runnerVariables(context: ScriptContext) {
-  const { id, url, token, state, entry, values } = context;
+// The address and the token of the API, which a what-if does not get
+function apiVariables({ url, token, whatIf }: ScriptContext): Env {
+  if (whatIf !== undefined) {
+    return {};
+  }
   return {
     ...(url === undefined ? {} : { RUNNER_URL: url }),
     ...(token === undefined ? {} : { RUNNER_TOKEN: token }),
+  };
+}
+
+const modeVariables = (whatIf?: string): Env =>
+  whatIf === undefined
+    ? { DT_MODE: 'live' }
+    : { DT_MODE: 'what-if', DT_WHATIF_DIR: whatIf };
+
+function runnerVariables(context: ScriptContext) {
+  const { id, state, entry, values, whatIf } = context;
+  return {
+    ...apiVariables(context),
     DT_ID: id,
+    ...modeVariables(whatIf),
     ...machineVariables(state, entry),
     ...parameterVariables(values),
   };
@@ -167,14 +98,28 @@ function inheritedVariables(
   );
 }
 
+// The inherited environment without an address or a token of the API,
+// in any case, as Windows names are case-insensitive
+const withoutApi = (base: Env): Env =>
+  Object.fromEntries(
+    Object.entries(base).filter(
+      ([name]) => !/^RUNNER_(URL|TOKEN)$/i.test(name),
+    ),
+  );
+
 // The whole environment of a script; later wins: the inherited
-// environment, the runner variables, the file's env, the state's env
+// environment, the runner variables, the file's env, the state's env.
+// A what-if inherits no address or token of the API either.
 export function scriptEnvironment(context: ScriptContext): Env {
   const { inherited = process.env, platform = process.platform } = context;
   const variables = runnerVariables(context);
   const own = { ...variables, ...declaredVariables(context, variables) };
   const names = new Set(Object.keys(own));
-  return { ...inheritedVariables(inherited, platform, names), ...own };
+  const base = inheritedVariables(inherited, platform, names);
+  return {
+    ...(context.whatIf === undefined ? base : withoutApi(base)),
+    ...own,
+  };
 }
 
 // The address of the runner's HTTP API for its scripts: listen(port)
@@ -186,6 +131,9 @@ export function runnerUrl(server: Pick<Server, 'address'>): string | undefined {
     ? `http://127.0.0.1:${address.port}`
     : undefined;
 }
+
+// Where the machine is, and the copy of a what-if
+export type ScriptAt = Pick<ScriptContext, 'state' | 'entry' | 'whatIf'>;
 
 // What the scripts of a runner learn about it: its identity, the
 // address of its API and the token for it, and the declared env and
@@ -220,15 +168,15 @@ export class RunnerContext {
     this.inherited = base;
   }
 
-  // The environment of the command's script, for the entry of the state
-  environment(command: string, state?: string, entry?: number): Env {
+  // The environment of the command's script, for the entry of the
+  // state, or for a what-if on the copy
+  environment(command: string, at: ScriptAt = {}): Env {
     return scriptEnvironment({
       id: this.id,
       url: this.url,
       token: this.token,
       command,
-      state,
-      entry,
+      ...at,
       values: this.parameters?.values(),
       definition: this.definition,
       inherited: this.inherited,

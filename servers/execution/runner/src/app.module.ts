@@ -21,6 +21,7 @@ import PeersController from './peers/peers.controller.js';
 import PropertiesController from './properties.controller.js';
 import TimelineController from './timeline.controller.js';
 import SnapshotController from './snapshot.controller.js';
+import WhatIfController from './whatif.controller.js';
 import SavingFilter from './snapshot/saving.filter.js';
 import PeerWatch from './peers/peer-watch.js';
 import PeerEventsService from './fsm/peer-events.service.js';
@@ -36,6 +37,7 @@ import PeerEventsService from './fsm/peer-events.service.js';
     PropertiesController,
     TimelineController,
     SnapshotController,
+    WhatIfController,
   ],
   providers: [
     ExecaManager,

@@ -1,4 +1,4 @@
-export type NotifyKind = 'state' | 'escalation' | 'presence';
+export type NotifyKind = 'state' | 'escalation' | 'presence' | 'whatif';
 
 // The envelope of every notification, over MQTT and the webhook; for a
 // state notification, time is the time of the state document. Only the

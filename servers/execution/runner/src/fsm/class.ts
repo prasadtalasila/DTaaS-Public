@@ -45,6 +45,31 @@ export const snapshotProblems = (
         `snapshot ${kind} script ${command} is not a permitted command`,
     );
 
+// The commands that POST /whatif runs on a private copy of the twin
+export const whatIfSchema = z
+  .strictObject({ commands: z.array(z.string().min(1)).default([]) })
+  .optional();
+
+export type WhatIf = NonNullable<z.infer<typeof whatIfSchema>>;
+
+// The what-if commands that runner.yaml does not permit, and a what-if
+// without the save script that makes its copy
+export function whatIfProblems(
+  whatIf: WhatIf | undefined,
+  { save }: SnapshotScripts,
+  permitted: string[],
+): string[] {
+  if (whatIf === undefined) {
+    return [];
+  }
+  const problems = whatIf.commands
+    .filter((command) => !permitted.includes(command))
+    .map((command) => `what-if command ${command} is not a permitted command`);
+  return save === undefined
+    ? [...problems, 'whatIf needs snapshot.save, which makes its copy']
+    : problems;
+}
+
 // The values that runner.yaml gives the parameters of one instance of
 // the class, in place of the defaults of the file
 export type InstanceValues = Record<string, ParameterValue>;

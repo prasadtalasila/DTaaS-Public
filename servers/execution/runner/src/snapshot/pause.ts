@@ -12,6 +12,7 @@ const CHANGING: ReadonlySet<Route> = new Set<Route>([
   'set-peers',
   'set-properties',
   'save',
+  'whatif',
 ]);
 
 // Seconds that a caller refused during a save waits to try again

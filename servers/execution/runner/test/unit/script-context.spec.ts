@@ -46,7 +46,7 @@ describe('Script environment', () => {
         command: 'x',
         inherited: {},
       }),
-    ).toEqual({ RUNNER_URL: 'http://h:1', DT_ID: 'dt-1' });
+    ).toEqual({ RUNNER_URL: 'http://h:1', DT_ID: 'dt-1', DT_MODE: 'live' });
   });
 
   it('Should give the script token with access control', () => {
@@ -88,6 +88,7 @@ describe('Script environment', () => {
     expect(scriptEnvironment({ ...machine, command: 'idle' })).toEqual({
       RUNNER_URL: 'http://127.0.0.1:5000',
       DT_ID: 'dt-1',
+      DT_MODE: 'live',
       DT_STATE: 'monitor',
       DT_ENTRY: '2',
       DT_PARAM_SCOPE: 'multi',
@@ -190,7 +191,9 @@ describe('Runner context', () => {
     context.load('dt-1', definition, new Parameters(definition.parameters));
     context.setApi('http://127.0.0.1:5000', 'token-1');
 
-    expect(context.environment('monitor', 'monitor', 1)).toMatchObject({
+    expect(
+      context.environment('monitor', { state: 'monitor', entry: 1 }),
+    ).toMatchObject({
       RUNNER_URL: 'http://127.0.0.1:5000',
       RUNNER_TOKEN: 'token-1',
       DT_STATE: 'monitor',

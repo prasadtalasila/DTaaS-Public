@@ -46,19 +46,23 @@ export const mqttRoutes = [
   'timeline',
   'snapshots',
   'save',
+  'whatif',
+  'whatif-result',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];
 
 // The topic levels of the routes that write a resource, which sit under
-// its read topic, and of the snapshots; every other route is its own
-// topic level
+// its read topic, of the snapshots and of the what-ifs; every other
+// route is its own topic level
 const TOPIC_LEVELS: Partial<Record<MqttRoute, string>> = {
   'set-parameters': 'parameters/set',
   'set-peers': 'peers/set',
   'set-properties': 'properties/set',
   snapshots: 'snapshot',
   save: 'snapshot/set',
+  whatif: 'whatif/set',
+  'whatif-result': 'whatif',
 };
 
 export const requestTopic = (base: string, route: MqttRoute): string =>

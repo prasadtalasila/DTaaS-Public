@@ -66,6 +66,7 @@ function setup() {
     state: () => current,
     onChange: (listener: () => void) => listeners.push(listener),
     onEscalation: (listener: EscalationListener) => escalations.push(listener),
+    whatIfs: () => ({ onEnd: () => undefined }),
   };
   const { mqtt, webhook, calls, connect } = transports();
   const notifier = new Notifier(

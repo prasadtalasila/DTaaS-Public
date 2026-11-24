@@ -288,29 +288,29 @@ Provisional:
 
 ## Tasks
 
-- [ ] A class with `whatIf.commands` loads; one that names a command
+- [x] A class with `whatIf.commands` loads; one that names a command
       which is not permitted, or has no `snapshot.save`, is refused.
       Check: `test/unit/fsm.class.spec.ts`.
-- [ ] `POST /whatif` answers `202` with an id, and is refused without
+- [x] `POST /whatif` answers `202` with an id, and is refused without
       a database, a directory, access control, or a listed command.
-      Check: `test/e2e/whatif.spec.ts`.
-- [ ] The script runs with `DT_MODE=what-if` and a copy that holds a
+      Check: `test/e2e/whatif.spec.ts`, `test/e2e/whatif.refuse.spec.ts`.
+- [x] The script runs with `DT_MODE=what-if` and a copy that holds a
       database that opens and the four documents, and without `RUNNER_TOKEN` and
       `RUNNER_URL`; the copy is gone after a success, a failure and a
-      stop. Check: `test/e2e/whatif.spec.ts`.
-- [ ] The state document, the properties and the machine are the same
+      stop. Check: `test/e2e/whatif.spec.ts`, `test/e2e/whatif.run.spec.ts`.
+- [x] The state document, the properties and the machine are the same
       before and after a what-if. Check: `test/e2e/whatif.spec.ts`.
-- [ ] `GET /whatif/<id>` shows the run and its result, and a `whatif`
+- [x] `GET /whatif/<id>` shows the run and its result, and a `whatif`
       notification is sent once at the end. Check:
       `test/e2e/whatif.spec.ts`, `test/unit/notifier.whatif.spec.ts`.
-- [ ] A `manager` may run a command listed in both places and no
+- [x] A `manager` may run a command listed in both places and no
       other. Check: `test/unit/auth.roles.spec.ts`,
-      `test/e2e/whatif.spec.ts`.
-- [ ] Every other script gets `DT_MODE=live`. Check:
+      `test/e2e/whatif.run.spec.ts`.
+- [x] Every other script gets `DT_MODE=live`. Check:
       `test/unit/script-context.spec.ts`.
 - [ ] Documents updated. Check: markdownlint and prettier from the
       repository root.
-- [ ] `yarn build` and `yarn test` pass, and
+- [x] `yarn build` and `yarn test` pass, and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean.
 

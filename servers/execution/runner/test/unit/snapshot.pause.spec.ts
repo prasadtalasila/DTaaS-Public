@@ -15,6 +15,7 @@ const CHANGING: Route[] = [
   'set-peers',
   'set-properties',
   'save',
+  'whatif',
 ];
 
 const READS = routes.filter((route) => !CHANGING.includes(route));

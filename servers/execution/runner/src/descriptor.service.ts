@@ -18,6 +18,7 @@ import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
 import Timeline from './queue.timeline.js';
 import Snapshots from './snapshot/snapshots.js';
+import WhatIfs from './whatif/whatifs.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
 const now = (): number => performance.timeOrigin + performance.now();
@@ -38,6 +39,8 @@ export default class DescriptorService
 
   private readonly saves: Snapshots;
 
+  private readonly whatIf: WhatIfs;
+
   // The snapshot that this start reinstated the twin from, if any
   private reinstated: Reinstated | undefined;
 
@@ -47,6 +50,8 @@ export default class DescriptorService
     private readonly queue: Queue,
   ) {
     this.saves = new Snapshots(config, fsm, queue);
+    const snapshots = this.saves;
+    this.whatIf = new WhatIfs({ config, fsm, queue, snapshots, twin: this });
     // registered first, so that the row of a notice comes before the
     // rows of the events that it raises
     this.peerList.onNotice((peer, kind, data) =>
@@ -65,6 +70,7 @@ export default class DescriptorService
     this.fsm.onEscalation((data) => this.counters.escalated(data));
     this.peerList.load(this.config.getPeers(), this.queue);
     this.restoreProperties();
+    this.whatIf.clearLeftovers();
     this.recordStart();
   }
 
@@ -87,8 +93,10 @@ export default class DescriptorService
     this.reinstated = snapshot;
   }
 
-  // The database closes after this hook
-  beforeApplicationShutdown(): void {
+  // The database closes after this hook; a what-if in progress stops,
+  // and its copy goes
+  async beforeApplicationShutdown(): Promise<void> {
+    await this.whatIf.stop();
     this.queue.timeline.record('shutdown', {}, null);
   }
 
@@ -110,6 +118,11 @@ export default class DescriptorService
   // The saves of the twin into snapshots
   snapshots(): Snapshots {
     return this.saves;
+  }
+
+  // The what-ifs on private copies of the twin
+  whatIfs(): WhatIfs {
+    return this.whatIf;
   }
 
   properties(): Properties {

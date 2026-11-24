@@ -44,6 +44,8 @@ describe('MQTT service', () => {
         'dtaas/runner/timeline',
         'dtaas/runner/snapshot',
         'dtaas/runner/snapshot/set',
+        'dtaas/runner/whatif/set',
+        'dtaas/runner/whatif',
       ],
       { qos: 1 },
       expect.any(Function),
