@@ -629,6 +629,11 @@ What the paper adds to the plan of issue 24:
   speed of a replay in issue 24 and `DT_TIME_SCALE` are the same
   idea.
 
+The plan of issue 24 was split: issue 24 built the what-if inside the
+twin, and issue [25](issues/25-replay.md) the replay, in version
+0.14.0 ([REPLAY.md](../REPLAY.md)). The speed of a replay is the
+`speed` of its file, given to the scripts as `DT_TIME_SCALE`.
+
 ### One Runner or Another
 
 A fork has to be started and fed by something. The first plan of
@@ -683,7 +688,8 @@ process. The two needs are met apart:
   contacts the twin. This is the second table, with the tool as the
   orchestrator, and without its costs of a network: a snapshot holds
   the database, the class and its scripts, so everything is in two
-  directories.
+  directories. Version 0.14.0 built it as `runner-replay` and
+  `runner-compare`.
 - **The twin answers a what-if by itself with a script** (issue
   [24](issues/24-what-if.md)). A command that the class lists runs on
   a private copy of the twin, which the save script of the class
@@ -706,9 +712,9 @@ call, local data, and no network.
   named. Nothing says what a replica sees if the twin changes while
   it copies.
 - **Nothing keeps a replica from acting on the PT.** The "controlled
-  environment" is asserted. Issue 24 has two rules for it: a
-  what-if inside the twin runs on a copy, and a fork is refused
-  unless its class allows one.
+  environment" is asserted. Issues 24 and 25 have two rules for it: a
+  what-if inside the twin runs on a copy, and a replay twin is refused
+  unless its class says `whatIf.replay: true`.
 - **Time is the time of the clock.** Only the simulation pattern has
   a notion of scaled time, and it is SimPy's.
 

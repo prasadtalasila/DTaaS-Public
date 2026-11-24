@@ -26,6 +26,8 @@ Other documents of the runner:
   machine.
 - [WHAT-IF.md](WHAT-IF.md): asking a twin a question on a private copy
   of itself.
+- [REPLAY.md](REPLAY.md): running a twin again from a snapshot, with
+  something changed, and comparing the two.
 - [api/API.md](api/API.md): every route, topic and notification, with
   examples.
 - [DOCKER.md](DOCKER.md): running the runner in a container.
@@ -53,6 +55,10 @@ Install the package with the following command:
 ```bash
 sudo npm install -g @into-cps-association/runner
 ```
+
+The package has three commands: `runner`, the service, and
+`runner-replay` and `runner-compare`, the tools of a
+[replay](#replays).
 
 ### Github Registry
 
@@ -157,6 +163,16 @@ notification kind `whatif`, the timeline kind `whatif`, `mode` in
 `DT_MODE` and `DT_WHATIF_DIR`. Every script now gets `DT_MODE`. A
 database file of an earlier version gains a `mode` column at the first
 start.
+
+Version 0.14.0 adds [replays](#replays): the commands `runner-replay`
+and `runner-compare`, the options `--what-if` and `--time-scale` of
+`runner`, `replay` in [GET /dt](#get-request-to-dt) and in the
+`whatIf` section, the route `PUT /peers/<id>/notice` of a replay twin,
+the headers `Replay-By` and `Replay-Seq`, `at` and `origin` on the
+rows of the [timeline](#get-request-to-timeline) of a replay twin, and
+the script variables `DT_REPLAY_OF` and `DT_TIME_SCALE`. A database
+file of an earlier version gains the columns `at` and `origin` at the
+first start.
 
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
@@ -431,7 +447,9 @@ auth:
   [snapshots](#snapshots), and read the result of a
   [what-if](#what-ifs). It may not steer the twin or ask for a
   what-if. A `manager`
-  steers it and may not copy it.
+  steers it and may not copy it. In a [replay twin](#replays) an
+  `operator` may call every route, as `runner-replay` sends every input
+  as one principal of that role.
 - Every role but `sensor` may read the [timeline](#timeline); only a
   `client` and an `operator` see the `input` of a command in it.
 - A `sensor` feeds property values from outside the runner, such as a
@@ -641,6 +659,8 @@ and gets `HOME`, `USER` and `LOGNAME` of that account and `PATH` set to
 | `DT_PARAM_<NAME>` | the value of each [parameter](#parameters) when the script starts |
 | `DT_MODE`         | `what-if` for the script of a [what-if](#what-ifs), else `live`   |
 | `DT_WHATIF_DIR`   | the private copy of the twin, for the script of a what-if only    |
+| `DT_REPLAY_OF`    | the `id` of the twin, in a [replay twin](#replays) only           |
+| `DT_TIME_SCALE`   | the factor of `--time-scale`, in a replay twin only               |
 
 For a script that the state machine runs, `DT_STATE` and `DT_ENTRY` name
 the state it enters and the number of that entry. For a script of `POST
@@ -654,7 +674,9 @@ drawn anew at each start and is unset without `auth.principals`. The
 state machine file may [declare more variables](#declared-environment).
 The script of a what-if gets neither `RUNNER_URL` nor `RUNNER_TOKEN`,
 also when the runner inherited them, and a declared `${RUNNER_URL}` is
-empty for it.
+empty for it. Every script of a replay twin gets `DT_MODE=what-if`,
+`DT_REPLAY_OF` and `DT_TIME_SCALE`, and `RUNNER_URL` and
+`RUNNER_TOKEN` of the replay twin.
 
 The `DOCKER.md` file in the
 [runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
@@ -1399,6 +1421,12 @@ does not start: `✖ what-if command forecast-ward is not a permitted
 command`. A `manager` may ask only for those that `manager.commands`
 lists too.
 
+`replay: true` in the same section says that the scripts of the class
+are safe in a [replay twin](#replays): they follow `DT_MODE`, keep to
+files of their own and divide their waits by `DT_TIME_SCALE`. Without
+it no replay twin of the class starts. A section with `replay: true`
+and no `commands` needs no `snapshot.save`.
+
 ## Use
 
 Display help.
@@ -1413,8 +1441,16 @@ Options:
   -c --config <string>     runner config file specified in yaml format (default:
                            "runner.yaml")
   --reinstate <directory>  start the twin from the snapshot in the directory
+  --what-if                start a replay twin, which reaches nobody; only with
+                           --reinstate
+  --time-scale <factor>    how fast the time of a replay twin runs; only with
+                           --what-if
   -h --help                display help
 ```
+
+`--what-if` and `--time-scale` start a [replay twin](#replays), which
+`runner-replay` does for the operator; `--time-scale` takes a number
+above 0, and is `1` without the flag.
 
 The config option is not mandatory. If it is not used, **runner** looks for
 _runner.yaml_ in the directory from which it is being run.
@@ -1610,6 +1646,42 @@ section and [access control](#access-control); without one it gets
 `409`. Each what-if pauses the twin for a save and copies the
 database.
 
+### Replays
+
+An operator asks what a twin would have done under another value. The
+tool `runner-replay` starts a second runner, a replay twin, from one
+snapshot with that value changed, and sends it the inputs that the
+twin took until a later snapshot; `runner-compare` lists the state
+entries of the two timelines side by side. Neither contacts the twin.
+[REPLAY.md](REPLAY.md) is the guide for operators and authors.
+
+```yaml
+# runner-replay.yaml
+start: hospital-1/snapshots/20261124T180424484Z
+inputs: hospital-1/snapshots/20261124T180434183Z
+out: replays/scope-multi
+speed: 2
+settle: 2
+set:
+  parameters:
+    scope: multi
+```
+
+```bash
+runner-replay runner-replay.yaml
+runner-compare hospital-1/snapshots/20261124T180434183Z replays/scope-multi
+```
+
+`runner-compare` marks the first entry that differs, and exits with 0
+when the entries are the same and 1 when they differ. The replay twin
+is `runner --reinstate <start> --what-if --time-scale <speed>`: it
+listens on `127.0.0.1` only, connects to no broker, follows no peer
+and sends no notification, and its class must have
+[whatIf.replay](#what-if-commands). Its scripts run for real on the
+host. A replay from `inputs` needs a twin with
+[access control](#access-control); a file with `steps`, a scenario,
+works for any twin.
+
 ### Application Programming Interface (API)
 
 [API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
@@ -1626,7 +1698,9 @@ its [parameters](#parameters-requests), two read and write its
 [escalates to the Manager](#escalation-requests), two
 [read and switch its peers](#peers-requests), three save, list and
 remove its [snapshots](#snapshot-requests) and two ask for a
-[what-if](#what-if-requests) and read its result. The routes for commands
+[what-if](#what-if-requests) and read its result. A
+[replay twin](#replays) serves one more, which hands it the notice of
+a peer ([Peers Requests](#peers-requests)). The routes for commands
 and their responses are:
 
 | REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
@@ -1857,7 +1931,10 @@ never started; it may come after the next entry. The kinds are
 `properties`, `peers`, `notice`, `entry`, `exit`, `sent` and
 `shutdown`; [API.md](api/API.md#get-timeline) gives the data of each.
 The input of a command is shown only to a `client`, and to every
-caller without access control.
+caller without access control. In a [replay twin](#replays) each row
+also has `at`, the time that it stands for, and a row of an input that
+named its first sender has `origin`, `{"by": "alice", "seq": 22}`:
+the principal and the `seq` that it had in the twin.
 
 The query selects the rows:
 
@@ -1892,7 +1969,8 @@ Describes the digital twin that the runner serves, from its
   "stateMachine": true,
   "manager": { "commands": ["execute"] },
   "peers": ["hospital-2"],
-  "publicKey": null
+  "publicKey": null,
+  "replay": null
 }
 ```
 
@@ -1906,7 +1984,9 @@ not give, `manager` lists the
 [manager commands](#manager-commands), `peers` the ids of the
 enabled [peers](#peers) in the order of _runner.yaml_, `[]` without
 any, and `publicKey` the public key of the
-[signing key](#signed-output), `null` without one.
+[signing key](#signed-output), `null` without one. `replay` is `null`,
+or in a [replay twin](#replays) the twin and the time of its snapshot:
+`{"of": "hospital-1", "time": "2026-11-24T18:04:24.484Z"}`.
 
 #### GET Request to /state
 
@@ -2320,6 +2400,16 @@ the peers of the last connection, while `GET /dt` is current.
 curl http://localhost:5000/peers
 curl -X PUT http://localhost:5000/peers   -H 'Content-Type: application/json' -d '{"hospital-2": false}'
 ```
+
+A [replay twin](#replays) follows no peer, so `runner-replay` hands it
+the notices that the twin received, with
+`PUT /peers/<id>/notice` and a body `{"kind": "presence", "data":
+{"online": false}}` or `{"kind": "state", "data": <state document>}`.
+The runner takes it as it would the notice over MQTT, raises the
+events of the subscriptions, and replies `200` with the body of
+`GET /peers`. Only an `operator` may call it, and any other runner
+answers `404`. [API.md](api/API.md#replay-twins) has the headers that
+name the first sender of an input.
 
 #### Escalation Requests
 

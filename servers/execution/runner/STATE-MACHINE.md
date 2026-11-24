@@ -375,6 +375,8 @@ it may write.
 | `DT_PARAM_<NAME>` | the value of each parameter when the script starts, as `DT_PARAM_SCOPE` |
 | `DT_MODE`         | `live`, or `what-if` for the script of a [what-if](#what-if)            |
 | `DT_WHATIF_DIR`   | the private copy of the DT, for the script of a what-if only            |
+| `DT_REPLAY_OF`    | the `id` of the twin, in a [replay twin](#replay) only                  |
+| `DT_TIME_SCALE`   | how fast the time of a replay twin runs, in a replay twin only          |
 
 `<NAME>` is the parameter name in upper case, with `.` and `-` as `_`.
 The file may add variables for every script and for one state:
@@ -499,6 +501,7 @@ The runner sends a script no signal before a save.
 whatIf:
   commands:
     - forecast-beds
+  replay: true
 ```
 
 The commands that `POST /whatif` runs on a private copy of the DT,
@@ -511,7 +514,7 @@ start when:
 - a command is the name of a state:
   `✖ what-if command work is the script of a state, which runs for the
 machine; a what-if needs a script of its own`;
-- the file has `whatIf` and no `snapshot.save`:
+- `whatIf.commands` is not empty and the file has no `snapshot.save`:
   `✖ whatIf needs snapshot.save, which makes its copy`.
 
 A `manager` may ask only for a command that `manager.commands` lists
@@ -520,6 +523,30 @@ copy in `DT_WHATIF_DIR`, and neither `RUNNER_URL` nor `RUNNER_TOKEN`;
 it prints its result. A what-if command is no state, so its run never
 holds up or is stopped by a transition; a live run of it while its
 what-if runs is refused with `409` `what-if running`.
+
+#### Replay
+
+`replay: true` allows a replay twin of the class: a second runner,
+started from a snapshot with `--reinstate` and `--what-if`, which
+`runner-replay` feeds the recorded inputs of the twin
+([REPLAY.md](REPLAY.md)). Without it, such a runner stops with `the
+class has no whatIf.replay: true, and a class that was not written for
+a replay twin would act on the real twin from a second process`. With
+`replay: true` and no `commands`, the file needs no `snapshot.save`.
+
+Every script of the class runs in a replay twin, for real, on the host
+of the operator, with `DT_MODE=what-if`, `DT_REPLAY_OF` set to the
+`id` of the twin and `DT_TIME_SCALE` to the factor of the replay; its
+`DT_ID` is that of the replay twin, and `RUNNER_URL` and
+`RUNNER_TOKEN` are those of the replay twin. The author writes
+`replay: true` only when every script:
+
+- keeps its files in a place of its own when `DT_MODE` is `what-if`
+  and `DT_REPLAY_OF` is set, and the restore script puts the files of
+  the snapshot there;
+- divides its own waits, such as an interval between samples, by
+  `DT_TIME_SCALE`;
+- sends nothing to the world, to a device, a person or another system.
 
 ### Subscriptions to Peers
 
@@ -611,7 +638,7 @@ problem, when:
 - a name breaks the naming rule, a parameter, `env` or `escalation`
   entry is invalid, or a manager command is not permitted;
 - a [what-if](#what-if) command is not permitted or is a state, or
-  `whatIf` comes without `snapshot.save`;
+  `whatIf.commands` comes without `snapshot.save`;
 - a property has a keyword that the runner does not know or that does
   not apply to its type, a number without a `unit`, an array without
   `items` or an object without `properties`, an `enum` value of another
@@ -1359,10 +1386,13 @@ manager:
 snapshot:
   save: save-script
   restore: restore-script
-# the commands that POST /whatif runs on a private copy of the twin
+# the commands that POST /whatif runs on a private copy of the twin;
+# replay: the scripts keep to their own beds in a replay twin, so
+# runner-replay may start one
 whatIf:
   commands:
     - forecast-beds
+  replay: true
 # events that the runner raises when a neighbour changes: a peer that
 # runner.yaml gives the relationship neighbour
 subscriptions:
@@ -1453,6 +1483,9 @@ As above, `transition` starts the machine and `(stop)` marks
   back, and the Manager asks `forecast-beds` with `POST /whatif`: the
   free beds after a horizon, computed on a copy of the DT
   ([WHAT-IF.md](WHAT-IF.md)).
+- `whatIf.replay` allows a replay twin: in one, the scripts keep the
+  beds under `run/<DT_ID>/` of the working directory, and _open_
+  divides its samples by `DT_TIME_SCALE` ([REPLAY.md](REPLAY.md)).
 
 The requests of the recording to `hospital-1`, with their replies.
 The recording predates version 0.11.0, so it shows neither `free-beds`

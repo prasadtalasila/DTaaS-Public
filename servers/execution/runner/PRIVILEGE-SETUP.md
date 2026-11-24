@@ -397,6 +397,12 @@ script of the class can not write into a snapshot or read one. With
 - A [what-if](WHAT-IF.md) is refused with the same `409`. Its class
   must name a save script, which makes the private copy, so with
   `scripts.user` no what-if runs.
+- A [replay twin](REPLAY.md) has no `scripts` section: `runner-replay`
+  leaves it out of the configuration that it writes, with `mqtt` and
+  `snapshots`. The scripts of a replay twin, its restore script among
+  them, run as the account of whoever runs `runner-replay`, with that
+  account's files, network and devices. Run the tool as an account
+  that may do no more than the scripts need.
 
 What the operator can do:
 

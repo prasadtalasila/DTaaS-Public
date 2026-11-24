@@ -297,6 +297,56 @@ the copy, an unchanged twin), `whatif.run.spec.ts` (joins, stops,
 modes, roles), `whatif.copy.spec.ts` (during the copy, and the save's
 refusals), `whatif.refuse.spec.ts` and `whatif.notify.spec.ts`.
 
+### Replay Code and Tests
+
+Replays (issue 25) have two parts. The replay twin is a mode of the
+runner, in `src/replay/`; the tools `runner-replay` and
+`runner-compare` are in `src/tools/`, outside the Nest application,
+which they start as a child process. [REPLAY.md](REPLAY.md) is the
+user guide, and D59 to D63 of the [design](docs/state-machine-design.md)
+the reasons. Before changing them:
+
+- The mode is one object, `ReplayMode` of `replay-mode.ts`, that
+  `Config.replay()` returns, `undefined` in a twin. Each place that
+  differs asks it: `getMqtt()` and `getNotify()` return `undefined`,
+  `listenHost` of `main.ts` gives `127.0.0.1`, `AccessGuard` lets an
+  `operator` call every route and parses the headers with
+  `replayOrigin` of `origin.ts`, and `RunnerContext.load` adds the
+  script variables. `beginReplay` of `src/snapshot/reinstate.ts` checks
+  `whatIf.replay` and starts the clock of `at`.
+- `stamp.ts` decides which rows get `origin`: the input kinds, written
+  in the context of a request, without a `source`.
+- `src/tools/replay.ts` and `compare.ts` are the two `bin` entries and
+  the only files that parse the command line; jest leaves them out of
+  coverage, as `main.ts`. The flow is in `replay-run.ts` and
+  `compare-run.ts`. Every function there has at most 3 parameters and
+  a complexity of 4 at most; keep them so, as Qlty fails a function at 5.
+- `ToolError` carries the exit code: 2 for a refusal, 1 for a failure.
+  The tools write with `say` and `complain` of `tool-error.ts`, as
+  eslint bans `console`.
+- The tools reuse the runner's code by import: `readManifest`,
+  `readConfig`, `Timeline.rows` on a read-only `DatabaseSync`,
+  `Signer`, `bodyHash`, `snapshotName` and `whatIfSchema`. Change those
+  with the tools in mind.
+- `shutdown.ts` stops the scripts of the replay twin with
+  `POST /stop` before it ends the runner, on the normal end and on
+  `SIGINT` and `SIGTERM`, as a runner that shuts down waits for its
+  scripts.
+
+The tests of `src/replay/` are `test/unit/replay.*.spec.ts`,
+`test/integration/config.replay.spec.ts`,
+`test/integration/queue.timeline.replay.spec.ts` and
+`test/e2e/replay-twin*.spec.ts`. Those of the tools are
+`test/unit/tools.*.spec.ts`, `test/integration/tools.replay.spec.ts`,
+`test/e2e/replay.spec.ts`, `test/e2e/replay.refuse.spec.ts` and
+`test/e2e/dist.spec.ts`. The integration and end-to-end tests of the
+tools run the built `dist/src/main.js` and `dist/src/tools/*.js`, and
+are skipped without them: run `yarn build` first. The twins of
+`test/e2e/replay.util.ts` have access control, as a replay from
+`inputs` needs it. `test/e2e/commander.spec.ts` fails when jest runs it
+alone with extra flags, as commander then parses the flags of jest; in
+the full suite it passes.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files

@@ -1,11 +1,12 @@
 # Saving, Reinstating and What-If
 
-A design, not a description of what is built. It gathers what issues
-[22](issues/22-timeline.md) to [25](issues/25-replay.md) plan, in one
-place: what each feature is for, how the features differ, and every
-format that they would add. The issues hold the plans, the tasks and
-the open questions; where this page and an issue disagree, the issue
-is right.
+What issues [22](issues/22-timeline.md) to [25](issues/25-replay.md)
+built, up to version 0.14.0, in one place: what each feature is for,
+how the features differ, and every format that they add. Each example
+comes from the built runner and tools, most of them from the hospital
+demo. The issues hold the reasons, the tasks and the lessons, and the
+guides [WHAT-IF.md](../WHAT-IF.md) and [REPLAY.md](../REPLAY.md) the
+use; where this page and an issue disagree, the issue is right.
 
 The hospital twin of `demo/hospital` is the example throughout.
 
@@ -53,11 +54,11 @@ Three decisions run through all of them:
 ### The Name of the Second Twin
 
 The second twin of a replay was first called a side twin. Two better
-names:
+names were weighed:
 
 - **Replay twin.** It says what the twin is for and which tool makes
-  it, and it can not be taken for a twin in production. This page
-  and the issues use it.
+  it, and it can not be taken for a twin in production. The owner
+  chose it, and the runner, the tools and this page use it.
 - **Trial twin.** It says that the twin exists to try a change, and
   it is close to the Test-FDT of the Fluid Digital Twins paper. It
   fits less well if a replay is run with nothing changed, to check
@@ -82,6 +83,7 @@ it. A Manager steers it and can not copy it.
 | `stop`                                                                             | yes      | yes        | no                      | no       | no       |
 | `whatif`                                                                           | yes      | no         | both lists only         | no       | no       |
 | `whatif-result`                                                                    | yes      | yes        | yes                     | no       | no       |
+| `notice`, in a replay twin only                                                    | no       | yes        | no                      | no       | no       |
 | `execute`                                                                          | yes      | no         | `manager.commands` only | no       | no       |
 | `transition`                                                                       | yes      | no         | no                      | no       | no       |
 | `event`, `escalate`                                                                | yes      | no         | no                      | yes      | no       |
@@ -99,6 +101,12 @@ built: a `manager` asks for a what-if only of a command that
 route `snapshots`, the save `save` and the removal `delete-snapshot`,
 a route of HTTP alone. An operator also reads the `input` of a
 command row of the timeline, as a `client` does.
+
+Version 0.14.0 (issue 25) added `notice`, `PUT /peers/<id>/notice`, a
+route of HTTP alone that only a replay twin answers. In a replay twin
+the role `operator` may call every route, as the tool sends every
+input as its one principal `replay`, of that role; in any other
+runner the table holds.
 
 ## The Timeline
 
@@ -147,6 +155,10 @@ The `start` row holds the whole state that the runner starts with.
 So what the runner knew of the twin at any `seq` is the `start` row
 before it and the rows between. The rows are also the inputs of a
 replay.
+
+In a replay twin each row also has `at`, the time that it stands for,
+and a row of a replayed input `origin`, the principal and the `seq`
+that it had in the twin ([Replay](#what-is-sent)).
 
 `GET /timeline` takes `after` (a `seq`), `since` and `until` (times),
 `kind`, `limit` and `count`. No row is ever removed, and the table
@@ -268,11 +280,12 @@ cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
 ```bash
 #!/usr/bin/env bash
 # Restores the beds of the hospital from a snapshot: copies ward.json of
-# DT_SNAPSHOT_DIR to run/<DT_ID>/. runner --reinstate runs it.
+# DT_SNAPSHOT_DIR to the ward directory of ward.sh, run/<DT_ID>/ or that
+# of a replay twin. runner --reinstate runs it.
+. "$(dirname "$0")/ward.sh"
 set -euo pipefail
-ward_dir="$(dirname "$0")/../run/$DT_ID"
-mkdir -p "$ward_dir"
-cp "$DT_SNAPSHOT_DIR/ward.json" "$ward_dir/ward.json"
+mkdir -p "$WARD_DIR"
+cp "$DT_SNAPSHOT_DIR/ward.json" "$WARD_FILE"
 ```
 
 A class whose scripts keep everything in properties names neither.
@@ -430,17 +443,21 @@ manager:
 snapshot:
   save: save-script
   restore: restore-script
-# the commands that POST /whatif runs on a private copy of the twin
+# the commands that POST /whatif runs on a private copy of the twin;
+# replay: the scripts keep to their own beds in a replay twin, so
+# runner-replay may start one
 whatIf:
   commands:
     - forecast-beds
+  replay: true
 ```
 
-A Manager may ask only for a command that both lists hold, and gets
-`403` for any other; a `client` gets `400` `invalid command` for a
-command that `whatIf.commands` lacks. A command
-of `whatIf.commands` must be permitted and may not be a state, and
-the class needs `snapshot.save`; else the runner does not start. The
+`replay: true` is of a [replay](#replay). A Manager may ask only for
+a command that both lists hold, and gets `403` for any other; a
+`client` gets `400` `invalid command` for a command that
+`whatIf.commands` lacks. A command of `whatIf.commands` must be
+permitted and may not be a state, and the class needs
+`snapshot.save`; else the runner does not start. The
 runner needs a database file, a directory for snapshots and access
 control; without any of them a what-if is refused with `409`.
 
@@ -587,7 +604,9 @@ database and the scripts each time.
 
 An operator asks: "What would hospital-1 have done last night under
 scope `multi`?" The state machine and every script of the class run
-again, in a replay twin, on what the twin was told.
+again, in a replay twin, on what the twin was told. Version 0.14.0
+(issue 25) built it as described here; [REPLAY.md](../REPLAY.md) is
+the guide for operators and authors.
 
 ### Two Snapshots
 
@@ -598,21 +617,23 @@ again, in a replay twin, on what the twin was told.
 
 A replay is described in a file, and run from it. The file is
 `runner-replay.yaml` by default: without an argument the tool reads
-the file of that name in the current directory.
+the file of that name in the current directory. The file of the
+chapter "Replay" of the demo, in `run/`:
 
 ```yaml
-# runner-replay.yaml
-start: run/hospital-1/snapshots/20261122T220000000Z
-inputs: run/hospital-1/snapshots/20261123T060000000Z
+# hospital-1 again, from its first save, under scope multi
+start: hospital-1/snapshots/20261124T180424484Z
+inputs: hospital-1/snapshots/20261124T180434183Z
 out: replays/scope-multi
-speed: 60
+speed: 2
+settle: 2
 set:
   parameters:
     scope: multi
 ```
 
 ```bash
-runner-replay runner-replay.yaml
+runner-replay run/runner-replay.yaml
 ```
 
 | Key      | Needed               | Meaning                                                                              |
@@ -621,13 +642,25 @@ runner-replay runner-replay.yaml
 | `inputs` | unless `steps`       | A later snapshot of the same twin, whose timeline gives the inputs                   |
 | `steps`  | in place of `inputs` | A list of inputs, each at a time: a scenario                                         |
 | `out`    | always               | Where the replay twin lives; it must not exist                                       |
-| `speed`  | no                   | Divide the gaps between the inputs by this number; `1` by default                    |
+| `speed`  | no                   | Divide the gaps between the inputs by this number, above 0; `1` by default           |
 | `until`  | no                   | Stop at the last input before this time                                              |
 | `settle` | no                   | Seconds to wait after the last input for the replay twin to be idle; `30` by default |
 | `set`    | no                   | `parameters` and `properties` to set in the replay twin before the first input       |
 
 Paths are relative to the file. The only flag is `--dry-run`, which
-prints the inputs and their times and starts nothing.
+checks the file and the snapshots, prints the inputs and their times,
+and starts nothing:
+
+```text
+20261124T180424802Z +0.159s command alice POST / {"name":"admit","input":{"patient":"p-2","ward":"cardiology"}}
+20261124T180424983Z +0.249s command alice POST / {"name":"admit","input":{"patient":"p-3","ward":"cardiology"}}
+20261124T180425773Z +0.644s parameters manager-1 PUT /parameters {"scope":"multi"}
+```
+
+A replay from `inputs` needs a twin with access control. Without
+`auth.principals` every row has `by: null`, so the timeline does not
+tell an input from what a script did, and the tool refuses with exit
+code 2. A file with `steps` works for any twin.
 
 ### Times
 
@@ -638,7 +671,8 @@ in its basic form, which has no character that a file name can not
 hold on Windows. It is used for:
 
 - the name of a snapshot directory, and of a private copy;
-- `until` and each `at` of a replay file.
+- `until` and each `at` of a replay file;
+- each line of a dry run.
 
 The times inside JSON documents, such as `time` of the manifest and
 of a row, stay in the extended form, `2026-11-23T06:00:00.000Z`, as
@@ -646,25 +680,35 @@ everywhere in the API.
 
 ### What the Tool Does
 
-1. It checks that both snapshots are of one twin, and that the class
-   says `whatIf.replay: true`.
+1. It checks that both snapshots are of one twin and one class, that
+   the inputs are later, and that the class says
+   `whatIf.replay: true`.
 2. It writes the configuration of the replay twin, from the copy of
    `runner.yaml` in the start.
 3. It starts a runner on it:
    `runner -c <out>/runner.yaml --reinstate <start> --what-if --time-scale <speed>`.
 4. If the script of the saved state was running at the save, it asks
-   for a transition to that state, so that the script runs.
-5. It applies `set`.
+   for a transition to that state, so that the script runs: the first
+   step.
+5. It writes `set.properties`.
 6. It sends each input at its time after the start, over the speed.
-7. It waits until the replay twin is idle, for `settle` seconds at
-   most, stops it, and leaves `out`.
+7. It waits until no script runs, for `settle` seconds at most, stops
+   a script that still runs with `POST /stop`, stops the replay twin,
+   writes `replay.json`, and prints
+   `Sent 21 inputs, 2 refused; the replay is in <out>`.
 
-The configuration that it writes, for the hospital:
+The configuration that it wrote in the demo:
 
 ```yaml
-id: 'hospital-1.replay'
-port: 41873
-location: '../../run/hospital-1/snapshots/20261122T220000000Z/scripts'
+id: hospital-1.replay
+attributes:
+  name: Hospital 1
+  city: Aarhus
+  latitude: 56.19
+  longitude: 10.17
+  wards: 2
+port: 36619
+location: ../../hospital-1/snapshots/20261124T180424484Z/scripts
 commands:
   - open
   - full
@@ -673,203 +717,270 @@ commands:
   - discharge
   - save-script
   - restore-script
-stateMachine: '../../run/hospital-1/snapshots/20261122T220000000Z/hospital.fsm.yaml'
-database: 'state.db'
+  - forecast-beds
+database: state.db
+stopGrace: 1000
+stateMachine: ../../hospital-1/snapshots/20261124T180424484Z/hospital.fsm.yaml
 parameters:
   scope: multi
 relationships:
   peers:
-    - id: 'hospital-2'
-      topic: 'dtaas/hospital-2'
-      url: 'http://localhost:5200'
+    - id: hospital-2
+      topic: dtaas/hospital-2
+      url: http://localhost:5200
       relationship: neighbour
+      attributes:
+        distance: 12.4
+      publicKey: nUC5NU0GW-skpJ05rEgWfz3W9uMbi6QbY6493afm9qU
 auth:
   principals:
-    - name: 'replay'
-      role: 'client'
-      publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
+    - name: replay
+      role: operator
+      publicKey: ZO9tWsSvoJVnkQwO2uB8nACWj4pC9UxV6DXjaomWjM8
 ```
 
-- No broker and no webhook: a replay twin reaches nobody.
+- No broker, no webhook, no `scripts` and no `snapshots`: a replay
+  twin reaches nobody and saves nothing.
 - The peers are as in the copy, so that the subscriptions of the
   class bind. None is followed: a replay twin listens to no peer,
   whatever its configuration lists.
-- One principal, with a key that the tool makes for this run and
-  keeps to itself.
+- One principal, `replay`, of role `operator`, with a key that the
+  tool makes for this run and keeps in memory.
 
 ### What Is Sent
 
-| Row of the timeline                                                       | Sent as                                   |
-| :------------------------------------------------------------------------ | :---------------------------------------- |
-| `transition`                                                              | `POST /fsm/transition`                    |
-| `event` of a client                                                       | `POST /fsm/event`                         |
-| `command`, with its input                                                 | `POST /`                                  |
-| `parameters`, `peers`                                                     | `PUT /parameters`, `PUT /peers`           |
-| `properties` that a `sensor` wrote                                        | `PUT /properties`                         |
-| `notice` of a peer                                                        | `PUT /peers/<id>/notice`                  |
-| anything that a script raised or wrote, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
+| Row of the timeline                                                    | Sent as                                   |
+| :--------------------------------------------------------------------- | :---------------------------------------- |
+| `transition`                                                           | `POST /fsm/transition`                    |
+| `event` of a client                                                    | `POST /fsm/event`                         |
+| `command`, with its input                                              | `POST /`                                  |
+| `parameters`, `peers`                                                  | `PUT /parameters`, `PUT /peers`           |
+| `properties` that a `sensor` or a `client` wrote                       | `PUT /properties`                         |
+| `notice` of a peer                                                     | `PUT /peers/<id>/notice`                  |
+| `event` or `properties` of a script, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
 
+`stop`, `snapshot`, `start` and `shutdown` rows are not sent either.
 The tool signs each request as `replay`. Each also names who sent it
-to the twin, and its `seq` there. The replay twin records both, so
-its timeline says `manager-1` where the twin's did. It would run the
-same without them: they serve the comparison and the reader.
+to the twin and its `seq` there, in the headers `Replay-By` and
+`Replay-Seq`. The replay twin records both as `origin`, so its
+timeline says `alice` where the twin's did:
+
+```json
+{
+  "seq": 22,
+  "time": "2026-11-24T18:04:38.491Z",
+  "kind": "command",
+  "by": "replay",
+  "data": {
+    "name": "admit",
+    "input": { "patient": "p-2", "ward": "cardiology" },
+    "run": 5
+  },
+  "at": "2026-11-24T18:04:25.404Z",
+  "origin": { "by": "alice", "seq": 22 }
+}
+```
+
+It would run the same without them: they serve the comparison and the
+reader. They are a label, not part of the signature.
 
 **The notice of a peer.** Hospital-1 hears of hospital-2 by
 listening: hospital-2 announces that it is full, or gone. In a replay
 there is no hospital-2 to listen to. The tool has a recording of what
 hospital-2 said, and tells it to the replay twin at the right moment,
-with this route. A runner that is no replay twin refuses the route,
-as anyone could otherwise put words in a peer's mouth.
+with this route. A runner that is no replay twin answers `404`, as
+anyone could otherwise put words in a peer's mouth.
 
 ```http
 PUT /peers/hospital-2/notice
-{ "kind": "state", "data": { "id": "hospital-2", "machine": { "state": "full" } } }
+Replay-Seq: 57
+
+{"kind": "presence", "data": {"online": false}}
 ```
+
+The reply is `GET /peers`, and the notice raises the events of the
+subscriptions as over MQTT.
 
 ### A Scenario
 
 With `steps` in place of `inputs`, the file describes a coming
 period. Each step has `at`, a time after that of the start snapshot,
-and one input:
+and exactly one input. A scenario run on the first snapshot of the
+demo:
 
 ```yaml
-start: run/hospital-1/snapshots/20261123T101502120Z
+start: hospital-1/snapshots/20261124T180424484Z
 out: replays/neighbour-down
+speed: 60
+settle: 2
 steps:
-  - at: 20261123T101502120Z
-    transition: open
-  - at: 20261123T102500000Z
+  - at: 20261124T180600000Z
     notice:
       peer: hospital-2
       kind: presence
       data:
         online: false
-  - at: 20261123T103500000Z
+  - at: 20261124T180700000Z
     command:
       name: admit
       input:
         patient: p-9
         ward: cardiology
-  - at: 20261123T104500000Z
-    parameters:
-      scope: multi
-  - at: 20261123T105500000Z
-    event: close
 ```
 
-| Key of a step | Sent as                  |
-| :------------ | :----------------------- |
-| `transition`  | `POST /fsm/transition`   |
-| `event`       | `POST /fsm/event`        |
-| `command`     | `POST /`                 |
-| `parameters`  | `PUT /parameters`        |
-| `properties`  | `PUT /properties`        |
-| `peers`       | `PUT /peers`             |
-| `notice`      | `PUT /peers/<id>/notice` |
+| Key of a step | Value                     | Sent as                  |
+| :------------ | :------------------------ | :----------------------- |
+| `transition`  | a state                   | `POST /fsm/transition`   |
+| `event`       | an event                  | `POST /fsm/event`        |
+| `command`     | `name`, and `input`       | `POST /`                 |
+| `parameters`  | the values                | `PUT /parameters`        |
+| `properties`  | the values                | `PUT /properties`        |
+| `peers`       | the switches              | `PUT /peers`             |
+| `notice`      | `peer`, `kind` and `data` | `PUT /peers/<id>/notice` |
 
 ### What a Replay Twin Is
 
-A runner started with `--reinstate` and `--what-if`. The second
-option changes six things:
+A runner started with `--reinstate` and `--what-if`, and
+`--time-scale <factor>`, `1` by default. The mode changes seven things:
 
 | In a replay twin                                                 | In any other runner          |
 | :--------------------------------------------------------------- | :--------------------------- |
+| It listens on `127.0.0.1` only                                   | On every address             |
 | `GET /dt` shows `replay: {of, time}`                             | `replay: null`               |
 | Scripts get `DT_MODE=what-if`, `DT_REPLAY_OF`, `DT_TIME_SCALE`   | `DT_MODE=live`               |
 | The start is refused unless the class says `whatIf.replay: true` | Not asked                    |
 | It follows no peer and notifies nobody                           | It follows its enabled peers |
-| `PUT /peers/<id>/notice` is answered                             | `404`                        |
-| A row records the first sender and `seq` of an input             | No such fields               |
+| `PUT /peers/<id>/notice` is answered, for an `operator`          | `404`                        |
+| A row records `at`, and `origin` for the headers of an input     | No such fields               |
+
+In a replay twin, too, the role `operator` may call every route.
 
 The class must allow it because the scripts run for real. A class
 that was not written with the mode in mind would act on the real
-hospital from a second process. In the demo the scripts act on
-`ward.json`, and the restore script has given the replay twin its
-own.
+hospital from a second process. In the demo, the scripts keep the
+beds in `run/<DT_ID>/` of the working directory when `DT_MODE` is
+`what-if` and `DT_REPLAY_OF` is set, and the restore script puts the
+beds of the snapshot there; after the replay of the demo, the beds of
+hospital-1 were untouched.
 
 ### Time
 
 A replay keeps the meaning of time, at a scale. `speed: 60` plays
 an hour in a minute, `1` plays at the speed of the clock, `0.5` takes
 twice as long. The replay twin gives the number to its scripts as
-`DT_TIME_SCALE`, to divide their own waits by. Each row of its
-timeline has, beside its real `time`, `at`: the time that the row
-stands for.
+`DT_TIME_SCALE`, to divide their own waits by; `open` of the demo
+divides its interval between samples. Each row of its timeline has,
+beside its real `time`, `at`: the time that the row stands for, the
+time of the snapshot plus the time since the reinstate times the
+scale.
 
 ### What Is Left in `out`
 
 ```text
 replays/scope-multi/
 ├── replay.json
-├── runner.yaml
-├── state.db
 ├── runner.log
-└── files/
+├── runner.yaml
+└── state.db
 ```
+
+`replay.json` of the demo, with the paths shortened:
 
 ```json
 {
   "format": 1,
   "of": "hospital-1",
-  "start": "run/hospital-1/snapshots/20261122T220000000Z",
-  "inputs": "run/hospital-1/snapshots/20261123T060000000Z",
-  "from": { "seq": 398, "time": "2026-11-22T22:00:00.000Z" },
-  "until": { "seq": 912, "time": "2026-11-23T06:00:00.000Z" },
-  "speed": 60,
-  "set": { "parameters": { "scope": "multi" } },
-  "sent": 147,
-  "refused": 2
+  "start": ".../run/hospital-1/snapshots/20261124T180424484Z",
+  "inputs": ".../run/hospital-1/snapshots/20261124T180434183Z",
+  "from": {
+    "seq": 18,
+    "time": "2026-11-24T18:04:24.484Z"
+  },
+  "until": {
+    "seq": 111,
+    "time": "2026-11-24T18:04:34.183Z"
+  },
+  "speed": 2,
+  "set": {
+    "parameters": {
+      "scope": "multi"
+    }
+  },
+  "sent": 21,
+  "refused": 2,
+  "firstStep": 21
 }
 ```
 
+`start` and `inputs` are absolute paths, and `inputs` is `null` for a
+scenario, whose `until` is `{"seq": null, "time": null}` or the
+`until` of the file. `firstStep` is the `seq` of the entry that the
+first step made, or `null`.
+
 `refused` counts the inputs that the replay twin did not accept, such
 as an event with no transition in the state that it was then in. That
-is a finding, not a fault: the changed twin was somewhere else.
+is a finding, not a fault: the changed twin may be somewhere else. In
+the demo both were `close` events, which the twin refused too.
 
 ## Compare
 
 ```bash
-runner-compare run/hospital-1/snapshots/20261123T060000000Z replays/scope-multi
+runner-compare run/hospital-1/snapshots/20261124T180434183Z run/replays/scope-multi
 ```
 
 Each argument is a snapshot or the output of a replay. The tool reads
 the timeline in the database of each, and lists the state entries
-side by side:
+side by side: the time that each stands for, the state, and what
+caused it and who. In the demo:
 
 ```text
 at        hospital-1                       hospital-1.replay
-22:00:00  open    transition  alice        open    transition  alice
-22:10:04  open    scope-changed            -
-22:20:09  full    full        script       open    scope-changed  manager-1   <- first difference
-22:20:09  -                                full    full        script
-06:00:00  full                             full
+18:04:25  open    scope-changed parameter  open    fidelity-changed parameter   <- first difference
+18:04:26  open    fidelity-changed parameteropen    neighbour-full peer
+18:04:28  open    neighbour-full peer      full    full        script
+18:04:29  full    full        script       open    beds-free   script
+18:04:30  open    beds-free   script       open    neighbour-full peer
+18:04:31  open    neighbour-full peer      open    neighbour-down peer
+18:04:31  open    neighbour-down peer      closed  stopped
+18:04:33  closed  stopped                  -
 
-entries: 4 and 4; first difference at 22:20:09
-cpu seconds: 12.4 and 13.1
+entries: 8 and 7; first difference at 18:04:25
+cpu seconds: 0.1 and 0.1
 ```
 
-With `--json` it prints the same as one document. It exits with 0
-when the entries are the same, and with 1 when they differ.
+Under `multi` from the start, the Manager's change of scope was no
+change, and `open` did not restart. The same file without `set` gave
+a replay with the same 8 entries, and the line
+`entries: 8 and 8; the same`.
 
-Rows are lined up by the `seq` that an input had in the twin, where
-the replay twin recorded it, and by `at` otherwise.
+With `--json` it prints the same as one document,
+`{a, b, rows, firstDifference, same}`. It exits with 0 when the
+entries are the same, 1 when they differ, and 2 when an argument is
+neither a snapshot nor the output of a replay.
+
+Two entries are the same when their state and cause are: entry
+numbers are not compared, and the entry of the first step is left
+out. Rows are lined up by the `seq` that an input had in the twin,
+where the replay twin recorded it as `origin`; the entries that no
+transition or event of a client caused follow in their order. The
+listing has no row for the state at the end.
 
 ## The Features Compared
 
-| Question                   | Reinstate                         | What-if                             | Replay                                      |
-| :------------------------- | :-------------------------------- | :---------------------------------- | :------------------------------------------ |
-| Who                        | The operator                      | The Manager                         | The operator                                |
-| How it is asked            | `runner --reinstate`              | `POST /whatif`                      | `runner-replay`                             |
-| What runs                  | The twin, again                   | One script, with a model of its own | The state machine and every script          |
-| Where                      | A runner that the operator starts | Under the runner of the twin        | A runner that the tool starts               |
-| On what                    | A snapshot                        | A private copy, removed after       | A snapshot, changed                         |
-| The inputs                 | Whatever callers send next        | A scenario in the request           | The rows of a later snapshot, or a scenario |
-| Time                       | The clock                         | As fast as the script               | The clock, over a factor                    |
-| The answer                 | A twin                            | What the script printed             | A timeline, to compare                      |
-| Is it live                 | Yes                               | The twin is; the copy is not        | Never                                       |
-| What it costs the twin     | Nothing: the twin is not running  | A pause and a copy of the database  | Nothing: the twin is not contacted          |
-| What the author must write | The save and restore scripts      | Those, and the what-if script       | Those, and scripts that honour the mode     |
-| What it can not show       | —                                 | How the machine would move          | What the world would have done              |
+| Question                   | Reinstate                         | What-if                             | Replay                                        |
+| :------------------------- | :-------------------------------- | :---------------------------------- | :-------------------------------------------- |
+| Who                        | The operator                      | The Manager                         | The operator                                  |
+| How it is asked            | `runner --reinstate`              | `POST /whatif`                      | `runner-replay`, then `runner-compare`        |
+| What runs                  | The twin, again                   | One script, with a model of its own | The state machine and every script            |
+| Where                      | A runner that the operator starts | Under the runner of the twin        | A runner that the tool starts, on `127.0.0.1` |
+| On what                    | A snapshot                        | A private copy, removed after       | A snapshot, changed                           |
+| The inputs                 | Whatever callers send next        | A scenario in the request           | The rows of a later snapshot, or a scenario   |
+| Time                       | The clock                         | As fast as the script               | The clock, over a factor                      |
+| The answer                 | A twin                            | What the script printed             | A timeline, and a listing of two              |
+| Is it live                 | Yes                               | The twin is; the copy is not        | Never                                         |
+| What it costs the twin     | Nothing: the twin is not running  | A pause and a copy of the database  | Nothing: the twin is not contacted            |
+| What the author must write | The save and restore scripts      | Those, and the what-if script       | Those, and scripts that follow the mode       |
+| What it can not show       | —                                 | How the machine would move          | What the world would have done                |
 
 When to use which:
 
@@ -877,7 +988,8 @@ When to use which:
 - **"What happens if?", asked often, answered in seconds, by the
   Manager.** A what-if. It is as good as the model in its script.
 - **"What would the twin itself have done?", asked seldom, by the
-  operator.** A replay. It runs the real class and takes real time.
+  operator.** A replay. It runs the real class and takes real time,
+  over the speed. Compare an unchanged replay with the twin first.
 
 ## Everything That Is Added
 
@@ -895,9 +1007,12 @@ Routes:
 
 MQTT topics, under the base topic: `timeline`, `snapshot` (list),
 `snapshot/set` (save), `whatif` (a result, with `{"id": 57}`),
-`whatif/set` (ask), and the notification `notify/whatif`.
+`whatif/set` (ask), and the notification `notify/whatif`. A replay
+twin has none, as it connects to no broker.
 
-The state machine file:
+Headers, in a replay twin: `Replay-By` and `Replay-Seq` (25).
+
+The state machine file of the demo:
 
 ```yaml
 snapshot:
@@ -924,39 +1039,50 @@ auth:
 
 The command line:
 
-| Command                                  | Feature |
-| :--------------------------------------- | :------ |
-| `runner --reinstate <directory>`         | 23      |
-| `runner --what-if --time-scale <factor>` | 25      |
-| `runner-replay`                          | 25      |
-| `runner-compare`                         | 25      |
+| Command                                                          | Feature |
+| :--------------------------------------------------------------- | :------ |
+| `runner --reinstate <directory>`                                 | 23      |
+| `runner --reinstate <directory> --what-if`                       | 25      |
+| `runner --reinstate <directory> --what-if --time-scale <factor>` | 25      |
+| `runner-replay [file]`, `--dry-run`                              | 25      |
+| `runner-compare <a> <b>`, `--json`                               | 25      |
 
 Variables of scripts:
 
-| Variable                     | Given to                        | Value                     |
-| :--------------------------- | :------------------------------ | :------------------------ |
-| `DT_SNAPSHOT_DIR`            | the save and the restore script | `files/` of the snapshot  |
-| `DT_MODE`                    | every script                    | `live` or `what-if`       |
-| `DT_WHATIF_DIR`              | a what-if script                | its private copy          |
-| `DT_REPLAY_OF`               | every script of a replay twin   | the `id` of the twin      |
-| `DT_TIME_SCALE`              | every script of a replay twin   | the `speed` of the replay |
-| `RUNNER_TOKEN`, `RUNNER_URL` | not a what-if script            | as today                  |
+| Variable                     | Given to                        | Value                                |
+| :--------------------------- | :------------------------------ | :----------------------------------- |
+| `DT_SNAPSHOT_DIR`            | the save and the restore script | `files/` of the snapshot             |
+| `DT_MODE`                    | every script                    | `live` or `what-if`                  |
+| `DT_WHATIF_DIR`              | a what-if script                | its private copy                     |
+| `DT_REPLAY_OF`               | every script of a replay twin   | the `id` of the twin                 |
+| `DT_TIME_SCALE`              | every script of a replay twin   | the `speed` of the replay            |
+| `RUNNER_TOKEN`, `RUNNER_URL` | not a what-if script            | as before; in a replay twin, its own |
+
+Fields:
+
+| Where                 | Field          | Feature |
+| :-------------------- | :------------- | :------ |
+| `GET /dt`             | `replay`       | 25      |
+| a row of the timeline | `at`, `origin` | 25      |
+| a run of the history  | `mode`         | 24      |
+| `GET /health`         | `saving`       | 23      |
+| a `start` row         | `reinstated`   | 23      |
 
 Files:
 
-| File                 | Format                                                     |
-| :------------------- | :--------------------------------------------------------- |
-| `snapshot.json`      | The manifest of a snapshot                                 |
-| a snapshot directory | Named `YYYYMMDDTHHMMSSmmmZ`                                |
-| a replay file        | YAML: `start`, `inputs` or `steps`, `out`, and what to set |
-| `replay.json`        | What a replay did                                          |
+| File                 | Format                                                                       |
+| :------------------- | :--------------------------------------------------------------------------- |
+| `snapshot.json`      | The manifest of a snapshot                                                   |
+| a snapshot directory | Named `YYYYMMDDTHHMMSSmmmZ`                                                  |
+| a replay file        | YAML: `start`, `inputs` or `steps`, `out`, `speed`, `until`, `settle`, `set` |
+| `replay.json`        | What a replay did, with `firstStep`                                          |
 
 ## Limits
 
 - **Personal data travels.** The timeline holds the inputs of
   commands, and the demo's `admit` names a patient. A snapshot
   carries the whole database, to wherever the directory goes and into
-  every replay twin.
+  every replay twin, whose `out` has the default mode of the account.
 - **A snapshot is as large as the scripts.** The whole directory of
   the scripts is copied at every save.
 - **The database only grows.** A feed that changes a property at
@@ -964,7 +1090,18 @@ Files:
 - **A replay answers for the twin, not for the world.** The beds
   that were free last night were free under the old scope.
 - **A replay repeats only what the inputs decide.** A script that
-  draws random numbers, or reads the clock, goes another way.
+  draws random numbers, reads the clock or races an input goes
+  another way.
+- **A replay twin knows of a peer only what the notices after the
+  start tell it.** The twin knew what the peer had told before the
+  save.
+- **Not every row is an input.** A `stop` of a script, a save and a
+  what-if are not sent, and a `command` row is sent as a new command,
+  also when the twin answered it from a stored reply of a request
+  key.
+- **A replay needs access control in the twin.** Without it the
+  inputs can not be told from what the scripts did; a scenario works
+  for any twin.
 - **A script must follow the mode and the scale.** One that ignores
   `DT_MODE` acts on the real world from a replay twin, and one that
   ignores `DT_TIME_SCALE` samples at the wrong rate.
@@ -985,7 +1122,9 @@ Files:
 
 - Issues [22](issues/22-timeline.md), [23](issues/23-snapshot.md),
   [24](issues/24-what-if.md) and [25](issues/25-replay.md), as
-  settled with the owner on 2026-11-23.
+  settled with the owner on 2026-11-23 and as built.
+- The built runner and tools of version 0.14.0, and the run of the
+  hospital demo that its Linux recording shows.
 - The Fluid Digital Twins paper, as read in
   [integrated-simulations.md](integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself),
   for the three kinds of test twin and for the question of who starts

@@ -63,7 +63,7 @@ is a secret or an address, belongs to the instance.
 | `manager`       | The commands that a Manager may run                              |
 | `subscriptions` | The events raised when a peer changes                            |
 | `snapshot`      | The commands that save and restore what the scripts keep         |
-| `whatIf`        | The commands that run on a private copy of the twin              |
+| `whatIf`        | The commands that run on a private copy, and whether to replay   |
 
 [STATE-MACHINE.md](STATE-MACHINE.md) describes every key.
 
@@ -112,6 +112,15 @@ it, and may not use a state as one; see
 [WHAT-IF.md](WHAT-IF.md#what-the-author-writes). The operator gives a
 what-if the database file, `snapshots` and `auth.principals`, or the
 twin refuses it with `409`.
+
+`whatIf.replay: true` is a promise of the class alone: that its
+scripts keep to files of their own and divide their waits by
+`DT_TIME_SCALE` in a replay twin ([REPLAY.md](REPLAY.md#what-a-class-must-do)).
+The instance adds nothing for it. A replay twin is an instance of its
+own, whose `runner.yaml` `runner-replay` writes from the copy of the
+twin's: the `id` with `.replay`, another port and database, the
+values of the twin with what the replay changes, the same peers, and
+one principal of its own.
 
 The scripts are the third part. A state or a command has the name of
 its script, so the names in the class, the names under `commands` and

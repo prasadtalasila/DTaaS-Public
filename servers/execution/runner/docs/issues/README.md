@@ -38,7 +38,7 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
 | [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | in progress |      |
 | [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | in progress |      |
-| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
+| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | in progress |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -112,9 +112,11 @@ that an operator can save and reinstate, and what-if. 23 adds the role
 twin, which runs one script on a private copy. In 25 the operator
 replays a recorded period in a replay twin, with two tools that work
 from snapshots. 24 reopens the non-goal on forecasts and exogenous
-triggers.
+triggers. All four are built, each on its branch, up to version
+0.14.0, and the Linux recording of the hospital demo was made again
+after 25, with a chapter for each of 23 to 25.
 [save-reinstate-what-if.md](../save-reinstate-what-if.md) sets the
-features of 22 to 25 side by side, with their formats.
+features of 22 to 25 side by side, with their formats as built.
 
 ## Proposed Work
 
@@ -155,7 +157,11 @@ _inferred_ when it follows from what the proposal changes.
 | SIM | Native `simulations` key                    | –    | 19, BRC, fixes in the bridge      | stated                       | D2 and S6                   |
 
 C2, the types of the properties, is part of 19. C1, C3 and W8 are
-issue [21](21-dt-class.md), and W3 is issue [22](22-timeline.md). C6
+issue [21](21-dt-class.md), and W3 is issues [22](22-timeline.md) to
+[25](25-replay.md). C8, a convention for the time that a simulated
+value applies to, is still open: 25 scales the time of a replay twin
+for its scripts with `DT_TIME_SCALE`, which says nothing of a value's
+time. C6
 of the comparison is a decision to keep telemetry streams out, so it
 is no work. TMR, BRC and SIM carry no size in their source.
 
@@ -380,6 +386,22 @@ From implementing 24:
 - Mark every run that a feature makes for itself, its helper runs
   too: the save run of a copy changed `GET /` until it was stored
   with a mode of its own.
+
+From implementing 25:
+
+- A tool that reads the timeline must know what its rows can not
+  tell. Without access control every row has `by: null`, so the inputs
+  of a replay could not be told from what a script did; the tool now
+  refuses such a twin. Check what each row means under every
+  configuration before a feature reads it back.
+- A process that a tool starts must be stopped with its scripts. A
+  runner waits for its scripts when it shuts down, and a killed runner
+  leaves them running; stop the scripts first, on every path out,
+  signals too.
+- Run the demo of a feature before its documents. The replay of the
+  hospital found five things that the tests did not, among them a
+  command row written for a replayed request key, which a replay runs
+  again ([25](25-replay.md#what-the-demo-showed)).
 
 ## Deferred
 

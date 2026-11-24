@@ -330,3 +330,29 @@ content-type: {{ContentType}}
 ### The run of a what-if, with its result once it has ended
 
 GET http://{{hostname}}:{{port}}/whatif/5 HTTP/1.1
+
+### Hand a replay twin the notice of a peer, as the twin's row of seq
+### 57 recorded it; a runner started without --what-if answers 404
+
+PUT http://{{hostname}}:{{port}}/peers/hospital-2/notice HTTP/1.1
+content-type: {{ContentType}}
+Replay-Seq: 57
+
+{
+    "kind": "presence",
+    "data": {
+        "online": false
+    }
+}
+
+### In a replay twin, a transition that alice sent to the twin as its
+### row 22; the replay twin records them as origin
+
+POST http://{{hostname}}:{{port}}/fsm/transition HTTP/1.1
+content-type: {{ContentType}}
+Replay-By: alice
+Replay-Seq: 22
+
+{
+    "state": "open"
+}
