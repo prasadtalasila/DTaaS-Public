@@ -1,5 +1,6 @@
-# Saves the beds of the hospital into a snapshot: copies
-# run/<DT_ID>/ward.json to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+# Saves the beds of the hospital into a snapshot: copies ward.json of
+# the ward directory of ward.ps1, run\<DT_ID>\ or that of a replay twin,
+# to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+. "$PSScriptRoot\ward.ps1"
 $ErrorActionPreference = 'Stop'
-$WardFile = Join-Path $PSScriptRoot "..\run\$env:DT_ID\ward.json"
 Copy-Item -LiteralPath $WardFile -Destination (Join-Path $env:DT_SNAPSHOT_DIR 'ward.json')

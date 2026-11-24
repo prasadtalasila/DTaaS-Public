@@ -626,7 +626,7 @@ What the paper adds to the plan of issue 24:
   the scripts keep, and a what-if runs on the copy.
 - **Lesson 7: real time at a factor is known ground.** SimPy's
   real-time mode ties simulated time to the clock by a factor. The
-  speed of a replay in issue 24 and `DT_TIME_SCALE` are the same
+  speed of a replay in issue 25 and `DT_TIME_SCALE` are the same
   idea.
 
 The plan of issue 24 was split: issue 24 built the what-if inside the

@@ -271,10 +271,12 @@ The two scripts get one variable, `DT_SNAPSHOT_DIR`, which is
 
 ```bash
 #!/usr/bin/env bash
-# Saves the beds of the hospital into a snapshot: copies
-# run/<DT_ID>/ward.json to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+# Saves the beds of the hospital into a snapshot: copies ward.json of
+# the ward directory of ward.sh, run/<DT_ID>/ or that of a replay twin,
+# to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+. "$(dirname "$0")/ward.sh"
 set -euo pipefail
-cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
+cp "$WARD_FILE" "$DT_SNAPSHOT_DIR/ward.json"
 ```
 
 ```bash

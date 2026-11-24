@@ -267,8 +267,11 @@ network and the devices of that account. `whatIf.replay: true` is the
 promise of the author that they keep to files of their own and send
 nothing to the world in that mode ([STATE-MACHINE.md](STATE-MACHINE.md#replay));
 nothing in the runner checks it. Any process of the host can reach
-`127.0.0.1`; without the private key it gets `401` on every route
-but `GET /health`. The timeline of
+`127.0.0.1`. In a replay twin that `runner-replay` starts, a request
+without the private key of the run gets `401` on every route but
+`GET /health`. A replay twin that an operator starts by hand with a
+`runner.yaml` without `auth` has no access control: every process of
+the host may call every route, as on any runner without `auth`. The timeline of
 the start snapshot and of the inputs, with the inputs of commands,
 is copied into `out`, which `runner-replay` creates with mode `0700`,
 as a snapshot directory is.

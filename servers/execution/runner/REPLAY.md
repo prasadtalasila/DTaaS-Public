@@ -491,7 +491,12 @@ A replay twin is a runner started with `--reinstate` and `--what-if`;
 Neither is accepted alone: `--what-if is accepted only with
 --reinstate`, `--time-scale is accepted only with --what-if`. The
 operator may start one with a `runner.yaml` of its own, such as the
-one above without `auth`, on port 5400:
+one above, with `auth` and a principal whose key the operator holds,
+on port 5400. Keep `auth`: a replay twin without it is open to every
+process of the host, which may then call every route, start its
+scripts and hand it notices. The replies below are from a session on
+a host of the author's own, started without `auth` so that `curl`
+needs no token:
 
 ```bash
 runner -c run/replays/by-hand/runner.yaml \
@@ -588,6 +593,12 @@ and headers are in [API.md](api/API.md#replay-twins).
   not mark the row of a request answered from a stored reply, so the
   tool sends it, and the command runs a second time in the replay
   twin.
+- **One place for every replay of a twin.** The replay twin's `id` is
+  always `<id>.replay`, so the scripts of the demo keep the beds of
+  every replay of `hospital-1` run from one directory in
+  `run/hospital-1.replay/`. Two replays at once overwrite each other's
+  beds, and each restore replaces those of the replay before. Run them
+  one after the other, or from different directories.
 - **Scripts act for real on the host.** They run as the account of
   the tool, with the files, the network and the devices of the host.
   `whatIf.replay: true` is the author's promise that they keep to
