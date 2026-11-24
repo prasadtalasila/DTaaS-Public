@@ -175,7 +175,9 @@ export default [
   {
     say: 'Its scripts kept beds of their own; those of hospital-1 are untouched:',
   },
-  { run: `cat run/${H1}/ward.json run/${H1}.replay/ward.json` },
+  {
+    run: `cat run/${H1}/ward.json run/replays/scope-multi/run/${H1}.replay/ward.json`,
+  },
   {
     say: 'runner-compare lists the state entries side by side, and marks the first difference:',
   },

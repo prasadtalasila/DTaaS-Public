@@ -1,6 +1,6 @@
 # Restores the beds of the hospital from a snapshot: copies ward.json of
-# DT_SNAPSHOT_DIR to the ward directory of ward.ps1, run\<DT_ID>\ or that
-# of a replay twin. runner --reinstate runs it.
+# DT_SNAPSHOT_DIR to the ward directory of ward.ps1, run\<DT_ID>\ beside
+# the scripts. runner --reinstate runs it.
 . "$PSScriptRoot\ward.ps1"
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $WardDir | Out-Null

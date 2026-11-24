@@ -109,7 +109,7 @@ built('A replay in the process of the test', () => {
         out: 'signal',
         speed: 50,
       });
-      const script = join(dir, pair.start, 'scripts', 'work');
+      const script = join(dir, 'signal', 'scripts', 'work');
       const runner = join(dir, 'signal', 'runner.yaml');
       const exit = jest
         .spyOn(process, 'exit')

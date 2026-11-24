@@ -158,7 +158,8 @@ What protects it:
 - Each snapshot directory is created with mode `0700`, so only the
   account of the runner reads it.
 - In the copy of `runner.yaml` the MQTT `password`, the user and
-  password in `mqtt.url`, and the webhook `token` are blanked. The
+  password in `mqtt.url`, and the webhook `token` are blanked. An
+  `mqtt.url` that can not be parsed is blanked whole. The
   signing key is a path, and the key itself is not copied, unless it
   lies under `location`.
 
@@ -243,6 +244,14 @@ from the world and from the twin:
   recording, on a route that only a replay twin answers; any other
   runner answers `404`, as anyone could otherwise put words in a
   peer's mouth.
+- **It saves nothing.** It has no snapshot directory, whatever its
+  configuration lists, so a save and a what-if are refused with `409`
+  and the start removes no `what-if/` directory of the live twin
+  (`getSnapshots` in `src/config/configuration.service.ts`).
+- **Its scripts write into `out`.** `runner-replay` copies `scripts/`
+  of the start into `out/scripts`, points `location` there and starts
+  the replay twin in `out`, so a script that writes beside itself or
+  into its working directory never changes the snapshot.
 - **One principal, with a key per run.** The tool makes an Ed25519 key
   pair for each run, writes only the public key into `runner.yaml` of
   the replay twin, as the principal `replay`, and keeps the private
@@ -265,15 +274,16 @@ What it does not do: the scripts of a replay twin act for real on the
 host, as the account of whoever runs the tool, with the files, the
 network and the devices of that account. `whatIf.replay: true` is the
 promise of the author that they keep to files of their own and send
-nothing to the world in that mode ([STATE-MACHINE.md](STATE-MACHINE.md#replay));
-nothing in the runner checks it. Any process of the host can reach
+nothing to the world in that mode
+([STATE-MACHINE.md](STATE-MACHINE.md#replay)); nothing in the runner
+checks it. Any process of the host can reach
 `127.0.0.1`. In a replay twin that `runner-replay` starts, a request
 without the private key of the run gets `401` on every route but
 `GET /health`. A replay twin that an operator starts by hand with a
 `runner.yaml` without `auth` has no access control: every process of
-the host may call every route, as on any runner without `auth`. The timeline of
-the start snapshot and of the inputs, with the inputs of commands,
-is copied into `out`, which `runner-replay` creates with mode `0700`,
+the host may call every route, as on any runner without `auth`. The
+timeline of the start snapshot and of the inputs, with the inputs of
+commands, is copied into `out`, which `runner-replay` creates with mode `0700`,
 as a snapshot directory is.
 
 ### The Boundary Between Users

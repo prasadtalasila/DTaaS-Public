@@ -541,9 +541,9 @@ of the operator, with `DT_MODE=what-if`, `DT_REPLAY_OF` set to the
 `RUNNER_TOKEN` are those of the replay twin. The author writes
 `replay: true` only when every script:
 
-- keeps its files in a place of its own when `DT_MODE` is `what-if`
-  and `DT_REPLAY_OF` is set, and the restore script puts the files of
-  the snapshot there;
+- keeps its files beside itself or in its working directory, which in
+  a replay twin of `runner-replay` are in its `out`, and the restore
+  script puts the files of the snapshot there;
 - divides its own waits, such as an interval between samples, by
   `DT_TIME_SCALE`;
 - sends nothing to the world, to a device, a person or another system.
@@ -1484,8 +1484,8 @@ As above, `transition` starts the machine and `(stop)` marks
   free beds after a horizon, computed on a copy of the DT
   ([WHAT-IF.md](WHAT-IF.md)).
 - `whatIf.replay` allows a replay twin: in one, the scripts keep the
-  beds under `run/<DT_ID>/` of the working directory, and _open_
-  divides its samples by `DT_TIME_SCALE` ([REPLAY.md](REPLAY.md)).
+  beds under `run/<DT_ID>/` of its `out`, and _open_ divides its
+  samples by `DT_TIME_SCALE` ([REPLAY.md](REPLAY.md)).
 
 The requests of the recording to `hospital-1`, with their replies.
 The recording predates version 0.11.0, so it shows neither `free-beds`

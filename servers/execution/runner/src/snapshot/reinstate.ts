@@ -59,10 +59,21 @@ async function resume(twin: Twin, directory: string, database: string) {
     await restoreFiles(twin, directory);
     twin.fsm.restore();
   } catch (error) {
-    twin.queue.close();
-    await rm(database, { force: true });
+    await discard(twin, database);
     throw error;
   }
+}
+
+// The copy and the side files of SQLite, which a later copy would replay;
+// the failure of the resume is the one reported
+async function discard(twin: Twin, database: string) {
+  try {
+    twin.queue.close();
+  } catch (error) {
+    logger.warn(`Could not close the copied database: ${String(error)}`);
+  }
+  const files = ['', '-wal', '-shm'].map((end) => `${database}${end}`);
+  await Promise.all(files.map((file) => rm(file, { force: true })));
 }
 
 // Why a replay twin needs a class written for it

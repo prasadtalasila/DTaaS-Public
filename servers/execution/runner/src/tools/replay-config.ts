@@ -1,6 +1,6 @@
 import { generateKeyPairSync, KeyObject } from 'node:crypto';
 import { createServer } from 'node:net';
-import { join, relative } from 'node:path';
+import { relative } from 'node:path';
 import type { SnapshotDir } from './snapshot-dir.js';
 
 type Mapping = Record<string, unknown>;
@@ -62,7 +62,8 @@ const kept = (copy: Mapping): Mapping =>
 
 // runner.yaml of the replay twin, from the copy in the start: it reaches
 // nobody, keeps the peers so that subscriptions bind, and lists one
-// principal. Paths are relative to out, where the file goes.
+// principal. Paths are relative to out, where the file and a copy of
+// the scripts go.
 export function replayConfig(setup: ReplaySetup): Mapping {
   const { start, out, port, publicKey, parameters } = setup;
   const { copy, stateMachine } = start;
@@ -73,7 +74,7 @@ export function replayConfig(setup: ReplaySetup): Mapping {
     ...kept(copy),
     id: `${String(copy.id)}.replay`,
     port,
-    location: relative(out, join(start.dir, 'scripts')),
+    location: 'scripts',
     ...file,
     database: 'state.db',
     ...unlessEmpty('parameters', values),

@@ -9,7 +9,8 @@ export type Placement = {
 
 const inside = (dir: string, parent: string): boolean => {
   const relative = path.relative(parent, dir);
-  return !relative.startsWith('..') && !path.isAbsolute(relative);
+  const above = relative === '..' || relative.startsWith(`..${path.sep}`);
+  return !above && !path.isAbsolute(relative);
 };
 
 // A snapshot directory inside location would copy the scripts into

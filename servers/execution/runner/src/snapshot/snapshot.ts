@@ -66,6 +66,11 @@ function blankUserInfo(mqtt: unknown): void {
   if (typeof url !== 'string' || !url.includes('@')) {
     return;
   }
+  // a URL that can not be read may hide its user information anywhere
+  if (!URL.canParse(url)) {
+    (mqtt as Mapping).url = '';
+    return;
+  }
   const parsed = new URL(url);
   parsed.username = '';
   parsed.password = '';

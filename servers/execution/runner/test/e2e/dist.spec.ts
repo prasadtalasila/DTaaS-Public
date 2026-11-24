@@ -7,6 +7,9 @@ import { reinstateTwin } from './reinstate.util';
 
 const MAIN = 'dist/src/main.js';
 
+// A line of a stack trace
+const STACK = /\n\s+at /;
+
 const run = (args: string[]) =>
   promisify(execFile)(process.execPath, [MAIN, ...args]);
 
@@ -46,6 +49,27 @@ describe('Built runner', () => {
       expect((failed as { stderr: string }).stderr).toContain(
         `Can not reinstate from ${join(snapshot, 'snapshot.json')}: there is no manifest of a snapshot`,
       );
+      expect((failed as { stderr: string }).stderr).not.toMatch(STACK);
+    },
+    30000,
+  );
+
+  // A refusal of the configuration prints its message as a refusal of a
+  // reinstate does
+  built(
+    'Should refuse a missing configuration file without a stack trace',
+    async () => {
+      const failed = await run(['-c', 'none.yaml']).catch(
+        (error: { code: number; stderr: string }) => error,
+      );
+
+      expect(failed).toMatchObject({
+        code: 1,
+        stderr: expect.stringContaining(
+          'Invalid configuration: ENOENT: no such file or directory',
+        ),
+      });
+      expect((failed as { stderr: string }).stderr).not.toMatch(STACK);
     },
     30000,
   );

@@ -115,7 +115,8 @@ What it does:
    | `id`                            | the `id` of the twin, with `.replay`                            |
    | `port`                          | a free port of the host                                         |
    | `database`                      | a file in `out`                                                 |
-   | `location`, `stateMachine`      | the copies in the start                                         |
+   | `location`                      | `scripts`, a copy in `out` of the scripts of the start          |
+   | `stateMachine`                  | the copy in the start                                           |
    | `parameters`                    | as in the copy, then `set.parameters`                           |
    | `relationships.peers`           | as in the copy, so that subscriptions bind; no peer is followed |
    | `mqtt`, `relationships.manager` | left out: a replay twin reaches nobody                          |
@@ -124,8 +125,11 @@ What it does:
    | others, such as `stopGrace`     | as in the copy                                                  |
 
 3. It starts a runner on that configuration, with
-   `--reinstate <start> --what-if --time-scale <speed>`, its log in
-   `out/runner.log`, and waits 30 s at most for `GET /health`.
+   `--reinstate <start> --what-if --time-scale <speed>`, in `out` as
+   its working directory, its log in `out/runner.log`, and waits 30 s
+   at most for `GET /health`. A script that writes beside itself or
+   into its working directory writes into `out`, never into the
+   snapshot, and two replays of one snapshot do not share a file.
 4. If the script of the saved state was running at the save, it
    enters that state again. See [The first step](#the-first-step).
 5. It writes `set.properties` with `PUT /properties`.
@@ -138,14 +142,17 @@ What it does:
    twin, writes `replay.json` and prints
    `Sent 23 inputs, 3 refused; the replay is in <out>`.
 
-`out` then holds `runner.yaml`, `runner.log`, `replay.json` and
-`state.db`, the database of the replay twin, with the timeline of what
-it did. `replay.json` has `format`, `of`, `start` and `inputs` as
-absolute paths (`inputs` is `null` for a scenario), `from` and `until`
-(each a `seq` and a `time`), `speed`, `set` (`{}` without it), `sent`,
-`refused` and `firstStep`, the `seq` of the entry that the first step
-made, or `null`. On `SIGINT` or `SIGTERM` the tool stops the scripts
-of the replay twin and the replay twin, and exits with 130 or 143.
+`out` then holds `runner.yaml`, `runner.log`, `replay.json`,
+`scripts/`, what the scripts wrote, and `state.db`, the database of
+the replay twin, with the timeline of what it did. `replay.json` has
+`format`, `of`, `start` and `inputs` as absolute paths (`inputs` is
+`null` for a scenario), `from` and `until` (each a `seq` and a
+`time`), `speed`, `set` (`{}` without it), `sent`, `refused` and
+`firstStep`, the `seq` of the entry that the first step made, or
+`null`. On `SIGINT` or `SIGTERM` the tool stops the scripts
+of the replay twin and the replay twin, and exits with 130 or 143. It
+waits 10 s at most for the answer to `POST /stop`, and a second signal
+during the shutdown kills the replay twin at once.
 
 What is sent, and what is not:
 
@@ -225,11 +232,14 @@ with no `Replay-` header.
 
 A replay twin is a runner started with `--reinstate` and `--what-if`.
 The operator may also start one by hand in that way. The mode
-changes eight things:
+changes nine things:
 
 - **It listens on `127.0.0.1` only**, as its scripts act for real.
 - **It follows no peer and notifies nobody**, whatever its
   configuration lists.
+- **It saves nothing.** It has no snapshot directory, whatever its
+  configuration lists: a save and a what-if get `409`
+  `no snapshot directory`.
 - **It says what it is.** `GET /dt` shows
   `replay: {of: "hospital-1", time: "2026-11-24T18:38:56.368Z"}`, and
   `null` in any other runner. It logs once: `A replay twin of
@@ -493,6 +503,16 @@ What the plan did not foresee:
   that did not know its peers, `out` readable by others, and unclear
   header messages. Each was fixed before the recording; see
   [What the Demo Showed](#what-the-demo-showed).
+
+- **The replay twin ran the snapshot's own scripts.** Its `location`
+  was `scripts/` of the start, and its working directory that of the
+  tool, so a script that kept files beside itself wrote into the
+  snapshot, and two replays of one snapshot shared them; the demo hid
+  it with a branch on `DT_REPLAY_OF`. The final review found it: the
+  tool now copies the scripts into `out` and starts the replay twin
+  there, and the branch is gone. The same review found that a second
+  signal left the replay twin running, and that `POST /stop` at the
+  shutdown could wait for ever; both are fixed.
 
 ### What the Demo Showed
 

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import * as yaml from 'js-yaml';
 import Signer from '../auth/signer.js';
@@ -52,6 +52,14 @@ export function summary(
   };
 }
 
+// out holds a copy of the database, with the inputs of commands, and a
+// copy of the scripts, which may write beside themselves
+function makeOut(out: string, scripts: string): void {
+  mkdirSync(dirname(out), { recursive: true });
+  mkdirSync(out, { mode: 0o700 });
+  cpSync(scripts, join(out, 'scripts'), { recursive: true });
+}
+
 // Writes runner.yaml of the replay twin into out, and the client
 async function setUp(plan: ReplayPlan, prepared: Prepared, main: string) {
   const { privateKey, publicKey } = newKeyPair();
@@ -65,9 +73,7 @@ async function setUp(plan: ReplayPlan, prepared: Prepared, main: string) {
     publicKey,
     parameters,
   });
-  // out holds a copy of the database, with the inputs of commands
-  mkdirSync(dirname(plan.out), { recursive: true });
-  mkdirSync(plan.out, { mode: 0o700 });
+  makeOut(plan.out, join(start.dir, 'scripts'));
   writeFileSync(join(plan.out, 'runner.yaml'), yaml.dump(config));
   const twin = new ReplayTwin(plan.out, port, main);
   const signer = new Signer(privateKey, PRINCIPAL);

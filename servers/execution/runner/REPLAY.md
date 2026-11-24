@@ -195,10 +195,12 @@ runner-replay run/runner-replay.yaml
 1. The tool checks that both snapshots are of one twin, that the
    inputs are later, and that the class has `whatIf.replay: true`.
 2. It writes `runner.yaml` of the replay twin into `out`, from the
-   copy in the start (below), with a key pair made for this run.
+   copy in the start (below), with a key pair made for this run, and
+   copies `scripts/` of the start into `out/scripts`.
 3. It starts `runner -c <out>/runner.yaml --reinstate <start>
---what-if --time-scale <speed>`, with its log in `out/runner.log`,
-   and waits for `GET /health`, 30 s at most.
+--what-if --time-scale <speed>` in `out` as its working directory,
+   with its log in `out/runner.log`, and waits for `GET /health`, 30 s
+   at most.
 4. **The first step.** If the script of the saved state was running
    at the save, it asks for a transition to that state, so that the
    script runs, as it did in the twin. Otherwise the replay twin waits
@@ -220,7 +222,10 @@ Sent 23 inputs, 3 refused; the replay is in .../run/replays/scope-multi
 
 The script was `open`, which samples the beds until a stop. Ctrl+C or
 `SIGTERM` to the tool stops the scripts of the replay twin and the
-replay twin, and the tool exits with 130 or 143.
+replay twin, and the tool exits with 130 or 143. The tool waits 10 s
+at most for the answer to its `POST /stop`. A second Ctrl+C or
+`SIGTERM` during that shutdown kills the replay twin at once, and the
+tool exits.
 
 The configuration that the tool wrote in the demo:
 
@@ -233,7 +238,7 @@ attributes:
   longitude: 10.17
   wards: 2
 port: 41523
-location: ../../hospital-1/snapshots/20261124T183856368Z/scripts
+location: scripts
 commands:
   - open
   - full
@@ -266,6 +271,8 @@ auth:
 
 - `mqtt`, `relationships.manager`, `scripts` and `snapshots` are left
   out: a replay twin reaches nobody and saves nothing.
+- `location` is the copy of the scripts in `out`. The state machine
+  file stays the copy in the start.
 - The peers are kept, so that the subscriptions of the class bind.
   None is followed.
 - The one principal is `replay`, of role `operator`. Its private key
@@ -278,8 +285,11 @@ auth:
 ```text
 replays/scope-multi/
 ├── replay.json
+├── run
+│   └── hospital-1.replay
 ├── runner.log
 ├── runner.yaml
+├── scripts
 └── state.db
 ```
 
@@ -329,10 +339,13 @@ fault: the changed twin may be somewhere else. In the demo the three
 were refused by the twin too: input to the running `open`, and two
 `close` events in `full`.
 
-The scripts of the replay twin keep their own files where their class
-puts them; in the demo, `run/hospital-1.replay/` of the directory
-where `runner-replay` ran. The tool makes `out` with mode `0700`, as
-`state.db` holds the inputs of commands.
+`scripts/` is the copy of the scripts of the start that the replay
+twin ran, and `out` is its working directory. A script that writes
+beside itself, or into its working directory, writes into `out`, and
+never into the snapshot: in the demo, the beds in
+`run/hospital-1.replay/`. Two replays of one snapshot each have their
+own `out`, and do not see each other's files. The tool makes `out`
+with mode `0700`, as `state.db` holds the inputs of commands.
 
 ## Compare
 
@@ -452,26 +465,22 @@ Every script of a replay twin gets three variables:
 scripts raise events and write properties as in the twin. A script of
 a class that allows a replay:
 
-- keeps its files in a place of the replay twin when `DT_MODE` is
-  `what-if` and `DT_REPLAY_OF` is set, and the restore script puts
-  them there;
+- keeps its files beside itself or in its working directory, which
+  in a replay twin of `runner-replay` are in `out`, and the restore
+  script puts them there;
 - divides its own waits by `DT_TIME_SCALE`, so that it samples as
   often, in the time that the replay twin stands for, as in the twin;
 - does nothing to the world: no message to a device, a person or
   another system, unless that system is a copy too.
 
 The hospital demo keeps its beds in `run/<DT_ID>/` beside its
-scripts, and in a replay twin in `run/<DT_ID>/` of the working
-directory, which is that of `runner-replay`. `scripts/ward.sh`:
+scripts, which in a replay twin is `run/hospital-1.replay/` of `out`.
+`scripts/ward.sh`:
 
 ```bash
-# A replay twin keeps its own beds, under run/<DT_ID> of its working
-# directory, so that its scripts never touch those of the twin
-if [[ ${DT_MODE:-} == what-if && -n ${DT_REPLAY_OF:-} ]]; then
-  WARD_DIR="$PWD/run/$DT_ID"
-else
-  WARD_DIR="$(dirname "${BASH_SOURCE[0]}")/../run/$DT_ID"
-fi
+# A replay twin runs a copy of the scripts in its out, so its beds are
+# there, and those of the twin are untouched
+WARD_DIR="$(dirname "${BASH_SOURCE[0]}")/../run/$DT_ID"
 ```
 
 `scripts/open` samples every `POLL_MS` milliseconds over the scale:
@@ -494,9 +503,20 @@ operator may start one with a `runner.yaml` of its own, such as the
 one above, with `auth` and a principal whose key the operator holds,
 on port 5400. Keep `auth`: a replay twin without it is open to every
 process of the host, which may then call every route, start its
-scripts and hand it notices. The replies below are from a session on
-a host of the author's own, started without `auth` so that `curl`
-needs no token:
+scripts and hand it notices.
+
+A replay twin saves nothing, whatever its `runner.yaml` lists under
+`snapshots`: `POST /snapshot`, and `POST /whatif` of a command of
+`whatIf.commands`, answer `409` with `no snapshot directory`, and the
+start leaves the `what-if/` directory of the live twin alone. Its
+scripts are those of `location`, and its working directory is that
+of the shell: give it a copy of the scripts and a directory of its
+own, as `runner-replay` does, if the scripts write beside themselves.
+A refusal at the start, such as a class without `whatIf.replay: true`,
+prints its message and exits with 1.
+
+The replies below are from a session on a host of the author's own,
+started without `auth` so that `curl` needs no token:
 
 ```bash
 runner -c run/replays/by-hand/runner.yaml \
@@ -593,12 +613,6 @@ and headers are in [API.md](api/API.md#replay-twins).
   not mark the row of a request answered from a stored reply, so the
   tool sends it, and the command runs a second time in the replay
   twin.
-- **One place for every replay of a twin.** The replay twin's `id` is
-  always `<id>.replay`, so the scripts of the demo keep the beds of
-  every replay of `hospital-1` run from one directory in
-  `run/hospital-1.replay/`. Two replays at once overwrite each other's
-  beds, and each restore replaces those of the replay before. Run them
-  one after the other, or from different directories.
 - **Scripts act for real on the host.** They run as the account of
   the tool, with the files, the network and the devices of the host.
   `whatIf.replay: true` is the author's promise that they keep to

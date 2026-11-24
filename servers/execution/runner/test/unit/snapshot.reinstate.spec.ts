@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -107,5 +113,39 @@ describe('Reinstating', () => {
     expect(await differences(dir, null, { config: fakeConfig(dir) })).toEqual(
       [],
     );
+  });
+
+  it('Should remove the copied database and its side files when the resume fails, though the close throws', async () => {
+    const database = join(dir, 'run', 'dt.db');
+    const files = ['', '-wal', '-shm'].map((end) => `${database}${end}`);
+    const queue = {
+      open: () => files.forEach((file) => writeFileSync(file, '')),
+      close: () => {
+        throw new Error('not open');
+      },
+    };
+    const fsm = {
+      declared: () => undefined,
+      restore: () => {
+        throw new Error('no machine');
+      },
+    };
+    const config = fakeConfig(dir, { replay: () => undefined });
+    const services = new Map<unknown, unknown>([
+      [Config, config],
+      [FsmService, fsm],
+      [Queue, queue],
+    ]);
+    const app = { get: (token: unknown) => services.get(token) };
+    writeFileSync(join(dir, 'runner.yaml'), 'id: dt\n');
+    writeFileSync(join(dir, 'state.db'), '');
+    manifest(
+      JSON.stringify({ format: 1, id: 'dt', class: null, time: 't', seq: 1 }),
+    );
+
+    await expect(
+      openTwin(app as unknown as INestApplication, dir),
+    ).rejects.toThrow('no machine');
+    expect(files.filter((file) => existsSync(file))).toEqual([]);
   });
 });

@@ -14,6 +14,7 @@ describe('Placement of snapshots', () => {
     ['/srv/dt/scripts/snapshots', false],
     ['/srv/dt/scripts', false],
     ['/srv/dt/scripts-old', true],
+    ['/srv/dt/scripts/..x', false],
   ])('Should judge the directory %s beside scripts: fine %s', (dir, fine) => {
     const problems = placementProblems({
       location: '/srv/dt/scripts',

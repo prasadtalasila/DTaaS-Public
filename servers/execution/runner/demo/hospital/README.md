@@ -28,7 +28,8 @@ The Linux recording shows the files of this folder as they are: the
 class of both hospitals, the property `free-beds`, the MQTT topic
 `parameters/set`, and the chapters of issues 23 to 25:
 [save and reinstate](#save-and-reinstate), [what-if](#what-if) and
-[replay](#replay). It was recorded again once, after issue 25. Its
+[replay](#replay). It was recorded again after issue 25, and after
+the final review of issues 22 to 25. Its
 scripts are the shell scripts of [scripts](scripts), which need `jq`
 and `curl`, and they run as the account of the runner. The same story
 with the scripts running as a second account (`scripts.user`) is to
@@ -153,11 +154,11 @@ lacks (—).
 | ----: | ------: | :-------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
 |  0:00 |    0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers                           |
 |  0:33 |    0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)                              |
-|  0:50 |    0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role                            |
+|  0:49 |    0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role                            |
 |  1:02 |    1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                                             |
 |  1:08 |    1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state`; the first snapshot |
 |  1:31 |    1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                                              |
-|  1:40 |    1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                                     |
+|  1:39 |    1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                                     |
 |  2:02 |    2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                                                  |
 |  2:21 |    2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures                        |
 |  2:46 |    3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                                      |
@@ -168,9 +169,9 @@ lacks (—).
 |  3:53 |    5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                                               |
 |  4:03 |    5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                                        |
 |  4:14 |    5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                                     |
-|  4:25 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                                                  |
-|  4:29 |       — | What-if                                       | `POST /whatif` by the Manager, `GET /whatif/<id>` with `"token": "absent"`, the `whatif` notification                                |
-|  4:56 |       — | Save and reinstate                            | `POST /snapshot` with `stop`; `--reinstate` on port 5300; the restored beds, `GET /fsm`, `reinstated`                                |
+|  4:24 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                                                  |
+|  4:28 |       — | What-if                                       | `POST /whatif` by the Manager, `GET /whatif/<id>` with `"token": "absent"`, the `whatif` notification                                |
+|  4:55 |       — | Save and reinstate                            | `POST /snapshot` with `stop`; `--reinstate` on port 5300; the restored beds, `GET /fsm`, `reinstated`                                |
 |  5:21 |       — | Replay                                        | A replay file under scope `multi`; `runner-replay --dry-run`, `runner-replay`; the live beds untouched; `runner-compare`             |
 |  5:58 |    6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                                                  |
 
@@ -192,8 +193,8 @@ Both runners permit them, and each saves into a directory of its own:
 `run/<id>/ward.json` are all that the scripts keep beside the
 properties, so `save-script` copies that file to `DT_SNAPSHOT_DIR` and
 `restore-script` copies it back, to the place that `ward.sh` and
-`ward.ps1` give the beds: `run/<id>/`, or in a [replay twin](#replay)
-`run/<id>/` of its working directory:
+`ward.ps1` give the beds: `run/<id>/` beside the scripts, which in a
+[replay twin](#replay) is under its `out`:
 
 | Script           | Linux                                    | Windows                                          |
 | :--------------- | :--------------------------------------- | :----------------------------------------------- |
@@ -342,13 +343,12 @@ whatIf:
   replay: true
 ```
 
-In a replay twin, where `DT_MODE` is `what-if` and `DT_REPLAY_OF` is
-set, `ward.sh` and `ward.ps1` keep the beds and the ward log in
-`run/<DT_ID>/` of the working directory, which is that of
-`runner-replay`: `run/hospital-1.replay/` in the demo. `restore-script`
-copies the beds of the snapshot there, and `open` divides its interval
-between samples by `DT_TIME_SCALE`. The bash scripts were run; the
-PowerShell ones have not been run.
+A replay twin runs a copy of the scripts in its `out`, so `ward.sh`
+and `ward.ps1` keep its beds and ward log in `run/<DT_ID>/` there:
+`run/replays/scope-multi/run/hospital-1.replay/` in the demo.
+`restore-script` copies the beds of the snapshot there, and `open`
+divides its interval between samples by `DT_TIME_SCALE`. The bash
+scripts were run; the PowerShell ones have not been run.
 
 The story takes two snapshots of `hospital-1`: the first at the end of
 "State machine and script context", with `open` running, and the second
@@ -367,7 +367,7 @@ in "Save and reinstate". The chapter "Replay" of
    [tools/shell.sh](tools/shell.sh) run the tools built in this
    repository.
 3. `cat` shows the beds of `hospital-1`, untouched, beside those of
-   the replay twin.
+   the replay twin in its `out`.
 4. `runner-compare` lists the state entries of the second snapshot
    and of the replay, and marks the first difference.
 
@@ -390,17 +390,17 @@ it already has. The comparison:
 
 ```text
 at        hospital-1                            hospital-1.replay
-18:38:58  open    scope-changed     parameter   -   <- first difference
-18:38:59  open    fidelity-changed  parameter   open    fidelity-changed  parameter
-18:39:00  open    neighbour-full    peer        open    neighbour-full    peer
-18:39:01  full    full              script      full    full              script
-18:39:02  open    beds-free         script      open    beds-free         script
-18:39:03  open    neighbour-full    peer        open    neighbour-full    peer
-18:39:03  open    neighbour-down    peer        open    neighbour-down    peer
-18:39:04  closed  stopped                       closed  stopped
+19:09:38  open    scope-changed     parameter   -   <- first difference
+19:09:38  open    fidelity-changed  parameter   open    fidelity-changed  parameter
+19:09:40  open    neighbour-full    peer        open    neighbour-full    peer
+19:09:41  full    full              script      full    full              script
+19:09:42  open    beds-free         script      open    beds-free         script
+19:09:43  open    neighbour-full    peer        open    neighbour-full    peer
+19:09:43  open    neighbour-down    peer        open    neighbour-down    peer
+19:09:44  closed  stopped                       closed  stopped
 
-entries: 8 and 7; first difference at 18:38:58
-cpu seconds: 0.0 and 0.0
+entries: 8 and 7; first difference at 19:09:38
+cpu seconds: 0.0 and 0.1
 ```
 
 The Manager's change of scope was no change in the replay twin, so
@@ -541,4 +541,4 @@ too. It renders `run/demo-windows-*.gif`
 at font size 16 with an idle limit of 60 s, so that agg keeps the gaps
 as `record.mjs` set them, and writes `demo-windows.mp4` with libx264 at
 CRF 32. The conversion took 14 minutes in WSL under `/mnt/c`, most of it in
-agg, and 6 minutes on Linux for the Linux recording of 6 min 7 s.
+agg, and 6 minutes on Linux for the Linux recording of 6 min 8 s.

@@ -113,10 +113,11 @@ export default class Config {
     return this.file;
   }
 
-  // Relative to runner.yaml, or absolute; undefined without the section
+  // Relative to runner.yaml, or absolute; undefined without the section,
+  // and in a replay twin, which saves nothing
   getSnapshots(): SnapshotsConfig | undefined {
     const given = this.configValues.snapshots?.directory;
-    if (given === undefined) {
+    if (given === undefined || this.replayMode) {
       return undefined;
     }
     return { directory: path.resolve(path.dirname(this.file), given), given };

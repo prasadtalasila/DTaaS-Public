@@ -1706,15 +1706,15 @@ event that a subscription to a peer raises is held with it. Both are
 handled in their order once the save ends. After a save with `stop`,
 nothing held is handled.
 
-| Case                                                     | Status | Body                                                     |
-| :------------------------------------------------------- | :----- | :------------------------------------------------------- |
-| The database is in memory                                | 409    | `{"status": "no database"}`                              |
-| No `snapshots` section in the configuration              | 409    | `{"status": "no snapshot directory"}`                    |
-| A run of the save script is in progress                  | 409    | `{"status": "save script running"}`                      |
-| The class names a save script, and `scripts.user` is set | 409    | `{"status": "save script of another account", ...}`      |
-| A save runs already                                      | 503    | `{"status": "saving"}`, with `Retry-After`               |
-| The save script fails, or runs past `snapshots.timeout`  | 500    | the reply of [POST /](#post-) for that run of the script |
-| A body other than `{"stop": <boolean>}`                  | 400    | the [validation error](#conventions)                     |
+| Case                                                          | Status | Body                                                     |
+| :------------------------------------------------------------ | :----- | :------------------------------------------------------- |
+| The database is in memory                                     | 409    | `{"status": "no database"}`                              |
+| No `snapshots` section in the configuration, or a replay twin | 409    | `{"status": "no snapshot directory"}`                    |
+| A run of the save script is in progress                       | 409    | `{"status": "save script running"}`                      |
+| The class names a save script, and `scripts.user` is set      | 409    | `{"status": "save script of another account", ...}`      |
+| A save runs already                                           | 503    | `{"status": "saving"}`, with `Retry-After`               |
+| The save script fails, or runs past `snapshots.timeout`       | 500    | the reply of [POST /](#post-) for that run of the script |
+| A body other than `{"stop": <boolean>}`                       | 400    | the [validation error](#conventions)                     |
 
 The `409` for `scripts.user` has a `message` that says what to do
 ([PRIVILEGE-SETUP.md](../PRIVILEGE-SETUP.md)). A save script that
@@ -1821,7 +1821,7 @@ copy is made, gets the same `id`, and its input is ignored.
 | A `client`, and `whatIf.commands` lacks it                        | 400    | `{"status": "invalid command"}`                    |
 | A `manager`, and `whatIf.commands` or `manager.commands` lacks it | 403    | `manager may not call whatif`                      |
 | The database is in memory                                         | 409    | `{"status": "no database"}`                        |
-| No `snapshots.directory`                                          | 409    | `{"status": "no snapshot directory"}`              |
+| No `snapshots.directory`, or a replay twin                        | 409    | `{"status": "no snapshot directory"}`              |
 | No `auth.principals`                                              | 409    | `{"status": "no access control"}`                  |
 | The command runs live, or starts while the copy is made           | 409    | `{"status": "command running"}`                    |
 | A run of the save script is in progress                           | 409    | `{"status": "save script running"}`                |
@@ -1907,12 +1907,15 @@ and its name.
 A replay twin is a runner started with `--reinstate <snapshot>
 --what-if`, which `runner-replay` starts to run a twin again from a
 snapshot ([REPLAY.md](../REPLAY.md)). Its API is that of any runner,
-with five differences:
+with six differences:
 
 - It listens on `127.0.0.1` only, connects to no MQTT broker, follows
   no peer and sends no notification; `GET /health` shows
   `"mqtt": "disabled"`.
 - [GET /dt](#get-dt) shows `replay`.
+- It has no snapshot directory, whatever its configuration lists:
+  [POST /snapshot](#post-snapshot) and [POST /whatif](#post-whatif)
+  answer `409` `no snapshot directory`.
 - It answers [PUT /peers/:id/notice](#put-peersidnotice).
 - The role `operator` may call every route ([Roles](#roles)).
 - It takes two headers that name where an input came from, and
