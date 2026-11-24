@@ -24,6 +24,9 @@ Other documents of the runner:
 
 - [STATE-MACHINE.md](STATE-MACHINE.md): writing and running a state
   machine.
+- [CLASS-INSTANCE-INTERFACE.md](CLASS-INSTANCE-INTERFACE.md): the
+  state machine file as a class, _runner.yaml_ as an instance of it,
+  and the interface of the two.
 - [WHAT-IF.md](WHAT-IF.md): asking a twin a question on a private copy
   of itself.
 - [REPLAY.md](REPLAY.md): running a twin again from a snapshot, with
@@ -427,8 +430,7 @@ auth:
 - `publicKey` is an Ed25519 public key as the base64url of its 32 raw
   bytes, the `x` of its JWK. The caller keeps the private key; the file
   holds no secret, and deleting a principal revokes it at the next
-  start. The demo's
-  [tools/keygen.mjs](demo/hospital/tools/keygen.mjs) writes a key pair.
+  start. [Signed Output](#signed-output) shows how to make a key pair.
 - Each request carries `Authorization: Bearer <token>`, a token that
   the caller signs for that one request and at most one minute; over
   MQTT the request payload is the token. [API.md](api/API.md#access-control)
@@ -486,9 +488,19 @@ auth:
   verifying its callers, and the reverse. A relative path is taken
   from the directory of _runner.yaml_; an absolute path, such as one
   in a mounted secret directory, works too.
-- [tools/keygen.mjs](demo/hospital/tools/keygen.mjs) writes the key:
-  `node keygen.mjs hospital-1 keys` gives `keys/hospital-1.key` and
-  prints the public key, which it also writes to `keys/hospital-1.pub`.
+- Node.js writes the key to `keys/hospital-1.key` and prints the
+  public key, for the principals and peers of other runners:
+
+  ```bash
+  node -e "
+  const { generateKeyPairSync } = require('node:crypto');
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  require('node:fs').writeFileSync('keys/hospital-1.key',
+    privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
+  console.log(publicKey.export({ format: 'jwk' }).x);
+  "
+  ```
+
 - The runner does not start when the file cannot be read, is
   encrypted, or holds a key that is not an Ed25519 private key; the
   error names the file, never its content.
@@ -638,7 +650,8 @@ whole input. Windows PowerShell decodes stdin in the console code page,
 so a PowerShell script may garble input that is not ASCII.
 
 The command history does not hold the input, as it may hold personal
-data. The [timeline](#timeline) does, and shows it only to a `client`.
+data. The [timeline](#timeline) does, and shows it only to a `client`
+and an `operator`.
 The runner also stores the output of each script, so a script that
 prints its input puts it in the [command history](#command-history).
 
@@ -666,7 +679,8 @@ For a script that the state machine runs, `DT_STATE` and `DT_ENTRY` name
 the state it enters and the number of that entry. For a script of `POST
 /` they name the current state and entry, or are empty and `0` before
 the first transition. Without a state machine file a script gets only
-`RUNNER_URL`, `DT_ID` and, with access control, `RUNNER_TOKEN`; with a
+`RUNNER_URL`, `DT_ID`, `DT_MODE` and, with access control,
+`RUNNER_TOKEN`; with a
 [file without states](#a-file-without-states) it gets the `DT_PARAM_`
 variables too, and neither `DT_STATE` nor `DT_ENTRY`.
 `RUNNER_URL` uses the port that the runner listens on. `RUNNER_TOKEN` is
@@ -678,9 +692,8 @@ empty for it. Every script of a replay twin gets `DT_MODE=what-if`,
 `DT_REPLAY_OF` and `DT_TIME_SCALE`, and `RUNNER_URL` and
 `RUNNER_TOKEN` of the replay twin.
 
-The `DOCKER.md` file in the
-[runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
-describes running the runner in a docker container.
+[DOCKER.md](DOCKER.md) describes running the runner in a docker
+container.
 
 ### Resources
 
@@ -827,7 +840,7 @@ The optional `class` section of the file names the class:
 
 ```yaml
 class:
-  id: 'urn:dtaas:demo:hospital'
+  id: 'urn:dtaas:hospital'
   version: '1.0.0'
 ```
 
@@ -1124,7 +1137,7 @@ Each write that changes a value is also a row of the
 
 ### A File Without States
 
-`states` is optional. A file without states only declares
+`states` is optional. A file without states declares such sections as
 `parameters`, `properties` and `manager.commands`, and may name its
 [class](#class-and-instance), for a digital twin that runs commands and
 needs no machine:
@@ -1149,7 +1162,8 @@ and the transition and event routes answer `no state machine`,
 [GET /dt](#get-request-to-dt) shows `"stateMachine": false`, and the
 [parameters](#parameters-requests) and
 [properties](#properties-requests) routes work. Such a file is refused
-if it has `events` or `subscriptions`, with `events need states`, as
+if it has `events` or `subscriptions`, with `events need states` or
+`subscriptions need states`, as
 nothing would take the events.
 
 ### Declared Environment
@@ -1498,7 +1512,7 @@ The manifest of a save of a twin in the state `open`:
   "runner": "0.12.0",
   "id": "ward-1",
   "class": {
-    "id": "urn:dtaas:demo:ward",
+    "id": "urn:dtaas:ward",
     "version": "1.0.0"
   },
   "time": "2026-11-24T12:49:02.069Z",
@@ -1690,8 +1704,7 @@ works for any twin.
 ### Application Programming Interface (API)
 
 [API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
-the notifications, with examples from the
-[hospital demo](demo/hospital/README.md).
+the notifications, with examples.
 
 The runner serves twenty-four routes. Four run and stop commands, three
 drive the [state machine](#state-machine-requests), two read and set
@@ -1934,8 +1947,10 @@ row, written when its script ends, also when the script was stopped or
 never started; it may come after the next entry. The kinds are
 `start`, `transition`, `event`, `command`, `stop`, `parameters`,
 `properties`, `peers`, `notice`, `entry`, `exit`, `sent` and
-`shutdown`; [API.md](api/API.md#get-timeline) gives the data of each.
-The input of a command is shown only to a `client`, and to every
+`shutdown`, `snapshot` and `whatif`;
+[API.md](api/API.md#get-timeline) gives the data of each. The input of
+a command or a what-if is shown only to a `client` and an `operator`,
+and to every
 caller without access control. In a [replay twin](#replays) each row
 also has `at`, the time that it stands for, and a row of an input that
 named its first sender has `origin`, `{"by": "alice", "seq": 22}`:
@@ -1970,7 +1985,7 @@ Describes the digital twin that the runner serves, from its
   "id": "hospital-1",
   "attributes": { "city": "Aarhus", "beds": 120 },
   "commands": ["create", "execute"],
-  "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
+  "class": { "id": "urn:dtaas:hospital", "version": "1.0.0" },
   "stateMachine": true,
   "manager": { "commands": ["execute"] },
   "peers": ["hospital-2"],

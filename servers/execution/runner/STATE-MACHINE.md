@@ -14,17 +14,289 @@ whole API, including the routes that only run commands, in
 A DT runs as a set of scripts, such as _create_, _execute_ and
 _terminate_. The state machine runs them in order for you:
 
-- Each **state** is a script of the same name. Entering a state runs
-  its script.
+- Each **state** has a **behaviour**: what the DT does while it is in
+  that state. A behaviour is a script file under `location`, of the
+  same name as the state. Entering a state runs its behaviour.
 - A **transition request** starts the machine in a state you name.
 - **Events**, sent by you, by a Manager or by the DT's own scripts,
   or raised by the runner when a peer DT changes, move the machine
   from one state to the next.
-- When a script exits, the runner raises a **completion event**,
+- When a behaviour exits, the runner raises a **completion event**,
   `$success`, `$failure` or `$stopped`, which can move the machine on
   by itself.
 - The runner remembers the machine across a restart when it has a
   database file.
+
+[The Life of a Twin](#the-life-of-a-twin) draws the states that the
+runner takes a twin through, and what each state takes in and sends
+out.
+
+## The Life of a Twin
+
+The runner takes each twin through the states below. They are states
+of the runner, not of the state machine file: the machine of the file
+lives in `start`, whose inner states are the statuses that `GET /fsm`
+shows. An _input_ is a transition request or an event.
+
+```mermaid
+---
+title: The life of a twin under the runner
+config:
+  look: classic
+---
+stateDiagram-v2
+    [*] --> create : runner starts
+    [*] --> reinstate : --reinstate
+    create --> up : database open
+    reinstate --> up : files restored
+    create --> [*] : refused
+    reinstate --> [*] : refused
+    state "the runner is up" as up {
+        [*] --> start
+        start --> save : POST /snapshot
+        save --> start : saved or failed
+        state start {
+            [*] --> none
+            [*] --> interrupted : stored running
+            none --> running : transition
+            running --> running : event
+            running --> valid : exit 0
+            running --> invalid : exit not 0
+            running --> stopped : POST /stop
+            valid --> running : $success, input
+            invalid --> running : $failure, input
+            stopped --> running : $stopped, input
+            interrupted --> running : input
+        }
+        --
+        [*] --> nowhatif
+        nowhatif --> whatif : POST /whatif
+        whatif --> nowhatif : run ends
+    }
+    nowhatif : no what-if
+    save --> exit : saved, stop
+    up --> exit : SIGINT, SIGTERM
+    exit --> [*]
+```
+
+- **create**: the runner reads _runner.yaml_ and the class, and opens
+  or makes the `database`. A file that it refuses ends it with a
+  message and exit code 1 ([When the Runner Refuses the
+  File](#when-the-runner-refuses-the-file)). It restores the machine
+  that the database holds ([Restarts](#restarts)), announces itself and
+  sends the first state document.
+- **reinstate**: `--reinstate <snapshot>` starts the runner from a
+  copy of the database in a snapshot, after the restore script of the
+  [class](#snapshot) has put back its files. A state whose behaviour ran
+  when the snapshot was saved comes back `interrupted`, and waits for an
+  input.
+- **start**: the machine takes inputs. It has no state until a
+  transition request names one, unless the database held one. Each
+  status is described under [Behaviour Status](#behaviour-status). A
+  completion event, `$success`, `$failure` or `$stopped`, moves the
+  machine on only where the state has a transition for it; otherwise
+  the machine stays, idle.
+- **save**: `POST /snapshot` pauses the twin while it copies it. Every
+  request that changes the twin gets `503` `saving`, and the completion
+  of a behaviour and the events of peers wait until the save ends. The
+  behaviour of the current state keeps running. With `{"stop": true}`
+  the runner shuts down after the save ([Snapshot](#snapshot)).
+- **whatif**: `POST /whatif` makes a private copy of the twin in a
+  short save, then runs a command of `whatIf.commands` on the copy,
+  beside the live machine. The run never changes a state, an entry or a
+  status of the live machine, and raises no event; its result goes to
+  `GET /whatif/<id>` and to a notification ([What-If](#what-if)). A
+  request for a command whose what-if runs joins that run.
+- **exit**: the runner refuses inputs with `503` `stopping`, waits for
+  the running behaviours, which a save with stop stops first, stops the
+  what-ifs, says it is offline and closes the database
+  ([Shut Down](#shut-down)).
+
+### Peers
+
+For each peer of `relationships.peers`, the runner holds whether it is
+enabled and what its latest notices said. `GET /peers` shows it as
+`enabled`, `online` (`null` while unknown) and `state` (the latest
+state document, `null` while none came).
+
+```mermaid
+---
+title: What the runner holds about a peer
+config:
+  look: classic
+---
+stateDiagram-v2
+    [*] --> enabled : enabled
+    [*] --> disabled : enabled false
+    enabled --> disabled : PUT /peers false
+    disabled --> enabled : PUT /peers true
+    state enabled {
+        [*] --> unknown
+        unknown --> online : online true
+        unknown --> offline : online false
+        online --> offline : online false
+        offline --> online : online true
+        online --> unknown : empty notice
+        offline --> unknown : empty notice
+        --
+        [*] --> untold
+        untold --> told : state notice
+        told --> told : state notice
+        told --> untold : empty notice
+    }
+    untold : no state
+    told : last state told
+```
+
+- A peer starts enabled or disabled by its `enabled` in _runner.yaml_,
+  or by the switch that `PUT /peers` stored in the database.
+- The runner follows the notices of an enabled peer only. A disable
+  forgets what the peer told; an enable follows it again, and the
+  broker sends its retained notices anew.
+- `online false` also comes from the broker, as the will of a peer
+  that died. A notice that the runner drops, such as an unsigned one
+  from a peer with a `publicKey`, changes nothing.
+
+Each [subscription](#subscriptions-to-peers), bound to one peer, holds
+whether its condition held in the latest notice of its kind:
+
+```mermaid
+---
+title: The condition of a subscription
+config:
+  look: classic
+---
+stateDiagram-v2
+    [*] --> unknown
+    unknown --> holds : holds / raise event
+    unknown --> fails : does not hold
+    fails --> holds : holds / raise event
+    holds --> fails : does not hold
+    holds --> holds : holds again
+    holds --> unknown : peer disabled
+    fails --> unknown : peer disabled
+    fails : does not hold
+```
+
+The event is raised only on the way into `holds`. A notice of the
+other kind, such as a presence notice for a condition on `state`,
+leaves the condition as it is. Every condition starts unknown when the
+runner starts, so a retained notice in which it holds raises its event
+at once, also in a reinstated twin. [React to Peers](#react-to-peers)
+tells what the event then does.
+
+### The Manager
+
+The runner holds no state for its Manager, so there is no diagram. It
+sends each escalation once, as a notification of kind `escalation`
+([Escalation](#escalation)); nothing answers it, and nothing that the
+Manager does later refers to it. The webhook retries a post that met a
+network error, a timeout or a `5xx` reply after 1, 2 and 4 seconds
+([API reference](api/API.md#notifications)). The Manager acts on the
+twin through the routes of its role, as any client does.
+
+### Inputs and Outputs by State
+
+The samples come from the runner of `hospital-1` of
+[Example: Hospital Bed Management](#example-hospital-bed-management),
+with access control, MQTT on the base topic `dtaas/hospital-1`, a
+webhook under `relationships.manager.notify`, and the peer
+`hospital-2`, of topic `dtaas/hospital-2` and relationship
+`neighbour`. Over MQTT a request goes to the topic shown, with the
+same body. Each notification goes to `dtaas/hospital-1/notify/<kind>`
+and to the webhook with the same JSON, and a `sent` row of
+`GET /timeline` records it. A `row` is a row of `GET /timeline`, and
+`...` marks what is left out.
+
+**create** takes no request; the runner starts listening when it ends.
+
+| In or out | Where                | Sample                                                                                                                                                                                                                                                                                    |
+| :-------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| row       | `start`              | `{"seq": 1, "kind": "start", "by": null, "data": {"class": {"id": "urn:dtaas:hospital", "version": "1.0.0"}, "instance": {}, "state": {"machine": {"state": null, "status": "none", "entry": 0, ...}, ...}, "peers": ["hospital-2"]}}`                                                    |
+| out       | `presence`, retained | `{"kind": "presence", "id": "hospital-1", "time": "2026-11-24T22:27:32.598Z", "data": {"online": true, "descriptor": {"id": "hospital-1", ...}}}`                                                                                                                                         |
+| out       | `state`, retained    | `{"kind": "state", "id": "hospital-1", "time": "2026-11-24T22:27:32.560Z", "data": {"id": "hospital-1", "time": "2026-11-24T22:27:32.560Z", "machine": {"state": null, "status": "none", "entry": 0, ...}, "parameters": {"scope": "single", "capacity": 2, "fidelity": "medium"}, ...}}` |
+
+**start** takes every request of [Run the Machine](#run-the-machine):
+
+| In or out | Where                                        | Sample                                                                                                                                                                                                                                                                              |
+| :-------- | :------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| in        | `POST /fsm/transition`, `<topic>/transition` | `{"state": "open"}`: `202` `{"status": "accepted", "state": "open"}`; while _open_ runs, `{"state": "closed"}` gets `409` `{"status": "busy", "state": "open"}`                                                                                                                     |
+| in        | `POST /fsm/event`, `<topic>/event`           | `{"event": "close"}` in `full`: `409` `{"status": "no transition", "state": "full"}`                                                                                                                                                                                                |
+| in        | `PUT /parameters`, `<topic>/parameters/set`  | `{"scope": "multi"}`: `200` with the parameters, and `scope-changed`                                                                                                                                                                                                                |
+| in        | `PUT /properties`, `<topic>/properties/set`  | `{"free-beds": 0}`, from _open_                                                                                                                                                                                                                                                     |
+| in        | `POST /`, `<topic>/execute`                  | `{"name": "admit", "input": {"patient": "p-1"}}`: `200` `{"status": "success", "result": {"exitCode": 0, "stdout": "admitted p-1", ...}}`                                                                                                                                           |
+| in        | `POST /stop`, `<topic>/stop`                 | `{"name": "open"}`: `200` `{"stopped": ["open"]}`                                                                                                                                                                                                                                   |
+| in        | `POST /escalate`, `<topic>/escalate`         | `{"reason": "capacity", "proposal": {"scope": "multi"}}`: `202` `{"status": "accepted"}`                                                                                                                                                                                            |
+| in        | a notice of a peer                           | see [Peers](#peers) below                                                                                                                                                                                                                                                           |
+| out       | `state`, retained                            | `{"kind": "state", "id": "hospital-1", "time": "2026-11-24T22:27:33.195Z", "data": {..., "machine": {"state": "open", "status": "running", "entry": 1, ...}, ..., "command": {"name": "open", "status": "running", "receivedAt": "2026-11-24T22:27:33.000Z", "finishedAt": null}}}` |
+| out       | `escalation`                                 | `{"kind": "escalation", "id": "hospital-1", "time": "2026-11-24T22:27:38.631Z", "data": {"trigger": "failure", "state": "full", "entry": 4, "event": null, "reason": "script of state full failed", "proposal": null}}`                                                             |
+| row       | `transition`                                 | `{"seq": 7, "kind": "transition", "by": "client-1", "data": {"state": "open", "reply": {"status": "accepted", "state": "open"}}}`                                                                                                                                                   |
+| row       | `event`                                      | `{"seq": 37, "kind": "event", "by": "script", "data": {"event": "full", "source": "script", "reply": {"status": "accepted", "state": "full"}}}`                                                                                                                                     |
+| row       | `entry`                                      | `{"seq": 38, "kind": "entry", "by": null, "data": {"state": "full", "entry": 4, "cause": 37}}`                                                                                                                                                                                      |
+| row       | `exit`                                       | `{"seq": 41, "kind": "exit", "by": null, "data": {"state": "full", "entry": 4, "status": "invalid", "run": 6}}`                                                                                                                                                                     |
+| row       | `parameters`                                 | `{"seq": 13, "kind": "parameters", "by": "manager-1", "data": {"scope": "multi"}}`                                                                                                                                                                                                  |
+| row       | `properties`                                 | `{"seq": 36, "kind": "properties", "by": "script", "data": {"free-beds": 0}}`                                                                                                                                                                                                       |
+| row       | `command`                                    | `{"seq": 30, "kind": "command", "by": "manager-1", "data": {"name": "admit", "input": {"patient": "p-1"}, "run": 4}}`                                                                                                                                                               |
+| row       | `stop`                                       | `{"seq": 78, "kind": "stop", "by": "client-1", "data": {"name": "open"}}`                                                                                                                                                                                                           |
+| row       | `sent`                                       | `{"seq": 44, "kind": "sent", "by": null, "data": {"kind": "escalation", "data": {"trigger": "failure", ...}}}`                                                                                                                                                                      |
+
+**save** answers once the copy is made:
+
+| In or out | Where                                            | Sample                                                                                                                             |
+| :-------- | :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| in        | `POST /snapshot`, `<topic>/snapshot/set`         | `{}`: `201` `{"time": "2026-11-24T22:27:40.764Z", "seq": 46, "path": "snapshots/20261124T222740764Z"}`                             |
+| in        | `POST /snapshot`, `<topic>/snapshot/set`         | `{"stop": true}`: `201` `{"time": "2026-11-24T22:27:51.195Z", "seq": 90, "path": "snapshots/20261124T222751195Z"}`, then **exit**  |
+| in        | a request that changes the twin, during the save | `503` `{"status": "saving"}`, with `Retry-After: 1`; a read is answered                                                            |
+| row       | `snapshot`                                       | `{"seq": 49, "kind": "snapshot", "by": "operator-1", "data": {"time": "2026-11-24T22:27:40.764Z", "name": "20261124T222740764Z"}}` |
+
+**reinstate** waits for an input in the saved state:
+
+| In or out | Where                              | Sample                                                                                                                                                                                                                                                        |
+| :-------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| in        | the command line                   | `runner --config runner.yaml --reinstate snapshots/20261124T222751195Z`                                                                                                                                                                                       |
+| in        | `GET /fsm`, `<topic>/fsm`          | `200` `{"state": "open", "status": "interrupted", "entry": 9, ...}`                                                                                                                                                                                           |
+| in        | `POST /fsm/event`, `<topic>/event` | `{"event": "close"}`: `202` `{"status": "accepted", "state": "closed"}`                                                                                                                                                                                       |
+| row       | `start`                            | `{"seq": 91, "kind": "start", "by": null, "data": {..., "state": {"machine": {"state": "open", "status": "interrupted", "entry": 9, ...}, ...}, "peers": ["hospital-2"], "reinstated": {"id": "hospital-1", "time": "2026-11-24T22:27:51.195Z", "seq": 90}}}` |
+| out       | `state`, retained                  | `{"kind": "state", "id": "hospital-1", "time": "2026-11-24T22:27:55.505Z", "data": {..., "machine": {"state": "open", "status": "interrupted", "entry": 9, ...}, ..., "command": {"name": "restore-script", "status": "valid", ...}}}`                        |
+
+**whatif** runs beside **start**, and no `entry`, `exit` or `state`
+output comes from it:
+
+| In or out | Where                                              | Sample                                                                                                                                                                                             |
+| :-------- | :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| in        | `POST /whatif`, `<topic>/whatif/set`               | `{"name": "forecast-beds", "input": {"hours": 2}}`: `202` `{"id": 9, "name": "forecast-beds", "status": "running"}`                                                                                |
+| in        | `GET /whatif/9`, `<topic>/whatif` with `{"id": 9}` | `200` `{"id": 9, "name": "forecast-beds", "status": "valid", "mode": "what-if", ..., "exitCode": 0, "result": {"free-beds": 0, "hours": 2}, ...}`                                                  |
+| row       | `whatif`                                           | `{"seq": 50, "kind": "whatif", "by": "manager-1", "data": {"name": "forecast-beds", "input": {"hours": 2}, "run": 9}}`                                                                             |
+| out       | `whatif`, not retained                             | `{"kind": "whatif", "id": "hospital-1", "time": "2026-11-24T22:27:41.964Z", "data": {"id": 9, "name": "forecast-beds", "status": "valid", "exitCode": 0, "result": {"free-beds": 0, "hours": 2}}}` |
+
+**exit** follows `SIGINT`, `SIGTERM` or a save with `{"stop": true}`:
+
+| In or out | Where                                     | Sample                                                                                                    |
+| :-------- | :---------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| in        | `POST /fsm/transition`, `POST /fsm/event` | `503` `stopping`                                                                                          |
+| out       | `presence`, retained                      | `{"kind": "presence", "id": "hospital-1", "time": "2026-11-24T22:27:57.427Z", "data": {"online": false}}` |
+| row       | `shutdown`                                | `{"seq": 104, "kind": "shutdown", "by": null, "data": {}}`                                                |
+
+An **enabled** peer:
+
+| In or out | Where                              | Sample                                                                                                                                                                                                                                    |
+| :-------- | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| in        | `dtaas/hospital-2/notify/state`    | `{"kind": "state", "id": "hospital-2", "time": "...", "data": {"id": "hospital-2", "machine": {"state": "full", "status": "valid", "entry": 2}}}`                                                                                         |
+| in        | `dtaas/hospital-2/notify/presence` | `{"kind": "presence", "id": "hospital-2", "time": "...", "data": {"online": false}}`                                                                                                                                                      |
+| in        | `PUT /peers`, `<topic>/peers/set`  | `{"hospital-2": false}`: `200` `{"hospital-2": {..., "enabled": false, "online": null, "descriptor": null, "state": null}}`                                                                                                               |
+| in        | `GET /peers`, `<topic>/peers`      | `200` `{"hospital-2": {"topic": "dtaas/hospital-2", "url": null, "attributes": {}, "relationship": "neighbour", "enabled": true, "online": false, "descriptor": null, "state": {"id": "hospital-2", "machine": {"state": "full", ...}}}}` |
+| row       | `notice`                           | `{"seq": 70, "kind": "notice", "by": null, "data": {"peer": "hospital-2", "kind": "presence", "data": {"online": false}}}`                                                                                                                |
+| row       | `event`, of a subscription         | `{"seq": 71, "kind": "event", "by": null, "data": {"event": "neighbour-down", "source": "peer", "peer": "hospital-2", "cause": 70, "reply": {"status": "accepted", "state": "open"}}}`                                                    |
+| row       | `peers`                            | `{"seq": 59, "kind": "peers", "by": "manager-1", "data": {"hospital-2": false}}`                                                                                                                                                          |
+| log       | `runner.log`                       | `Raised neighbour-full on state full of peer hospital-2: entered open`                                                                                                                                                                    |
+
+A **disabled** peer:
+
+| In or out | Where                             | Sample                                                                                                                                      |
+| :-------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+| in        | `PUT /peers`, `<topic>/peers/set` | `{"hospital-2": true}`: `200`; the broker sends the retained notices again, rows `notice` 61 and 62, and `neighbour-full` follows as row 63 |
+| in        | a notice of the peer              | not followed, so nothing                                                                                                                    |
+| in        | `GET /peers`                      | `200` `{"hospital-2": {..., "enabled": false, "online": null, "descriptor": null, "state": null}}`                                          |
 
 ## Configure the Runner
 
@@ -51,10 +323,10 @@ snapshots: # optional; where the DT is saved
   answer `404`.
 - The runner reads the state machine file once, when it starts. Restart
   the runner after changing the file.
-- Each state needs a script in `location`: a shell script of the state's
-  name on Linux, which must be executable, and a PowerShell script with
-  the `.ps1` extension on Windows, such as _create.ps1_. A folder may
-  hold both.
+- Each state needs its behaviour in `location`: a shell script of the
+  state's name on Linux, which must be executable, and a PowerShell
+  script with the `.ps1` extension on Windows, such as _create.ps1_. A
+  folder may hold both.
 - `parameters` gives parameters of the state machine file the values
   of this DT; see [Parameters](#parameters).
 - An `mqtt` section adds an MQTT API, and `notify` under
@@ -84,7 +356,7 @@ The optional `class` section of the file names the class:
 
 ```yaml
 class:
-  id: 'urn:dtaas:demo:hospital'
+  id: 'urn:dtaas:hospital'
   version: '1.0.0'
 ```
 
@@ -121,7 +393,7 @@ events: # the events that clients may send
 states:
   create:
     transitions:
-      $success: execute # when the create script exits with 0
+      $success: execute # when the behaviour of create exits with 0
       $failure: terminate # when it exits with another code
   execute:
     transitions:
@@ -143,25 +415,26 @@ states:
 
 ### Completion Events
 
-The runner raises one completion event when the script of the current
-state exits. Clients can not send them.
+The runner raises one completion event when the behaviour of the
+current state exits. Clients can not send them.
 
-| Event      | Raised when                                                                    |
-| :--------- | :----------------------------------------------------------------------------- |
-| `$success` | the script exited with code 0                                                  |
-| `$failure` | the script exited with another code, was killed from outside, or did not start |
-| `$stopped` | the runner stopped the script, on a stop request                               |
+| Event      | Raised when                                                                       |
+| :--------- | :-------------------------------------------------------------------------------- |
+| `$success` | the behaviour exited with code 0                                                  |
+| `$failure` | the behaviour exited with another code, was killed from outside, or did not start |
+| `$stopped` | the runner stopped the behaviour, on a stop request                               |
 
 Without a transition for the event, the machine stays in its state,
-idle, with the status of the script (see [Script Status](#script-status)).
-A loop made only of `$success` and `$failure` transitions is refused,
-as fast scripts would run it forever.
+idle, with the status of its behaviour (see
+[Behaviour Status](#behaviour-status)). A loop made only of `$success`
+and `$failure` transitions is refused, as fast behaviours would run it
+forever.
 
 ### Stop Transitions
 
-A plain transition leaves the script of the old state running; the
-next script has to end it if needed. A transition with `stop: true`
-stops the old script first:
+A plain transition leaves the behaviour of the old state running; the
+next behaviour has to end it if needed. A transition with `stop: true`
+stops the old behaviour first:
 
 ```yaml
 states:
@@ -171,16 +444,17 @@ states:
         state: terminate
         stop: true
       restart:
-        state: execute # a self-transition restarts the script
+        state: execute # a self-transition restarts the behaviour
         stop: true
 ```
 
 On such an event the runner enters the next state at once and answers
-`accepted`. It then stops the old script, waits until it has exited,
-and runs the script of the next state. The stopped script raises no
-`$stopped`, as the machine has already left its state.
+`accepted`. It then stops the old behaviour, waits until it has
+exited, and runs the behaviour of the next state. The stopped
+behaviour raises no `$stopped`, as the machine has already left its
+state.
 
-`stop: true` is not allowed on completion events, whose script has
+`stop: true` is not allowed on completion events, whose behaviour has
 already exited.
 
 ### Parameters
@@ -251,9 +525,9 @@ parameters:
   `The parameters of runner.yaml need a stateMachine file`.
 - `GET /parameters` shows the value of the instance as `default`.
 
-The runner never restarts a script on its own. A script keeps the
-values it started with. To make a change take effect at once, give the
-parameter an `event` whose transition restarts the script, as a
+The runner never restarts a behaviour on its own. A behaviour keeps
+the values it started with. To make a change take effect at once, give
+the parameter an `event` whose transition restarts the behaviour, as a
 self-transition with `stop: true` does.
 [Pattern: Fidelity](#pattern-fidelity) uses such a parameter to let a
 Manager trade accuracy for computing power.
@@ -370,7 +644,7 @@ it may write.
 | `RUNNER_URL`      | `http://127.0.0.1:<port>`, the runner's HTTP API                        |
 | `RUNNER_TOKEN`    | the bearer token for that API, with access control only                 |
 | `DT_ID`           | the `id` of _runner.yaml_                                               |
-| `DT_STATE`        | the state whose script this is; for `POST /`, the current state         |
+| `DT_STATE`        | the state whose behaviour this is; for `POST /`, the current state      |
 | `DT_ENTRY`        | the number of that entry into a state, counted from 1                   |
 | `DT_PARAM_<NAME>` | the value of each parameter when the script starts, as `DT_PARAM_SCOPE` |
 | `DT_MODE`         | `live`, or `what-if` for the script of a [what-if](#what-if)            |
@@ -379,7 +653,8 @@ it may write.
 | `DT_TIME_SCALE`   | how fast the time of a replay twin runs, in a replay twin only          |
 
 `<NAME>` is the parameter name in upper case, with `.` and `-` as `_`.
-The file may add variables for every script and for one state:
+The file may add variables for every script and for the behaviour of
+one state:
 
 ```yaml
 env:
@@ -404,7 +679,7 @@ states:
   stops the runner at startup; the README lists them under
   [Declared Environment](README.md#declared-environment).
 
-The scripts of the state machine get no input on stdin; stdin is empty
+The behaviours of the states get no input on stdin; stdin is empty
 and closed.
 
 ### Escalation
@@ -415,7 +690,7 @@ itself:
 
 ```yaml
 escalation:
-  onFailure: true # a script failed and its state has no $failure transition
+  onFailure: true # a behaviour failed and its state has no $failure transition
   onNoTransition: true # a client event has no transition in the current state
 ```
 
@@ -472,11 +747,11 @@ a class that keeps everything in properties needs neither.
   one with a restore script can not be reinstated; see
   [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md#saving-and-reinstating).
 
-The script of the current state keeps running during a save, and its
-entry does not change: what it holds in memory alone is not saved, and
-a reinstated twin waits in that state as `interrupted`. A script that
-must survive a save therefore does what it does to survive a restart
-([Restarts](#restarts)):
+The behaviour of the current state keeps running during a save, and
+its entry does not change: what it holds in memory alone is not saved,
+and a reinstated twin waits in that state as `interrupted`. A
+behaviour that must survive a save therefore does what it does to
+survive a restart ([Restarts](#restarts)):
 
 - It keeps what must survive in files or in properties, never in
   memory alone.
@@ -493,7 +768,7 @@ printf '{"beds":3}' > run/ward-1/ward.json.tmp &&
   the snapshot, but restores only the database and what the restore
   script puts back.
 
-The runner sends a script no signal before a save.
+The runner sends a behaviour no signal before a save.
 
 ### What-If
 
@@ -677,11 +952,12 @@ curl -X POST http://localhost:5300/fsm/transition \
 { "status": "accepted", "state": "create" }
 ```
 
-The reply comes once the script has started, with HTTP status `202`.
-A transition request moves the machine to any state, but only while it
-is **idle**: before the first transition, and whenever the script of
-the current state is not running. While the script runs, the request
-is refused with `busy`. Use an event instead, or stop the script.
+The reply comes once the behaviour has started, with HTTP status
+`202`. A transition request moves the machine to any state, but only
+while it is **idle**: before the first transition, and whenever the
+behaviour of the current state is not running. While the behaviour
+runs, the request is refused with `busy`. Use an event instead, or
+stop the behaviour.
 
 ### Send Events
 
@@ -695,34 +971,36 @@ curl -X POST http://localhost:5300/fsm/event \
 ```
 
 An event moves the machine along the transition of the current state
-for that event, even while the script of that state runs.
+for that event, even while the behaviour of that state runs.
 
 Transition and event requests answer with one of these statuses, and
 with `state`, the state after the request, or `null` before the first
 transition:
 
-| Status                | HTTP | Meaning                                                   |
-| :-------------------- | :--- | :-------------------------------------------------------- |
-| `accepted`            | 202  | the machine entered the state and started its script      |
-| `invalid state`       | 400  | the state is not in the file                              |
-| `invalid event`       | 400  | the event is not in `events`                              |
-| `invalid request key` | 400  | the request key belongs to another request                |
-| `busy`                | 409  | a transition request while the script of the state runs   |
-| `no transition`       | 409  | the current state has no transition for the event         |
-| `script running`      | 409  | the script of the next state is still running from before |
-| `no state machine`    | 404  | no `stateMachine` key, or a file that has no states       |
-| `stopping`            | 503  | the runner is shutting down                               |
+| Status                | HTTP | Meaning                                                      |
+| :-------------------- | :--- | :----------------------------------------------------------- |
+| `accepted`            | 202  | the machine entered the state and started its behaviour      |
+| `invalid state`       | 400  | the state is not in the file                                 |
+| `invalid event`       | 400  | the event is not in `events`                                 |
+| `invalid request key` | 400  | the request key belongs to another request                   |
+| `busy`                | 409  | a transition request while the behaviour of the state runs   |
+| `no transition`       | 409  | the current state has no transition for the event            |
+| `script running`      | 409  | the behaviour of the next state is still running from before |
+| `no state machine`    | 404  | no `stateMachine` key, or a file that has no states          |
+| `stopping`            | 503  | the runner is shutting down                                  |
 
 A body without `state` or `event` is refused before these checks with
 `400` and `{"message": "Validation Failed", "error": "Bad Request",
-"statusCode": 400}`.
+"statusCode": 400}`. During a [save](#snapshot) both requests get `503`
+`{"status": "saving"}` with a `Retry-After` header of 1 second, as
+every request that changes the twin does.
 
-`script running` means that the script of the next state still runs,
-for example because a plain transition left it running, or because a
-client ran it with `POST /`. The runner does not enter such a state, as
-the script would not run again for the new entry. A completion
-transition into such a state is skipped with a warning in the runner's
-log.
+`script running` means that the behaviour of the next state still
+runs, for example because a plain transition left it running, or
+because a client ran it with `POST /`. The runner does not enter such
+a state, as the behaviour would not run again for the new entry. A
+completion transition into such a state is skipped with a warning in
+the runner's log.
 
 ### Raise Events From Scripts
 
@@ -731,14 +1009,19 @@ token of `RUNNER_TOKEN`, which the runner ignores without access
 control:
 
 ```sh
-code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $RUNNER_TOKEN" -d '{"event": "done"}' \
-  "$RUNNER_URL/fsm/event")
-case "$code" in
+event() {
+  curl -sS -w ' %{http_code}' -X POST -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $RUNNER_TOKEN" -d "{\"event\": \"$1\"}" \
+    "$RUNNER_URL/fsm/event"
+}
+reply=$(event done)
+while [ "${reply##* }" = 503 ] && [ "${reply#*saving}" != "$reply" ]; do
+  sleep 1 && reply=$(event done)
+done
+case "${reply##* }" in
   202 | 503) exit 0 ;;
   409) echo "not now" ;;
-  *) echo "event refused: $code" >&2 && exit 1 ;;
+  *) echo "event refused: ${reply##* }" >&2 && exit 1 ;;
 esac
 ```
 
@@ -747,8 +1030,10 @@ esac
 | `202` `accepted`                                                     | the state is left: its exit no longer moves the machine; `stop: true` sends SIGTERM |
 | `400` `invalid event`, `Validation Failed`; `404` `no state machine` | a mistake in the script or the file; a retry does not help                          |
 | `409` `no transition`, `script running`                              | not now                                                                             |
+| `503` `saving`                                                       | a [save](#snapshot) runs; the event is not taken, so try again after a second       |
 | `503` `stopping`                                                     | the runner is shutting down; the script should exit                                 |
 
+The shell sample tells the two `503` replies apart by the body.
 `curl` prints `000` when the runner can not be reached. In PowerShell
 5.1, which the runner uses for `.ps1` scripts, `Invoke-RestMethod`
 throws on a `4xx` or `5xx` reply:
@@ -782,7 +1067,7 @@ an event that a client sends, without a request key and without a
 reply:
 
 - The current state's transition for the event is taken, a
-  `stop: true` self-transition too, which restarts the state's script.
+  `stop: true` self-transition too, which restarts the state's behaviour.
   `runner.log` logs the peer, the condition and the event of each
   accepted one.
 - Without a transition, the event is logged at debug level and, with
@@ -935,9 +1220,10 @@ answers `200` once the scripts have exited; the list is empty when
 nothing ran. On Windows the runner ends `powershell.exe` at once, and
 the processes that the script started keep running, unmeasured.
 
-When the stopped script is that of the current state, the runner raises
-`$stopped`. Without a `$stopped` transition the machine stays in the
-state, idle, with status `stopped`, so a transition request can move it.
+When the stopped script is the behaviour of the current state, the
+runner raises `$stopped`. Without a `$stopped` transition the machine
+stays in the state, idle, with status `stopped`, so a transition
+request can move it.
 A script must let a stop end it: the runner waits until the script's
 stdout and stderr close, so a child such as a foreground `sleep` holds
 the stop. Loop on short sleeps, start the last command with `exec`, or
@@ -966,9 +1252,9 @@ machine), the parameter values, the latest value and write time of
 each property, and the latest command without its logs. `GET /`
 returns the latest command with its logs, exit code and resources, and
 `GET /history` every command with its status, exit code, times and
-resources, the state scripts included. `GET /metrics`
+resources, the behaviours included. `GET /metrics`
 counts the entries into each state, the seconds spent there, the
-scripts that finished, the transition and event requests, the commands
+behaviours that finished, the transition and event requests, the commands
 by status, their resources and the escalations since the runner
 started.
 
@@ -995,21 +1281,22 @@ parameter or the command is sent at once, with the property values
 that were waiting.
 
 Over MQTT the notifications go to `<topic>/notify/<kind>`, where `kind`
-is `state`, `escalation` or `presence`; the last state document and the
-last presence notice are retained, an escalation is not. A webhook gets
+is `state`, `escalation`, `presence` or `whatif`; the last state
+document and the last presence notice are retained, an escalation and
+the end of a [what-if](#what-if) are not. A webhook gets
 each notification as a `POST`. See the [API
 reference](api/API.md#notifications) for the details.
 
-#### Script Status
+#### Behaviour Status
 
-| `status`      | Meaning                                                                                |
-| :------------ | :------------------------------------------------------------------------------------- |
-| `none`        | no transition yet                                                                      |
-| `running`     | the script of the current state runs; transition requests are `busy`                   |
-| `valid`       | the script exited with 0                                                               |
-| `invalid`     | the script failed (`GET /` shows the command as `failed`)                              |
-| `stopped`     | the runner stopped the script                                                          |
-| `interrupted` | the script ran when the runner stopped, and did not finish (see [Restarts](#restarts)) |
+| `status`      | Meaning                                                                                                         |
+| :------------ | :-------------------------------------------------------------------------------------------------------------- |
+| `none`        | no transition yet                                                                                               |
+| `running`     | the behaviour of the current state runs; transition requests are `busy`                                         |
+| `valid`       | the behaviour exited with 0                                                                                     |
+| `invalid`     | the behaviour failed (`GET /` shows the command as `failed`)                                                    |
+| `stopped`     | the runner stopped the behaviour                                                                                |
+| `interrupted` | the behaviour ran when the runner stopped or the twin was saved, and did not finish (see [Restarts](#restarts)) |
 
 Every status but `running` leaves the machine idle.
 
@@ -1042,12 +1329,12 @@ nothing, so its repeat is checked again. The runner keeps the latest
 ### Restarts
 
 With a `database` in _runner.yaml_ the runner stores the state, the
-entry count and the script status at each entry and each script exit,
+entry count and the status of the behaviour at each entry and exit,
 the latest parameter values at each change, and the latest value of
 each property at each write. When it starts again:
 
-- A state whose script was running comes back with status
-  `interrupted`. The runner does not run the script again, as it may
+- A state whose behaviour was running comes back with status
+  `interrupted`. The runner does not run the behaviour again, as it may
   have done part of its work; the machine is idle, so send a transition
   request or an event.
 - The commands that had not finished are `interrupted` in `GET /`,
@@ -1080,7 +1367,7 @@ event ([README](README.md#reinstating)).
 
 `GET /timeline` tells why the machine is in its state. Each `entry`
 row names its `cause`, the `seq` of the row that led to it: a
-transition or event request, or the `exit` row of the script whose
+transition or event request, or the `exit` row of the behaviour whose
 completion moved the machine. An event row names its `source`, and
 the `cause` of an event that a parameter or a peer raised. With access
 control, `by` names the caller of a request row; an entry or exit
@@ -1125,12 +1412,14 @@ curl -H "Authorization: Bearer $JWS" \
 ```
 
 Entry 4 came from row 13, an event that the change of row 12 raised.
-Row 15 is the end of its script, run 5 of `GET /history`. Every entry
-has one `exit` row, also when a stop or a later entry ended its script
-first. A script that the shutdown kept from starting is `stopped` in
-its exit row, while a restart shows its entry as `interrupted`: the
-first word tells what happened to the script, the second what the
-runner found when it started again.
+Row 15 is the end of its behaviour, run 5 of `GET /history`. Every
+entry has one `exit` row, also when a stop or a later entry ended its
+behaviour first. A behaviour that the shutdown kept from starting is
+`stopped` in its exit row, while a restart shows its entry as
+`interrupted`: the first word tells what happened to the behaviour,
+the second what the runner found when it started again. A reinstated
+twin has no `exit` row for the entry whose behaviour ran when the
+snapshot was saved, as the snapshot holds the timeline up to the save.
 
 With a database file the timeline survives a restart: a `shutdown` row
 ends one run of the runner, and a `start` row with the restored state
@@ -1139,12 +1428,12 @@ the query.
 
 ### Shut Down
 
-On `SIGINT` or `SIGTERM` the runner stops taking transitions and events
-(`503 stopping`) and waits for the running scripts before it closes
-its database. A script that exits meanwhile keeps its status, but its
-completion transition does not run. The next state of a stop transition
-that has not started yet is not run either, and comes back
-`interrupted` after a restart.
+On `SIGINT` or `SIGTERM`, and after a save with `{"stop": true}`, the
+runner stops taking transitions and events (`503 stopping`) and waits
+for the running scripts before it closes its database. A behaviour
+that exits meanwhile keeps its status, but its completion transition
+does not run. The next state of a stop transition that has not started
+yet is not run either, and comes back `interrupted` after a restart.
 
 ### MQTT
 
@@ -1154,19 +1443,25 @@ response, with the same body as over HTTP, goes to the MQTT 5 response
 topic of the request, or else to the request topic followed by
 `/response`.
 
-| Topic                    | HTTP                   | Payload                  |
-| :----------------------- | :--------------------- | :----------------------- |
-| `<topic>/transition`     | `POST /fsm/transition` | `{"state": "create"}`    |
-| `<topic>/event`          | `POST /fsm/event`      | `{"event": "stop"}`      |
-| `<topic>/fsm`            | `GET /fsm`             | ignored                  |
-| `<topic>/state`          | `GET /state`           | ignored                  |
-| `<topic>/parameters`     | `GET /parameters`      | ignored                  |
-| `<topic>/parameters/set` | `PUT /parameters`      | `{"scope": "multi"}`     |
-| `<topic>/properties`     | `GET /properties`      | ignored                  |
-| `<topic>/properties/set` | `PUT /properties`      | `{"free-beds": 3}`       |
-| `<topic>/stop`           | `POST /stop`           | `{"name": "execute"}`    |
-| `<topic>/escalate`       | `POST /escalate`       | `{"reason": "capacity"}` |
-| `<topic>/execute`        | `POST /`               | `{"name": "create"}`     |
+| Topic                    | HTTP                   | Payload                     |
+| :----------------------- | :--------------------- | :-------------------------- |
+| `<topic>/transition`     | `POST /fsm/transition` | `{"state": "create"}`       |
+| `<topic>/event`          | `POST /fsm/event`      | `{"event": "stop"}`         |
+| `<topic>/fsm`            | `GET /fsm`             | ignored                     |
+| `<topic>/state`          | `GET /state`           | ignored                     |
+| `<topic>/parameters`     | `GET /parameters`      | ignored                     |
+| `<topic>/parameters/set` | `PUT /parameters`      | `{"scope": "multi"}`        |
+| `<topic>/properties`     | `GET /properties`      | ignored                     |
+| `<topic>/properties/set` | `PUT /properties`      | `{"free-beds": 3}`          |
+| `<topic>/stop`           | `POST /stop`           | `{"name": "execute"}`       |
+| `<topic>/escalate`       | `POST /escalate`       | `{"reason": "capacity"}`    |
+| `<topic>/execute`        | `POST /`               | `{"name": "create"}`        |
+| `<topic>/peers`          | `GET /peers`           | ignored                     |
+| `<topic>/peers/set`      | `PUT /peers`           | `{"hospital-2": false}`     |
+| `<topic>/timeline`       | `GET /timeline`        | `{"after": 63}`             |
+| `<topic>/snapshot/set`   | `POST /snapshot`       | `{"stop": true}`            |
+| `<topic>/whatif/set`     | `POST /whatif`         | `{"name": "forecast-beds"}` |
+| `<topic>/whatif`         | `GET /whatif/<id>`     | `{"id": 9}`                 |
 
 A topic that writes is one level under the topic that reads, so the
 default response topic of a write is `<topic>/parameters/set/response`.
@@ -1242,6 +1537,11 @@ states:
 ```
 
 ```mermaid
+---
+title: The states of pipeline-1
+config:
+  look: classic
+---
 stateDiagram-v2
     direction LR
     [*] --> create : transition
@@ -1253,7 +1553,8 @@ stateDiagram-v2
     note left of execute : scope-changed (stop) restarts execute
 ```
 
-_scripts/create_ and _scripts/terminate_ print a line each:
+The behaviours _scripts/create_ and _scripts/terminate_ print a line
+each:
 
 ```sh
 #!/bin/sh
@@ -1265,8 +1566,8 @@ echo "created $DT_ID, entry $DT_ENTRY"
 echo "terminated"
 ```
 
-_scripts/execute_ works for 30 seconds in short sleeps, so a stop ends
-it at once:
+The behaviour _scripts/execute_ works for 30 seconds in short sleeps,
+so a stop ends it at once:
 
 ```sh
 #!/bin/sh
@@ -1311,20 +1612,14 @@ again:
 
 ## Example: Hospital Bed Management
 
-The [hospital demo](demo/hospital/README.md) runs the DTs of two
-hospitals, `hospital-1` and `hospital-2`, each with two wards, which
-are [peers](README.md#peers) of each other and which a Manager of a
-network of hospitals steers. Its recording,
-[demo-windows-manager.cast](demo/hospital/demo-windows-manager.cast)
-and [demo-windows-network.cast](demo/hospital/demo-windows-network.cast)
-side by side in [demo-windows.mp4](demo/hospital/demo-windows.mp4),
-shows every request below. Both hospitals run one
-[class](#class-and-instance),
-[hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml):
+Two hospitals, `hospital-1` and `hospital-2`, each with wards, are
+[peers](README.md#peers) of each other, and a Manager of a network of
+hospitals steers them. Both run one [class](#class-and-instance),
+_hospital.fsm.yaml_:
 
 ```yaml
 class:
-  id: 'urn:dtaas:demo:hospital'
+  id: 'urn:dtaas:hospital'
   version: '1.0.0'
 events:
   - full
@@ -1354,7 +1649,7 @@ parameters:
     default: 2
     controllable: false
   # how often open samples the beds, from the cheapest to the most
-  # accurate (STATE-MACHINE.md, Pattern: Fidelity)
+  # accurate (see Pattern: Fidelity)
   fidelity:
     type: string
     enum:
@@ -1434,12 +1729,12 @@ states:
       reopen: open
 ```
 
-The two instances differ in their _runner.yaml_ only.
-[runner.yaml](demo/hospital/runner.yaml) of `hospital-1` gives its peer
-`hospital-2` the relationship `neighbour`, so its subscriptions follow
-`hospital-2`. [runner-2.yaml](demo/hospital/runner-2.yaml) of
-`hospital-2` sets `capacity` to 1 and gives its peer no relationship,
-so its subscriptions are idle and `hospital-2` follows no one:
+The two instances differ in their _runner.yaml_ only. That of
+`hospital-1` gives its peer `hospital-2` the relationship `neighbour`,
+as in [Subscriptions to Peers](#subscriptions-to-peers), so its
+subscriptions follow `hospital-2`. That of `hospital-2` sets `capacity`
+to 1 and gives its peer no relationship, so its subscriptions are idle
+and `hospital-2` follows no one:
 
 ```yaml
 stateMachine: 'hospital.fsm.yaml'
@@ -1448,6 +1743,11 @@ parameters:
 ```
 
 ```mermaid
+---
+title: The states of a hospital
+config:
+  look: classic
+---
 stateDiagram-v2
     direction LR
     [*] --> open : transition
@@ -1487,27 +1787,27 @@ As above, `transition` starts the machine and `(stop)` marks
   beds under `run/<DT_ID>/` of its `out`, and _open_ divides its
   samples by `DT_TIME_SCALE` ([REPLAY.md](REPLAY.md)).
 
-The requests of the recording to `hospital-1`, with their replies.
-The recording predates version 0.11.0, so it shows neither `free-beds`
-nor the write topic `parameters/set`, and each hospital has its own
-state machine file in it:
+The requests to `hospital-1`, with the replies of a runner at version
+0.14.0, whose behaviours keep the beds, write `free-beds` and raise
+`full` and `beds-free` as the list above says. The notices of
+`hospital-2` came from the broker:
 
-| Request                                                             | Reply                                                                                                                                                    |
-| :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /fsm/transition` `{"state": "open"}`                          | `202` `{"status": "accepted", "state": "open"}`; _open_ logs `DT_ENTRY=1`, `POLL_MS=500`, fidelity `medium` and overflow to `hospital-2` at 12.4 km      |
-| `PUT /parameters` `{"capacity": 3}`                                 | `400` `{"message": ["parameter capacity is not controllable"], ...}`                                                                                     |
-| MQTT `set-parameters` `{"scope": "multi"}`                          | the parameters; `scope-changed` restarts _open_ as entry 2 with `DT_PARAM_SCOPE=multi`                                                                   |
-| `PUT /parameters` `{"fidelity": "high"}`                            | `200`; `fidelity-changed` restarts _open_ as entry 3, sampling every 100 ms; the run of entry 2 ends `stopped` with 1.656 CPU seconds                    |
-| `hospital-2` admits its last patient                                | `hospital-2` enters `full`, and its _full_ succeeds; `neighbour-full` restarts _open_ as entry 4, which logs overflow to none                            |
-| `POST /` admitting the last free beds                               | `200` `success`; _open_ raises `full`, _full_ finds no open peer and fails: machine `full`, entry 5, `invalid`, and an `escalation` of trigger `failure` |
-| `POST /fsm/event` `{"event": "close"}`                              | `409` `{"status": "no transition", "state": "full"}`, escalated once for this entry                                                                      |
-| MQTT `execute` `{"name": "discharge", "input": {"patient": "p-1"}}` | `success`; `discharge` raises `beds-free`: machine `open`, entry 6, `running`                                                                            |
-| `PUT /peers` `{"hospital-2": false}`, then `true`                   | the retained `full` of `hospital-2` counts as a change again: `neighbour-full` restarts _open_ as entry 7                                                |
-| the runner of `hospital-2` is killed                                | its will says offline: `neighbour-down` restarts _open_ as entry 8                                                                                       |
-| `POST /stop` `{"name": "open"}`                                     | `200` `{"stopped": ["open"]}`; `$stopped` leads to `closed`, entry 9, then `valid`                                                                       |
+| Request                                                               | Reply                                                                                                                                                                             |
+| :-------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /fsm/transition` `{"state": "open"}`                            | `202` `{"status": "accepted", "state": "open"}`; _open_ writes `free-beds` 2                                                                                                      |
+| `PUT /parameters` `{"capacity": 3}`                                   | `400` `{"message": ["parameter capacity is not controllable"], ...}`                                                                                                              |
+| `PUT /parameters` `{"scope": "multi"}`                                | `200` with the parameters; `scope-changed` restarts _open_ as entry 2                                                                                                             |
+| a state notice of `hospital-2` says `full`                            | `neighbour-full` restarts _open_ as entry 3                                                                                                                                       |
+| `POST /` `{"name": "admit", "input": {"patient": "p-1"}}`, then `p-2` | `200` `success`; _open_ writes `free-beds` 0 and raises `full`, _full_ finds no open peer and fails: machine `full`, entry 4, `invalid`, and an `escalation` of trigger `failure` |
+| `POST /fsm/event` `{"event": "close"}`                                | `409` `{"status": "no transition", "state": "full"}`, escalated once for this entry                                                                                               |
+| `POST /whatif` `{"name": "forecast-beds", "input": {"hours": 2}}`     | `202` `{"id": 9, "name": "forecast-beds", "status": "running"}`, then the result `{"free-beds": 0, "hours": 2}`                                                                   |
+| `POST /` `{"name": "discharge", "input": {"patient": "p-1"}}`         | `200` `success`; `discharge` raises `beds-free`: machine `open`, entry 5, `running`                                                                                               |
+| `PUT /peers` `{"hospital-2": false}`, then `true`                     | the retained `full` of `hospital-2` counts as a change again: `neighbour-full` restarts _open_ as entry 6                                                                         |
+| a presence notice of `hospital-2` says `online: false`                | `neighbour-down` restarts _open_ as entry 7                                                                                                                                       |
+| `POST /stop` `{"name": "open"}`                                       | `200` `{"stopped": ["open"]}`; `$stopped` leads to `closed`, entry 8, then `valid`                                                                                                |
 
-The demo's [README](demo/hospital/README.md) tells how to record it
-again.
+[Inputs and Outputs by State](#inputs-and-outputs-by-state) shows the
+notifications and the timeline rows of the same run.
 
 ## Pattern: Fidelity
 
@@ -1528,16 +1828,15 @@ and the [resources](README.md#resources) that the runner reports.
    most accurate, so that a Manager that knows none of the names can step one
    value down or up.
 1. The event, by custom `fidelity-changed`, has a self-transition with
-   `stop: true` in each state whose script must restart to use a new
-   value. In the other states, a new value applies when their script
-   next starts.
-1. Scripts read `DT_PARAM_FIDELITY` and choose a model, a step size or a
+   `stop: true` in each state whose behaviour must restart to use a
+   new value. In the other states, a new value applies when their
+   behaviour next starts.
+1. Behaviours read `DT_PARAM_FIDELITY` and choose a model, a step size or a
    sample rate from it.
 
-The [hospital demo](#example-hospital-bed-management) follows it: its
-_open_ samples the beds every 2000, 500 or 100 ms at `low`, `medium`
-or `high`, and its recording shows a change and the figures of the run
-that it stopped.
+The [hospital example](#example-hospital-bed-management) follows it:
+its _open_ samples the beds every 2000, 500 or 100 ms at `low`,
+`medium` or `high`.
 
 ```yaml
 events:
@@ -1560,9 +1859,9 @@ states:
         stop: true
 ```
 
-_scripts/simulate_ chooses a step size and `exec`s the model, so the
-model is the script's process: a stop reaches it, and the runner
-measures it.
+The behaviour _scripts/simulate_ chooses a step size and `exec`s the
+model, so the model is the behaviour's process: a stop reaches it, and
+the runner measures it.
 
 ```sh
 #!/bin/sh
@@ -1609,7 +1908,7 @@ controllable parameter named `fidelity`, whose `enum` gives the order.
 To shed load, it sends `PUT /parameters` with `{"fidelity": "low"}`, or
 the same body on the MQTT topic `<topic>/parameters/set`. The runner
 stores the value and raises `fidelity-changed`; in _simulate_, the
-self-transition stops the script and starts it again as a new entry,
+self-transition stops the behaviour and starts it again as a new entry,
 with `DT_PARAM_FIDELITY=low`. `GET /fsm` and `GET /state` show the new
 entry. The reply of `PUT` is the same whatever the event did (see
 [Read and Set Parameters](#read-and-set-parameters)).
@@ -1657,9 +1956,9 @@ The Manager sees the effect in the `resources` of each run, in
 
 With a `database` in _runner.yaml_, the runner restores the value after
 a restart (see [Restarts](#restarts)), so the DT stays at the fidelity
-that the Manager chose: the next script that starts reads it.
+that the Manager chose: the next behaviour that starts reads it.
 
 An event in a state without the self-transition, or before the first
 transition, is refused and logged at debug level; the new value stands
-and applies at the next script start. A parameter event does not
+and applies when the next behaviour starts. A parameter event does not
 escalate with `onNoTransition`, which covers client events only.

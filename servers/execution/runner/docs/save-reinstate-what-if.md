@@ -3,12 +3,16 @@
 What issues [22](issues/22-timeline.md) to [25](issues/25-replay.md)
 built, up to version 0.14.0, in one place: what each feature is for,
 how the features differ, and every format that they add. Each example
-comes from the built runner and tools, most of them from the hospital
-demo. The issues hold the reasons, the tasks and the lessons, and the
-guides [WHAT-IF.md](../WHAT-IF.md) and [REPLAY.md](../REPLAY.md) the
-use; where this page and an issue disagree, the issue is right.
+comes from the built runner and tools, most of them from runs of two
+hospital twins, `hospital-1` and `hospital-2`. The issues hold the
+reasons, the tasks and the lessons, and the guides
+[WHAT-IF.md](../WHAT-IF.md) and [REPLAY.md](../REPLAY.md) the use;
+where this page and an issue disagree, the issue is right.
 
-The hospital twin of `demo/hospital` is the example throughout.
+A hospital twin is the example throughout: its state machine has the
+states `open`, `full` and `closed`, its commands admit and discharge
+patients, and its scripts keep the beds of its wards in
+`run/<DT_ID>/ward.json`, beside the directory of the scripts.
 
 ## The Features
 
@@ -214,7 +218,7 @@ anything there is copied with the scripts.
 
 ### The Manifest
 
-A save of the demo's `hospital-1`, in `open` after one `admit`, wrote:
+A save of `hospital-1`, in `open` after one `admit`, wrote:
 
 ```json
 {
@@ -222,7 +226,7 @@ A save of the demo's `hospital-1`, in `open` after one `admit`, wrote:
   "runner": "0.12.0",
   "id": "hospital-1",
   "class": {
-    "id": "urn:dtaas:demo:hospital",
+    "id": "urn:dtaas:hospital",
     "version": "1.0.0"
   },
   "time": "2026-11-24T12:57:05.005Z",
@@ -267,27 +271,23 @@ snapshots:
 ```
 
 The two scripts get one variable, `DT_SNAPSHOT_DIR`, which is
-`files/` of the snapshot. Those of the demo:
+`files/` of the snapshot. Those of the hospital, which keep its beds
+in `run/<DT_ID>/ward.json` beside the directory of the scripts:
 
 ```bash
 #!/usr/bin/env bash
-# Saves the beds of the hospital into a snapshot: copies ward.json of
-# the ward directory of ward.sh, run/<DT_ID>/ beside the scripts, to
-# DT_SNAPSHOT_DIR. POST /snapshot runs it.
-. "$(dirname "$0")/ward.sh"
+# save-script: copies the beds into the snapshot. POST /snapshot runs it.
 set -euo pipefail
-cp "$WARD_FILE" "$DT_SNAPSHOT_DIR/ward.json"
+cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
 ```
 
 ```bash
 #!/usr/bin/env bash
-# Restores the beds of the hospital from a snapshot: copies ward.json of
-# DT_SNAPSHOT_DIR to the ward directory of ward.sh, run/<DT_ID>/ beside
-# the scripts. runner --reinstate runs it.
-. "$(dirname "$0")/ward.sh"
+# restore-script: copies the beds back. runner --reinstate runs it.
 set -euo pipefail
-mkdir -p "$WARD_DIR"
-cp "$DT_SNAPSHOT_DIR/ward.json" "$WARD_FILE"
+ward_dir="$(dirname "$0")/../run/$DT_ID"
+mkdir -p "$ward_dir"
+cp "$DT_SNAPSHOT_DIR/ward.json" "$ward_dir/ward.json"
 ```
 
 A class whose scripts keep everything in properties names neither.
@@ -432,8 +432,7 @@ for authors and Managers.
 
 ### What Is Declared
 
-The state machine file of the demo, `demo/hospital/hospital.fsm.yaml`,
-in part:
+The state machine file of the hospital, in part:
 
 ```yaml
 manager:
@@ -503,8 +502,9 @@ The copy holds the present as four documents, `state.json`,
 of the route of its name, and the past in `state.db`, of which the
 `timeline` table is the part that a script may rely on.
 
-The script of the demo, `scripts/forecast-beds`, refuses to run live,
-then hands the copy to `scripts/forecast.mjs`, which reads the beds of
+The script of the hospital, `scripts/forecast-beds`, refuses to run
+live, then hands the copy to a Node program beside it,
+`scripts/forecast.mjs`, which reads the beds of
 `files/ward.json`, the capacity of `parameters.json`, the peers of
 `peers.json`, the `admit` requests of the last hour from `timeline`, and
 prints its answer:
@@ -530,8 +530,8 @@ The result is what the script printed. The Manager is on another
 host and can not read a file of the runner, so the runner hands it
 over in two ways.
 
-On request, `GET /whatif/5`, from a copy of the demo with
-`hospital-1` alone after two admissions:
+On request, `GET /whatif/5`, from a copy of `hospital-1` alone after
+two admissions:
 
 ```json
 {
@@ -592,8 +592,8 @@ A what-if stopped by `POST /stop` sends the notification with
 ### Why the Twin Stays as It Is
 
 - The script has no token and no address, so it can not raise an
-  event, write a property or escalate. The demo's result shows
-  `"token": "absent"`.
+  event, write a property or escalate. The result above shows
+  `"token": "absent"`, which the script reports.
 - It reads a copy of the database, never the database.
 - The result is no property, and the state document does not change.
 - Without access control the request is refused, as a missing token
@@ -619,8 +619,8 @@ the guide for operators and authors.
 
 A replay is described in a file, and run from it. The file is
 `runner-replay.yaml` by default: without an argument the tool reads
-the file of that name in the current directory. The file of the
-chapter "Replay" of the demo, in `run/`:
+the file of that name in the current directory. The file
+`run/runner-replay.yaml`:
 
 ```yaml
 # hospital-1 again, from its first save, under scope multi
@@ -651,8 +651,8 @@ runner-replay run/runner-replay.yaml
 
 Paths are relative to the file. The only flag is `--dry-run`, which
 checks the file and the snapshots, prints the inputs and their times,
-and starts nothing. In the demo the second `admit` of `p-1` repeated
-a request key, and is skipped:
+and starts nothing. Here the second `admit` of `p-1` repeated a
+request key, and is skipped:
 
 ```text
 20261124T183856897Z +0.265s command alice POST / {"name":"admit","input":{"patient":"p-1","ward":"cardiology"}}
@@ -702,7 +702,7 @@ everywhere in the API.
    writes `replay.json`, and prints
    `Sent 23 inputs, 3 refused; the replay is in <out>`.
 
-The configuration that it wrote in the demo:
+The configuration that it wrote for the file above:
 
 ```yaml
 id: hospital-1.replay
@@ -814,8 +814,7 @@ subscriptions as over MQTT.
 
 With `steps` in place of `inputs`, the file describes a coming
 period. Each step has `at`, a time after that of the start snapshot,
-and exactly one input. A scenario run on the first snapshot of the
-demo:
+and exactly one input. A scenario run on the start snapshot above:
 
 ```yaml
 start: hospital-1/snapshots/20261124T183856368Z
@@ -868,10 +867,10 @@ In a replay twin, too, the role `operator` may call every route.
 
 The class must allow it because the scripts run for real. A class
 that was not written with the mode in mind would act on the real
-hospital from a second process. In the demo, the scripts keep the
+hospital from a second process. The scripts of the hospital keep the
 beds in `run/<DT_ID>/` beside the scripts, which in a replay twin is
 `run/hospital-1.replay/` of `out`, and the restore script puts the
-beds of the snapshot there; after the replay of the demo, the beds of
+beds of the snapshot there; after the replay above, the beds of
 hospital-1 were untouched.
 
 ### Time
@@ -879,7 +878,7 @@ hospital-1 were untouched.
 A replay keeps the meaning of time, at a scale. `speed: 60` plays
 an hour in a minute, `1` plays at the speed of the clock, `0.5` takes
 twice as long. The replay twin gives the number to its scripts as
-`DT_TIME_SCALE`, to divide their own waits by; `open` of the demo
+`DT_TIME_SCALE`, to divide their own waits by; `open` of the hospital
 divides its interval between samples. Each row of its timeline has,
 beside its real `time`, `at`: the time that the row stands for, the
 time of the snapshot plus the time since the reinstate times the
@@ -898,7 +897,7 @@ replays/scope-multi/
 └── state.db
 ```
 
-`replay.json` of the demo, with the paths shortened:
+`replay.json` of the replay above, with the paths shortened:
 
 ```json
 {
@@ -933,8 +932,8 @@ first step made, or `null`.
 
 `refused` counts the inputs that the replay twin did not accept, such
 as an event with no transition in the state that it was then in. That
-is a finding, not a fault: the changed twin may be somewhere else. In
-the demo the three were refused by the twin too: input to the running
+is a finding, not a fault: the changed twin may be somewhere else.
+Here the three were refused by the twin too: input to the running
 `open`, and two `close` events in `full`.
 
 ## Compare
@@ -946,7 +945,7 @@ runner-compare run/hospital-1/snapshots/20261124T183906126Z run/replays/scope-mu
 Each argument is a snapshot or the output of a replay. The tool reads
 the timeline in the database of each, and lists the state entries
 side by side: the time that each stands for, the state, and what
-caused it and who. In the demo:
+caused it and who. For the replay above:
 
 ```text
 at        hospital-1                            hospital-1.replay
@@ -1030,7 +1029,7 @@ twin has none, as it connects to no broker.
 
 Headers, in a replay twin: `Replay-By` and `Replay-Seq` (25).
 
-The state machine file of the demo:
+The state machine file:
 
 ```yaml
 snapshot:
@@ -1098,7 +1097,7 @@ Files:
 ## Limits
 
 - **Personal data travels.** The timeline holds the inputs of
-  commands, and the demo's `admit` names a patient. A snapshot
+  commands, and the hospital's `admit` names a patient. A snapshot
   carries the whole database, to wherever the directory goes and into
   every replay twin, whose `out` has mode `0700`.
 - **A snapshot is as large as the scripts.** The whole directory of
@@ -1138,8 +1137,8 @@ Files:
 - Issues [22](issues/22-timeline.md), [23](issues/23-snapshot.md),
   [24](issues/24-what-if.md) and [25](issues/25-replay.md), as
   settled with the owner on 2026-11-23 and as built.
-- The built runner and tools of version 0.14.0, and the run of the
-  hospital demo that its Linux recording shows.
+- The built runner and tools of version 0.14.0, run with two hospital
+  twins.
 - The Fluid Digital Twins paper, as read in
   [integrated-simulations.md](integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself),
   for the three kinds of test twin and for the question of who starts

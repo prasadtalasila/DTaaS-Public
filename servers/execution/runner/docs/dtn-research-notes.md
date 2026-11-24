@@ -30,10 +30,15 @@ notes describe:
   has no `x_i`, and item 2 leaves it out. The state document now has
   `properties`: the latest values that scripts and sensors write. Open
   question 9 is answered in part: a forecast is a property like any
-  other, and exogenous triggers stay out.
+  other, and exogenous triggers stay out. Issue
+  [24](issues/24-what-if.md) (0.13.0) runs forecasts and exogenous
+  triggers on a copy of the twin, never in it.
 - **`runner.yaml`.** `notify` and `peers` are under `relationships`.
 - **MQTT.** The write topics are `<base>/parameters/set` and
   `<base>/peers/set`.
+
+Issues 18, 19 and 21 to 25 are no items of these notes; the
+[status table](issues/README.md#status) of the issues lists them.
 
 ## Suggestions at a Glance
 
@@ -43,29 +48,30 @@ the items that give the runner that interface come first. The
 decentralised items come from the vision paper (P2) alone, which leaves
 their mechanisms open, so they come later.
 
-| #   | Suggestion                               | Group                      | Size | Rationale                                                                    | Status                                            |
-| :-- | :--------------------------------------- | :------------------------- | :--- | :--------------------------------------------------------------------------- | :------------------------------------------------ |
-| 1   | DT identity and descriptor               | DT-level state & lifecycle | S    | A Manager and peers must name and locate each DT (P1 case study, P2 model).  | done (#74)                                        |
-| 2   | One state document (R1)                  | DTN: centralised           | M    | P1 R1 asks each DT to expose its state, policy and shared parameters.        | done (#77)                                        |
-| 3   | State change notifications               | Observability              | M    | The Manager's Monitor collects DT states; today it can only poll.            | done (#79)                                        |
-| 4   | Declared parameters, controllable subset | DTN: centralised           | M    | P1 R2: a DT declares which shared-policy parameters may be changed.          | done (#78)                                        |
-| 5   | Command input, outcome and exposure (R2) | DTN: centralised           | M    | P1's Manager submits `admit(p)` and needs to know whether it succeeded.      | done (#84)                                        |
-| 6   | Escalation signal (R3, endogenous)       | DTN: centralised           | M    | P1 leaves endogenous signalling to future work; the runner can carry it.     | done (#83)                                        |
-| 7   | Presence: join and leave                 | DTN: decentralised         | S    | P2 assumes DTs join and leave the network at runtime.                        | done (#82)                                        |
-| 8   | Runner context and events for scripts    | Self-adaptation loop       | S    | Lets a script act as the DT's own MAPE-K loop and raise events.              | done (#81)                                        |
-| 9   | Persist the machine across restarts      | DT-level state & lifecycle | M    | Observability (R1) needs a DT that remembers its policy after a restart.     | done (#86)                                        |
-| 10  | Stop a running script                    | DT-level state & lifecycle | M    | Parameter updates and DT removal need a way to end the current script.       | done (#76)                                        |
-| 11  | Richer history and metrics               | Observability              | S/M  | P1 evaluates outcomes over time; the runner records names only.              | done (#91)                                        |
-| 12  | Health endpoint                          | Observability              | S    | Liveness for the Manager and the platform; P2 names robustness a challenge.  | done (#75)                                        |
-| 13  | Peer list and relationships (R)          | DTN: decentralised         | M    | Both papers model relationships between DTs; the runner knows none.          | done (#92)                                        |
-| 14  | Machine-readable API description         | API/protocol               | M    | P2's "common communication interface"; `api/` has request files only.        | deferred                                          |
-| 15  | Access control by role                   | API/protocol               | M    | P2 names malevolent DTs; R2 distinguishes Manager-submitted commands.        | 15a, 15b done (#90, #93)                          |
-| 16  | React to peer state                      | DTN: decentralised         | L    | Peer-to-peer coordination of P2, as events raised by peer notifications.     | in review (#95)                                   |
-| 17  | Resource and fidelity reporting          | Platform/orchestrator      | L    | P2's orchestrator trades fidelity for shared compute; needs process metrics. | 17a done (#94), 17b in review (#100), 17c planned |
+| #   | Suggestion                               | Group                      | Size | Rationale                                                                    | Status                              |
+| :-- | :--------------------------------------- | :------------------------- | :--- | :--------------------------------------------------------------------------- | :---------------------------------- |
+| 1   | DT identity and descriptor               | DT-level state & lifecycle | S    | A Manager and peers must name and locate each DT (P1 case study, P2 model).  | done (#74)                          |
+| 2   | One state document (R1)                  | DTN: centralised           | M    | P1 R1 asks each DT to expose its state, policy and shared parameters.        | done (#77)                          |
+| 3   | State change notifications               | Observability              | M    | The Manager's Monitor collects DT states; today it can only poll.            | done (#79)                          |
+| 4   | Declared parameters, controllable subset | DTN: centralised           | M    | P1 R2: a DT declares which shared-policy parameters may be changed.          | done (#78)                          |
+| 5   | Command input, outcome and exposure (R2) | DTN: centralised           | M    | P1's Manager submits `admit(p)` and needs to know whether it succeeded.      | done (#84)                          |
+| 6   | Escalation signal (R3, endogenous)       | DTN: centralised           | M    | P1 leaves endogenous signalling to future work; the runner can carry it.     | done (#83)                          |
+| 7   | Presence: join and leave                 | DTN: decentralised         | S    | P2 assumes DTs join and leave the network at runtime.                        | done (#82)                          |
+| 8   | Runner context and events for scripts    | Self-adaptation loop       | S    | Lets a script act as the DT's own MAPE-K loop and raise events.              | done (#81)                          |
+| 9   | Persist the machine across restarts      | DT-level state & lifecycle | M    | Observability (R1) needs a DT that remembers its policy after a restart.     | done (#86)                          |
+| 10  | Stop a running script                    | DT-level state & lifecycle | M    | Parameter updates and DT removal need a way to end the current script.       | done (#76)                          |
+| 11  | Richer history and metrics               | Observability              | S/M  | P1 evaluates outcomes over time; the runner records names only.              | done (#91)                          |
+| 12  | Health endpoint                          | Observability              | S    | Liveness for the Manager and the platform; P2 names robustness a challenge.  | done (#75)                          |
+| 13  | Peer list and relationships (R)          | DTN: decentralised         | M    | Both papers model relationships between DTs; the runner knows none.          | done (#92)                          |
+| 14  | Machine-readable API description         | API/protocol               | M    | P2's "common communication interface"; `api/` has request files only.        | deferred                            |
+| 15  | Access control by role                   | API/protocol               | M    | P2 names malevolent DTs; R2 distinguishes Manager-submitted commands.        | 15a, 15b done (#90, #93)            |
+| 16  | React to peer state                      | DTN: decentralised         | L    | Peer-to-peer coordination of P2, as events raised by peer notifications.     | done (#95)                          |
+| 17  | Resource and fidelity reporting          | Platform/orchestrator      | L    | P2's orchestrator trades fidelity for shared compute; needs process metrics. | 17a, 17b, 17c done (#94, #100, #99) |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more or a design of its own. Status is that of the
-[issue files](issues/README.md#status), with the pull request of each.
+[status table](issues/README.md#status) of the issues, with the pull
+request of each.
 
 ## Detailed Suggestions
 

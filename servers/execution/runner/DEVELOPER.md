@@ -143,12 +143,14 @@ read it on every request. `test/e2e/auth.script.spec.ts` checks that a
 state's script raises an event with `RUNNER_TOKEN`, so _raise-event_
 always sends `Authorization: Bearer $RUNNER_TOKEN`.
 
-To try a runner with access control by hand, write a key pair with the
-demo's tool and list its public key under `auth` in
+To try a runner with access control by hand, save `keygen.mjs` of
+[Keys and Signing](api/API.md#keys-and-signing) in the runner
+directory, write a key pair, and list its public key under `auth` in
 `config/runner.test.yaml`:
 
 ```bash
-node demo/hospital/tools/keygen.mjs alice keys
+mkdir -p keys && cd keys
+node ../keygen.mjs alice
 ```
 
 It writes `keys/alice.key` (PKCS#8 PEM) and `keys/alice.pub`, and
@@ -226,7 +228,7 @@ routes in `src/snapshot.controller.ts`. Before changing them:
   script, and `PeerEventsService` passes the events of peers through
   `pause.defer(...)`. Both go into one queue, which drains in order
   when the save ends; anything that a save must hold goes through it
-  too. `src/fsm/fsm.service.ts` is at 247 lines: move code out before
+  too. `src/fsm/fsm.service.ts` is at 248 lines: move code out before
   adding.
 - `Snapshots.copyDatabase` copies the database with `VACUUM INTO`,
   reads the last `seq` and then the machine, in one synchronous step.
@@ -243,7 +245,7 @@ routes in `src/snapshot.controller.ts`. Before changing them:
   misuse of the flags, prints its message with `startFailure`
   (`src/config/start-failure.ts`) and exits with 1.
 - `placement.ts` adds its lines to the problems of `Config.loadConfig`;
-  `configuration.service.ts` is at 247 lines.
+  `configuration.service.ts` is at 194 lines.
 
 The end-to-end tests build a twin in a temporary directory:
 `snapshotTwin` of `test/e2e/snapshot.util.ts` writes a class whose
@@ -312,11 +314,12 @@ the reasons. Before changing them:
   `Config.replay()` returns, `undefined` in a twin. Each place that
   differs asks it: `getMqtt()`, `getNotify()` and `getSnapshots()`
   return `undefined`, so a replay twin saves nothing,
-  `listenHost` of `main.ts` gives `127.0.0.1`, `AccessGuard` lets an
-  `operator` call every route and parses the headers with
-  `replayOrigin` of `origin.ts`, and `RunnerContext.load` adds the
-  script variables. `beginReplay` of `src/snapshot/reinstate.ts` checks
-  `whatIf.replay` and starts the clock of `at`.
+  `listenHost` of `replay-mode.ts` gives `main.ts` `127.0.0.1`,
+  `AccessGuard` lets an `operator` call every route and parses the
+  headers with `replayOrigin` of `origin.ts`, and
+  `RunnerContext.environment` adds the script variables.
+  `beginReplay` of `src/snapshot/reinstate.ts` checks `whatIf.replay`
+  and starts the clock of `at`.
 - `stamp.ts` decides which rows get `origin`: the input kinds, written
   in the context of a request, without a `source`.
 - `src/tools/replay.ts` and `compare.ts` are the two `bin` entries and
@@ -364,7 +367,9 @@ replaced with _options_ in the names of test files.
 ## NPM package
 
 The package version lives in `package.json` only; the code does not
-repeat it and the CLI has no `--version` flag.
+repeat it. `runner` has no `--version` flag; `runner-replay` and
+`runner-compare` print the version with `--version`, as a snapshot
+manifest records it, read from `package.json`.
 
 ### Github Package Registry
 

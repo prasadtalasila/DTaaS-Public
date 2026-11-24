@@ -11,34 +11,55 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 
 ## Status
 
-| File                                                   | Feature                     | Size | Status      | PR   |
-| :----------------------------------------------------- | :-------------------------- | :--- | :---------- | :--- |
-| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done        | #74  |
-| [02-state-document.md](02-state-document.md)           | One state document          | M    | done        | #77  |
-| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done        | #79  |
-| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done        | #78  |
-| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done        | #84  |
-| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done        | #83  |
-| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done        | #82  |
-| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done        | #81  |
-| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done        | #86  |
-| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done        | #76  |
-| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done        | #91  |
-| [12-health.md](12-health.md)                           | Health endpoint             | S    | done        | #75  |
-| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done        | #92  |
-| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done        | #90  |
-| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done        | #93  |
-| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | in review   | #95  |
-| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done        | #94  |
-| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done        | #100 |
-| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done        | #99  |
-| [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review   | #97  |
-| [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
-| [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
-| [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
-| [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | in progress |      |
-| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | in progress |      |
-| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | in progress |      |
+| File                                                   | Feature                     | Size | Status | Branch                            | PR   |
+| :----------------------------------------------------- | :-------------------------- | :--- | :----- | :-------------------------------- | :--- |
+| [01-dt-identity.md](01-dt-identity.md)                 | DT identity and descriptor  | S    | done   | `runner/01-dt-identity`           | #74  |
+| [02-state-document.md](02-state-document.md)           | One state document          | M    | done   | `runner/02-state-document`        | #77  |
+| [03-state-notifications.md](03-state-notifications.md) | State change notifications  | M    | done   | `runner/03-state-notifications`   | #79  |
+| [04-parameters.md](04-parameters.md)                   | Declared parameters         | M    | done   | `runner/04-parameters`            | #78  |
+| [05-command-input.md](05-command-input.md)             | Command input and outcome   | M    | done   | `runner/05-command-input`         | #84  |
+| [06-escalation.md](06-escalation.md)                   | Escalation signal           | M    | done   | `runner/06-escalation`            | #83  |
+| [07-presence.md](07-presence.md)                       | Presence: join and leave    | S    | done   | `runner/07-presence`              | #82  |
+| [08-script-context.md](08-script-context.md)           | Runner context for scripts  | S    | done   | `runner/08-script-context`        | #81  |
+| [09-persistence.md](09-persistence.md)                 | Persist the machine         | M    | done   | `runner/09-persistence`           | #86  |
+| [10-stop.md](10-stop.md)                               | Stop a running script       | M    | done   | `runner/10-stop`                  | #76  |
+| [11-history-metrics.md](11-history-metrics.md)         | Richer history and metrics  | M    | done   | `runner/11-history-metrics`       | #91  |
+| [12-health.md](12-health.md)                           | Health endpoint             | S    | done   | `runner/12-health`                | #75  |
+| [13-peers.md](13-peers.md)                             | Peer list and relationships | M    | done   | `runner/13-peers`                 | #92  |
+| [15a-access-control.md](15a-access-control.md)         | Access control by role      | M    | done   | `runner/15a-access-control`       | #90  |
+| [15b-signed-output.md](15b-signed-output.md)           | Signed notifications        | M    | done   | `runner/15b-signed-output`        | #93  |
+| [16-peer-events.md](16-peer-events.md)                 | React to peer state         | L    | done   | `runner/16-peer-events`           | #95  |
+| [17a-script-resources.md](17a-script-resources.md)     | Script resource usage       | M    | done   | `runner/17a-script-resources`     | #94  |
+| [17b-process-tree.md](17b-process-tree.md)             | Process tree usage          | M    | done   | `runner/17b-process-tree`         | #100 |
+| [17c-fidelity.md](17c-fidelity.md)                     | Fidelity convention         | S    | done   | `runner/17c-fidelity`             | #99  |
+| [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | done   | `runner/18-script-user`           | #97  |
+| [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | built  | `runner/19-properties-and-config` | none |
+| [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | built  | `runner/21-dt-class`              | none |
+| [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | built  | `runner/22-timeline`              | none |
+| [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | built  | `runner/23-snapshot`              | none |
+| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | built  | `runner/24-what-if`               | none |
+| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | built  | `runner/25-replay`                | none |
+
+Status words, the same in every section here:
+
+- `planned`: an issue file exists; no code yet.
+- `in progress`: code is being written on the issue's branch.
+- `in review`: a pull request is open.
+- `built`: the code, tests and documents are complete on the issue's
+  branch, which is merged into `feat/runner-wldt-wot-automata`. No pull
+  request is open; the work is not yet in `feature/distributed-demo`.
+- `done`: merged by its pull request into `feature/distributed-demo`
+  of `prasadtalasila/DTaaS-Public`.
+
+`Branch` names the branch on which the issue was built. Issues 01 to
+18 are `done`; `feat/runner-wldt-wot-automata` holds them too, as it
+starts from `feature/distributed-demo` after the merge of 18. Issues
+19 and 21 to 25 are `built`: each branch was merged into
+`feat/runner-wldt-wot-automata` in the order of its number, and so
+were the fixes of the final review of 22 to 25, from
+`runner/22-25-final-review`. No pull request is open for any of them.
+The header of an issue file keeps the status it had when its branch
+was last written; where the two differ, this table holds.
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -113,15 +134,16 @@ twin, which runs one script on a private copy. In 25 the operator
 replays a recorded period in a replay twin, with two tools that work
 from snapshots. 24 reopens the non-goal on forecasts and exogenous
 triggers. All four are built, each on its branch, up to version
-0.14.0, and the Linux recording of the hospital demo was made again
-after 25, with a chapter for each of 23 to 25.
+0.14.0, and merged into `feat/runner-wldt-wot-automata` with 19 and
+21; no pull request is open for any of them.
 [save-reinstate-what-if.md](../save-reinstate-what-if.md) sets the
 features of 22 to 25 side by side, with their formats as built.
 
 ## Proposed Work
 
-Recorded on 2026-11-22. The research documents propose more work than
-issue 19. None of it has an issue file yet; a proposal gets a file, and
+Recorded on 2026-11-22 and checked on 2026-11-24. The research
+documents propose more work than issue 19. None of the proposals below
+has an issue file or code yet; a proposal gets a file, and
 a row in the status table, when it is planned. The ids are those
 of the source documents:
 
@@ -186,29 +208,32 @@ Orders that block nothing but save rework:
   notifications, and 19 already coalesces through `stateInterval`.
 - W4 before W2 and W9: W2 counts the escalations it drops and W9 is
   rate-limited or counted, both through W4's counters.
-- 22 with W9: whether domain events enter the timeline is an open
-  question of both.
-- W1 before 22, or with it: the timeline could give the state document
-  its revision.
+- W9 on the built timeline of 22: whether domain events enter the
+  timeline is open.
+- W1 on the built timeline of 22: its `seq` could give the state
+  document its revision.
 - W5 before W6: where the sync flag lives is open, and the lifecycle
   axis is one candidate.
 - 21 and W9 before C4: the exported description names the class and
   lists the domain events.
 - W1 and W10 before AUG: a function then computes on one revision of
   the state, and a stateful function gets updates without polling.
-- A after W1, 22 and W5: the engine change re-maps the machine and its
-  persistence, which is cheaper once the state document has settled.
+- A after W1 and W5, and after 22, which is built: the engine change
+  re-maps the machine and its persistence, which is cheaper once the
+  state document has settled.
 
 ## Delivery
 
-- One branch per file, named `runner/NN-slug`, pushed to the
-  `prasad-public` remote with a pull request against its
-  `feature/distributed-demo` branch.
+- One branch per file, named `runner/NN-slug`, pushed to
+  `prasadtalasila/DTaaS-Public` with a pull request against its
+  `feature/distributed-demo` branch. Issues 19 and 21 to 25 departed
+  from this: their branches were merged in turn into
+  `feat/runner-wldt-wot-automata`, which has no pull request yet.
 - The file's `Status`, `PR` and ticked tasks change in the same pull
   request as the code. A task is ticked only after its check ran.
 - Breaking changes to existing routes are allowed with a minor version
   bump of `package.json` and a line in the README; the runner is at
-  `0.10.0` and nothing in this repository consumes its API.
+  `0.14.0` and nothing in this repository consumes its API.
 - Each pull request sweeps `README.md`, `api/*.http`,
   `docs/state-machine-design.md` (amend the decision or assumption the
   feature changes) and `DEVELOPER.md`.
@@ -233,8 +258,7 @@ Each file opens with a header list (`Status`, `Depends on`, `PR`,
 - **Learnings**: what the implementation taught that the plan did not
   foresee, written in the pull request that implements the issue.
 
-`Status` is `planned`, `in progress`, `in review` (a pull request is
-open) or `done`.
+`Status` takes the words of the [status table](#status).
 
 ## Decisions Shared by All Features
 
@@ -324,10 +348,6 @@ From implementing 15a:
   path before a native program such as `node` sees it, so `/dt` becomes
   `C:/Program Files/Git/dt`. Set `MSYS_NO_PATHCONV=1` on a call that
   passes a URL path.
-- `record.mjs` of the demo rewrites its two casts,
-  `demo-<platform>-manager.cast` and `demo-<platform>-network.cast`;
-  restore them with `git checkout` unless the issue re-captures the
-  recording.
 - `node:crypto` takes any 32 bytes as an Ed25519 public key; only a
   verification shows that a key is no point of the curve.
 
@@ -398,11 +418,11 @@ From implementing 25:
   runner waits for its scripts when it shuts down, and a killed runner
   leaves them running; stop the scripts first, on every path out,
   signals too.
-- Run the demo of a feature before its documents. The replay of the
-  hospital found seven faults that the tests did not, among them a
-  command row written for a replayed request key, which a replay ran
-  again; all were fixed before the recording
-  ([25](25-replay.md#what-the-demo-showed)).
+- Run a feature end to end, with a real twin and its scripts, before
+  writing its documents. A replay of a hospital twin found seven faults
+  that the tests did not, among them a command row written for a
+  replayed request key, which a replay ran again; all were fixed before
+  the documents ([25](25-replay.md#learnings)).
 
 From the final review of 22 to 25:
 
@@ -416,9 +436,9 @@ From the final review of 22 to 25:
   that wrote beside itself changed the snapshot. Give the process a
   copy and a working directory of its own, rather than ask every
   script to branch on the mode.
-- A demo workaround is a symptom. The branch on `DT_REPLAY_OF` in the
-  demo's scripts hid the fault above; ask why a demo needs one before
-  documenting it.
+- A workaround in a DT's scripts is a symptom. A branch on
+  `DT_REPLAY_OF` in the scripts hid the fault above; ask why a script
+  needs one before documenting it.
 - Deferred minors add up across features. A `500` on a URL, a path
   test on a prefix, a leftover SQLite file and a stack trace were each
   small, and each broke a later feature; settle them before the next

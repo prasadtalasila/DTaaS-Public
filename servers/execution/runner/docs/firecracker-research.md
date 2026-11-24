@@ -278,17 +278,17 @@ the exit code. firecracker-containerd ships an agent of that kind for
 its own protocol [fc-ctr]. The scripts directory and the DT's files go
 in on a block device or in the root filesystem image.
 
-The demo shows what a fresh VM per run breaks: its scripts keep the
-ward in `run/ward.json`, next to the scripts directory
-(`demo/hospital/scripts/ward.ps1:3-14`), so each run must see what the
-last one wrote. Two VMs cannot safely mount one writable ext4 image at
-once (_inference_). One long-lived VM per runner, whose agent runs every
-script, keeps that working; a VM per spawn does not.
+A hospital twin shows what a fresh VM per run breaks: its scripts keep
+the ward in `run/ward.json`, next to the scripts directory, so each
+run must see what the last one wrote. Two VMs cannot safely mount one
+writable ext4 image at once (_inference_). One long-lived VM per
+runner, whose agent runs every script, keeps that working; a VM per
+spawn does not.
 
 srt on Linux passes the environment and stdin through, and on Windows
-loses both (#772, #648; srt note, Windows and the Demo). Compared with
-srt: clearly worse on Linux, where srt needs nothing here and
-Firecracker needs a protocol and an agent.
+loses both (#772, #648; srt note, Windows and PowerShell Scripts).
+Compared with srt: clearly worse on Linux, where srt needs nothing
+here and Firecracker needs a protocol and an agent.
 
 ### Resource Limits
 
@@ -382,7 +382,7 @@ two bwraps and two socats each time (srt note, Overhead per Spawn).
 Compared with srt: documented where srt is not, but probably larger, as
 a kernel boots each time (_inference_). One VM per runner pays it once.
 
-### Windows and the Demo
+### Windows and PowerShell Scripts
 
 - Firecracker does not run on Windows [design]. The runner keeps
   running there without it, which Q4 accepts.
@@ -390,14 +390,14 @@ a kernel boots each time (_inference_). One VM per runner pays it once.
   [WSL]. On Windows 10 it is overridden (WSL #40735, open since
   2026-06-07). Nested use is outside Firecracker's charter, and VMs so
   nested "are _not_ to be considered isolated from each-other" [#1721].
-- The demo's scripts are PowerShell (`demo/hospital/scripts/*.ps1`) and
-  share a file across runs (see Passing the Runner's Context). Under
+- The scripts of a hospital twin are PowerShell (`*.ps1`) and share
+  a file across runs (see Passing the Runner's Context). Under
   Firecracker they need PowerShell in a Linux guest or a port to a
   shell, and a persistent disk (_inference_).
 
 srt on Windows is alpha and loses the environment and stdin (srt note,
-Windows and the Demo). Compared with srt: worse in reach, better in that
-nothing half-works. The demo runs under neither.
+Windows and PowerShell Scripts). Compared with srt: worse in reach,
+better in that nothing half-works. Those scripts run under neither.
 
 ### Operational Cost
 
@@ -569,8 +569,8 @@ neighbours (_inference_):
   and any figure under nested virtualization.
 - Whether a TAP device created in advance and owned by uid 1000 is
   enough for an unprivileged Firecracker in practice.
-- Whether DTs other than the demo share files between runs, which
-  decides between a VM per spawn and a VM per runner.
+- Whether DTs other than the hospital twin share files between runs,
+  which decides between a VM per spawn and a VM per runner.
 
 ## Open Decisions
 
@@ -641,7 +641,7 @@ implements it ([18-script-user.md](issues/18-script-user.md)).
   output and the exit code need an agent in the guest (Passing the
   Runner's Context); 17a and 17b would measure the VMM, not the script
   (Resource Limits); a VM per run can not share the run files that the
-  demo's scripts keep (Passing the Runner's Context); and either form
+  hospital's scripts keep (Passing the Runner's Context); and either form
   is larger than any planned runner issue (Assessment).
 
 The open decisions above lapse with A2 and A3. Those that still apply

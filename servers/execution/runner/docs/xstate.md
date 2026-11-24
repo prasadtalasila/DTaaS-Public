@@ -50,10 +50,11 @@ environment (issue 18, D35).
 
    Some things the runner's YAML cannot say:
    - "Retry twice, then escalate" needs a counter. XState keeps one in
-     `context`; the runner's only extended state is its parameters.
-   - "Re-check every 30 s" needs a timer. The hospital demo keeps a
-     polling loop inside its script instead (`POLL_MS`,
-     `demo/hospital/hospital.fsm.yaml:62`).
+     `context`; the runner's only extended state is its parameters and,
+     since 0.11.0, its properties, which no transition reads.
+   - "Re-check every 30 s" needs a timer. A hospital twin keeps a
+     polling loop inside its script instead, with the interval in a
+     declared `env` variable such as `POLL_MS`.
    - "Admit only if beds are free" needs a guard. In the runner, that
      decision lives inside a script.
 
@@ -149,8 +150,8 @@ environment (issue 18, D35).
 
 ## Configuration Examples
 
-All three examples describe the same DT, the hospital-1 twin of
-`demo/hospital`. Two samples sit beside `runner.yaml.sample`:
+All three examples describe the same DT, a hospital twin named
+hospital-1. Two samples sit beside `runner.yaml.sample`:
 
 | File                                      | Format                    | Read by the runner |
 | :---------------------------------------- | :------------------------ | :----------------- |
@@ -337,8 +338,7 @@ parser, read it as the boolean `true`.
 - **Today's format.** `config/state-machine.yaml.sample` was loaded
   with the runner's own `loadDefinition` (`src/fsm/definition.ts:224`).
   It passed, with the commands `open`, `full`, `closed`, `admit` and
-  `discharge` and the peer `hospital-2`. Apart from its comments, it
-  has the same content as `demo/hospital/hospital.fsm.yaml`.
+  `discharge` and the peer `hospital-2`.
 - **Both options on XState.** XState 5.33.4 ran both machines with a
   stub catalogue of the actions and guards named above. B was the
   sample file as it stands. A was compiled from today's sample by a
@@ -442,8 +442,8 @@ example `machine: ./dt/machine.mjs`. The runner would load it with
    - Then accept an XState-shaped configuration as data (B), with a
      small catalogue of guards and actions that the runner owns. Its
      `after` timers and `context` counters cover the most common gaps:
-     the "retry twice, then escalate" counter and the polling in the
-     hospital demo.
+     the "retry twice, then escalate" counter and the polling of the
+     hospital's script.
    - Publish a JSON Schema of the format, so that editors can check the
      file while it is written.
 
@@ -477,8 +477,7 @@ example `machine: ./dt/machine.mjs`. The runner would load it with
   - `package.json`, `README.md`, `SECURITY-MODEL.md`;
   - `docs/state-machine-design.md`, `docs/issues/README.md`;
   - `src/fsm/definition.ts`, `src/fsm/completion-cycle.ts`,
-    `src/fsm/script-context.ts`;
-  - `demo/hospital/hospital.fsm.yaml`.
+    `src/fsm/script-context.ts`.
 - XState v5 documentation: <https://stately.ai/docs/xstate>.
 - Node.js `node:vm` documentation, which carries the warning that the
   module "is not a security mechanism":

@@ -39,8 +39,13 @@ A what-if is not:
 ## What the Author Writes
 
 The class names the commands that `POST /whatif` runs, in the
-`whatIf` section. The hospital demo,
-[demo/hospital/hospital.fsm.yaml](demo/hospital/hospital.fsm.yaml):
+`whatIf` section. The examples of this guide are of a hospital twin,
+`hospital-1`, whose class `hospital.fsm.yaml` has two states, `open`
+and `full`, a parameter `capacity`, the beds of each ward, and a
+property `free-beds`; its one peer, `hospital-2`, is a neighbour. Its
+scripts keep the patients of each ward in `run/<DT_ID>/ward.json`
+beside the scripts, such as
+`{"cardiology": ["p-1"], "surgery": ["p-3", "p-4"]}`. Of its class:
 
 ```yaml
 manager:
@@ -84,7 +89,15 @@ comes first; a `client` that asks for a command which
 The save script runs for the copy as for a save: it gets
 `DT_SNAPSHOT_DIR`, which is `files/` of the copy, and writes the files
 of the scripts there ([STATE-MACHINE.md](STATE-MACHINE.md#snapshot)).
-The what-if script then reads them from `$DT_WHATIF_DIR/files/`.
+The what-if script then reads them from `$DT_WHATIF_DIR/files/`. The
+`save-script` of the hospital:
+
+```bash
+#!/usr/bin/env bash
+# Saves the beds, run/<DT_ID>/ward.json beside the scripts, into a snapshot
+set -euo pipefail
+cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
+```
 
 The what-if script reads the scenario on stdin, reads the copy in
 `DT_WHATIF_DIR`, and prints its result on stdout. It gets
@@ -93,10 +106,11 @@ command of `POST /`: `DT_ID`, `DT_STATE` and `DT_ENTRY` of the current
 state, and the `DT_PARAM_` variables. It gets neither `RUNNER_URL`
 nor `RUNNER_TOKEN`. Every other script gets `DT_MODE=live`. A
 `client` may still run a what-if command with `POST /`; the script
-then refuses, as the demo's does:
+then refuses, as `forecast-beds` does:
 
 ```bash
 #!/usr/bin/env bash
+# Command forecast-beds, for POST /whatif only
 set -euo pipefail
 if [[ ${DT_MODE:-} != what-if ]]; then
   echo "forecast-beds runs only as a what-if, not in mode ${DT_MODE:-none}" >&2
@@ -105,11 +119,50 @@ fi
 exec node --no-warnings "$(dirname "$0")/forecast.mjs"
 ```
 
-[forecast-beds](demo/hospital/scripts/forecast-beds) and
-[forecast.mjs](demo/hospital/scripts/forecast.mjs) are the whole
-script of the demo. The PowerShell version,
-[forecast-beds.ps1](demo/hospital/scripts/forecast-beds.ps1), has not
-been run yet.
+Run with `POST /`, it fails with exit code 2 and
+`forecast-beds runs only as a what-if, not in mode live` on stderr. As
+a what-if it runs `forecast.mjs` beside it, which reads the copy and
+prints its result:
+
+```js
+// The free beds at the horizon of the scenario on stdin: the free beds
+// of the copy less the admissions of the last hour, per hour, over the
+// horizon. Reads the copy in DT_WHATIF_DIR; prints JSON.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+
+const copy = process.env.DT_WHATIF_DIR;
+const read = (file) => JSON.parse(readFileSync(join(copy, file), 'utf8'));
+const scenario = JSON.parse(readFileSync(0, 'utf8') || '{}');
+const horizon = scenario.horizon ?? 'PT2H';
+const hours = Number(/^PT(\d+)H$/.exec(horizon)?.[1] ?? 2);
+
+const capacity = read('parameters.json').capacity.value;
+const wards = Object.values(read('files/ward.json'));
+const free = wards.reduce((sum, beds) => sum + capacity - beds.length, 0);
+
+const database = new DatabaseSync(join(copy, 'state.db'), { readOnly: true });
+const since = new Date(Date.now() - 3600000).toISOString();
+const { n: rate } = database
+  .prepare(
+    `SELECT count(*) AS n FROM timeline WHERE kind = 'command'
+     AND json_extract(data, '$.name') = 'admit' AND time > ?`,
+  )
+  .get(since);
+database.close();
+
+console.log(
+  JSON.stringify({
+    'free-beds': Math.max(free - rate * hours, 0),
+    horizon,
+    'free-now': free,
+    'admissions-per-hour': rate,
+    'state-now': read('state.json').machine.state,
+    token: process.env.RUNNER_TOKEN === undefined ? 'absent' : 'present',
+  }),
+);
+```
 
 ## What the Operator Sets
 
@@ -135,41 +188,43 @@ what-if is refused with `409` `save script of another account`
 ## Asking and Reading the Result
 
 The Manager asks with the name of the command and the scenario as
-`input`. Signed as `manager-1`, in the demo:
+`input`, signed as `manager-1` in `$JWS`
+([API.md](api/API.md#token) tells how to sign):
 
 ```bash
-DT_AS=manager-1 dt1 /whatif --json '{"name":"forecast-beds","input":{"horizon":"PT2H","steps":[{"at":"PT10M","peer":"hospital-2","online":false}]}}'
+curl -X POST http://localhost:5100/whatif -H "Authorization: Bearer $JWS" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"forecast-beds","input":{"horizon":"PT2H"}}'
 ```
 
 The runner makes the copy, then answers `202`:
 
 ```json
-{ "id": 5, "name": "forecast-beds", "status": "running" }
+{ "id": 14, "name": "forecast-beds", "status": "running" }
 ```
 
 `id` is the number of the run in the command history. The Manager
-keeps it and asks `GET /whatif/5`:
+keeps it and asks `GET /whatif/14`:
 
 ```json
 {
-  "id": 5,
+  "id": 14,
   "name": "forecast-beds",
   "status": "valid",
   "mode": "what-if",
-  "receivedAt": "2026-11-24T13:59:00.000Z",
+  "receivedAt": "2026-11-24T22:26:41.000Z",
   "by": "manager-1",
   "exitCode": 0,
   "result": {
     "free-beds": 0,
     "horizon": "PT2H",
-    "free-now": 2,
-    "admissions-per-hour": 2,
+    "free-now": 1,
+    "admissions-per-hour": 5,
     "state-now": "open",
-    "peers-offline-now": [],
     "token": "absent"
   },
-  "finishedAt": "2026-11-24T13:59:00.000Z",
-  "resources": { "cpuSeconds": 0, "peakRssBytes": 86016, "processes": 1 }
+  "finishedAt": "2026-11-24T22:26:41.000Z",
+  "resources": { "cpuSeconds": 0, "peakRssBytes": 5918720, "processes": 2 }
 }
 ```
 
@@ -182,7 +237,7 @@ what-if run gets `404`.
 
 Over MQTT, the request goes to `<topic>/whatif/set` with the same
 body, and the reply to `<topic>/whatif/set/response`. The result is
-asked on `<topic>/whatif` with `{"id": 8}`, and comes on
+asked on `<topic>/whatif` with `{"id": 14}`, and comes on
 `<topic>/whatif/response`.
 
 | Route           | `client` | `operator` | `manager`                                            | `script` | `sensor` |
@@ -205,19 +260,18 @@ retained, and to the [webhook](README.md#webhook):
 {
   "kind": "whatif",
   "id": "hospital-1",
-  "time": "2026-11-24T13:59:00.433Z",
+  "time": "2026-11-24T22:26:41.409Z",
   "data": {
-    "id": 5,
+    "id": 14,
     "name": "forecast-beds",
     "status": "valid",
     "exitCode": 0,
     "result": {
       "free-beds": 0,
       "horizon": "PT2H",
-      "free-now": 2,
-      "admissions-per-hour": 2,
+      "free-now": 1,
+      "admissions-per-hour": 5,
       "state-now": "open",
-      "peers-offline-now": [],
       "token": "absent"
     }
   }
@@ -232,7 +286,7 @@ none. The timeline has a `sent` row for each notification.
 
 The copy is a [snapshot](README.md#saving-and-reinstating) with four
 documents more, in a directory named by the time, such as
-`run/hospital-1/snapshots/what-if/20261124T135903552Z/`:
+`run/hospital-1/snapshots/what-if/20261124T222638160Z/`:
 
 ```text
 files/ward.json        what the save script wrote
@@ -248,49 +302,38 @@ state.json             the reply of GET /state
 ```
 
 Each document is the reply of the route of the same name at the copy.
-From the demo, with `p-1` and `p-2` admitted and `hospital-2` not
-running, `state.json`:
+Of the hospital, with `p-1`, `p-3` and `p-4` in bed and one bed free,
+`state.json`:
 
 ```json
 {
   "id": "hospital-1",
-  "time": "2026-11-24T13:59:00.232Z",
+  "time": "2026-11-24T22:26:38.172Z",
   "machine": {
     "state": "open",
-    "status": "running",
-    "entry": 1,
-    "events": [
-      "beds-free",
-      "close",
-      "fidelity-changed",
-      "full",
-      "neighbour-down",
-      "neighbour-full",
-      "reopen",
-      "scope-changed"
-    ]
+    "status": "valid",
+    "entry": 3,
+    "events": ["beds-free", "full", "neighbour-down"]
   },
   "parameters": {
-    "scope": "single",
-    "capacity": 2,
-    "fidelity": "medium"
+    "capacity": 2
   },
   "properties": {
     "free-beds": {
-      "value": 2,
-      "time": "2026-11-24T13:58:59.311Z"
+      "value": 1,
+      "time": "2026-11-24T22:24:14.277Z"
     }
   },
   "command": {
-    "name": "admit",
+    "name": "save-script",
     "status": "valid",
-    "receivedAt": "2026-11-24T13:58:58.000Z",
-    "finishedAt": "2026-11-24T13:58:59.000Z"
+    "receivedAt": "2026-11-24T22:24:16.000Z",
+    "finishedAt": "2026-11-24T22:24:16.000Z"
   }
 }
 ```
 
-`parameters.json`, of which `capacity`:
+`parameters.json`:
 
 ```json
 {
@@ -309,8 +352,8 @@ running, `state.json`:
 ```json
 {
   "free-beds": {
-    "value": 2,
-    "time": "2026-11-24T13:58:59.311Z",
+    "value": 1,
+    "time": "2026-11-24T22:24:14.277Z",
     "by": "script",
     "type": "integer",
     "minimum": 0,
@@ -320,7 +363,7 @@ running, `state.json`:
 ```
 
 `peers.json`, which holds what each peer last told; this is in no
-table:
+table. The twin had heard nothing of `hospital-2`:
 
 ```json
 {
@@ -350,13 +393,18 @@ WHERE kind = 'command' AND json_extract(data, '$.name') = 'admit';
 ```
 
 ```text
-2026-11-24T13:58:58.808Z|p-1
-2026-11-24T13:58:58.990Z|p-2
+2026-11-24T22:24:04.376Z|p-1
+2026-11-24T22:24:05.544Z|p-1
+2026-11-24T22:24:06.633Z|p-2
+2026-11-24T22:24:07.806Z|p-3
+2026-11-24T22:24:08.965Z|p-4
 ```
 
-The copy ends at the `seq` of its manifest, so the `whatif` row of the
-run itself is not in it. Node has `node:sqlite`; the demo reads the
-table with it.
+The second `p-1` repeated the request key of the first, and the twin
+answered it with the stored reply; its row has `"stored": true` in
+`data`, and ran nothing. The copy ends at the `seq` of its manifest,
+so the `whatif` row of the run itself is not in it. Node has
+`node:sqlite`, with which `forecast.mjs` reads the table.
 
 What a script may rely on: the four documents and the `timeline`
 table. Their shapes change only with a note in the README. The other
@@ -374,13 +422,13 @@ shape:
 | `change`  | what is other than now, such as `{"parameters": {...}}`        |
 | `steps`   | what happens when: `[{"at": "PT10M", ...}]`                    |
 
-The demo's `forecast-beds` reads `horizon` and `steps`.
+`forecast.mjs` above reads `horizon` alone.
 
 ## Why the Twin Can Not Change
 
 - **No token and no address.** The script gets neither
   `RUNNER_TOKEN` nor `RUNNER_URL`, inherited or set, so it can not
-  raise an event, write a property or escalate. The demo's result
+  raise an event, write a property or escalate. The result above
   shows `"token": "absent"`.
 - **A copy of the database.** The script reads `state.db` of its copy.
   A query on the live database could hold up the runner's writes.

@@ -14,6 +14,127 @@ words:
 The word "model" is avoided on purpose. It already means a simulation
 model, a DTDL model and a Thing Model of the Web of Things.
 
+## The Three Parts at a Glance
+
+The instance names its class and fills in what the class leaves open.
+The runner derives the interface from both: what may be read, set,
+run and raised comes from the class, and where it is reached and who
+may call it comes from the instance.
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart LR
+  subgraph I["Instance: runner.yaml"]
+    direction TB
+    I1["id, attributes, stateMachine"]
+    I2["parameters: values in place of defaults"]
+    I5["location, commands, database, snapshots"]
+    I3["relationships: peers and the Manager"]
+    I4["auth: principals and key"]
+  end
+  subgraph C["Class: the state machine file"]
+    direction TB
+    C1["class: id, version"]
+    C2["parameters, properties"]
+    C3["events, states and their scripts"]
+    C4["subscriptions to a peer or a relationship"]
+    C5["manager, escalation, snapshot, whatIf"]
+  end
+  subgraph F["Interface: what the runner serves"]
+    direction TB
+    F1["GET /dt"]
+    F2["GET, PUT /parameters; GET /properties"]
+    F3["GET /fsm, POST /fsm/event, GET /state"]
+    F5["notify/state, escalation, presence, whatif"]
+    F4["POST /, POST /snapshot, POST /whatif"]
+  end
+  I1 -- names --> C1
+  I2 -- sets --> C2
+  I5 -- permits --> C3
+  I3 -- binds --> C4
+  C1 --> F1
+  C2 --> F2
+  C3 --> F3
+  C4 -. raises events .-> C3
+  C3 --> F5
+  C5 --> F4
+  I4 -- guards --> F
+```
+
+## Against DTDL, WLDT and WoT
+
+Each of the three other technologies also separates a kind of twin, a
+twin of that kind, and what a caller sees of it. Read across a row of
+the diagram: the blue box is the class, the green box the instance, and
+the orange box the interface.
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart LR
+  D0(["DTDL v3"]) --- D1["<b>Interface</b>, by a DTMI:<br/>Property, Telemetry, Command,<br/>Relationship, Component"]
+  D1 -- "$model" --> D2["<b>Digital twin</b> in a twin graph,<br/>with relationship instances"]
+  D2 --> D3["<b>The platform's API</b>:<br/>twins, telemetry, commands"]
+  W0(["WLDT"]) --- W1["<b>DigitalTwinModel</b>:<br/>the shadowing function, in Java"]
+  W1 -- runs --> W2["<b>DigitalTwin</b> in an engine: its state of<br/>properties, actions, events, relationships;<br/>its life cycle"]
+  W2 --> W3["<b>Digital adapters</b>: MQTT, HTTP;<br/>physical adapters face the asset"]
+  T0(["W3C WoT"]) --- T1["<b>Thing Model</b>: affordances<br/>properties, actions, events"]
+  T1 -- derived --> T2["<b>Thing Description</b><br/>of one Thing"]
+  T2 --> T3["<b>Forms</b> of each affordance:<br/>href, operation, content type"]
+  R0(["DT runner"]) --- R1["<b>State machine file</b>: parameters,<br/>properties, events, states, manager"]
+  R1 -- stateMachine --> R2["<b>runner.yaml</b>: id, values,<br/>peers and relationships, keys"]
+  R2 --> R3["<b>GET /dt</b>, the routes over<br/>HTTP and MQTT, notifications"]
+  classDef cls fill:#e8f0fe,stroke:#3b6fd4
+  classDef ins fill:#e6f4ea,stroke:#2e8b57
+  classDef itf fill:#fff4e0,stroke:#d48a1b
+  class D1,W1,T1,R1 cls
+  class D2,W2,T2,R2 ins
+  class D3,W3,T3,R3 itf
+```
+
+| Concept                 | DTDL v3                                                  | WLDT                                               | WoT                                | DT runner                                                    |
+| :---------------------- | :------------------------------------------------------- | :------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------- |
+| The class               | An Interface, named by a DTMI                            | The `DigitalTwinModel`, Java code                  | A Thing Model                      | The state machine file, named by `class`                     |
+| The instance            | A digital twin in a twin graph, whose `$model` is a DTMI | A `DigitalTwin` in a `DigitalTwinEngine`           | A Thing Description of one Thing   | `runner.yaml`, one runner                                    |
+| The interface           | The API of the platform that holds the twins             | The digital adapters                               | The forms of the affordances       | `GET /dt`, the routes over HTTP and MQTT, the notifications  |
+| Values that change      | Property, Telemetry                                      | The properties of the digital twin state           | Property affordances, `observable` | `properties`                                                 |
+| Settings                | A writable Property                                      | A writable property                                | A writable property                | `parameters`, `controllable`                                 |
+| Operations              | Command                                                  | Actions, routed to the asset                       | Action affordances                 | `manager.commands`, run through `POST /`                     |
+| Events                  | Telemetry, roughly                                       | Events of the digital twin state                   | Event affordances                  | `events`, which move the machine; notifications to a Manager |
+| Links to other twins    | Relationship, with a target and multiplicity             | Relationships, with instances that name a target   | `links`                            | `relationships.peers`, and subscriptions to a relationship   |
+| Parts                   | Component                                                | None                                               | `tm:submodel`                      | None                                                         |
+| What fills in the class | Values of the twin's properties                          | The code of the model                              | Placeholders, `{{NAME}}`           | Instance values under `parameters`                           |
+| Behaviour               | None                                                     | The shadowing function's callbacks                 | Handler code of the Scripting API  | `states`, their transitions and scripts                      |
+| The twin's own course   | None                                                     | The life cycle: bound, shadowed, out of sync, done | `expose()` and `destroy()`         | The state of the machine, and snapshots                      |
+
+Where the correspondence does not hold:
+
+- **The runner has what the others lack.** Behaviour is a state
+  machine that the runner reads, not code that it calls. The state of
+  the machine is first-class, as are what-ifs on a private copy,
+  snapshots, a replay twin, and keys that sign what the twin says.
+  Its relationships carry signed notices between running twins.
+- **The others have what the runner lacks.** It has no Component or
+  `tm:submodel`: one runner is one twin, with no parts. Its
+  relationships are names, without the target class and multiplicity
+  of DTDL. It exports no document in a standard format, so `GET /dt`
+  is in a format of its own, and it has no semantic annotations. It
+  does not mirror an asset as WLDT's physical adapters do: a value of
+  the asset reaches the twin only through a script or a sensor that
+  writes a property.
+- **The words differ in scope.** WLDT's model is code, so its class
+  and its behaviour are one thing. A WoT Thing Model fills in its
+  placeholders as text, which the runner declines
+  ([Why Not Placeholders](#why-not-placeholders)).
+  DTDL leaves the instance and its interface to a platform.
+
 ## The Two Roles
 
 1. **The DT author** gives a state machine file and the scripts that
@@ -133,7 +254,7 @@ A class may name itself:
 
 ```yaml
 class:
-  id: 'urn:dtaas:demo:hospital'
+  id: 'urn:dtaas:hospital'
   version: '1.0.0'
 ```
 
@@ -149,7 +270,7 @@ class:
 ```json
 {
   "id": "hospital-2",
-  "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" }
+  "class": { "id": "urn:dtaas:hospital", "version": "1.0.0" }
 }
 ```
 
@@ -286,8 +407,8 @@ attaches no meaning to `neighbour`.
 
 ## The Hospitals
 
-Both hospitals of [demo/hospital](demo/hospital/README.md) are
-instances of one class, `hospital.fsm.yaml`. Their `runner.yaml` files
+Two hospitals, hospital-1 and hospital-2, are instances of one class,
+`hospital.fsm.yaml`. Their `runner.yaml` files
 differ in what an instance owns:
 
 | Key                             | hospital-1          | hospital-2          |
@@ -315,22 +436,27 @@ The interface of a class is what a caller can read, write and call on
 any of its instances. It is not a file. It follows from the class, and
 the runner serves it:
 
-| Part of the interface           | Declared in the class      | Served by                             |
-| :------------------------------ | :------------------------- | :------------------------------------ |
-| The class itself                | `class`                    | `GET /dt`                             |
-| Values that a caller reads      | `properties`               | `GET /properties`, `GET /state`       |
-| Settings that a Manager changes | `parameters`, controllable | `GET` and `PUT /parameters`           |
-| Commands that a Manager runs    | `manager.commands`         | `POST /`                              |
-| Events that a caller raises     | `events`                   | `POST /fsm/event`                     |
-| The state of the machine        | `states`                   | `GET /fsm`, `GET /state`              |
-| Changes, as they happen         | all of the above           | the `notify/state` topic, the webhook |
+| Part of the interface           | Declared in the class      | Served by                                  |
+| :------------------------------ | :------------------------- | :----------------------------------------- |
+| The class itself                | `class`                    | `GET /dt`                                  |
+| Values that a caller reads      | `properties`               | `GET /properties`, `GET /state`            |
+| Settings that a Manager changes | `parameters`, controllable | `GET` and `PUT /parameters`                |
+| Commands that a Manager runs    | `manager.commands`         | `POST /`                                   |
+| Events that a caller raises     | `events`                   | `POST /fsm/event`                          |
+| The state of the machine        | `states`                   | `GET /fsm`, `GET /state`                   |
+| Changes, as they happen         | all of the above           | the `notify/state` topic, the webhook      |
+| Calls for help                  | `escalation`               | the `notify/escalation` topic, the webhook |
+| Saves of the twin               | `snapshot`                 | `POST /snapshot`                           |
+| Trials on a private copy        | `whatIf.commands`          | `POST /whatif`, `GET /whatif/:id`          |
 
 Every instance of a class has the same interface. What differs is
 where it is reached, and the values.
 
 The interface is not exported as a document today. The Web of Things
 calls such a document a Thing Description, and its class-level form a
-Thing Model; the mapping is in
+Thing Model; see
+[Against DTDL, WLDT and WoT](#against-dtdl-wldt-and-wot). The full
+mapping is in
 [docs/dt-capabilities-comparison.md](docs/dt-capabilities-comparison.md#the-runner-as-a-wot-thing).
 Exporting it is proposal C4 of the
 [issues](docs/issues/README.md#proposed-work). The types of the

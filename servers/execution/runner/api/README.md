@@ -2,7 +2,7 @@
 
 This directory has request files for trying out the HTTP and MQTT APIs
 of a runner on the developer computer. [API.md](API.md) is the
-reference of both APIs, with examples from the hospital demo.
+reference of both APIs.
 
 | File            | Protocol | VS Code extension      |
 | :-------------- | :------- | :--------------------- |
@@ -51,7 +51,7 @@ docker run -d --rm --name mosquitto -p 1883:1883 \
     exec mosquitto -c /tmp/m.conf'
 ```
 
-Then uncomment the `mqtt` section at the end of
+Then uncomment the `mqtt` section of
 `config/runner.test.yaml` before starting the runner. Its broker and
 topic match the `@broker` and `@topic` variables of `dev.mqtt.http`.
 Stop the broker with `docker stop mosquitto`.
@@ -60,7 +60,7 @@ The `dt` request returns the descriptor of the digital twin, with the
 `id` of `config/runner.test.yaml`. Its `class` is `null`, as the test
 state machine file has no `class` section
 ([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)). The
-state machine requests at the end of both files use
+state machine requests of both files use
 `test/data/scripts/state-machine.yaml`, which
 `config/runner.test.yaml` names with `stateMachine`. A transition to
 _create_ runs _create_ and then _execute_; the `restart` event goes
@@ -93,6 +93,26 @@ input back, so the reply carries it in `result.stdout`; _fail_ shows a
 `failed` reply with exit code 3. Both scripts are in
 `test/data/scripts`, and `config/runner.test.yaml` permits them.
 
+The `history` and `timeline` requests read the command history and the
+[timeline](API.md#timeline), with a query over HTTP and the same query
+as a JSON payload over MQTT.
+
+The snapshot requests save, list and remove
+[snapshots](API.md#snapshots); they need `database` and `snapshots` in
+`config/runner.test.yaml`, and answer `409` without them. The what-if
+requests ask for a [what-if](API.md#what-if) of `forecast-beds` and read
+run 5; they need a state machine file that lists the command under
+`whatIf.commands`, which the test file does not, so `POST /whatif`
+answers `400` `invalid command`. The last two requests of
+`dev.api.http`, with the headers `Replay-Seq` and `Replay-By`, are for
+a [replay twin](API.md#replay-twins); any other runner answers the
+notice with `404` and ignores the headers.
+
+The `notifications` request of `dev.mqtt.http` subscribes to
+`<topic>/notify/+` and publishes nothing, so it shows the retained
+state document and presence notice, and then each notification as it
+comes.
+
 ## Send the Requests
 
 In VS Code, open a request file and select **Send Request** (REST
@@ -119,25 +139,32 @@ the request files. httpyac uses these file variables even when its
 
 A runner with `principals` in its `auth` section
 ([README](../README.md#access-control)) answers the unsigned requests
-with `401`; an `auth` section with only a `key` leaves them open. Write
-a key pair, from the runner directory:
+with `401`; an `auth` section with only a `key` leaves them open. Save
+`keygen.mjs` of [Keys and Signing](API.md#keys-and-signing) in the
+runner directory and write a key pair for each principal there:
 
 ```bash
-node demo/hospital/tools/keygen.mjs alice keys
-node demo/hospital/tools/keygen.mjs manager-1 keys
+mkdir -p keys && cd keys
+node ../keygen.mjs alice
+node ../keygen.mjs manager-1
 ```
 
-and list the printed public keys under `auth` in
-`config/runner.test.yaml`, `alice` as `client` and `manager-1` as
-`manager`. Then:
+Each run writes `NAME.key`, the private key in PKCS#8 PEM, and
+`NAME.pub`, and prints the public key. List the printed public keys
+under `auth` in `config/runner.test.yaml`, `alice` as `client` and
+`manager-1` as `manager`. Then:
 
 - In `dev.api.http`, set `@keyFile` to `keys/alice.key`. httpYac signs
-  every request with the `{{@request}}` script at the top of the file;
-  REST Client does not run scripts, so it sends them unsigned.
+  every request as `@principal` for the DT `@dtId` with the
+  `{{@request}}` script at the top of the file, which makes the token
+  of [Token](API.md#token) as `sign.mjs` of API.md does; REST Client
+  does not run scripts, so it sends them unsigned.
 - In `dev.mqtt.http`, the `signedExecute` request publishes the
-  envelope that the demo's `tools/sign.mjs` makes with
-  `keys/manager-1.key`; `@keyDir` is relative to the directory httpyac
-  runs in. The other MQTT requests stay plain.
+  envelope of [MQTT Access Control](API.md#mqtt-access-control), which
+  it makes with a signing script of the repository from
+  `@keyDir/<@principal>.key`, by default `keys/manager-1.key`, for the
+  DT `@dtId`, as `sign.mjs` of API.md does; `@keyDir` is relative to
+  the directory httpyac runs in. The other MQTT requests stay plain.
 
 A token is valid for 30 s and once only, so each send signs anew.
 

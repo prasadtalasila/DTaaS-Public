@@ -272,18 +272,18 @@ No source measures it. What runs at each stage:
 - On Windows: the first grant on a user profile takes "minutes on a
   large profile" [README].
 
-### Windows and the Demo
+### Windows and PowerShell Scripts
 
 - srt on Windows needs a one-time elevated `windows-install`, which
   creates the `srt-sandbox` user and machine-wide firewall filters
   [README].
 - PowerShell's `Invoke-WebRequest` and `Invoke-RestMethod` cannot reach
   HTTPS from inside it [README, Known limitations].
-- The demo's `Send-Runner` calls `RUNNER_URL` with `Invoke-RestMethod`
-  over plain HTTP (`demo/hospital/scripts/ward.ps1:56`). Plain HTTP to
-  loopback works only after `windows-install --allow-loopback`, which
-  opens loopback for the whole machine [README, Local servers on
-  Windows].
+- A PowerShell script of a DT calls `RUNNER_URL` with
+  `Invoke-RestMethod` over plain HTTP, as `RUNNER_URL` is
+  `http://127.0.0.1:<port>`. Plain HTTP to loopback works only after
+  `windows-install --allow-loopback`, which opens loopback for the
+  whole machine [README, Local servers on Windows].
 - Only `PATH`, the proxy variables and the git variables reach the
   child. `RUNNER_URL`, the `DT_*` variables and the declared
   environment would not [#772, open against 0.0.81].

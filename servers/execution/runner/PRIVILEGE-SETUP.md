@@ -310,9 +310,10 @@ curl -s http://localhost:5000/health
 {
   "status": "ok",
   "uptime": 4,
-  "mqtt": "connected",
+  "mqtt": "disabled",
   "database": "file",
-  "scripts": { "user": "dt-script" }
+  "scripts": { "user": "dt-script" },
+  "saving": false
 }
 ```
 

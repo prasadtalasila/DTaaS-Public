@@ -60,6 +60,11 @@ Two suggestions are affected:
 `runner.yaml` takes a `relationship`, and a subscription may name it
 in place of a peer.
 
+**W3** is built, as issue [22](issues/22-timeline.md), version 0.12.0:
+a timeline of every input, change and notification, with snapshots,
+what-if and a replay twin built on it by issues 23 to 25 (0.12.0 to
+0.14.0). The other suggestions are still proposals.
+
 The dependencies between the suggestions are in the
 [issues](issues/README.md#proposed-work).
 
@@ -85,8 +90,9 @@ have to reopen first.
 | W11 | Overhead benchmark                          | Evaluation         | M    | PAPER §2.5 delay, memory and CPU evaluation         | No                        |
 
 Sizes follow the research notes: S is a day or less, M a few days with
-tests and documentation. All items are proposals; none has an issue
-file yet.
+tests and documentation. All items were proposals when this was
+written; W3 and W8 are built since (see
+[Since These Notes](#since-these-notes)).
 
 ## WLDT in One Page
 
@@ -439,8 +445,8 @@ This needs W1.
   `M/augmentation/function/StatefulAugmentationFunction.java:210-279`).
   A function that cannot take pushes polls instead, with
   `refreshQueryResult()` (DOCS `docs/guides/augmentation_functions.md`).
-- The runner's long-running scripts can only poll. The hospital demo
-  sets `POLL_MS` for exactly this (`demo/hospital/hospital.fsm.yaml:62`).
+- The runner's long-running scripts can only poll. A hospital twin
+  declares `POLL_MS` in the `env` of its state `open` for exactly this.
 - A long poll removes the poll interval from a script's reaction
   time. It needs neither MQTT in the script nor a push transport.
 
@@ -511,14 +517,14 @@ and of these suggestions.
 | W4                  | Validation reports execution time and resource use of each function, the figures that W4 and 17a give                                     |
 | W9                  | Events are a part of `S_DT`, beside the properties, and are synchronised with them                                                        |
 | W11                 | It measures a twin and its replica together: CPU, memory and network (FDT Fig. 10). A benchmark of forks would do the same                |
-| Issue 23            | The transferred state has no format in the paper; a snapshot would be one                                                                 |
-| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 plans a scenario inside the twin, and 25 a replay; not the parallel one |
+| Issue 23            | The transferred state has no format in the paper; a snapshot is one                                                                       |
+| Issue 24            | It has three patterns: history, parallel and simulation. Issue 24 built a scenario inside the twin, and 25 a replay; not the parallel one |
 
 ### Lessons
 
 1. **A twin is tested with a second twin, never in place.** WLDT's
    own authors did not add a trial mode to the twin. They made a
-   replica. Issue 24 does the same with a fork.
+   replica. Issue 25 does the same with a replay twin.
 2. **The twin's part is to hand over its past and its present.** The
    production FDT was extended only "to forward functionalities to
    the experiment orchestrator and synchronize with T-FDTs"
@@ -534,9 +540,9 @@ and of these suggestions.
    stands.
 5. **Properties may need to be kept secret.** The paper stores
    properties encrypted, "so that in case the DT is exploited, the
-   data remains safe" (FDT §3). The timeline of issue 22 will hold
-   the inputs of commands, which may name people, and has no such
-   protection yet.
+   data remains safe" (FDT §3). The timeline of issue 22 holds the
+   inputs of commands, which may name people, and has no such
+   protection.
 
 ## What the Runner Already Does Better
 
@@ -594,7 +600,7 @@ the decision with the owner of the state.
 4. **Event notifications and history (W9, W3).** Should published
    domain events be stored in the timeline? WLDT stores them
    (`QueryResourceType` DT state event notifications, 0.6.0+).
-5. **A WLDT digital twin behind a runner.** Is a demo where a runner
+5. **A WLDT digital twin behind a runner.** Is an example where a runner
    state starts a WLDT DT (Java) and reads its HTTP digital adapter
    worth having? It would show the control plane and data plane side
    by side.
@@ -847,5 +853,5 @@ supplied on 2026-11-23.
 Runner, under `servers/execution/runner/`, at `2dc1f590`: `README.md`,
 `STATE-MACHINE.md`, `SECURITY-MODEL.md`, `api/API.md`,
 `docs/state-machine-design.md`, `docs/dtn-research-notes.md`,
-`docs/issues/*.md`, `demo/hospital/*.yaml`, and the `src/` files cited
-above.
+`docs/issues/*.md`, the state machine files of a hospital twin, and
+the `src/` files cited above.

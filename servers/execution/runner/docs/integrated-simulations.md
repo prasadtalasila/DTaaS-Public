@@ -33,7 +33,13 @@ they assume:
 - **The hold is built.** The coalescing of streaming frames is the
   `stateInterval` of `runner.yaml`.
 
-The `PUT /properties` call of the examples is as built.
+The `PUT /properties` call of the examples is as built. Runner 0.13.0
+and 0.14.0 (issues [24](issues/24-what-if.md) and
+[25](issues/25-replay.md)) built the what-if inside the twin and the
+replay twin; [Fluid Digital Twins](#fluid-digital-twins-offloading-and-a-twin-beside-itself)
+below sets them against the paper. None of the proposals of these notes
+(commands that scripts may run, time triggers, the `simulations` key)
+is built.
 
 ## WLDT's Augmentation Functions
 
@@ -105,10 +111,10 @@ it likes, until a `STOP` request.
 | Stateful function                     | A state's script: it starts when the state is entered and stops at a `stop: true` transition or `POST /stop`                | The same life as `start` and `stop`                                                  |
 | A function bound to a state           | Built in: a script belongs to its state                                                                                     | WLDT has nothing like it                                                             |
 | Context: a state snapshot, a query    | Scripts read it themselves: `GET /state`, `/parameters`, `/peers`, `/history`                                               | Separate reads may mix moments; W1's `revision` makes a read consistent              |
-| Updates pushed to a stateful function | None; scripts poll (`POLL_MS`)                                                                                              | W10, a long poll on the revision                                                     |
+| Updates pushed to a stateful function | None; scripts poll                                                                                                          | W10, a long poll on the revision                                                     |
 | `notifyResult`, the result list       | stdout, events (`POST /fsm/event`), escalation `proposal`, and computed properties with [issue 19](issues/19-properties.md) | No structured result contract                                                        |
 | The model decides what to apply       | The caller decides: a script, a Manager, or the state machine through events                                                | The same principle                                                                   |
-| The model triggers a run              | Missing: the `script` role cannot call `execute` (`src/auth/roles.ts:22`)                                                   | The only real gap                                                                    |
+| The model triggers a run              | Missing: the `script` role cannot call `execute` (`ROUTE_ROLES` in `src/auth/roles.ts`)                                     | The only real gap                                                                    |
 | Typed errors                          | Exit status (`failed`), stderr, the escalation trigger `failure`                                                            | Enough                                                                               |
 | Per-function metrics                  | Resource figures; W4 adds run timings                                                                                       |                                                                                      |
 | At most five handlers in one JVM      | One run per command name, each a separate process                                                                           | No artificial cap                                                                    |
@@ -118,9 +124,11 @@ W1, W4 and W10 are suggestions of
 
 ## Augmentation Functions in the Runner
 
-Little new runtime is needed. The hospital twin of `demo/hospital` is
-the example throughout: its `open` script asks a forecast for the free
-beds in two hours.
+Little new runtime is needed. A hospital twin is the example
+throughout: its `open` script asks a forecast for the free beds in two
+hours. `$RunnerHeaders` holds the `Authorization` header with
+`RUNNER_TOKEN`, and `Send-Runner` is a helper of its scripts that
+posts to `RUNNER_URL` with it.
 
 ### Stateless Functions as Commands That Scripts May Run
 
@@ -140,7 +148,7 @@ augmentation:
 $reply = Invoke-RestMethod -Method Post -Uri "$env:RUNNER_URL/" -Headers $RunnerHeaders `
   -ContentType 'application/json' `
   -Body (@{ name = 'forecast-beds'; input = @{ horizon = 'PT2H' } } | ConvertTo-Json -Compress)
-$forecast = $reply.stdout | ConvertFrom-Json
+$forecast = $reply.logs.stdout | ConvertFrom-Json
 if ($forecast.'free-beds' -le 0) { Send-Runner 'fsm/event' @{ event = 'full-soon' } }
 Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" -Headers $RunnerHeaders `
   -ContentType 'application/json' -Body (@{ 'free-beds-in-2h' = $forecast.'free-beds' } | ConvertTo-Json)
@@ -168,10 +176,11 @@ Invoke-RestMethod -Method Put -Uri "$env:RUNNER_URL/properties" -Headers $Runner
 
 A function that runs on and reacts to updates is what a state's script
 already is: it lives from the state's entry to its exit. It needs two
-planned pieces:
+pieces:
 
-- W10, so that updates arrive without polling;
-- issue 19, so that its results appear as computed properties.
+- W10, proposed, so that updates arrive without polling;
+- issue 19, built in 0.11.0, so that its results appear as computed
+  properties.
 
 A stateful function that runs outside the machine, across several
 states, would be the sampler script decided against on 2026-11-20, so
@@ -217,8 +226,8 @@ above proves too loose. It is the owner's decision.
 | `free-beds-in-2h` | Computed property                              | Holds the applied result               |
 | `full-soon`       | A new event                                    | Lets the machine react to the forecast |
 
-The net new runtime is one role rule. The rest comes from W1, W10 and
-issue 19, which are planned or proposed already.
+The net new runtime is one role rule. The rest comes from W1 and W10,
+which are proposed, and issue 19, which is built.
 
 ## Task Distribution Frameworks
 
@@ -262,7 +271,8 @@ up, as a shared compute service for heavy simulations.
   names is what the command allow-list and the roles prevent today.
   Celery's early use of pickle is the well-known case.
 - **Platforms.** Celery does not support Windows officially, and the
-  hospital demo runs on Windows. BullMQ runs there, but needs Redis.
+  runner and its scripts run on Windows. BullMQ runs there, but needs
+  Redis.
 - **Dependencies.** `PROJECT.md` admits a dependency only when the task
   requires it. The runner needs none of what only these frameworks
   provide.
@@ -290,9 +300,9 @@ open.ps1 ◀── reply, stdout holding the results ◀────────
 - The resource figures would cover only the thin client, not the
   remote simulation. The job service would report the simulation's
   cost, for example in the result.
-- `SECURITY-MODEL.md` (lines 520 to 553) already plans a deploy issue
-  for a future Execution Manager and microVMs. A job service belongs
-  there.
+- `SECURITY-MODEL.md` (in "Decided Since the Design") already plans a
+  deploy issue for a future Execution Manager and microVMs. A job
+  service belongs there.
 
 ### Recommendation on Task Frameworks
 
@@ -301,7 +311,7 @@ open.ps1 ◀── reply, stdout holding the results ◀────────
    - commands that scripts may run;
    - W1, for a consistent snapshot;
    - W10, for pushed updates;
-   - issue 19, for results.
+   - issue 19, built, for results.
 2. **Time triggers,** the one real gap: a small persisted timer in the
    runner, or XState's `after` if option B of `xstate.md` goes ahead.
    A periodic forecast does not need a broker.
@@ -463,7 +473,8 @@ How the runner would behave:
    decides nothing itself; the machine's transitions decide, which keeps
    WLDT's rule that the model decides.
 3. **Streaming results.** Each frame updates the named properties,
-   keeping the latest value with the coalescing that issue 19 plans.
+   keeping the latest value with the coalescing of `stateInterval`
+   (issue 19).
    Only `completed` and `error` raise events, so the machine is not
    flooded.
 4. **Interactive inputs.** Changes of the named properties or
@@ -538,9 +549,9 @@ end-to-end test.
 The WLDT authors extend the library into Fluid Digital Twins (FDT) in
 a later paper, cited as FDT with its section numbers (see
 [Sources](#sources)). Sections 2 to 4 were read for two things that
-issues [22](issues/22-timeline.md), [23](issues/23-snapshot.md) and
-[24](issues/24-what-if.md) plan: moving work between places, and
-running a second twin next to the first.
+issues [22](issues/22-timeline.md) to [25](issues/25-replay.md) took
+up: moving work between places, and running a second twin next to the
+first.
 
 ### What Moves in the Paper
 
@@ -589,13 +600,13 @@ try a new function before it is deployed (FDT §4.2, Fig. 5). An
 orchestrator makes the replica, synchronises it, validates the
 function, and then promotes the function or drops it. Three patterns:
 
-| Pattern    | Where the inputs come from                                    | In issue 24                              |
-| :--------- | :------------------------------------------------------------ | :--------------------------------------- |
-| History    | Recorded data and "the production FDT's computational state"  | A replay, fed to a fork                  |
-| Parallel   | The live data of the PT, as the production FDT receives it    | Not planned: it needs the live twin      |
-| Simulation | A synthetic environment, in the paper SimPy in real-time mode | A scenario, in the twin or fed to a fork |
+| Pattern    | Where the inputs come from                                    | As built in issues 24 and 25                                |
+| :--------- | :------------------------------------------------------------ | :---------------------------------------------------------- |
+| History    | Recorded data and "the production FDT's computational state"  | A replay twin fed the rows of a later snapshot (25)         |
+| Parallel   | The live data of the PT, as the production FDT receives it    | Not planned: it needs the live twin                         |
+| Simulation | A synthetic environment, in the paper SimPy in real-time mode | A what-if in the twin (24), or the `steps` of a replay (25) |
 
-What the paper adds to the plan of issue 24:
+What the paper added to the plan of issue 24:
 
 - **Lesson 2: a third kind, in parallel.** A fork that receives the
   live inputs of the twin answers "what is the changed twin doing
@@ -608,7 +619,9 @@ What the paper adds to the plan of issue 24:
   that is a new version of the class: other scripts, or another state
   machine. "Would version 1.1 have escalated last night?" is a replay
   with another file, and it is how a class should be tried before
-  every instance takes it.
+  every instance takes it. The replay of issue 25 changes only
+  parameters and properties, under `set`; a replay with another class
+  is not built.
 - **Lesson 4: a run ends in a decision.** A T-FDT reports and is
   deactivated, and the function is promoted or not. Nothing is merged
   back. A fork is the same: its timeline is the answer, and the
@@ -617,12 +630,12 @@ What the paper adds to the plan of issue 24:
   result is "execution time, resource consumption, output accuracy"
   (FDT §4.2). A comparison of two timelines should set the resource
   figures of the scripts side by side too, which the command history
-  already holds.
+  already holds. `runner-compare` prints the CPU seconds of each.
 - **Lesson 6: the simulated world sits next to the replica.** The
   simulation runs "within the same container" as the T-FDT, and
   feeds it over MQTT as a PT would (FDT §5.1.5). That is the mock of
-  the hospital that the owner proposed for issue 24. As planned
-  there, the mock is a copy: the save script of the class copies what
+  the hospital that the owner proposed for issue 24. As built in 24,
+  the mock is a copy: the save script of the class copies what
   the scripts keep, and a what-if runs on the copy.
 - **Lesson 7: real time at a factor is known ground.** SimPy's
   real-time mode ties simulated time to the clock by a factor. The
@@ -727,7 +740,7 @@ call, local data, and no network.
   [wldt-docs-and-paper.md](wldt-docs-and-paper.md).
 - Runner at `01c3ea75`: `src/auth/roles.ts`,
   `src/execa-manager.service.ts`, `SECURITY-MODEL.md`,
-  `docs/issues/19-properties.md`, `demo/hospital`; `PROJECT.md` at
+  `docs/issues/19-properties.md`; `PROJECT.md` at
   the repository root.
 - FDT: Bedogni, Mamei, Picone, Pietri, Zambonelli, "Fluid Computing & Digital
   Twins for intelligent interoperability in the IoT ecosystem", _Future

@@ -18,14 +18,25 @@ take the types of JSON Schema, and every number names its unit. A
 property is not marked as sensed or computed, as the plan of issue 19
 had it when this was written.
 
-[Issue 21](issues/21-dt-class.md) has built C1 and C3. The state
-machine file is a class with an id and a version, and `runner.yaml`
-sets the values of one instance. It does so with typed values under
-`parameters`, not with the placeholders that C3 proposed;
+[Issue 21](issues/21-dt-class.md) has built C1 and C3, and W8 of the
+WLDT notes. The state machine file is a class with an id and a
+version, and `runner.yaml` sets the values of one instance. It does
+so with typed values under `parameters`, not with the placeholders
+that C3 proposed;
 [CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md) gives
-the reasons.
+the reasons. With W8, `runner.yaml` gives each peer a `relationship`.
 
-The hospital twin of `demo/hospital` serves as the running example.
+Runner 0.12.0 to 0.14.0, issues [22](issues/22-timeline.md) to
+[25](issues/25-replay.md), built a durable timeline of every change,
+snapshots and reinstating, what-if inside the twin and a replay twin
+([A Twin Over Time](#a-twin-over-time-history-transfer-and-trial)). The
+tables below compare runner 0.10.0 where they say "today"; these
+paragraphs say what later versions changed. The history row, for one,
+now has the timeline as well.
+
+A hospital twin serves as the running example: `hospital-1` and
+`hospital-2` share the states `open`, `full` and `closed` and differ in
+`capacity` and in the peers they follow.
 Runner citations give `file:line` under `servers/execution/runner/`;
 WLDT citations follow [wldt-research-notes.md](wldt-research-notes.md).
 Statements marked _inference_ are this document's reading.
@@ -62,21 +73,21 @@ the shape of `x_i` and `θ_i` but not their values.
 "Partial" or "none" in a cell marks a gap that makes the representation
 less faithful.
 
-| Dimension                         | DTDL v4                                                                                                   | WLDT                                                                                        | Runner today                                                                                            | Runner with issue 19                                           |
-| :-------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------- |
-| Model identity and version        | DTMI with a major.minor version; reuse by `extends` ("Model Versioning", "Digital Twin Model Identifier") | None; a twin is assembled in Java code                                                      | Instance `id` only; no model id or version                                                              | Same                                                           |
-| Model separate from instance      | Yes: an Interface is the model, and the platform holds the instances                                      | No                                                                                          | No: `demo/hospital/hospital-2.fsm.yaml` repeats hospital-1's file except `capacity` and `subscriptions` | Same                                                           |
-| Observed state (`x_i`)            | Read-only `Property`; `Telemetry` for streams                                                             | Typed properties built from each adapter's asset description, committed in transactions     | None                                                                                                    | Latest value per property, `sensed` or `computed`, with `time` |
-| Settings others change (`θ_i`)    | `writable: true` Property                                                                                 | Managed resources: abstract, no transport                                                   | Declared parameters; `controllable`; all-or-nothing writes; events on change                            | Same                                                           |
-| Data types                        | 19 primitives; Array, Enum, Map, Object; geospatial; scaled decimal                                       | Any Java class; `type` and `contentType` tags, never interpreted                            | `string`, `number`, `boolean`, `enum`                                                                   | The same four                                                  |
-| Units and semantics               | QuantitativeTypes extension; RDF-compatible JSON-LD                                                       | An uninterpreted `type` tag                                                                 | None                                                                                                    | A free-text `unit`                                             |
-| Operations                        | `Command` with request and response schemas                                                               | Fire-and-forget actions, with no result                                                     | Allow-listed commands; input not validated; outcome and logs returned                                   | Same                                                           |
-| Behaviour and policy (`λ_i`)      | None; DTDL describes, it does not behave                                                                  | Hidden in the model's Java callbacks                                                        | An explicit state machine: states, transitions, completion events, escalation                           | Same                                                           |
-| Lifecycle and sync with the asset | Each Property has sync information, kept by the platform and outside the model ("Property")               | Bound, synchronized, out of sync; declared by the model (`DigitalTwinModel.java:2303-2316`) | Presence, health and script status; no sync flag (W6)                                                   | Per-value `time` shows a stale feed                            |
-| Composition                       | `Component`: an Interface included by value                                                               | Several adapters merged into one state; no composition                                      | None: one DT per runner (S2)                                                                            | Same                                                           |
-| Relationships                     | Named, with target type, multiplicity, typed properties and `writable`                                    | Named relationships and instances; `targetId` never resolved                                | Peers with opaque `attributes`; the runner follows their notices                                        | Same (W8 adds names)                                           |
-| History                           | Historization extension                                                                                   | Opt-in storage; queries by time range, sample range, last value, count                      | Command history and the machine; values of parameters                                                   | Latest property values only, by design                         |
-| Provenance and trust              | None                                                                                                      | None                                                                                        | Ed25519 roles, signed output, a separate script account                                                 | Properties signed like all output                              |
+| Dimension                         | DTDL v4                                                                                                   | WLDT                                                                                        | Runner today                                                                     | Runner with issue 19                                           |
+| :-------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| Model identity and version        | DTMI with a major.minor version; reuse by `extends` ("Model Versioning", "Digital Twin Model Identifier") | None; a twin is assembled in Java code                                                      | Instance `id` only; no model id or version                                       | Same                                                           |
+| Model separate from instance      | Yes: an Interface is the model, and the platform holds the instances                                      | No                                                                                          | No: hospital-2's file repeats hospital-1's except `capacity` and `subscriptions` | Same                                                           |
+| Observed state (`x_i`)            | Read-only `Property`; `Telemetry` for streams                                                             | Typed properties built from each adapter's asset description, committed in transactions     | None                                                                             | Latest value per property, `sensed` or `computed`, with `time` |
+| Settings others change (`θ_i`)    | `writable: true` Property                                                                                 | Managed resources: abstract, no transport                                                   | Declared parameters; `controllable`; all-or-nothing writes; events on change     | Same                                                           |
+| Data types                        | 19 primitives; Array, Enum, Map, Object; geospatial; scaled decimal                                       | Any Java class; `type` and `contentType` tags, never interpreted                            | `string`, `number`, `boolean`, `enum`                                            | The same four                                                  |
+| Units and semantics               | QuantitativeTypes extension; RDF-compatible JSON-LD                                                       | An uninterpreted `type` tag                                                                 | None                                                                             | A free-text `unit`                                             |
+| Operations                        | `Command` with request and response schemas                                                               | Fire-and-forget actions, with no result                                                     | Allow-listed commands; input not validated; outcome and logs returned            | Same                                                           |
+| Behaviour and policy (`λ_i`)      | None; DTDL describes, it does not behave                                                                  | Hidden in the model's Java callbacks                                                        | An explicit state machine: states, transitions, completion events, escalation    | Same                                                           |
+| Lifecycle and sync with the asset | Each Property has sync information, kept by the platform and outside the model ("Property")               | Bound, synchronized, out of sync; declared by the model (`DigitalTwinModel.java:2303-2316`) | Presence, health and script status; no sync flag (W6)                            | Per-value `time` shows a stale feed                            |
+| Composition                       | `Component`: an Interface included by value                                                               | Several adapters merged into one state; no composition                                      | None: one DT per runner (S2)                                                     | Same                                                           |
+| Relationships                     | Named, with target type, multiplicity, typed properties and `writable`                                    | Named relationships and instances; `targetId` never resolved                                | Peers with opaque `attributes`; the runner follows their notices                 | Same (W8 adds names)                                           |
+| History                           | Historization extension                                                                                   | Opt-in storage; queries by time range, sample range, last value, count                      | Command history and the machine; values of parameters                            | Latest property values only, by design                         |
+| Provenance and trust              | None                                                                                                      | None                                                                                        | Ed25519 roles, signed output, a separate script account                          | Properties signed like all output                              |
 
 ### Verdicts
 
@@ -622,7 +633,7 @@ is what can be done with a twin over time: read its past, move it,
 and try a change without touching it. Fluid Digital Twins (FDT), the
 WLDT authors' later work (see [Sources](#sources)), make this a
 capability of its own, and issues [22](issues/22-timeline.md) to
-[25](issues/25-replay.md) build it for the runner, by version 0.14.0.
+[25](issues/25-replay.md) built it for the runner, by version 0.14.0.
 
 | Capability                          | DTDL v4                                               | WoT                                                | WLDT with FDT                                                            | Runner                                                       |
 | :---------------------------------- | :---------------------------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
@@ -649,8 +660,8 @@ What this adds to the verdicts:
   properties and peer switches. That makes the runner's part of a
   snapshot a short document. What the scripts keep is saved by a
   script that the class names, as only its author knows it.
-- **The runner's gap is the other way round.** It will have the
-  document and the record, and has nothing like the fluid layer: it
+- **The runner's gap is the other way round.** It has the document
+  and the record, and has nothing like the fluid layer: it
   can not decide by itself where a computation runs. For the runner
   that decision is the Manager's or the platform's.
 
@@ -696,7 +707,9 @@ What the table shows:
 ## Suggestions for the Runner
 
 In priority order. C2, C3 and C4 take the Web of Things into account;
-C8 comes from [Models and Simulations](#models-and-simulations).
+C8 comes from [Models and Simulations](#models-and-simulations). C1,
+C2 and C3 are built (issues 19 and 21); the rest are open, in the
+proposed work of [issues/README.md](issues/README.md#proposed-work).
 
 | #   | Suggestion                                 | Size | Notes                                                                                                                                                                                                                                                                                                                                                  |
 | :-- | :----------------------------------------- | :--- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -727,7 +740,6 @@ C8 comes from [Models and Simulations](#models-and-simulations).
   in [integrated-simulations.md](integrated-simulations.md#fluid-digital-twins-offloading-and-a-twin-beside-itself).
 - WLDT: [wldt-code-map.md](wldt-code-map.md) and
   [wldt-docs-and-paper.md](wldt-docs-and-paper.md).
-- Runner at `e5c12fd4`: `demo/hospital/hospital.fsm.yaml`,
-  `demo/hospital/hospital-2.fsm.yaml`, `demo/hospital/scripts/*.ps1`,
-  `src/fsm/parameters.ts`, `docs/issues/19-properties.md`,
-  `docs/dtn-research-notes.md`.
+- Runner at `e5c12fd4`: the state machine files and scripts of two
+  hospital twins, `src/fsm/parameters.ts`,
+  `docs/issues/19-properties.md`, `docs/dtn-research-notes.md`.

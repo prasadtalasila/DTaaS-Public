@@ -31,9 +31,10 @@ restarts (09), stopping scripts (10), full history and metrics (11),
 the health route (12), peers (13), access control (15a), signed
 output (15b), peer events (16), script resources (17a), the
 process tree (17b), scripts as a second account (18), properties
-with the grouped `runner.yaml` (19), and the state machine file as a
-class that instances share (21). Their
-files are in
+with the grouped `runner.yaml` (19), the state machine file as a
+class that instances share (21), the durable timeline (22), saving
+and reinstating (23), what-if inside the twin (24), and the replay
+twin with its tools (25). Their files are in
 [docs/issues](issues/README.md).
 
 ## Context
@@ -86,7 +87,7 @@ state machine.
 | `fsm/value-schema.ts`        | the JSON Schema keywords of a declaration, and the check of a value    |
 | `fsm/properties.ts`          | property schema and checks; `Properties` keeps the latest values       |
 | `fsm/proto.ts`               | finds a `__proto__` key in the parsed file, which zod would skip       |
-| `fsm/script-context.ts`      | `env` schema and checks; `RunnerContext` builds a script environment   |
+| `fsm/script-context.ts`      | `RunnerContext` builds a script environment, with `DT_MODE`            |
 | `fsm/manager.ts`             | schema and check of the manager commands                               |
 | `fsm/escalation.ts`          | escalation section; `Escalations` raises triggers and requests         |
 | `fsm/state-machine.ts`       | pure machine: current state, entry count, next state; `machineOf`      |
@@ -132,6 +133,7 @@ state machine.
 | `mqtt/request-topics.ts`     | `RequestTopics`: topic to route                                        |
 | `execa-manager.service.ts`   | runs, joins and stops commands; closes the database at shutdown        |
 | `queue.service.ts`           | SQLite: commands, request keys, parameters, machine, peers, properties |
+| `queue.schema.ts`            | the tables, and the guarded columns of an older file                   |
 | `queue.machine.ts`           | the SQL of the `machine` row and of marking commands interrupted       |
 | `queue.history.ts`           | the SQL of a command record, of the history and of command counts      |
 | `queue.peers.ts`             | the SQL of the switches of `PUT /peers`                                |
@@ -161,7 +163,9 @@ state machine.
 | `replay/origin.ts`           | reads `Replay-By` and `Replay-Seq`, or refuses them with `400` (D62)   |
 | `replay/stamp.ts`            | which rows get `origin`, and `at` and `origin` of a row read           |
 | `replay/notice.ts`           | the body of `PUT /peers/:id/notice`                                    |
+| `replay/known-peers.ts`      | the last notices of the peers up to the save, for a replay twin        |
 | `config/parse.ts`            | reads and checks `runner.yaml`                                         |
+| `config/commander.ts`        | the flags `-c`, `--reinstate`, `--what-if` and `--time-scale`          |
 | `tools/replay-run.ts`        | the flow of `runner-replay`, its dry run and `replay.json` (D60)       |
 | `tools/replay-config.ts`     | `runner.yaml` of a replay twin, its key pair and its port (D61)        |
 | `tools/inputs.ts`            | which rows are inputs, and the request of each row or step             |
@@ -292,8 +296,8 @@ states:
 `loadDefinition` refuses the file, and the runner does not start, when:
 
 - it holds a key other than `class`, `events`, `states`, `parameters`,
-  `properties`, `env`, `escalation`, `manager` and `subscriptions`, a
-  state a key other than
+  `properties`, `env`, `escalation`, `manager`, `subscriptions`,
+  `snapshot` and `whatIf`, a state a key other than
   `transitions` and `env`, `escalation` a key other than the booleans
   `onFailure` and `onNoTransition`, or `manager` a key other than
   `commands`;
@@ -301,6 +305,11 @@ states:
   one of them is not a string of 1 to 200 characters for `id` and 1 to
   64 for `version`, without spaces (D44);
 - a command of `manager.commands` is not permitted by `runner.yaml`;
+- `snapshot` holds a key other than `save` and `restore`, or names a
+  script that `runner.yaml` does not permit; `whatIf` holds a key other
+  than `commands` and `replay`, or a command of `whatIf.commands` is
+  not permitted, is a state, or comes without `snapshot.save`, which
+  makes its copy (D55, D56);
 - a state or event name does not match `^[A-Za-z0-9][\w.-]{0,63}$`, so
   that a name can not be a path, a command-line flag or an object
   property such as `__proto__` (zod skips a `__proto__` record key, so
@@ -433,7 +442,11 @@ state after the request or `null`:
 `FSM_STATUS_CODES` in `dto/fsm.dto.ts` maps each status to its code;
 MQTT has no codes, so the body names the outcome (D15, D16). A
 malformed body or request key gets the `Validation Failed` response of
-`ZodValidationPipe`, before any other check.
+`ZodValidationPipe`, before any other check. During a save,
+`AccessGuard` and the MQTT handler refuse the routes that change the
+twin, the transition and the event among them, after authorisation
+and before `FsmService`: `503` `{"status": "saving"}`, with
+`Retry-After` over HTTP (`Pause.refuses`, D52).
 
 - `Requests.reply` keeps the replies of accepted requests with an
   `Idempotency-Key` in a `RecentReplies` of 256 (D13). A repeat gets the
@@ -501,7 +514,7 @@ malformed body or request key gets the `Validation Failed` response of
 
 | Table          | Rows                                                                 |
 | :------------- | :------------------------------------------------------------------- |
-| `commands`     | each command: name, status, logs, exit code, resources, times, by    |
+| `commands`     | a command: name, status, logs, exit code, resources, times, by, mode |
 | `request_keys` | the `Idempotency-Key` of each `POST /` request, and its command      |
 | `parameters`   | each parameter change, with its value as JSON and its time           |
 | `machine`      | one row (`id` 1): the state (`NULL` unstarted), entry, script status |
@@ -510,9 +523,10 @@ malformed body or request key gets the `Validation Failed` response of
 | `timeline`     | what entered, changed and was sent, in order; it only grows (D47)    |
 
 `CREATE TABLE IF NOT EXISTS` never changes an existing file, so new
-columns come from a guarded `ALTER TABLE` (as 05's `exit_code` and
-15a's `by`) and new tables from the schema itself (as 09's `machine`,
-13's `peers`, 19's `properties` and 22's `timeline`).
+columns come from a guarded `ALTER TABLE` (as 05's `exit_code`, 15a's
+`by`, 24's `mode`, and 25's `at` and `origin` of the timeline) and
+new tables from the schema itself (as 09's `machine`, 13's `peers`,
+19's `properties` and 22's `timeline`).
 
 A write of a property replaces its row (an upsert), so the table does
 not grow with the rate of the writes; a write that changes a value is
@@ -756,6 +770,14 @@ tests of the state machine:
   account in `scripts.*.spec.ts`, `script-context.base.spec.ts`,
   `config.scripts.spec.ts` and `test/e2e/script-user.spec.ts`, which
   runs only in CI, as it needs a passwordless `sudo`.
+- Issues 22 to 25: the timeline in `queue.timeline*.spec.ts`,
+  `fsm.timeline.spec.ts` and `test/e2e/timeline*.spec.ts`; saving and
+  reinstating in `snapshot.*.spec.ts` and `test/e2e/snapshot*.spec.ts`
+  and `reinstate*.spec.ts`; what-if in `whatif.spec.ts`,
+  `script-context.whatif.spec.ts` and `test/e2e/whatif*.spec.ts`; the
+  replay twin in `replay.*.spec.ts`, `config.replay.spec.ts` and
+  `test/e2e/replay-twin*.spec.ts`; the tools in `tools.*.spec.ts` and
+  `test/e2e/replay*.spec.ts`.
 - `mqtt.broker.spec.ts` runs only in CI, against Mosquitto with MQTT 5;
   a change to a reply shape must be checked there too.
 - `dist.spec.ts` starts the build, which catches an import without its
@@ -772,7 +794,8 @@ that do not type-check, so run
   [Validation](#validation), a test per rule, and the user guide.
 - A new status or reply: `dto/fsm.dto.ts` and its code, the README,
   the user guide, `api/*.http`, and `mqtt.broker.spec.ts`.
-- A new table or column: `queue.service.ts` with a guarded migration
+- A new table or column: `queue.schema.ts`, or the `queue.*.ts` unit
+  of the table, with a guarded migration
   and a test that opens a file of the earlier version.
 - Behaviour of `FsmService`: the file is near the 250-line limit, so
   move a unit out before adding; keep functions under Qlty's
