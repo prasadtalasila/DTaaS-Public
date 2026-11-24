@@ -43,6 +43,10 @@ manager:
 - `whatIf.commands` are the commands that `POST /whatif` runs. Each
   must be a command of `runner.yaml`.
 - A Manager may run one only if `manager.commands` lists it as well.
+- None may be the name of a state: a what-if command is a script
+  written for the purpose, while the script of a state runs for the
+  machine. A class that breaks this is refused at load, so that a
+  state entry and a what-if are never runs of one command.
 - The class needs `snapshot.save`, which makes the copy.
 
 And the script. It reads the copy and prints its answer:
@@ -238,10 +242,10 @@ and a state without a transition for it would escalate.
 - A what-if of a command that runs live is refused with `409`
   `command running`, and makes no copy.
 - A live run of a command whose what-if runs is refused with `409`
-  `what-if running`, with or without input, over HTTP and MQTT. A state
-  whose command runs as a what-if is not entered (`script running`).
-  A stop transition out of a state stops every run of its command, a
-  what-if as well. The live twin never takes the output of a what-if.
+  `what-if running`, with or without input, over HTTP and MQTT. The
+  live twin never takes the output of a what-if. No state shares a
+  command with a what-if, so a what-if never holds up or is stopped by
+  a transition.
 - A what-if that the shutdown stops sends no `whatif` notification;
   its copy is removed.
 

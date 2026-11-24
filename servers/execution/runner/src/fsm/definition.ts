@@ -197,7 +197,7 @@ function crossCheck(definition: Definition, known: Known): string[] {
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
     ...snapshotProblems(definition.snapshot, known.commands),
-    ...whatIfProblems(definition.whatIf, definition.snapshot, known.commands),
+    ...whatIfProblems(definition, known.commands),
   ];
 }
 

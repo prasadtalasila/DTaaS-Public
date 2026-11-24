@@ -129,22 +129,6 @@ describe('Runs of a what-if end-to-end', () => {
   );
 
   it(
-    'Should not enter a state whose command runs as a what-if',
-    async () => {
-      await ask('forecast-slow');
-
-      const { body } = await call(app, client, [
-        'post',
-        '/fsm/transition',
-        { state: 'forecast-slow' },
-      ]);
-
-      expect(body).toMatchObject({ status: 'script running' });
-    },
-    TIMEOUT,
-  );
-
-  it(
     'Should give a live run the live mode and the token',
     async () => {
       await call(app, client, ['post', '/', { name: 'forecast', input: {} }]);

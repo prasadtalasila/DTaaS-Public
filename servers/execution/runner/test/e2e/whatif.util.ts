@@ -40,10 +40,6 @@ const scripts = (dir: string): Record<string, [string, string]> => {
     ],
     'forecast-text': ['printf "no json"', 'Write-Output "no json"'],
     'forecast-fail': ['printf partial\nexit 3', 'Write-Output partial\nexit 3'],
-    'forecast-hold': [
-      `while [ "$DT_MODE" = what-if ] && [ ! -e '${go}' ]; do sleep 0.05; done`,
-      `while ($env:DT_MODE -eq 'what-if' -and -not (Test-Path '${go}')) { Start-Sleep -Milliseconds 50 }`,
-    ],
     'forecast-slow': [
       `while [ ! -e '${go}' ]; do sleep 0.05; done\nprintf '{"ok":true}'`,
       `while (-not (Test-Path '${go}')) { Start-Sleep -Milliseconds 50 }\nWrite-Output '{"ok":true}'`,
@@ -56,19 +52,13 @@ const WHAT_IFS = [
   'forecast-text',
   'forecast-fail',
   'forecast-slow',
-  'forecast-hold',
 ];
 
 const machine = (
   save: string,
 ) => `class: {id: 'urn:dtaas:ward', version: '1.0.0'}
-events: [halt]
 states:
   work:
-  forecast-slow:
-  forecast-hold:
-    transitions:
-      halt: {state: work, stop: true}
 snapshot:
   save: ${save}
 whatIf:

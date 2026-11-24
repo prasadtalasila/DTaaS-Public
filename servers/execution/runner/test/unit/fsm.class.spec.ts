@@ -198,6 +198,20 @@ describe('What-if commands of a class', () => {
     );
   });
 
+  it('Should refuse a what-if command that is the script of a state', () => {
+    expect(() =>
+      read(`${SAVE}states: {forecast: {}}\nwhatIf: {commands: [forecast]}\n`),
+    ).toThrow(
+      /what-if command forecast is the script of a state, which runs for the machine; a what-if needs a script of its own/,
+    );
+  });
+
+  it('Should load a what-if command beside states of other commands', () => {
+    const text = `${SAVE}states: {create: {}}\nwhatIf: {commands: [forecast]}\n`;
+
+    expect(read(text).whatIf).toEqual({ commands: ['forecast'] });
+  });
+
   it('Should refuse a what-if without a save script', () => {
     expect(() => read('whatIf: {commands: [forecast]}\n')).toThrow(
       /whatIf needs snapshot\.save, which makes its copy/,
