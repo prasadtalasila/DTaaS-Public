@@ -111,25 +111,36 @@ A reader that wants everything asks again with `after` set to the last
 
 ### Decided
 
-| Question               | Decision of 2026-11-23                                                                                                                                   |
-| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What is recorded       | Commands with their inputs, the notices of peers, every change of the state, every event of every participant, what the DT sends, and the initial values |
-| How long rows are kept | No limit now                                                                                                                                             |
+| Question                              | Decision                                                                                                                                                              |
+| :------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is recorded                      | Commands with their inputs, the notices of peers, every change of the state, every event of every participant, what the DT sends, and the initial values (2026-11-23) |
+| How long rows are kept                | No limit now (2026-11-23)                                                                                                                                             |
+| A revision in the state document (W1) | Not yet (2026-11-24)                                                                                                                                                  |
+| A route of its own                    | `GET /timeline`                                                                                                                                                       |
 
-### Open questions
+### Assumed, and easy to change
 
-1. **A route of its own, or `GET /history`?** The research note put
-   the rows under `GET /history?kind=`. `/history` answers commands,
-   with their own shape and query. A new route keeps both simple. The
-   plan assumes `/timeline`.
-2. **Personal data.** The input of a command is now stored, and the
-   demo's `admit` takes a patient, and a snapshot carries the whole
-   table with it. Every role but `sensor` may read
-   the timeline. Should `input` be shown to `client` only, as the
-   logs of a command are?
-3. **Is `seq` the revision of W1?** Every change of the state
-   document now makes a row, so the `seq` of the last row is a
-   revision. W1 could be closed by showing it in the state document.
+1. **A state notification is recorded without its document.** The
+   `sent` row of a state notification says that one was sent, and the
+   `seq` of the row that caused it. Notifications of the other kinds
+   are recorded whole. The state document of the hospital is 466
+   bytes, 542 with its envelope, and every change sends one. Over a
+   week:
+
+   | The hospital                     | Notifications | Recorded whole | Recorded as a row |
+   | :------------------------------- | ------------: | -------------: | ----------------: |
+   | Quiet: 200 commands a day        |         5,600 |           3 MB |            0.5 MB |
+   | Busy: a change every 10 seconds  |        60,480 |          33 MB |              5 MB |
+   | A feed that changes every second |       604,800 |         328 MB |             54 MB |
+
+   Nothing is lost by the row: the document of any moment follows
+   from the rows before it.
+
+2. **The input of a command is shown to `client` and `operator`
+   only.** `GET /timeline` serves the rows over the API to every role
+   but `sensor`, and the demo's `admit` takes a patient. A `manager`
+   or a script gets a `command` row without its `input`. The database
+   holds every input, and a snapshot carries them all.
 
 ## Plan
 

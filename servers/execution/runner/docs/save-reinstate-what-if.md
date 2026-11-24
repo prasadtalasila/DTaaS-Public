@@ -389,6 +389,11 @@ The runner then:
 3. stores what the script printed, with the outcome;
 4. sends a notification, and removes the copy.
 
+The copy holds the present as four documents, `state.json`,
+`parameters.json`, `properties.json` and `peers.json`, each the reply
+of the route of its name, and the past in `state.db`, of which the
+`timeline` table is the part that a script may rely on.
+
 The script reads its copy and prints its answer:
 
 ```bash
@@ -468,23 +473,51 @@ again, in a replay twin, on what the twin was told.
 | start    | Before the period | Where the replay twin begins: database, class, scripts, files           |
 | inputs   | After the period  | The timeline, whose rows after the `seq` of the start are what happened |
 
-```bash
-runner-replay --start run/hospital-1/snapshots/20261122T220000000Z \
-  --inputs run/hospital-1/snapshots/20261123T060000000Z \
-  --out replays/scope-multi --speed 60 --change scope=multi
+A replay is described in a file, and run from it:
+
+```yaml
+# scope-multi.yaml
+start: run/hospital-1/snapshots/20261122T220000000Z
+inputs: run/hospital-1/snapshots/20261123T060000000Z
+out: replays/scope-multi
+speed: 60
+set:
+  parameters:
+    scope: multi
 ```
 
-| Flag                        | Needed                 | Meaning                                                           |
-| :-------------------------- | :--------------------- | :---------------------------------------------------------------- |
-| `--start <directory>`       | always                 | The snapshot that the replay twin starts from                     |
-| `--inputs <directory>`      | unless `--scenario`    | A later snapshot of the same twin                                 |
-| `--scenario <file>`         | in place of `--inputs` | A file of steps to send                                           |
-| `--out <directory>`         | always                 | Where the replay twin lives; it must not exist                    |
-| `--until <time>`            | no                     | Stop at the last row before this time                             |
-| `--speed <factor>`          | no                     | Divide the gaps between the inputs by this number; `1` by default |
-| `--change <name>=<value>`   | no                     | Set a parameter before the first input; may be repeated           |
-| `--property <name>=<value>` | no                     | Write a property before the first input; may be repeated          |
-| `--dry-run`                 | no                     | Print the inputs and their times, and start nothing               |
+```bash
+runner-replay scope-multi.yaml
+```
+
+| Key      | Needed               | Meaning                                                                              |
+| :------- | :------------------- | :----------------------------------------------------------------------------------- |
+| `start`  | always               | The snapshot that the replay twin starts from                                        |
+| `inputs` | unless `steps`       | A later snapshot of the same twin, whose timeline gives the inputs                   |
+| `steps`  | in place of `inputs` | A list of inputs, each at a time: a scenario                                         |
+| `out`    | always               | Where the replay twin lives; it must not exist                                       |
+| `speed`  | no                   | Divide the gaps between the inputs by this number; `1` by default                    |
+| `until`  | no                   | Stop at the last input before this time                                              |
+| `settle` | no                   | Seconds to wait after the last input for the replay twin to be idle; `30` by default |
+| `set`    | no                   | `parameters` and `properties` to set in the replay twin before the first input       |
+
+Paths are relative to the file. The only flag is `--dry-run`, which
+prints the inputs and their times and starts nothing.
+
+### Times
+
+Every time that an operator writes, or reads in a file name, is in
+one format, that of the names of snapshots: `YYYYMMDDTHHMMSSmmmZ`, in
+UTC to the millisecond, such as `20261123T060000000Z`. It is ISO 8601
+in its basic form, which has no character that a file name can not
+hold on Windows. It is used for:
+
+- the name of a snapshot directory, and of a private copy;
+- `until` and each `at` of a replay file.
+
+The times inside JSON documents, such as `time` of the manifest and
+of a row, stay in the extended form, `2026-11-23T06:00:00.000Z`, as
+everywhere in the API.
 
 ### What the Tool Does
 
@@ -496,10 +529,10 @@ runner-replay --start run/hospital-1/snapshots/20261122T220000000Z \
    `runner -c <out>/runner.yaml --reinstate <start> --what-if --time-scale <speed>`.
 4. If the script of the saved state was running at the save, it asks
    for a transition to that state, so that the script runs.
-5. It applies each `--change` and `--property`.
+5. It applies `set`.
 6. It sends each input at its time after the start, over the speed.
-7. It waits until the replay twin is idle, stops it, and leaves
-   `--out`.
+7. It waits until the replay twin is idle, for `settle` seconds at
+   most, stops it, and leaves `out`.
 
 The configuration that it writes, for the hospital:
 
@@ -570,29 +603,32 @@ PUT /peers/hospital-2/notice
 
 ### A Scenario
 
-In place of recorded inputs, a file of steps. Each has `at`, a time
-after the start, and one input:
+With `steps` in place of `inputs`, the file describes a coming
+period. Each step has `at`, a time after that of the start snapshot,
+and one input:
 
 ```yaml
+start: run/hospital-1/snapshots/20261123T101502120Z
+out: replays/neighbour-down
 steps:
-  - at: PT0S
+  - at: 20261123T101502120Z
     transition: open
-  - at: PT10M
+  - at: 20261123T102500000Z
     notice:
       peer: hospital-2
       kind: presence
       data:
         online: false
-  - at: PT20M
+  - at: 20261123T103500000Z
     command:
       name: admit
       input:
         patient: p-9
         ward: cardiology
-  - at: PT30M
+  - at: 20261123T104500000Z
     parameters:
       scope: multi
-  - at: PT40M
+  - at: 20261123T105500000Z
     event: close
 ```
 
@@ -628,14 +664,14 @@ own.
 
 ### Time
 
-A replay keeps the meaning of time, at a scale. `--speed 60` plays
+A replay keeps the meaning of time, at a scale. `speed: 60` plays
 an hour in a minute, `1` plays at the speed of the clock, `0.5` takes
 twice as long. The replay twin gives the number to its scripts as
 `DT_TIME_SCALE`, to divide their own waits by. Each row of its
 timeline has, beside its real `time`, `at`: the time that the row
 stands for.
 
-### What Is Left in `--out`
+### What Is Left in `out`
 
 ```text
 replays/scope-multi/
@@ -655,8 +691,7 @@ replays/scope-multi/
   "from": { "seq": 398, "time": "2026-11-22T22:00:00.000Z" },
   "until": { "seq": 912, "time": "2026-11-23T06:00:00.000Z" },
   "speed": 60,
-  "change": { "scope": "multi" },
-  "properties": {},
+  "set": { "parameters": { "scope": "multi" } },
   "sent": 147,
   "refused": 2
 }
@@ -773,23 +808,23 @@ The command line:
 
 Variables of scripts:
 
-| Variable                     | Given to                        | Value                    |
-| :--------------------------- | :------------------------------ | :----------------------- |
-| `DT_SNAPSHOT_DIR`            | the save and the restore script | `files/` of the snapshot |
-| `DT_MODE`                    | every script                    | `live` or `what-if`      |
-| `DT_WHATIF_DIR`              | a what-if script                | its private copy         |
-| `DT_REPLAY_OF`               | every script of a replay twin   | the `id` of the twin     |
-| `DT_TIME_SCALE`              | every script of a replay twin   | the factor of `--speed`  |
-| `RUNNER_TOKEN`, `RUNNER_URL` | not a what-if script            | as today                 |
+| Variable                     | Given to                        | Value                     |
+| :--------------------------- | :------------------------------ | :------------------------ |
+| `DT_SNAPSHOT_DIR`            | the save and the restore script | `files/` of the snapshot  |
+| `DT_MODE`                    | every script                    | `live` or `what-if`       |
+| `DT_WHATIF_DIR`              | a what-if script                | its private copy          |
+| `DT_REPLAY_OF`               | every script of a replay twin   | the `id` of the twin      |
+| `DT_TIME_SCALE`              | every script of a replay twin   | the `speed` of the replay |
+| `RUNNER_TOKEN`, `RUNNER_URL` | not a what-if script            | as today                  |
 
 Files:
 
-| File                 | Format                                      |
-| :------------------- | :------------------------------------------ |
-| `snapshot.json`      | The manifest of a snapshot                  |
-| a snapshot directory | Named `YYYYMMDDTHHMMSSmmmZ`                 |
-| a scenario file      | YAML: `steps`, each with `at` and one input |
-| `replay.json`        | What a replay did                           |
+| File                 | Format                                                     |
+| :------------------- | :--------------------------------------------------------- |
+| `snapshot.json`      | The manifest of a snapshot                                 |
+| a snapshot directory | Named `YYYYMMDDTHHMMSSmmmZ`                                |
+| a replay file        | YAML: `start`, `inputs` or `steps`, `out`, and what to set |
+| `replay.json`        | What a replay did                                          |
 
 ## Limits
 

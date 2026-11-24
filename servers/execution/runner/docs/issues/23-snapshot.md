@@ -251,6 +251,21 @@ What it does not have:
 A save without `stop` leaves the runner running. A twin that is shut
 down some time after such a save loses what changed in between.
 
+### Version 0.12.0
+
+The owner decided on 2026-11-24 that this issue takes the runner to
+0.12.0 and removes what 0.11 kept for one version:
+
+| Removed                                          | Use instead                                           |
+| :----------------------------------------------- | :---------------------------------------------------- |
+| `notify` and `peers` at the top of `runner.yaml` | `relationships.manager.notify`, `relationships.peers` |
+| `type: enum` with `values`, for a parameter      | `type: string` with `enum`                            |
+| The MQTT topics `set-parameters` and `set-peers` | `parameters/set` and `peers/set`                      |
+
+A file or a request that uses one is refused, with the strict schema
+or as an unknown topic. `src/config/layout.ts` and its tests go, with
+the warning for old enums and the table of old topics.
+
 ### Roles
 
 The owner decided on 2026-11-23 on a fifth role, `operator`: whoever
@@ -306,18 +321,20 @@ an application that acts for the owner, and the tests.
 
 ### Decided
 
-| Question                       | Decision of 2026-11-23                                                                               |
-| :----------------------------- | :--------------------------------------------------------------------------------------------------- |
-| What the scripts keep          | The class names a save and a restore script                                                          |
-| Inside or outside the machine  | Outside: a route with a pause, no save state                                                         |
-| Who saves                      | `operator` and `client`; not `manager`                                                               |
-| How snapshots are told apart   | By the time they were taken                                                                          |
-| What a snapshot holds          | The database, the configuration, the state machine file, the scripts, and what the save script wrote |
-| During a save                  | Requests that change the twin are refused                                                            |
-| What a reinstated twin has     | Everything in the database; it is in the last saved state                                            |
-| What a reinstated twin does    | It waits, as `interrupted`, for a caller                                                             |
-| Reinstating                    | At a start only, by the operator                                                                     |
-| Taking a twin out of execution | A save can stop the runner in the same step                                                          |
+| Question                                                     | Decision of 2026-11-23                                                                               |
+| :----------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
+| What the scripts keep                                        | The class names a save and a restore script                                                          |
+| Inside or outside the machine                                | Outside: a route with a pause, no save state                                                         |
+| Who saves                                                    | `operator` and `client`; not `manager`                                                               |
+| How snapshots are told apart                                 | By the time they were taken                                                                          |
+| What a snapshot holds                                        | The database, the configuration, the state machine file, the scripts, and what the save script wrote |
+| During a save                                                | Requests that change the twin are refused                                                            |
+| What a reinstated twin has                                   | Everything in the database; it is in the last saved state                                            |
+| What a reinstated twin does                                  | It waits, as `interrupted`, for a caller                                                             |
+| Reinstating                                                  | At a start only, by the operator                                                                     |
+| Taking a twin out of execution                               | A save can stop the runner in the same step                                                          |
+| When the configuration or the scripts differ from the copies | The runner warns and goes on (2026-11-24)                                                            |
+| The version                                                  | 0.12.0, with the deprecated keys, spelling and topics removed (2026-11-24)                           |
 
 ### Open questions
 
@@ -333,6 +350,8 @@ an application that acts for the owner, and the tests.
 
 Provisional:
 
+0. `package.json` to `0.12.0`, and the removals of the table above,
+   as a first commit.
 1. `src/auth/auth.config.ts`, `src/auth/roles.ts`: the role and the
    rows of the table.
 2. `src/config/config.schema.ts`: `snapshots`. `src/fsm/class.ts`:
@@ -361,6 +380,11 @@ Provisional:
 
 ## Tasks
 
+- [ ] The old keys, the old enum and the old topics are refused, and
+      nothing in the samples, the demo and the documents uses one.
+      Check: `test/unit/config.schema.spec.ts`,
+      `test/unit/fsm.parameters.schema.spec.ts`,
+      `test/unit/mqtt.request-topics.spec.ts`.
 - [ ] `operator` has the rights of the table, and no other role
       gained or lost one. Check: `test/unit/auth.roles.spec.ts`.
 - [ ] A save writes the manifest, a database that opens and ends at

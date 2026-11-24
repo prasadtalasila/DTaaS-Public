@@ -18,13 +18,26 @@ what it was told. Two tools of the package do that, from snapshots
 alone. Neither contacts the twin, and the runner of the twin starts
 nothing (S1 and S2 stand).
 
-```bash
-runner-replay --start snapshots/20261122T220000000Z \
-  --inputs snapshots/20261123T060000000Z \
-  --out replays/scope-multi --speed 60 --change scope=multi
-
-runner-compare snapshots/20261123T060000000Z replays/scope-multi
+```yaml
+# scope-multi.yaml
+start: run/hospital-1/snapshots/20261122T220000000Z
+inputs: run/hospital-1/snapshots/20261123T060000000Z
+out: replays/scope-multi
+speed: 60
+set:
+  parameters:
+    scope: multi
 ```
+
+```bash
+runner-replay scope-multi.yaml
+runner-compare run/hospital-1/snapshots/20261123T060000000Z replays/scope-multi
+```
+
+A replay is described in a file, so that it can be read, kept and
+run again. The owner asked on 2026-11-24 for fewer options than the
+ten flags of the first plan; the tool now takes the file and one
+flag.
 
 The formats that the tools read and write, a scenario file, the
 `replay.json` that a replay leaves and the list that a comparison
@@ -52,33 +65,41 @@ evening and each morning.
 
 ### `runner-replay`
 
-| Flag                        | Needed                 | Meaning                                                                          |
-| :-------------------------- | :--------------------- | :------------------------------------------------------------------------------- |
-| `--start <directory>`       | always                 | The snapshot that the replay twin starts from                                    |
-| `--inputs <directory>`      | unless `--scenario`    | A later snapshot of the same twin, whose timeline gives the inputs               |
-| `--scenario <file>`         | in place of `--inputs` | A YAML file of steps, each at a time after the start                             |
-| `--out <directory>`         | always                 | Where the replay twin keeps its database and files; it must not exist            |
-| `--until <time>`            | no                     | Stop at the last row before this time; by default, at the last row of the inputs |
-| `--speed <factor>`          | no                     | Divide the gaps between the inputs by this number; `1` by default                |
-| `--change <name>=<value>`   | no                     | Set a parameter in the replay twin before the first input; may be repeated       |
-| `--property <name>=<value>` | no                     | Write a property in the replay twin before the first input; may be repeated      |
-| `--dry-run`                 | no                     | Print the inputs and their times, and start nothing                              |
-| `--help`, `--version`       | no                     | The usual                                                                        |
+The keys of the file:
+
+| Key      | Needed               | Meaning                                                                              |
+| :------- | :------------------- | :----------------------------------------------------------------------------------- |
+| `start`  | always               | The snapshot that the replay twin starts from                                        |
+| `inputs` | unless `steps`       | A later snapshot of the same twin, whose timeline gives the inputs                   |
+| `steps`  | in place of `inputs` | A list of inputs, each at a time: a scenario                                         |
+| `out`    | always               | Where the replay twin lives; it must not exist                                       |
+| `speed`  | no                   | Divide the gaps between the inputs by this number; `1` by default                    |
+| `until`  | no                   | Stop at the last input before this time; by default, at the last one                 |
+| `settle` | no                   | Seconds to wait after the last input for the replay twin to be idle; `30` by default |
+| `set`    | no                   | `parameters` and `properties` to set in the replay twin before the first input       |
+
+Paths are relative to the file. Times are written as the names of
+snapshots are: `YYYYMMDDTHHMMSSmmmZ`, in UTC, such as
+`20261123T060000000Z`.
+
+The tools take no other options but `--dry-run` of `runner-replay`,
+which prints the inputs and their times and starts nothing, `--json`
+of `runner-compare`, and `--help` and `--version` of both.
 
 What it does:
 
 1. It checks that both snapshots are of one twin, and that the class
    allows a replay twin (see below).
-2. It writes a configuration for the replay twin into `--out`, from the
+2. It writes a configuration for the replay twin into `out`, from the
    copy of `runner.yaml` in the start:
 
    | Key                             | In the replay twin                                              |
    | :------------------------------ | :-------------------------------------------------------------- |
    | `id`                            | the `id` of the twin, with `.replay`                            |
    | `port`                          | a free port of the host                                         |
-   | `database`                      | a file in `--out`                                               |
+   | `database`                      | a file in `out`                                                 |
    | `location`, `stateMachine`      | the copies in the start                                         |
-   | `parameters`                    | as in the copy, then each `--change`                            |
+   | `parameters`                    | as in the copy, then `set.parameters`                           |
    | `relationships.peers`           | as in the copy, so that subscriptions bind; no peer is followed |
    | `mqtt`, `relationships.manager` | left out: a replay twin reaches nobody                          |
    | `auth`                          | one principal, with a key made for this run                     |
@@ -91,9 +112,9 @@ What it does:
 5. It sends each input to the replay twin, at its time after the start
    over the speed, signed with the key of step 2.
 6. After the last input it waits until the replay twin is idle, or for
-   a time, stops it, and leaves `--out`.
+   a time, stops it, and leaves `out`.
 
-`--out` then holds the database of the replay twin, with the timeline
+`out` then holds the database of the replay twin, with the timeline
 of what it did.
 
 What is sent, and what is not:
@@ -116,13 +137,40 @@ comparison, which lines two timelines up by that `seq`, and for a
 reader, who sees `manager-1` where the twin's timeline did.
 
 A replay twin is a reinstated twin with something changed: a
-parameter, with `--change`, or a property, with `--property`, such
-as `--property free-beds=0`. A value of a property that a script of
+parameter or a property, under `set`. A value of a property that a script of
 the replay twin writes later replaces it, as in any twin.
 
 A replay shows what the twin would have decided, given what it was
 told. It does not show what the world would have done: the beds that
 were free last night were free under the old scope.
+
+### A scenario
+
+With `steps` in place of `inputs`, the file is a scenario of a coming
+period. Each step has `at`, a time after that of the start snapshot,
+and one input:
+
+```yaml
+start: run/hospital-1/snapshots/20261123T101502120Z
+out: replays/neighbour-down
+steps:
+  - at: 20261123T102500000Z
+    notice:
+      peer: hospital-2
+      kind: presence
+      data:
+        online: false
+  - at: 20261123T103500000Z
+    command:
+      name: admit
+      input:
+        patient: p-9
+        ward: cardiology
+```
+
+A step holds one of `transition`, `event`, `command`, `parameters`,
+`properties`, `peers` and `notice`, and is sent as the row of that
+kind is.
 
 ### The replay twin
 
@@ -178,7 +226,7 @@ state and source, not by entry number.
 
 ### Time
 
-A replay keeps the meaning of time, at a scale. `--speed 60` plays an
+A replay keeps the meaning of time, at a scale. `speed: 60` plays an
 hour in a minute, `1` plays at the speed of the clock, and `0.5`
 takes twice as long. The replay twin gives the same number to its
 scripts as `DT_TIME_SCALE`, to divide their own waits by, as a
@@ -226,17 +274,21 @@ snapshots: the operator. They need no principal of the twin.
 
 ### Decided
 
-| Question                   | Decision of 2026-11-23                                                                                            |
-| :------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-| Who makes a replay twin    | The operator, with a tool; the runner of the twin starts none                                                     |
-| Where the inputs come from | A later snapshot, not the live twin                                                                               |
-| What the tools talk to     | Snapshot directories; no URL of the twin and no key of it                                                         |
-| The parallel kind          | Not now                                                                                                           |
-| How time passes            | Time keeps its meaning, at a scale that the caller gives and the scripts get                                      |
-| Its own issue              | Yes, apart from 24                                                                                                |
-| The first step             | The tool enters the saved state again when its script was running                                                 |
-| The key of a replay twin   | The tool makes a fresh one for each run, and is its only principal                                                |
-| Who the first caller was   | Each replayed request names the principal and the `seq` that it had in the twin, and the replay twin records them |
+| Question                    | Decision of 2026-11-23                                                                                            |
+| :-------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| Who makes a replay twin     | The operator, with a tool; the runner of the twin starts none                                                     |
+| Where the inputs come from  | A later snapshot, not the live twin                                                                               |
+| What the tools talk to      | Snapshot directories; no URL of the twin and no key of it                                                         |
+| The parallel kind           | Not now                                                                                                           |
+| How time passes             | Time keeps its meaning, at a scale that the caller gives and the scripts get                                      |
+| Its own issue               | Yes, apart from 24                                                                                                |
+| The name of the second twin | Replay twin                                                                                                       |
+| The options of the tools    | One file that describes a replay; almost no flags (2026-11-24)                                                    |
+| Times in that file          | As the names of snapshots: `YYYYMMDDTHHMMSSmmmZ`, in UTC (2026-11-24)                                             |
+| After the last input        | The tool waits `settle` seconds for the replay twin to be idle                                                    |
+| The first step              | The tool enters the saved state again when its script was running                                                 |
+| The key of a replay twin    | The tool makes a fresh one for each run, and is its only principal                                                |
+| Who the first caller was    | Each replayed request names the principal and the `seq` that it had in the twin, and the replay twin records them |
 
 ## Plan
 
@@ -283,7 +335,8 @@ Provisional:
 - [ ] The gaps between the inputs are those of the twin over the
       speed, and each row has its `at`. Check:
       `test/unit/tools.replay.spec.ts`.
-- [ ] A scenario file feeds a replay twin. Check:
+- [ ] A file with `steps` feeds a replay twin, and a file with a
+      missing or unknown key is refused with its name. Check:
       `test/e2e/replay.spec.ts`.
 - [ ] The package installs the three commands. Check:
       `test/e2e/dist.spec.ts`.

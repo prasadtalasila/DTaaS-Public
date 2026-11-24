@@ -118,7 +118,9 @@ keeps it to ask for the result.
    directory named by the time,
    `<snapshots>/what-if/20261123T101502120Z/`. The copy is a
    snapshot: the manifest, `state.db`, the two files, `scripts/`, and
-   `files/` from the save script. No `snapshot` row is written, and
+   `files/` from the save script. It also holds the present as four
+   documents, listed [below](#what-the-script-reads). No `snapshot`
+   row is written, and
    the list of snapshots does not show it.
 2. **It answers `202`** with the `id`.
 3. **It runs the command**, with the input on stdin and two more
@@ -129,6 +131,40 @@ keeps it to ask for the result.
    the script ended.
 
 `DT_MODE` is `live` for every other script.
+
+### What the script reads
+
+The script has no address to ask, so everything it may want is in
+its copy. The present is there as documents, which a script reads
+with `jq` and no database client:
+
+| File              | The reply of      | Holds                                                          |
+| :---------------- | :---------------- | :------------------------------------------------------------- |
+| `state.json`      | `GET /state`      | The machine, the parameter values, the properties, the command |
+| `parameters.json` | `GET /parameters` | Each parameter with its declaration                            |
+| `properties.json` | `GET /properties` | Each property with its value, its time and its declaration     |
+| `peers.json`      | `GET /peers`      | Each peer, and what it last told: this is in no table          |
+
+The past is in `state.db`, a copy of the database of the runner. Its
+tables:
+
+| Table          | Holds                                                    | For a what-if                                                 |
+| :------------- | :------------------------------------------------------- | :------------------------------------------------------------ |
+| `timeline`     | Every row of [22](22-timeline.md)                        | The rate of admissions, what a peer told and when: **stable** |
+| `commands`     | Each run: name, status, output, caller, resource figures | How long a script takes; internal                             |
+| `properties`   | The latest value of each property                        | Use `properties.json`; internal                               |
+| `parameters`   | Each change of a parameter                               | Use `parameters.json`; internal                               |
+| `machine`      | The state, the entry and the status, in one row          | Use `state.json`; internal                                    |
+| `peers`        | Each enabling and disabling of a peer                    | Use `peers.json`; internal                                    |
+| `request_keys` | Which request key ran which command                      | Nothing; internal                                             |
+
+The documents and the `timeline` table are what a script may rely
+on: their shapes change only with a note in the README. The other
+tables are the runner's own and may change with any version.
+
+A forecast of the beds, for one, reads the free beds from
+`properties.json`, the admissions of the last hours from `timeline`,
+and whether hospital-2 is open from `peers.json`.
 
 ### The twin stays as it is
 
@@ -220,14 +256,12 @@ and a state without a transition for it would escalate.
 | The reply                          | At once, with an id; the result later                                              |
 | Without access control             | Refused                                                                            |
 | How the result reaches the Manager | `GET /whatif/<id>`, and a notification on the webhook and over MQTT                |
+| A time limit for the script        | None; a client or an operator stops it (2026-11-24)                                |
+| What the script may rely on        | The four documents of its copy, and the `timeline` table                           |
 
 ### Open questions
 
-1. **Which tables may a what-if read?** A script that queries
-   `state.db` depends on the tables of the runner. The documents
-   would name a few as stable, the timeline and the properties among
-   them, and leave the rest free to change.
-2. **How long is a result kept?** With the command history, which has
+1. **How long is a result kept?** With the command history, which has
    no limit now.
 
 ## Plan
@@ -261,7 +295,7 @@ Provisional:
       a database, a directory, access control, or a listed command.
       Check: `test/e2e/whatif.spec.ts`.
 - [ ] The script runs with `DT_MODE=what-if` and a copy that holds a
-      database that opens, and without `RUNNER_TOKEN` and
+      database that opens and the four documents, and without `RUNNER_TOKEN` and
       `RUNNER_URL`; the copy is gone after a success, a failure and a
       stop. Check: `test/e2e/whatif.spec.ts`.
 - [ ] The state document, the properties and the machine are the same
