@@ -473,10 +473,12 @@ again, in a replay twin, on what the twin was told.
 | start    | Before the period | Where the replay twin begins: database, class, scripts, files           |
 | inputs   | After the period  | The timeline, whose rows after the `seq` of the start are what happened |
 
-A replay is described in a file, and run from it:
+A replay is described in a file, and run from it. The file is
+`runner-replay.yaml` by default: without an argument the tool reads
+the file of that name in the current directory.
 
 ```yaml
-# scope-multi.yaml
+# runner-replay.yaml
 start: run/hospital-1/snapshots/20261122T220000000Z
 inputs: run/hospital-1/snapshots/20261123T060000000Z
 out: replays/scope-multi
@@ -487,7 +489,7 @@ set:
 ```
 
 ```bash
-runner-replay scope-multi.yaml
+runner-replay runner-replay.yaml
 ```
 
 | Key      | Needed               | Meaning                                                                              |

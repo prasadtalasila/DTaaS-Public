@@ -19,7 +19,7 @@ alone. Neither contacts the twin, and the runner of the twin starts
 nothing (S1 and S2 stand).
 
 ```yaml
-# scope-multi.yaml
+# runner-replay.yaml
 start: run/hospital-1/snapshots/20261122T220000000Z
 inputs: run/hospital-1/snapshots/20261123T060000000Z
 out: replays/scope-multi
@@ -30,12 +30,13 @@ set:
 ```
 
 ```bash
-runner-replay scope-multi.yaml
+runner-replay runner-replay.yaml
 runner-compare run/hospital-1/snapshots/20261123T060000000Z replays/scope-multi
 ```
 
-A replay is described in a file, so that it can be read, kept and
-run again. The owner asked on 2026-11-24 for fewer options than the
+A replay is described in a file, `runner-replay.yaml` by default, so
+that it can be read, kept and run again. Without an argument the
+tool reads the file of that name in the current directory. The owner asked on 2026-11-24 for fewer options than the
 ten flags of the first plan; the tool now takes the file and one
 flag.
 
