@@ -2,8 +2,10 @@ import { CommandRefused } from './dto/command.dto.js';
 import {
   CommandRecord,
   CommandResult,
+  CommandStatus,
 } from './interfaces/command.interface.js';
 import { RunOptions, RunOutcome } from './interfaces/runner.interface.js';
+import { NO_RESOURCES } from './resources/resources.js';
 
 // The outcome of a stored command; an unfinished or interrupted one
 // counts as failed
@@ -33,4 +35,25 @@ export function refuseInput(options?: RunOptions): void {
   if (options?.input !== undefined) {
     throw new CommandRefused('command running');
   }
+}
+
+// The latest command, as GET / answers it; none before the first
+export function commandStatus(command?: CommandRecord): CommandStatus {
+  if (command === undefined) {
+    const logs = { stdout: '', stderr: '' };
+    return {
+      name: 'none',
+      status: 'invalid',
+      logs,
+      exitCode: null,
+      resources: NO_RESOURCES,
+    };
+  }
+  return {
+    name: command.name,
+    status: command.status,
+    logs: { stdout: command.stdout, stderr: command.stderr },
+    exitCode: command.exitCode,
+    resources: command.resources,
+  };
 }

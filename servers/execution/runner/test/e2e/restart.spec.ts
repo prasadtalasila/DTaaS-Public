@@ -138,4 +138,26 @@ describe('Runner restarts', () => {
     },
     TIMEOUT,
   );
+
+  it(
+    'Should add a start row after the shutdown row of the last run',
+    async () => {
+      const first = await startLoop();
+      await stopRunner(closed(first));
+
+      const second = await start();
+      const rows = await get(second, '/timeline?kind=start,shutdown');
+      expect(rows.map(({ kind }: { kind: string }) => kind)).toEqual([
+        'start',
+        'shutdown',
+        'start',
+      ]);
+      expect(rows[2].data.state.machine).toMatchObject({
+        state: 'loop',
+        status: 'stopped',
+        entry: 1,
+      });
+    },
+    TIMEOUT,
+  );
 });

@@ -6,6 +6,7 @@ import { EscalationListener } from 'src/fsm/escalation';
 import MqttService from 'src/mqtt/mqtt.service';
 import Notifier from 'src/notify/notifier.service';
 import WebhookClient from 'src/notify/webhook.client';
+import Timeline from 'src/queue.timeline';
 
 const NOW = new Date('2026-10-25T10:00:00.000Z');
 
@@ -36,8 +37,16 @@ function transports() {
   const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());
   const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
   return {
-    mqtt: { notify, onConnect } as unknown as MqttService,
-    webhook: { post, sendOnce } as unknown as WebhookClient,
+    mqtt: {
+      notify,
+      onConnect,
+      status: () => 'connected',
+    } as unknown as MqttService,
+    webhook: {
+      post,
+      sendOnce,
+      enabled: () => true,
+    } as unknown as WebhookClient,
     calls: { notify, post, sendOnce },
     connect: () => connects.forEach((listener) => listener()),
   };
@@ -51,6 +60,7 @@ function setup() {
   const listeners: Array<() => void> = [];
   const escalations: EscalationListener[] = [];
   const source = {
+    timeline: () => new Timeline(),
     describe: () => descriptor,
     stateInterval: () => 1000,
     state: () => current,

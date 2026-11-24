@@ -106,7 +106,8 @@ _state-machine.yaml_ in `location` with the `stateMachine` key (see
 needs both changes.
 
 Version 0.11.0 added [properties](#properties), the role `sensor`, the
-[relationships](#relationships) section and `stateInterval`. It also
+[relationships](#relationships) section, `stateInterval` and the
+[timeline](#timeline). It also
 added the `class` section of the state machine file, the `parameters`
 key of _runner.yaml_ and subscriptions by `relationship`
 ([Class and Instance](#class-and-instance)), which add `class` to
@@ -173,8 +174,9 @@ database: 'runner.db'
 With a database file, the history, the status of the last command,
 the request keys of [repeated requests](#repeated-requests), the
 [state machine](#restarts), the [parameter values](#parameters), the
-latest [property values](#properties) and the switches of
-[PUT /peers](#peers-requests) survive a restart of the runner. No
+latest [property values](#properties), the switches of
+[PUT /peers](#peers-requests) and the [timeline](#timeline) survive a
+restart of the runner. No
 script survives one: a command that was running when the runner
 stopped is `interrupted` after the restart.
 The runner creates the directory of the database file if needed. Give
@@ -188,6 +190,26 @@ resources since the runner started.
 Version 0.10.0 made `GET /history` return these records instead of the
 names of the commands, with the `since` and `limit` parameters, and
 added `GET /metrics`.
+
+### Timeline
+
+The runner also keeps a timeline in its database: one row for each
+thing that entered the digital twin, changed in it, or left it. Each
+request to the state machine, each command, stop request, parameter,
+property and peer change, each notice of a peer, each entry into a
+state and each end of its script, each start and shutdown of the
+runner, and each notification it sends is a row. Rows are never
+deleted. A request row names its caller, and an entry the row that
+caused it. So the timeline tells why the digital twin is in
+its state, also after a restart; the command history tells only what
+each command did, and [GET /metrics](#metrics) only counts since the
+start.
+
+[GET /timeline](#get-request-to-timeline) returns the rows. With the
+database in memory the timeline is lost at a restart, as the history
+is. There is no limit on the rows: a sensor that changes a value at
+every write adds a row at every write, so watch the size of the
+database file.
 
 ### MQTT
 
@@ -338,6 +360,8 @@ auth:
   `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
   may read, raise events, escalate and write
   [properties](#properties).
+- Every role but `sensor` may read the [timeline](#timeline); only a
+  `client` sees the `input` of a command in it.
 - A `sensor` feeds property values from outside the runner, such as a
   gateway of the physical twin. It may read and write the properties
   and call nothing else. A `manager` may read the properties but not
@@ -523,9 +547,10 @@ script or `[Console]::In.ReadToEnd()` in a PowerShell script reads the
 whole input. Windows PowerShell decodes stdin in the console code page,
 so a PowerShell script may garble input that is not ASCII.
 
-The runner does not store the input, as it may hold personal data. It
-does store the output of each script, so a script that prints its
-input puts it in the [command history](#command-history).
+The command history does not hold the input, as it may hold personal
+data. The [timeline](#timeline) does, and shows it only to a `client`.
+The runner also stores the output of each script, so a script that
+prints its input puts it in the [command history](#command-history).
 
 ### Script Environment
 
@@ -994,7 +1019,8 @@ The runner keeps the latest value of each property in its
 [database](#command-history), and restores it with its time when it
 starts again. A stored value that no longer fits its declaration is
 dropped with a warning in the log, and the property is `null` again.
-There is no history of values.
+Each write that changes a value is also a row of the
+[timeline](#timeline).
 
 ### A File Without States
 
@@ -1293,13 +1319,13 @@ Access to the service on network is available at `http://<ip or hostname>:<port>
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
-The runner serves eighteen routes. Four run and stop commands, three
+The runner serves nineteen routes. Four run and stop commands, three
 drive the [state machine](#state-machine-requests), two read and set
 its [parameters](#parameters-requests), two read and write its
 [properties](#properties-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
 [its state](#get-request-to-state), one its [health](#health), one
-[metrics](#metrics), one
+[metrics](#metrics), one [its timeline](#get-request-to-timeline), one
 [escalates to the Manager](#escalation-requests) and two
 [read and switch its peers](#peers-requests). The routes for commands
 and their responses are:
@@ -1458,6 +1484,96 @@ curl 'http://localhost:5000/history?since=2026-10-26T14:56:00Z&limit=2'
 ```
 
 Any other value of either gets the validation error.
+
+#### GET Request to /timeline
+
+Returns the rows of the [timeline](#timeline), oldest first. Each row
+has `seq`, a number that only rises, `time`, to the millisecond,
+`kind`, `by` and `data`. `by` is the caller of a request row
+(`transition`, `event`, `command`, `stop`, `parameters`, `properties`,
+`peers`): a principal (see [Access Control](#access-control)),
+`script`, or `null` without access control. The rows that the runner
+writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`)
+have `by` `null`; to find who caused an entry, follow its `cause`.
+These rows are from a runner with access control: a transition by
+`alice` to `create`, whose script ended and led to `raise-event`,
+whose script raised `done` with its token:
+
+```http
+[
+  {
+    "seq": 2,
+    "time": "2026-11-24T08:22:02.924Z",
+    "kind": "transition",
+    "by": "alice",
+    "data": { "state": "create", "reply": { "status": "accepted", "state": "create" } }
+  },
+  {
+    "seq": 3,
+    "time": "2026-11-24T08:22:02.924Z",
+    "kind": "entry",
+    "by": null,
+    "data": { "state": "create", "entry": 1, "cause": 2 }
+  },
+  {
+    "seq": 4,
+    "time": "2026-11-24T08:22:02.953Z",
+    "kind": "exit",
+    "by": null,
+    "data": { "state": "create", "entry": 1, "status": "valid", "run": 1 }
+  },
+  {
+    "seq": 5,
+    "time": "2026-11-24T08:22:02.954Z",
+    "kind": "entry",
+    "by": null,
+    "data": { "state": "raise-event", "entry": 2, "cause": 4 }
+  },
+  {
+    "seq": 6,
+    "time": "2026-11-24T08:22:02.970Z",
+    "kind": "event",
+    "by": "script",
+    "data": { "event": "done", "source": "script", "reply": { "status": "accepted", "state": "execute" } }
+  },
+  {
+    "seq": 7,
+    "time": "2026-11-24T08:22:02.970Z",
+    "kind": "entry",
+    "by": null,
+    "data": { "state": "execute", "entry": 3, "cause": 6 }
+  }
+]
+```
+
+The `cause` of an entry is the `seq` of the request that led to it, or
+of the `exit` row whose completion did. Every entry has one `exit`
+row, written when its script ends, also when the script was stopped or
+never started; it may come after the next entry. The kinds are
+`start`, `transition`, `event`, `command`, `stop`, `parameters`,
+`properties`, `peers`, `notice`, `entry`, `exit`, `sent` and
+`shutdown`; [API.md](api/API.md#get-timeline) gives the data of each.
+The input of a command is shown only to a `client`, and to every
+caller without access control.
+
+The query selects the rows:
+
+- `after`, a `seq`: only the rows after it. A reader that wants every
+  row asks again with the `seq` of the last row it has.
+- `since` and `until`, ISO 8601 times with `Z` or an offset: only the
+  rows at or after `since`, and before `until`. Write the `+` of an
+  offset as `%2B`, as for [GET /history](#get-request-to-history).
+- `kind`: only the rows of these kinds, separated by commas.
+- `limit`, from 1 to 1000, by default 100: the oldest rows of the
+  selection.
+- `count=true`: the number of rows of the selection, as
+  `{"count": 18}`, and no rows.
+
+```bash
+curl 'http://localhost:5000/timeline?kind=entry,exit&limit=2'
+```
+
+Any other value gets the validation error, and a `sensor` gets `403`.
 
 #### GET Request to /dt
 
@@ -2046,6 +2162,7 @@ JSON as the matching HTTP request and response; with a
 | `<topic>/properties/set` | PUT /properties       | `{"<name>": <value>}`                      |
 | `<topic>/escalate`       | POST /escalate        | `{"reason": "<reason>"}`                   |
 | `<topic>/metrics`        | GET /metrics          | ignored                                    |
+| `<topic>/timeline`       | GET /timeline         | `{"kind": "command"}` or none              |
 | `<topic>/peers`          | GET /peers            | ignored                                    |
 | `<topic>/peers/set`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
 

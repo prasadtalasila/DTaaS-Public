@@ -35,6 +35,10 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [18-script-user.md](18-script-user.md)                 | Scripts as a second account | L    | in review   | #97  |
 | [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
 | [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
+| [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
+| [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | planned     |      |
+| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | planned     |      |
+| [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
 a week or more.
@@ -96,6 +100,22 @@ The fourth round, planned on 2026-11-22:
 21 takes C1, C3 and W8 of the [proposed work](#proposed-work): the
 state machine file becomes a class that several instances share.
 
+The fifth round, planned on 2026-11-23:
+
+```text
+19 properties, 21 dt-class ─> 22 timeline ─> 23 snapshot ─> 24 what-if ─> 25 replay
+```
+
+The owner asked for W3 as three things: a timeline to query, a twin
+that an operator can save and reinstate, and what-if. 23 adds the role
+`operator` (S21). What-if became two issues. In 24 a Manager asks the
+twin, which runs one script on a private copy. In 25 the operator
+replays a recorded period in a replay twin, with two tools that work
+from snapshots. 24 reopens the non-goal on forecasts and exogenous
+triggers.
+[save-reinstate-what-if.md](../save-reinstate-what-if.md) sets the
+features of 22 to 25 side by side, with their formats.
+
 ## Proposed Work
 
 Recorded on 2026-11-22. The research documents propose more work than
@@ -116,7 +136,6 @@ _inferred_ when it follows from what the proposal changes.
 | :-- | :------------------------------------------ | :--- | :-------------------------------- | :--------------------------- | :-------------------------- |
 | W1  | Revision number and change list on state    | S    | none                              | stated                       |                             |
 | W2  | Coalesce queued state notifications         | S    | none                              | stated                       |                             |
-| W3  | Durable transition and parameter timeline   | M    | none                              | stated                       |                             |
 | W4  | Script timings and delivery counters        | S    | none                              | stated                       |                             |
 | W5  | DT lifecycle as its own axis                | M    | none                              | stated                       |                             |
 | W6  | Script-declared sync with the physical twin | S    | 19                                | inferred                     | the "PT mirroring" non-goal |
@@ -136,9 +155,9 @@ _inferred_ when it follows from what the proposal changes.
 | SIM | Native `simulations` key                    | –    | 19, BRC, fixes in the bridge      | stated                       | D2 and S6                   |
 
 C2, the types of the properties, is part of 19. C1, C3 and W8 are
-issue [21](21-dt-class.md). C6 of the comparison is
-a decision to keep telemetry streams out, so it is no work. TMR, BRC
-and SIM carry no size in their source.
+issue [21](21-dt-class.md), and W3 is issue [22](22-timeline.md). C6
+of the comparison is a decision to keep telemetry streams out, so it
+is no work. TMR, BRC and SIM carry no size in their source.
 
 ```text
 19 ─┬─> W6
@@ -152,7 +171,7 @@ and SIM carry no size in their source.
 W1 ─> W10
 A ─> B
 
-W2, W3, W4, W5, W9, W11, AUG, TMR: no open dependency
+W2, W4, W5, W9, W11, AUG, TMR: no open dependency
 ```
 
 Orders that block nothing but save rework:
@@ -161,15 +180,17 @@ Orders that block nothing but save rework:
   notifications, and 19 already coalesces through `stateInterval`.
 - W4 before W2 and W9: W2 counts the escalations it drops and W9 is
   rate-limited or counted, both through W4's counters.
-- W3 with W9: whether domain events enter the timeline is an open
+- 22 with W9: whether domain events enter the timeline is an open
   question of both.
+- W1 before 22, or with it: the timeline could give the state document
+  its revision.
 - W5 before W6: where the sync flag lives is open, and the lifecycle
   axis is one candidate.
 - 21 and W9 before C4: the exported description names the class and
   lists the domain events.
 - W1 and W10 before AUG: a function then computes on one revision of
   the state, and a stateful function gets updates without polling.
-- A after W1, W3 and W5: the engine change re-maps the machine and its
+- A after W1, 22 and W5: the engine change re-maps the machine and its
   persistence, which is cheaper once the state document has settled.
 
 ## Delivery
@@ -233,6 +254,9 @@ open) or `done`.
 | S18 | A fourth role, `sensor`, may write and read the properties and nothing else. A `manager` may read them, never write them. Amends S10.                                                                      |
 | S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
+| S21 | A fifth role, `operator`, runs the twin and may copy it: reads, snapshots and `stop`. It can not steer the twin. A `manager` steers and can not copy. `client` keeps every right. Amends S10.              |
+| S22 | A DT is saved by a route that pauses the runner, outside the state machine. A snapshot is a directory with the database, the configuration, the class and its scripts, and what the scripts keep.          |
+| S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a replay twin, with tools. S1 and S2 stand.                 |
 
 ## Lessons for Every Issue
 
@@ -319,6 +343,18 @@ From implementing 15b:
   prettier re-pad every row; keep a new decision within the widths of
   the table, or the rows of parallel issues conflict.
 
+From implementing 22:
+
+- A row of the timeline is written where the thing happens, not where
+  its result is stored: a script that a stop or a later entry made
+  stale is never stored, and its end was missed until the exit row
+  came from the end of the run.
+- Order is part of the record. Write a row before the signal that
+  notifies of it, and check the order in a test with a real `Queue`,
+  as a mock keeps any order.
+- The caller of a request is in `callerContext`; a new writer of rows
+  reads it there instead of taking the caller as a parameter.
+
 ## Deferred
 
 From the research notes, with the decision that blocks each:
@@ -338,7 +374,8 @@ Out of scope for every file here, with what could reopen each:
 - More than one DT per runner (research notes, open question 12).
 - The runner as Manager, or any runner-side policy evaluation such as
   P1's `γ_i` (open questions 5 and 6).
-- Forecasts and exogenous triggers (open question 9).
+- Forecasts and exogenous triggers (open question 9), in the twin
+  itself. [24](24-what-if.md) plans them for a copy of it.
 - Server-sent events as a push transport (open question 2); the
   webhook of 03 covers HTTP.
 - A stdout line protocol for scripts to raise events (open question

@@ -66,6 +66,7 @@ describe('Test AppController', () => {
     expect(spyManager).toHaveBeenCalledWith(executeCommandDto.name, undefined, {
       ...runOptions(executeCommandDto, {}),
       env: expect.objectContaining({ DT_ID: 'test-runner' }),
+      onRun: expect.any(Function),
     });
     expect(resStatus).toHaveBeenCalledWith(httpStatus);
     expect(resSend).toHaveBeenCalledWith(resBody);

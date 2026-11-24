@@ -7,11 +7,15 @@ import { StoredMachine } from 'src/dto/fsm.dto';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import { PeerConfig } from 'src/peers/peers.config';
-import { CommandResult } from 'src/interfaces/command.interface';
-import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
+import {
+  CommandOptions,
+  CommandResult,
+} from 'src/interfaces/command.interface';
+import { RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import { NO_RESOURCES } from 'src/resources/resources';
 import type { ScriptUser } from 'src/scripts/separation';
+import Timeline from 'src/queue.timeline';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -35,8 +39,13 @@ export const MACHINE_FILE = 'machine.yaml';
 
 export const settle = () => new Promise(setImmediate);
 
-// What the service passes with each script: its environment
-export const withEnv = { env: expect.any(Object) };
+// What the service passes with each script: its environment, and the
+// listeners of its run and its end, which write the exit row
+export const withEnv = {
+  env: expect.any(Object),
+  onRun: expect.any(Function),
+  ended: expect.any(Function),
+};
 
 // The names of the scripts that the fake manager was asked to run
 export const names = (calls: unknown[][]) => calls.map(([name]) => name);
@@ -66,7 +75,7 @@ function fakeManager() {
   const manager = {
     isRunning: jest.fn((name: string) => finishers.has(name)),
     newCommand: jest.fn(
-      (name: string, _key?: string, _options?: RunOptions) =>
+      (name: string, _key?: string, _options?: CommandOptions) =>
         new Promise<CommandResult>((resolve) => {
           finishers.set(name, (outcome) => {
             finishers.delete(name);
@@ -96,6 +105,7 @@ export function createService(file: string | undefined, user?: ScriptUser) {
     getScriptUser: () => user,
   } as unknown as Config;
   const queue = {
+    timeline: new Timeline(),
     setParameters: jest.fn(),
     parameterValues: jest.fn(() => ({})),
     saveMachine: jest.fn(),

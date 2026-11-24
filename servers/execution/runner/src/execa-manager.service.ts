@@ -7,7 +7,7 @@ import {
   CommandStatus,
   Manager,
 } from './interfaces/command.interface.js';
-import { refuseInput, storedResult } from './command-result.js';
+import { commandStatus, refuseInput, storedResult } from './command-result.js';
 import Queue from './queue.service.js';
 import { CommandRefused } from './dto/command.dto.js';
 import {
@@ -22,8 +22,7 @@ import {
 } from './dto/health.dto.js';
 import RunnerFactory from './runner-factory.service.js';
 import Config from './config/configuration.service.js';
-import Runner, { RunOptions } from './interfaces/runner.interface.js';
-import { NO_RESOURCES } from './resources/resources.js';
+import Runner from './interfaces/runner.interface.js';
 
 // A command run in progress, its row in the queue, and its runner; a
 // command that is not permitted has no runner
@@ -55,13 +54,14 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     const requestKey = key === '' ? undefined : key;
     const earlier = this.earlierRequest(requestKey);
     if (earlier !== undefined) {
-      return this.repeat(name, earlier);
+      return this.repeat(name, earlier, options);
     }
     const current = this.running.get(name);
     if (current === undefined) {
       return this.start(name, requestKey, options);
     }
     refuseInput(options);
+    options?.onRun?.(current.id);
     return this.join(name, current, requestKey);
   }
 
@@ -91,6 +91,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   private async repeat(
     name: string,
     earlier: CommandRecord,
+    options?: CommandOptions,
   ): Promise<CommandResult> {
     if (earlier.name !== name) {
       this.logger.warn(
@@ -98,6 +99,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       );
       throw new CommandRefused('invalid command');
     }
+    options?.onRun?.(earlier.id);
     this.logger.log(`Discarded a repeated request for ${JSON.stringify(name)}`);
     const current = this.running.get(name);
     if (current?.id === earlier.id) {
@@ -112,6 +114,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     options?: CommandOptions,
   ): Promise<CommandResult> {
     const id = this.commandQueue.enqueue(name, requestKey, options?.by);
+    options?.onRun?.(id);
     const runner = this.createRunner(name);
     const result = this.finish(name, this.execute(id, runner, options));
     this.running.set(name, { id, result, runner });
@@ -145,7 +148,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
   private async execute(
     id: number,
     runner?: Runner,
-    options?: RunOptions,
+    options?: CommandOptions,
   ): Promise<CommandResult> {
     if (runner === undefined) {
       this.commandQueue.refuse(id);
@@ -158,6 +161,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       runner.checkExitCode(),
       runner.checkResources(),
     ];
+    options?.ended?.(outcome, id);
     this.commandQueue.complete(id, result);
     return result;
   }
@@ -197,31 +201,8 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     return this.running.has(name);
   }
 
-  private static createStatus(name: string, status: string) {
-    return {
-      name,
-      status,
-      logs: {
-        stdout: '',
-        stderr: '',
-      },
-      exitCode: null,
-      resources: NO_RESOURCES,
-    };
-  }
-
   checkStatus(): CommandStatus {
-    const command = this.commandQueue.activeCommand();
-    if (command === undefined) {
-      return ExecaManager.createStatus('none', 'invalid');
-    }
-    return {
-      name: command.name,
-      status: command.status,
-      logs: { stdout: command.stdout, stderr: command.stderr },
-      exitCode: command.exitCode,
-      resources: command.resources,
-    };
+    return commandStatus(this.commandQueue.activeCommand());
   }
 
   // Without a query, the defaults of GET /history

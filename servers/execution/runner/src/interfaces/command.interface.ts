@@ -27,9 +27,15 @@ type CommandRecord = {
   finishedAt: string | null;
 };
 
-// What a command request passes on: the options of its script, and the
-// caller that submitted it, which the queue stores
-type CommandOptions = RunOptions & { by?: string };
+// What a command request passes on: the options of its script, the
+// caller that submitted it, which the queue stores, and listeners of
+// the run in the history that the request was given, called at once
+// unless refused, and of the end of a run, called before it is stored
+type CommandOptions = RunOptions & {
+  by?: string;
+  onRun?: (id: number) => void;
+  ended?: (outcome: RunOutcome, id: number) => void;
+};
 
 type CommandStatus = {
   name: string;

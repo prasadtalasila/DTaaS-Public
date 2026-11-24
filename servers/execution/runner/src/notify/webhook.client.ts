@@ -30,6 +30,11 @@ export default class WebhookClient implements BeforeApplicationShutdown {
 
   constructor(private readonly config: Config) {}
 
+  // Whether the configuration has a webhook to post to
+  enabled(): boolean {
+    return this.config.getNotify() !== undefined;
+  }
+
   // Resolves once the notification is delivered or given up
   post(notification: NotificationDto): Promise<void> {
     const webhook = this.config.getNotify();

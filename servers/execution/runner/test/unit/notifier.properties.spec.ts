@@ -10,6 +10,7 @@ import DescriptorService from 'src/descriptor.service';
 import MqttService from 'src/mqtt/mqtt.service';
 import Notifier from 'src/notify/notifier.service';
 import WebhookClient from 'src/notify/webhook.client';
+import Timeline from 'src/queue.timeline';
 
 const document = (state: string, freeBeds: number | null) => ({
   id: 'hospital-1',
@@ -26,6 +27,7 @@ function setup() {
   let current = document('open', null);
   const listeners: Array<() => void> = [];
   const source = {
+    timeline: () => new Timeline(),
     describe: () => ({ id: 'hospital-1' }),
     state: () => current,
     stateInterval: () => 1000,
@@ -37,8 +39,12 @@ function setup() {
   const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
   const notifier = new Notifier(
     source as unknown as DescriptorService,
-    { notify, onConnect: () => undefined } as unknown as MqttService,
-    { post, sendOnce } as unknown as WebhookClient,
+    {
+      notify,
+      onConnect: () => undefined,
+      status: () => 'connected',
+    } as unknown as MqttService,
+    { post, sendOnce, enabled: () => true } as unknown as WebhookClient,
   );
   notifier.onModuleInit();
   notifier.onApplicationBootstrap();

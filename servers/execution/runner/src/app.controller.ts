@@ -87,10 +87,11 @@ export default class AppController {
     const { name } = executeCommandDto;
     const env = this.fsm.environment(name);
     const reply = await executeReply(
-      this.manager.newCommand(
-        name,
-        requestKey,
-        runOptions(executeCommandDto, env, by),
+      this.descriptor.timeline().command(executeCommandDto, (onRun) =>
+        this.manager.newCommand(name, requestKey, {
+          ...runOptions(executeCommandDto, env, by),
+          onRun,
+        }),
       ),
     );
     res.status(EXECUTE_STATUS_CODES[reply.status]).send(reply);
@@ -103,6 +104,7 @@ export default class AppController {
   async stop(
     @Body(new ZodValidationPipe(stopSchema)) { name }: StopDto,
   ): Promise<StopResponseDto> {
+    this.descriptor.timeline().record('stop', { name: name ?? null });
     return { stopped: await this.manager.stop(name) };
   }
 

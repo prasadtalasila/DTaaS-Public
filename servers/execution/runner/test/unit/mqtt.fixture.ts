@@ -11,6 +11,7 @@ import { MqttConfig } from 'src/mqtt/mqtt.config';
 import { HistoryQuery } from 'src/dto/history.dto';
 import { CommandOptions } from 'src/interfaces/command.interface';
 import { RunOutcome } from 'src/interfaces/runner.interface';
+import Timeline from 'src/queue.timeline';
 
 // An MQTT client that records its calls, for the MQTT service tests
 export class FakeClient extends EventEmitter {
@@ -152,6 +153,7 @@ export const metricsDocument = {
 
 // A DescriptorService, for the MQTT request handler tests
 export const fakeDescriptor = () => ({
+  timeline: () => new Timeline(),
   describe: jest.fn(() => dt),
   state: jest.fn(() => stateDocument),
   metrics: jest.fn(() => metricsDocument),

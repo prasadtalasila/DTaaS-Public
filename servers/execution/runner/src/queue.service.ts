@@ -23,6 +23,7 @@ import { INSERT_PEER, PEER_SWITCHES, toSwitches } from './queue.peers.js';
 import type { PropertyRow } from './fsm/properties.js';
 import { storedProperties, upsertProperties } from './queue.properties.js';
 import { createSchema, inTransaction } from './queue.schema.js';
+import Timeline from './queue.timeline.js';
 import {
   COMMAND_COUNTS,
   HISTORY,
@@ -52,6 +53,9 @@ export default class Queue {
 
   // Signals a command that starts or finishes
   private readonly changes = new Changes();
+
+  // What entered the DT, changed in it and left it, in this database
+  readonly timeline = new Timeline(() => this.db);
 
   // The highest id before this start, and the rows it marked interrupted
   private start = { id: 0, interrupted: 0 };
@@ -181,6 +185,7 @@ export default class Queue {
         insert.run(name, JSON.stringify(value), time),
       ),
     );
+    this.timeline.changes('parameters', Object.fromEntries(changes));
   }
 
   // The latest value of each parameter; the highest id is the latest,
@@ -204,6 +209,7 @@ export default class Queue {
     inTransaction(this.db, () =>
       changes.forEach((enabled, id) => insert.run(id, Number(enabled), time)),
     );
+    this.timeline.changes('peers', Object.fromEntries(changes));
   }
 
   // The latest switch of each peer that PUT /peers changed
@@ -213,7 +219,8 @@ export default class Queue {
 
   // Replaces the latest values of one request together, or none of them
   saveProperties(rows: PropertyRow[]): void {
-    inTransaction(this.db, () => upsertProperties(this.db, rows));
+    const upsert = () => upsertProperties(this.db, rows);
+    this.timeline.changes('properties', inTransaction(this.db, upsert));
   }
 
   storedProperties(): PropertyRow[] {

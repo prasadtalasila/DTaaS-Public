@@ -16,11 +16,26 @@ const UPSERT = `INSERT INTO properties (name, value, time, by)
   VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET
   value = excluded.value, time = excluded.time, by = excluded.by`;
 
-export function upsertProperties(db: DatabaseSync, rows: PropertyRow[]): void {
+// Stores the rows, and returns the values that differ from the stored
+// ones: a write of the same value only moves its time
+export function upsertProperties(
+  db: DatabaseSync,
+  rows: PropertyRow[],
+): Record<string, unknown> {
+  const stored = new Map(
+    storedProperties(db).map(({ name, value }) => [
+      name,
+      JSON.stringify(value),
+    ]),
+  );
   const upsert = db.prepare(UPSERT);
   rows.forEach(({ name, value, time, by }) =>
     upsert.run(name, JSON.stringify(value), time, by),
   );
+  const changed = rows.filter(
+    ({ name, value }) => stored.get(name) !== JSON.stringify(value),
+  );
+  return Object.fromEntries(changed.map(({ name, value }) => [name, value]));
 }
 
 export const storedProperties = (db: DatabaseSync): PropertyRow[] =>

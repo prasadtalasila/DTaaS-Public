@@ -8,6 +8,7 @@ import FsmService from 'src/fsm/fsm.service';
 import { AnswerListener } from 'src/fsm/requests';
 import Changes from 'src/notify/changes';
 import Queue from 'src/queue.service';
+import Timeline from 'src/queue.timeline';
 
 const COUNTS = {
   valid: 2,
@@ -41,17 +42,25 @@ function createService(start: FsmStateDto | undefined) {
   const fsm = {
     check: () => machine,
     declared: () => undefined,
+    parameters: () => undefined,
     onChange: jest.fn((listener: () => void) => changes.on(listener)),
     onAnswer: jest.fn<(listener: AnswerListener) => void>(),
     onEscalation: jest.fn<(listener: EscalationListener) => void>(),
   };
   const queue = {
+    timeline: new Timeline(),
     commandCounts: jest.fn(() => COUNTS),
     resourceTotals: jest.fn(() => TOTALS),
     peerSwitches: () => new Map(),
+    activeCommand: () => undefined,
+  };
+  const config = {
+    getId: () => 'hospital-1',
+    getPeers: () => [],
+    getParameters: () => ({}),
   };
   const service = new DescriptorService(
-    { getPeers: () => [] } as unknown as Config,
+    config as unknown as Config,
     fsm as unknown as FsmService,
     queue as unknown as Queue,
   );

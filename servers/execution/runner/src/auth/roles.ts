@@ -31,6 +31,7 @@ export const ROUTE_ROLES: Record<MqttRoute, RouteRoles> = {
   // a manager tunes parameters; it may not write what the DT observes
   properties: [...EVERY_ROLE, 'sensor'],
   'set-properties': ['client', 'script', 'sensor'],
+  timeline: EVERY_ROLE,
 };
 
 export const ACCESS_ROUTE = 'accessRoute';

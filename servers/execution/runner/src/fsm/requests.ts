@@ -2,6 +2,8 @@ import { Logger } from '@nestjs/common';
 import { fsmReply, FsmReplyDto } from '../dto/fsm.dto.js';
 import RecentReplies from './recent-replies.js';
 import StateMachine from './state-machine.js';
+import { callerContext } from '../auth/caller-context.js';
+import type Timeline from '../queue.timeline.js';
 
 export type Handle = (machine: StateMachine) => FsmReplyDto;
 
@@ -26,6 +28,8 @@ export default class Requests {
   constructor(
     private readonly current: () => Current,
     private readonly logger: Logger,
+    // read at each request, as the service is still being built now
+    private readonly timeline: () => Timeline,
   ) {}
 
   onAnswer(listener: AnswerListener): void {
@@ -67,8 +71,13 @@ export default class Requests {
     });
   }
 
+  // Each request that is handled is a row of the timeline, with its
+  // reply
   private answer(request: FsmRequest, handle: Handle): FsmReplyDto {
-    const reply = this.compute(handle);
+    const { kind, name } = request;
+    const reply = this.timeline().request(kind, name, () =>
+      this.compute(handle),
+    );
     this.listeners.forEach((listener) => listener(request, reply));
     return reply;
   }
@@ -87,12 +96,18 @@ export default class Requests {
   // Answers the events that a parameter change raises: the replies go
   // nowhere, so a refused event is logged, and none escalates
   raiseAll(events: string[], move: Move): void {
+    const raise = (event: string) =>
+      this.answer({ kind: 'event', name: event }, (machine) =>
+        move(machine, event),
+      );
+    const source = {
+      ...callerContext.getStore(),
+      source: 'parameter',
+    } as const;
     events.forEach((event) =>
       logStay(
         this.logger,
-        this.answer({ kind: 'event', name: event }, (machine) =>
-          move(machine, event),
-        ),
+        callerContext.run(source, () => raise(event)),
         event,
       ),
     );

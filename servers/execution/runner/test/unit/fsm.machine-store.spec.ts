@@ -6,6 +6,7 @@ import { parseDefinition } from 'src/fsm/definition';
 import MachineStore from 'src/fsm/machine-store';
 import Parameters from 'src/fsm/parameters';
 import Queue from 'src/queue.service';
+import Timeline from 'src/queue.timeline';
 
 const definition = parseDefinition(
   `
@@ -25,6 +26,7 @@ function fakeQueue(
 ) {
   return {
     saveMachine: jest.fn(),
+    timeline: new Timeline(),
     loadMachine: jest.fn(() => stored),
     markInterrupted: jest.fn(),
     parameterValues: jest.fn(() => values),
