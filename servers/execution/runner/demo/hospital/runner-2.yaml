@@ -19,6 +19,7 @@ commands:
   - discharge
   - save-script
   - restore-script
+  - forecast-beds
 # the class that hospital-1 runs too; this instance has one bed per
 # ward, and no neighbour to follow
 stateMachine: 'hospital.fsm.yaml'

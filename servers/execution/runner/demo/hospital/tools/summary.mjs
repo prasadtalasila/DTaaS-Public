@@ -43,7 +43,15 @@ function escalation(data) {
   return `escalation ${data.trigger} ${where}: ${data.reason}${proposal}`;
 }
 
-const SUMMARIES = { state, presence, escalation };
+// The end of a what-if, with the free beds that forecast-beds forecast
+function whatif(data) {
+  const { 'free-beds': free, horizon } = data.result ?? {};
+  const forecast =
+    free === undefined ? '' : `: free-beds=${free} in ${horizon}`;
+  return `whatif ${data.name} run ${data.id} ${data.status}${forecast}`;
+}
+
+const SUMMARIES = { state, presence, escalation, whatif };
 const LOUD = { escalation: 33, presence: 1 };
 
 function summary({ kind, time, data }, color) {

@@ -104,7 +104,8 @@ starts again and logs the new place for overflow. `open` and `full`
 read that place from `GET $RUNNER_URL/peers`: the nearest peer that is
 online and in state `open`, or none.
 
-The Manager submits two commands, declared under `manager.commands`:
+The Manager submits two commands, declared under `manager.commands`,
+and asks the [what-if](#what-if) `forecast-beds`, listed there too:
 
 - `admit` with input `{"patient": "p-1", "ward": "cardiology"}` on
   stdin. Under scope `single` the patient goes to the requested ward
@@ -241,6 +242,77 @@ and `GET /fsm` answered:
 
 An event or a transition moves the hospital on.
 
+## What-If
+
+The Manager asks `hospital-1` how many beds are free after a horizon,
+under a scenario, and the runner answers on a private copy of the twin
+([WHAT-IF.md](../../WHAT-IF.md)). The class names the command, and
+lists it for the Manager too:
+
+```yaml
+# the commands that POST /whatif runs on a private copy of the twin
+whatIf:
+  commands:
+    - forecast-beds
+```
+
+Both runners permit `forecast-beds`. It reads the scenario on stdin,
+and refuses to run when `DT_MODE` is not `what-if`. The forecast
+itself is [scripts/forecast.mjs](scripts/forecast.mjs), which both
+versions run with node and which says what it computes: the free beds
+now, from the capacity of `parameters.json` and the patients of
+`files/ward.json`, that `save-script` copied; the admissions less the
+discharges of the last hour, from the `timeline` table of `state.db`,
+read with `node:sqlite`; and the free beds at the horizon, where each
+step that takes a peer offline doubles the rate from its time on. It
+prints a JSON result, with `"token": "absent"` when the script has no
+`RUNNER_TOKEN`.
+
+| Script          | Linux                                  | Windows                                        |
+| :-------------- | :------------------------------------- | :--------------------------------------------- |
+| `forecast-beds` | [forecast-beds](scripts/forecast-beds) | [forecast-beds.ps1](scripts/forecast-beds.ps1) |
+
+The bash script was run; the PowerShell one has not been run yet.
+
+The chapter "What-if" of [tools/steps-peers.mjs](tools/steps-peers.mjs)
+comes after "Webhook" and before "Save and reinstate", with
+`hospital-1` in `closed` and `hospital-2` killed. `manager-1` asks
+`POST /whatif` for `forecast-beds` with a horizon of two hours and
+`hospital-2` offline from ten minutes on; the reply, `202` with the
+id, goes to `run/whatif.txt`, and the step waits until
+`GET /whatif/<id>` has ended (`whatIfEnded` of
+[tools/waits.mjs](tools/waits.mjs)). `GET /whatif/<id>` shows the
+result, the network pane its `whatif` notification
+([tools/summary.mjs](tools/summary.mjs)), and the last line the
+machine, still `closed` `valid`, and no copy left under
+`run/hospital-1/snapshots/what-if`. `record.mjs` reinstates from the
+last snapshot beside that directory. The recordings predate the
+what-ifs and do not show the chapter; they are recorded again after
+issue 25. In two runs of the whole Linux demo, the chapter showed:
+
+```json
+{
+  "id": 17,
+  "name": "forecast-beds",
+  "status": "valid",
+  "mode": "what-if",
+  "receivedAt": "2026-11-24T13:58:00.000Z",
+  "by": "manager-1",
+  "exitCode": 0,
+  "result": {
+    "free-beds": 0,
+    "horizon": "PT2H",
+    "free-now": 1,
+    "admissions-per-hour": 5,
+    "state-now": "closed",
+    "peers-offline-now": ["hospital-2"],
+    "token": "absent"
+  },
+  "finishedAt": "2026-11-24T13:58:00.000Z",
+  "resources": { "cpuSeconds": 0, "peakRssBytes": 1294336, "processes": 1 }
+}
+```
+
 ## Assumptions
 
 - Two hospital DTs; the other DTs of the network and the Manager's
@@ -290,8 +362,10 @@ together, so that they stay in step and end at the same time.
 
 On Linux the runner starts a script by its bare name, so `scripts/`
 has a shell version of each `.ps1` script: `open`, `full`, `closed`,
-`admit` and `discharge`, with the helpers of `ward.sh`. They need
-`bash`, `jq` and `curl`. The steps name the script of the platform
+`admit`, `discharge`, `save-script`, `restore-script` and
+`forecast-beds`, with the helpers of `ward.sh`. They need
+`bash`, `jq` and `curl`; `forecast-beds` needs `bash` and `node`.
+The steps name the script of the platform
 where they show one, and their narration differs in two lines.
 
 ### Keys, Access Control and Signatures

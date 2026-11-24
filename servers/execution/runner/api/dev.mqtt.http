@@ -11,7 +11,8 @@
 // A route that writes is one level under the topic that reads:
 // parameters/set, properties/set and peers/set. Version 0.12.0 removed
 // the set-parameters and set-peers topics of before 0.11. The save of
-// a snapshot is snapshot/set; no topic removes a snapshot.
+// a snapshot is snapshot/set; no topic removes a snapshot. A what-if
+// is asked on whatif/set, and its result read on whatif.
 
 @broker = mqtt://localhost:1883
 @topic = dtaas/user1/runner
@@ -85,6 +86,30 @@ Publish: {{topic}}/snapshot/set
 QoS: 1
 
 {}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name whatif
+MQTT {{broker}}
+Subscribe: {{topic}}/whatif/set/response
+Publish: {{topic}}/whatif/set
+QoS: 1
+
+{"name": "forecast-beds", "input": {"horizon": "PT2H"}}
+=== wait-for-server
+{{ "" }}
+
+###
+
+# @name whatif-result
+MQTT {{broker}}
+Subscribe: {{topic}}/whatif/response
+Publish: {{topic}}/whatif
+QoS: 1
+
+{"id": 5}
 === wait-for-server
 {{ "" }}
 

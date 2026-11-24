@@ -19,6 +19,7 @@ commands:
   - discharge
   - save-script
   - restore-script
+  - forecast-beds
 stateMachine: 'hospital.fsm.yaml'
 database: 'run/hospital-1/hospital.db'
 # where POST /snapshot saves the twin

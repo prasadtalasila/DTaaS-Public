@@ -171,6 +171,58 @@ trusts the snapshot as it trusts its own database: it checks the
 format, the class `id` and that it writes over no database, and runs
 the restore script of the class with the snapshot's `files/`.
 
+### What-Ifs
+
+A what-if (issue 24) runs one command of the class on a private copy
+of the DT, which a save makes under `<snapshots.directory>/what-if/`
+([WHAT-IF.md](WHAT-IF.md)). The owner decided that a what-if can not
+change the live DT. What sees to that:
+
+- **No token and no address.** The script of a what-if gets neither
+  `RUNNER_TOKEN` nor `RUNNER_URL`. The runner leaves them out of its
+  own variables, drops them from the environment it inherited in any
+  case, and interpolates a declared `${RUNNER_URL}` or
+  `${RUNNER_TOKEN}` as empty (`apiVariables` and `withoutApi` in
+  `src/fsm/script-context.ts`). The script can not raise an event,
+  write a property or escalate; it reads its copy and prints.
+- **Refused without access control.** Without `auth.principals` every
+  route is open to any process of the host, so a missing token would
+  protect nothing. `POST /whatif` is then refused with `409`
+  `no access control`.
+- **A copy of the database.** The script reads `state.db` of its copy.
+  A query on the live database file could hold up the writes of the
+  runner, and nothing could keep it from writing.
+- **No published result.** The result is in the command history,
+  `GET /whatif/<id>` and a `whatif` notification. It is no property;
+  `GET /`, the state document and the state notifications skip the
+  run and the save run of its copy.
+- **Live runs and what-ifs apart.** A what-if of a command that runs
+  live is refused with `409` `command running`, also when the live run
+  starts while the copy is made, and a live run of a command whose
+  what-if runs with `409` `what-if running`, over HTTP and MQTT. So the
+  live DT never takes the output of a what-if, and a what-if never
+  joins a live run, which has neither the copy nor the what-if
+  environment. A class may not use a state as a what-if command.
+
+The copy holds what a snapshot holds, the history with its logs and
+the timeline with its inputs, and four documents of the present:
+the state, the parameters, the properties and what each peer last
+told. Its directory has mode `0700`. It is removed when the run ends,
+however it ends, and at the next start after a crash.
+
+Who may ask: a `client`, and a `manager` for a command that
+`whatIf.commands` and `manager.commands` both list. A `manager`
+reads the result of any what-if, also one that another caller asked
+for; an `operator` reads results and stops what-ifs, and asks for
+none.
+
+What it does not do: the script runs as the account of the runner, as
+every script does. Nothing but its author keeps it from the live files
+of the scripts or the live database file. With `scripts.user` a class
+with a save script can not be saved, so a what-if is refused with
+`409` `save script of another account`, and no what-if runs as the
+script account.
+
 ### The Boundary Between Users
 
 The boundary between users of one machine is the orchestrator's: a

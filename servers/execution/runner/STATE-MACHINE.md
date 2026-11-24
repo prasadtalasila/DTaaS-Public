@@ -373,6 +373,8 @@ it may write.
 | `DT_STATE`        | the state whose script this is; for `POST /`, the current state         |
 | `DT_ENTRY`        | the number of that entry into a state, counted from 1                   |
 | `DT_PARAM_<NAME>` | the value of each parameter when the script starts, as `DT_PARAM_SCOPE` |
+| `DT_MODE`         | `live`, or `what-if` for the script of a [what-if](#what-if)            |
+| `DT_WHATIF_DIR`   | the private copy of the DT, for the script of a what-if only            |
 
 `<NAME>` is the parameter name in upper case, with `.` and `-` as `_`.
 The file may add variables for every script and for one state:
@@ -491,6 +493,34 @@ printf '{"beds":3}' > run/ward-1/ward.json.tmp &&
 
 The runner sends a script no signal before a save.
 
+### What-If
+
+```yaml
+whatIf:
+  commands:
+    - forecast-beds
+```
+
+The commands that `POST /whatif` runs on a private copy of the DT,
+which a save makes, so that a Manager can ask about a state the DT is
+not in; [WHAT-IF.md](WHAT-IF.md) is the guide. The runner does not
+start when:
+
+- a command is not one of the `commands` of _runner.yaml_:
+  `✖ what-if command forecast-ward is not a permitted command`;
+- a command is the name of a state:
+  `✖ what-if command work is the script of a state, which runs for the
+machine; a what-if needs a script of its own`;
+- the file has `whatIf` and no `snapshot.save`:
+  `✖ whatIf needs snapshot.save, which makes its copy`.
+
+A `manager` may ask only for a command that `manager.commands` lists
+as well. The script gets the input on stdin, `DT_MODE=what-if`, the
+copy in `DT_WHATIF_DIR`, and neither `RUNNER_URL` nor `RUNNER_TOKEN`;
+it prints its result. A what-if command is no state, so its run never
+holds up or is stopped by a transition; a live run of it while its
+what-if runs is refused with `409` `what-if running`.
+
 ### Subscriptions to Peers
 
 A DT can react to its peers, the DTs that the operator lists under
@@ -580,6 +610,8 @@ problem, when:
 - `$success` and `$failure` transitions alone form a loop;
 - a name breaks the naming rule, a parameter, `env` or `escalation`
   entry is invalid, or a manager command is not permitted;
+- a [what-if](#what-if) command is not permitted or is a state, or
+  `whatIf` comes without `snapshot.save`;
 - a property has a keyword that the runner does not know or that does
   not apply to its type, a number without a `unit`, an array without
   `items` or an object without `properties`, an `enum` value of another
@@ -1322,6 +1354,15 @@ manager:
   commands:
     - admit
     - discharge
+    - forecast-beds
+# the commands that copy the beds into a snapshot and back from one
+snapshot:
+  save: save-script
+  restore: restore-script
+# the commands that POST /whatif runs on a private copy of the twin
+whatIf:
+  commands:
+    - forecast-beds
 # events that the runner raises when a neighbour changes: a peer that
 # runner.yaml gives the relationship neighbour
 subscriptions:
@@ -1408,6 +1449,10 @@ As above, `transition` starts the machine and `(stop)` marks
   so that _open_ starts again and finds the new place for overflow.
 - The Manager runs `admit` and `discharge` with `POST /` and an
   `input` object; `discharge` raises `beds-free`.
+- `save-script` and `restore-script` copy the beds into a snapshot and
+  back, and the Manager asks `forecast-beds` with `POST /whatif`: the
+  free beds after a horizon, computed on a copy of the DT
+  ([WHAT-IF.md](WHAT-IF.md)).
 
 The requests of the recording to `hospital-1`, with their replies.
 The recording predates version 0.11.0, so it shows neither `free-beds`

@@ -44,3 +44,14 @@ export function logHas(file, text, times = 1) {
 export function healthy(id) {
   return async () => (await get(id, '/health'))?.mqtt === 'connected';
 }
+
+// The what-if whose reply is in the file of run/ has ended
+export function whatIfEnded(id, file) {
+  return async () => {
+    const reply = readFileSync(`run/${file}`, 'utf8');
+    const run = /"id": (\d+)/.exec(reply)[1];
+    return ['valid', 'invalid', 'stopped'].includes(
+      (await get(id, `/whatif/${run}`))?.status,
+    );
+  };
+}

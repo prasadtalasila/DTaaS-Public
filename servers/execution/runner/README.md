@@ -24,6 +24,8 @@ Other documents of the runner:
 
 - [STATE-MACHINE.md](STATE-MACHINE.md): writing and running a state
   machine.
+- [WHAT-IF.md](WHAT-IF.md): asking a twin a question on a private copy
+  of itself.
 - [api/API.md](api/API.md): every route, topic and notification, with
   examples.
 - [DOCKER.md](DOCKER.md): running the runner in a container.
@@ -147,6 +149,15 @@ digital twin and the `--reinstate` option
 changes the digital twin may now get `503` with the status `saving`,
 while a save runs.
 
+Version 0.13.0 adds [what-ifs](#what-ifs): the `whatIf` section of the
+state machine file, the routes `POST /whatif` and `GET /whatif/<id>`,
+the MQTT topics `<topic>/whatif/set` and `<topic>/whatif`, the
+notification kind `whatif`, the timeline kind `whatif`, `mode` in
+[GET /history](#get-request-to-history), and the script variables
+`DT_MODE` and `DT_WHATIF_DIR`. Every script now gets `DT_MODE`. A
+database file of an earlier version gains a `mode` column at the first
+start.
+
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
 
@@ -217,8 +228,8 @@ thing that entered the digital twin, changed in it, or left it. Each
 request to the state machine, each command, stop request, parameter,
 property and peer change, each notice of a peer, each entry into a
 state and each end of its script, each start and shutdown of the
-runner, each [save](#saving), and each notification it sends is a
-row. Rows are never
+runner, each [save](#saving) and [what-if](#what-ifs), and each
+notification it sends is a row. Rows are never
 deleted. A request row names its caller, and an entry the row that
 caused it. So the timeline tells why the digital twin is in
 its state, also after a restart; the command history tells only what
@@ -412,10 +423,14 @@ auth:
   runner's own scripts call it in the role `script` with the token in
   `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
   may read, raise events, escalate and write
-  [properties](#properties).
+  [properties](#properties). A `manager` may ask for a
+  [what-if](#what-ifs) of a command that `whatIf.commands` and
+  `manager.commands` both list.
 - An `operator` runs the runner and keeps the digital twin running: it
-  may read, stop commands, and save, list and remove
-  [snapshots](#snapshots). It may not steer the twin. A `manager`
+  may read, stop commands, save, list and remove
+  [snapshots](#snapshots), and read the result of a
+  [what-if](#what-ifs). It may not steer the twin or ask for a
+  what-if. A `manager`
   steers it and may not copy it.
 - Every role but `sensor` may read the [timeline](#timeline); only a
   `client` and an `operator` see the `input` of a command in it.
@@ -624,6 +639,8 @@ and gets `HOME`, `USER` and `LOGNAME` of that account and `PATH` set to
 | `DT_STATE`        | the state of the [state machine](#state-machine), as below        |
 | `DT_ENTRY`        | the entry number of that state, as below                          |
 | `DT_PARAM_<NAME>` | the value of each [parameter](#parameters) when the script starts |
+| `DT_MODE`         | `what-if` for the script of a [what-if](#what-ifs), else `live`   |
+| `DT_WHATIF_DIR`   | the private copy of the twin, for the script of a what-if only    |
 
 For a script that the state machine runs, `DT_STATE` and `DT_ENTRY` name
 the state it enters and the number of that entry. For a script of `POST
@@ -635,6 +652,9 @@ variables too, and neither `DT_STATE` nor `DT_ENTRY`.
 `RUNNER_URL` uses the port that the runner listens on. `RUNNER_TOKEN` is
 drawn anew at each start and is unset without `auth.principals`. The
 state machine file may [declare more variables](#declared-environment).
+The script of a what-if gets neither `RUNNER_URL` nor `RUNNER_TOKEN`,
+also when the runner inherited them, and a declared `${RUNNER_URL}` is
+empty for it.
 
 The `DOCKER.md` file in the
 [runner source](https://github.com/INTO-CPS-Association/DTaaS/tree/feature/distributed-demo/servers/execution/runner)
@@ -1362,6 +1382,23 @@ command`. Each gets the directory `files/` of the snapshot as
 [STATE-MACHINE.md](STATE-MACHINE.md#snapshot) tells what an author does
 so that a twin can be saved.
 
+### What-If Commands
+
+The state machine file may name the commands that `POST /whatif` runs
+on a private copy of the twin ([What-Ifs](#what-ifs)):
+
+```yaml
+whatIf:
+  commands:
+    - forecast-beds
+```
+
+Each must be one of the `commands` of _runner.yaml_ and no state, and
+the class needs `snapshot.save`, which makes the copy; else the runner
+does not start: `✖ what-if command forecast-ward is not a permitted
+command`. A `manager` may ask only for those that `manager.commands`
+lists too.
+
 ## Use
 
 Display help.
@@ -1544,13 +1581,42 @@ their next notices), the replies kept for request keys, or the
 moved on in the meantime, and the scripts of the class catch up with
 it.
 
+### What-Ifs
+
+A Manager asks a twin about a state that it is not in. The runner
+saves the twin into a private copy under
+`<snapshots.directory>/what-if/`, answers at once with the id of the
+run, runs one command of [whatIf.commands](#what-if-commands) on the
+copy, keeps what it printed as the result, and removes the copy.
+Nothing of the live twin changes. [WHAT-IF.md](WHAT-IF.md) is the
+guide for authors and Managers.
+
+```bash
+curl -X POST http://localhost:5100/whatif -H "Authorization: Bearer $JWS" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"forecast-beds","input":{"horizon":"PT2H"}}'
+```
+
+```json
+{ "id": 5, "name": "forecast-beds", "status": "running" }
+```
+
+`GET /whatif/5` then answers the run, with its `result` once it has
+ended, and a notification of kind `whatif` tells the end. The script
+gets `DT_MODE=what-if`, the copy in `DT_WHATIF_DIR`, the input on
+stdin, and neither `RUNNER_URL` nor `RUNNER_TOKEN`. A what-if needs a
+[database file](#command-history), the [snapshots](#snapshots)
+section and [access control](#access-control); without one it gets
+`409`. Each what-if pauses the twin for a save and copies the
+database.
+
 ### Application Programming Interface (API)
 
 [API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
-The runner serves twenty-two routes. Four run and stop commands, three
+The runner serves twenty-four routes. Four run and stop commands, three
 drive the [state machine](#state-machine-requests), two read and set
 its [parameters](#parameters-requests), two read and write its
 [properties](#properties-requests), one
@@ -1558,8 +1624,9 @@ its [parameters](#parameters-requests), two read and write its
 [its state](#get-request-to-state), one its [health](#health), one
 [metrics](#metrics), one [its timeline](#get-request-to-timeline), one
 [escalates to the Manager](#escalation-requests), two
-[read and switch its peers](#peers-requests) and three save, list and
-remove its [snapshots](#snapshot-requests). The routes for commands
+[read and switch its peers](#peers-requests), three save, list and
+remove its [snapshots](#snapshot-requests) and two ask for a
+[what-if](#what-if-requests) and read its result. The routes for commands
 and their responses are:
 
 | REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
@@ -1700,7 +1767,11 @@ script used:
 ```
 
 The status is `running` until the command finishes, then as
-[GET /](#get-request-to-), and the logs stay on `GET /`. Two optional
+[GET /](#get-request-to-), and the logs stay on `GET /`. The run of a
+[what-if](#what-ifs) has `"mode": "what-if"`, and its output is in
+`GET /whatif/<id>`; `GET /` and the state document skip it, and the
+save run that makes its copy, which the history shows without a
+`mode`. Two optional
 query parameters select the records:
 
 - `since`, an ISO 8601 time with `Z` or an offset: the records received
@@ -2327,6 +2398,33 @@ snapshot:
 curl -X DELETE http://localhost:5317/snapshot/20261124T124851220Z
 ```
 
+#### What-If Requests
+
+`POST /whatif` asks for a [what-if](#what-ifs) with the body of
+`POST /`, and answers `202` once the copy is made:
+
+```json
+{ "id": 5, "name": "forecast-beds", "status": "running" }
+```
+
+`GET /whatif/<id>` answers the run, and once it has ended its
+`exitCode`, `result`, `finishedAt` and `resources`; `result` is the
+output parsed as JSON, or the text. A refused request answers:
+
+- `400` with `{"status": "invalid command"}` for a command that
+  `whatIf.commands` lacks;
+- `409` with `{"status": "no database"}`, `"no snapshot directory"`
+  or `"no access control"`, or the `409` of a save;
+  `{"status": "command running"}` while the command runs live;
+- `503` with `{"status": "saving"}` and `Retry-After: 1` during a
+  save, or `{"status": "shutting down"}`;
+- `500` with the outcome of the save script when it fails;
+- `404` on `GET /whatif/<id>` for an id that is no what-if.
+
+A second request for a command whose what-if runs gets the same `id`.
+A live `POST /` of that command gets `409` with
+`{"status": "what-if running"}`.
+
 #### Health
 
 `GET /health` tells whether the runner answers and whether its
@@ -2445,6 +2543,8 @@ JSON as the matching HTTP request and response; with a
 | `<topic>/peers/set`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
 | `<topic>/snapshot`       | GET /snapshot         | ignored                                    |
 | `<topic>/snapshot/set`   | POST /snapshot        | `{"stop": true}`, `{}` or none             |
+| `<topic>/whatif/set`     | POST /whatif          | `{"name": "<command name>", "input": {}}`  |
+| `<topic>/whatif`         | GET /whatif/<id>      | `{"id": 57}`                               |
 
 A topic that writes is one level under the topic that reads the same
 resource: `<topic>/parameters/set`, `<topic>/properties/set` and
@@ -2458,7 +2558,8 @@ them, so a request on one gets no answer. The routes keep their names
 in the 403 replies of [access control](#access-control):
 `set-parameters`, `set-properties` and `set-peers`. The snapshots take
 the same form, with the routes `snapshots` and `save`; no topic
-removes a snapshot.
+removes a snapshot. So do the what-ifs, with the routes `whatif` and
+`whatif-result`.
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on
@@ -2574,8 +2675,9 @@ key is replaced as soon as the runner connects, so a receiver that
 requires signatures drops it and waits.
 
 `kind` is `state` for a state document, `presence` for the notices of
-[presence](#presence), or `escalation` for an
-[escalation](#escalation):
+[presence](#presence), `whatif` for the end of a [what-if](#what-ifs),
+with its `id`, `name`, `status`, `exitCode` and `result`, or
+`escalation` for an [escalation](#escalation):
 
 ```json
 {
@@ -2608,8 +2710,9 @@ requires signatures drops it and waits.
 With MQTT enabled, the runner publishes each notification with QoS 1 on
 `<topic>/notify/<kind>`, for example `<topic>/notify/state`. A state
 notification is retained, so that a Manager that subscribes later
-receives the current state at once; an escalation is not, so that a
-Manager that subscribes later does not act on an old one. The
+receives the current state at once; an escalation or a what-if is
+not, so that a Manager that subscribes later does not act on an old
+one. The
 notification topics are two levels under the base topic, so
 `<topic>/+/response` does not match them; subscribe to
 `<topic>/notify/+` instead. While the broker is unreachable, the runner

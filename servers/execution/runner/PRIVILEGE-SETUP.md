@@ -394,10 +394,14 @@ script of the class can not write into a snapshot or read one. With
   Error: Can not reinstate with /opt/dt/runner.yaml: with scripts.user the restore script runs as another account, which can not read a snapshot that only the account of the runner reads. Leave out scripts.user to reinstate, then add it again, or name no restore script in the class and copy files/ of the snapshot by hand.
   ```
 
+- A [what-if](WHAT-IF.md) is refused with the same `409`. Its class
+  must name a save script, which makes the private copy, so with
+  `scripts.user` no what-if runs.
+
 What the operator can do:
 
 - Keep what the scripts need in properties, and name no save or
-  restore script in the class.
+  restore script in the class. The class then has no what-ifs.
 - Reinstate without `scripts.user`, then stop the runner, add the
   section again and start it as usual; the twin resumes from its
   database. The files that the restore script wrote then belong to

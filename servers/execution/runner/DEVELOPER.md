@@ -254,6 +254,49 @@ save use the fake manager of `test/unit/snapshot.fixture.ts`. The test
 of mode `0700` is skipped on Windows, and `test/e2e/dist.spec.ts` runs
 the build with `--reinstate` on a directory that is no snapshot.
 
+### What-If Code and Tests
+
+What-ifs (issue 24) live in `src/whatif/`, with the routes in
+`src/whatif.controller.ts` and the replies in `src/dto/whatif.dto.ts`.
+[WHAT-IF.md](WHAT-IF.md) is the user guide, and D55 to D58 of the
+[design](docs/state-machine-design.md) the reasons. Before changing
+them:
+
+- `WhatIfs` (`whatifs.ts`, 215 lines) is a plain object that
+  `DescriptorService` owns, as `Snapshots` is. The notifier hears the
+  end of each run through `onEnd`. `DescriptorService.onModuleInit`
+  calls `clearLeftovers`, and its `beforeApplicationShutdown` calls
+  `stop`.
+- The copy is a save: `Snapshots.saveInto` with `record: false` and a
+  `whatIf` hook that writes the four documents of `present.ts` before
+  the save script runs. The save run is stored with mode
+  `what-if-copy`, the run of the command with `what-if`; `ACTIVE` of
+  `queue.history.ts` (`mode IS NULL`) keeps both out of `GET /`, the
+  state document and the state notifications.
+- `asked` holds the id of each what-if from the request until its copy
+  is gone, so a request during the copy joins; `running` holds the end
+  of each run. `begin` checks `isRunning` before the save and again
+  after it, and nothing is awaited from the second check to
+  `newCommand`: keep it so, or a live run can start between them.
+- `refuseOtherMode` in `src/command-result.ts` keeps live runs and
+  what-ifs of one command apart in `ExecaManager`.
+- The environment comes from `FsmService.environment(name, copy)`;
+  `apiVariables` and `withoutApi` of `src/fsm/script-context.ts` leave
+  out `RUNNER_URL` and `RUNNER_TOKEN`. `fsm.service.ts` is at 248
+  lines and `queue.service.ts` at 246: move code out before adding.
+
+The end-to-end tests build a twin with `whatIfTwin` of
+`test/e2e/whatif.util.ts`, turn access control on with
+`controlAccess`, and sign with `call`. `forecast` copies its copy and
+its environment into the twin's directory and prints its mode and
+input; `forecast-slow` waits for the file `go`, and `save-slow` for
+`release`, so a test holds a run or a copy open. Each script has a
+shell and a PowerShell version; the PowerShell ones have not run on
+Windows. The tests are split by subject: `whatif.spec.ts` (the run,
+the copy, an unchanged twin), `whatif.run.spec.ts` (joins, stops,
+modes, roles), `whatif.copy.spec.ts` (during the copy, and the save's
+refusals), `whatif.refuse.spec.ts` and `whatif.notify.spec.ts`.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files
