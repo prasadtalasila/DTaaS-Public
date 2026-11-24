@@ -93,6 +93,16 @@ describe('Runner configuration schema', () => {
       /Unrecognized key[\s\S]*script/,
     ],
     [
+      'peers at the top, which 0.12 removed',
+      { ...valid, peers: [{ id: 'hospital-2', topic: 'dtaas/hospital-2' }] },
+      /Unrecognized key: "peers"/,
+    ],
+    [
+      'notify at the top, which 0.12 removed',
+      { ...valid, notify: { url: 'https://manager.example.org/dt-events' } },
+      /Unrecognized key: "notify"/,
+    ],
+    [
       'an empty state machine path',
       { ...valid, stateMachine: '' },
       /at stateMachine/,

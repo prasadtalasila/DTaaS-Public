@@ -61,7 +61,8 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
 - `peers` under `relationships` lists the DTs this one follows; see
   [Subscriptions to Peers](#subscriptions-to-peers).
 - Before version 0.11.0, `notify` and `peers` were at the top of the
-  file. Both still load there in 0.11, with a warning, and go in 0.12
+  file. Version 0.11 still loaded them there, with a warning; 0.12.0
+  refuses them and names the new path
   ([README](README.md#relationships)).
 
 ## Class and Instance
@@ -218,8 +219,8 @@ states:
 - Two names that become the same variable name, such as `a-b` and
   `A_B`, are refused, and so are the names `set` and `response`.
 - Before version 0.11.0 an enum was written `type: enum` with a list
-  of `values`. That spelling still loads in 0.11, with a warning in
-  the log, and goes in 0.12; write `type: string` with `enum`.
+  of `values`. Version 0.11 still loaded that spelling, with a warning
+  in the log, and 0.12.0 refuses it; write `type: string` with `enum`.
 
 The `default` is that of the [class](#class-and-instance). An instance
 sets its own value under `parameters` in _runner.yaml_:
@@ -703,8 +704,8 @@ subscription reacts to notices and has no timeout.
 }
 ```
 
-An enum shows as `"type": "string"` with `"enum"`, also when the file
-still spells it `type: enum`. Before version 0.11.0 the reply had
+An enum shows as `"type": "string"` with `"enum"`. Before version
+0.11.0 the reply had
 `"type": "enum"` and `"values"`. `default` is the value that
 `parameters` of _runner.yaml_ gives the parameter, else the `default`
 of the file.
@@ -1046,8 +1047,9 @@ A topic that writes is one level under the topic that reads, so the
 default response topic of a write is `<topic>/parameters/set/response`.
 A subscription to `<topic>/+/response` does not match it: subscribe to
 `<topic>/+/set/response` as well, or give an MQTT 5 response topic.
-Before version 0.11.0 the write topic was `<topic>/set-parameters`; it
-still answers in 0.11, with a warning in the log, and goes in 0.12.
+Before version 0.11.0 the write topic was `<topic>/set-parameters`;
+0.11 still answered it, with a warning in the log, and 0.12.0 removes
+it, so a request on it gets no answer.
 
 MQTT has no status codes, so the `status` in the body is the outcome.
 Over MQTT 5, the request key is the `idempotency-key` user property.

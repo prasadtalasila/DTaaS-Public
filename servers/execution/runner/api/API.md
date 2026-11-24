@@ -16,9 +16,9 @@ example comes from elsewhere. The
 [Example Session](#example-session) at the end retells the recording as
 one story.
 
-The recording predates version 0.11.0, which this document describes.
-The replies of [GET /parameters](#get-parameters) are shown as 0.11
-gives them, the state documents of the recording lack the `properties`
+The recording predates version 0.11.0, and this document describes
+0.12.0. The replies of [GET /parameters](#get-parameters) are shown as
+0.11 and later give them, the state documents of the recording lack the `properties`
 member, and the examples of [properties](#properties) are not from the
 recording. The descriptors are shown with the `class` member and the
 peers with the `relationship` member, which 0.11 added after the
@@ -908,9 +908,10 @@ also the `value` until a request changes it. `hospital-2`, whose
 configuration sets `capacity` to 1, shows `"value": 1` and
 `"default": 1`.
 Version 0.11.0 changed the reply for an enum, which was
-`"type": "enum"` with `"values"`. It is `"type": "string"` with
-`"enum"` also for a file that still declares `type: enum` with
-`values`, which loads until 0.12 with a warning in the log.
+`"type": "enum"` with `"values"`; it is `"type": "string"` with
+`"enum"`. A state machine file that declares `type: enum` with
+`values` loaded in 0.11, with a warning, and does not load from
+0.12.0.
 
 ### PUT /parameters
 
@@ -1763,19 +1764,16 @@ reads the resource, so that one resource is one subtree, which a
 broker can grant as a whole, such as `<topic>/properties/#` to a
 sensor:
 
-| Resource   | Read                 | Write                    | Write before 0.11        |
-| :--------- | :------------------- | :----------------------- | :----------------------- |
-| parameters | `<topic>/parameters` | `<topic>/parameters/set` | `<topic>/set-parameters` |
-| properties | `<topic>/properties` | `<topic>/properties/set` | none                     |
-| peers      | `<topic>/peers`      | `<topic>/peers/set`      | `<topic>/set-peers`      |
+| Resource   | Read                 | Write                    | Write before 0.11, removed in 0.12 |
+| :--------- | :------------------- | :----------------------- | :--------------------------------- |
+| parameters | `<topic>/parameters` | `<topic>/parameters/set` | `<topic>/set-parameters`           |
+| properties | `<topic>/properties` | `<topic>/properties/set` | none                               |
+| peers      | `<topic>/peers`      | `<topic>/peers/set`      | `<topic>/set-peers`                |
 
-- The write topics of before 0.11 still answer in 0.11, and 0.12 drops
-  them. There never was a `set-properties` topic. The runner logs one
-  warning at the first request on each old topic:
-
-  ```text
-  dtaas/hospital-1/set-parameters moved to dtaas/hospital-1/parameters/set; the old topic goes in 0.12
-  ```
+- Version 0.11 still answered the write topics of before 0.11, with a
+  warning. Version 0.12.0 removes them: the runner does not subscribe
+  to them, and a request on one gets no answer. There never was a
+  `set-properties` topic.
 
 - The names `set` and `response` are reserved, as a write topic and a
   default response topic sit under the read topic: the runner refuses
@@ -2464,7 +2462,16 @@ shares. `hospital-1` is asked unless the request names `hospital-2`.
 
 ## Version
 
-This document describes runner version 0.11.0. It added
+This document describes runner version 0.12.0. It removes what 0.11
+deprecated, and a file or a request that uses one is refused:
+
+| Removed                                                          | Use instead                                                                          |
+| :--------------------------------------------------------------- | :----------------------------------------------------------------------------------- |
+| `notify` and `peers` at the top of the configuration             | `relationships.manager.notify`, `relationships.peers`                                |
+| `type: enum` with `values`, for a parameter                      | `type: string` with `enum`                                                           |
+| The MQTT topics `<topic>/set-parameters` and `<topic>/set-peers` | `<topic>/parameters/set` and `<topic>/peers/set` ([Request Topics](#request-topics)) |
+
+Version 0.11.0 added
 [properties](#properties), the role `sensor`, `stateInterval`, the
 `relationships` section of the configuration and a state machine file
 without states. It also added the `class` section of the state machine
@@ -2482,12 +2489,8 @@ changes break a client of 0.10:
 - The names `set` and `response` are reserved for parameters,
   properties and peer ids.
 
-Deprecated in 0.11 and removed in 0.12, each with a warning in the log
-until then: `notify` and `peers` at the top of the configuration,
-which moved under `relationships`
-([README](../README.md#relationships)); `type: enum` with `values` for
-a parameter; and the MQTT topics `<topic>/set-parameters` and
-`<topic>/set-peers` (see [Request Topics](#request-topics)).
+It deprecated the three spellings that 0.12.0 removes and still took
+them, each with a warning in the log.
 
 Version 0.10.0 made
 [GET /history](#get-history) return full records and added

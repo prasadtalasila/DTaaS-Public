@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import path from 'node:path';
 import * as yaml from 'js-yaml';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import Keyv from 'keyv';
 import { z } from 'zod';
 import {
@@ -12,7 +12,6 @@ import {
 } from './config.interface.js';
 import { Attributes } from './attributes.js';
 import { configSchema } from './config.schema.js';
-import { toLayout } from './layout.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
 import { AuthConfig } from '../auth/auth.config.js';
@@ -23,8 +22,6 @@ import { NotifyConfig } from '../notify/notify.config.js';
 import { PeerConfig } from '../peers/peers.config.js';
 import { ScriptsConfig } from '../scripts/scripts.config.js';
 import { checkSeparation, ScriptUser } from '../scripts/separation.js';
-
-const logger = new Logger('Config');
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -58,23 +55,35 @@ function protoProblem(content: unknown): string | undefined {
   return found && `✖ __proto__ is not a valid name\n  → at ${found[0]}`;
 }
 
-// The problem of a __proto__ key or of a section set in both layouts
-const layoutProblem = (content: unknown, problems: string[]) =>
-  protoProblem(content) ?? problems.map((problem) => `✖ ${problem}`).join('\n');
+// The keys that moved under relationships in 0.11; 0.12 refuses them
+const MOVED: Readonly<Record<string, string>> = {
+  notify: 'relationships.manager.notify',
+  peers: 'relationships.peers',
+};
 
-// Takes the layout of before 0.11 too, with a warning for each old key
-function parseConfig(source: unknown, file: string): ConfigValues {
-  const { content, warnings, problems } = toLayout(source);
-  const problem = layoutProblem(content, problems);
-  if (problem !== '') {
+// zod names an unknown key only, so say where each old key moved
+const movedKeys = (error: z.ZodError): string[] =>
+  error.issues
+    .flatMap((issue) =>
+      issue.code === 'unrecognized_keys' && issue.path.length === 0
+        ? issue.keys
+        : [],
+    )
+    .filter((key) => Object.hasOwn(MOVED, key))
+    .map((key) => `✖ ${key} moved to ${MOVED[key]} in 0.11`);
+
+function parseConfig(content: unknown, file: string): ConfigValues {
+  const problem = protoProblem(content);
+  if (problem !== undefined) {
     throw invalid(file, problem);
   }
-  warnings.forEach((warning) =>
-    logger.warn(`${file}: ${warning}; the old key goes in 0.12`),
-  );
   const result = configSchema.safeParse(content);
   if (!result.success) {
-    throw invalid(file, z.prettifyError(result.error));
+    const problems = [
+      z.prettifyError(result.error),
+      ...movedKeys(result.error),
+    ];
+    throw invalid(file, problems.join('\n'));
   }
   return result.data;
 }

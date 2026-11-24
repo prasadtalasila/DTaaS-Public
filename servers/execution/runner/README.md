@@ -122,11 +122,22 @@ key of _runner.yaml_ and subscriptions by `relationship`
 - The names `set` and `response` are reserved: no parameter, property
   or peer id may take them.
 
-Three spellings of earlier versions still work in 0.11, each with a
-warning in the log, and go in 0.12: `notify` and `peers` at the top of
-_runner.yaml_ ([Relationships](#relationships)), `type: enum` with
-`values` for a [parameter](#parameters), and the MQTT topics
-`<topic>/set-parameters` and `<topic>/set-peers` ([MQTT API](#mqtt-api)).
+Three spellings of earlier versions still worked in 0.11, each with a
+warning in the log: `notify` and `peers` at the top of _runner.yaml_
+([Relationships](#relationships)), `type: enum` with `values` for a
+[parameter](#parameters), and the MQTT topics `<topic>/set-parameters`
+and `<topic>/set-peers` ([MQTT API](#mqtt-api)).
+
+Version 0.12.0 removes those three spellings:
+
+| Removed                                          | Use instead                                           |
+| :----------------------------------------------- | :---------------------------------------------------- |
+| `notify` and `peers` at the top of _runner.yaml_ | `relationships.manager.notify`, `relationships.peers` |
+| `type: enum` with `values`, for a parameter      | `type: string` with `enum`                            |
+| The MQTT topics `set-parameters` and `set-peers` | `parameters/set` and `peers/set`                      |
+
+The runner does not start with a file that uses one of the first two,
+and does not answer a request on an old topic.
 
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
@@ -273,19 +284,19 @@ _runner.yaml_:
 | `notify`    | `relationships.manager.notify` |
 | `peers`     | `relationships.peers`          |
 
-- Version 0.11 loads either layout. For each old key the runner logs
-  one warning at startup:
+Version 0.11 loaded either layout, with a warning for each old key.
+Version 0.12.0 removes the old keys: a file with one does not load,
+and the error names the new path:
 
-  ```text
-  runner.yaml: notify moved to relationships.manager.notify; the old key goes in 0.12
-  ```
+```text
+Invalid configuration in /opt/dt/runner.yaml:
+✖ Unrecognized keys: "notify", "peers"
+✖ notify moved to relationships.manager.notify in 0.11
+✖ peers moved to relationships.peers in 0.11
+```
 
-- A section set in both places stops the runner at startup, with
-  `peers and relationships.peers are both set`.
-- A problem in an old key is reported at its new path, such as
-  `at relationships.peers[0].topic`.
-- Version 0.12 removes the old keys. To migrate, indent each section
-  under its new path; its content does not change.
+To migrate, indent each section under its new path; its content does
+not change.
 
 ### Webhook
 
@@ -878,8 +889,9 @@ states:
   parameter needs quotes, as in `'20'`. A `number` parameter refuses
   `"20"`, a string, and `.inf` and `.nan`.
 - Before version 0.11.0 an enum was written `type: enum` with
-  `values: [single, multi]`. That spelling still loads in 0.11, with a
-  warning in the log that names the parameters, and goes in 0.12.
+  `values: [single, multi]`. Version 0.11 loaded that spelling with a
+  warning, and 0.12.0 refuses it as an unknown key and an invalid
+  type; write `type: string` with `enum`.
 - `controllable` is `false` unless given. Only controllable parameters
   can be [set over the API](#parameters-requests); the others are
   configuration that the digital twin shares with a Manager.
@@ -2172,11 +2184,11 @@ resource: `<topic>/parameters/set`, `<topic>/properties/set` and
 `<topic>/properties/#` alone. The names `set` and `response` are
 therefore reserved: no parameter, property or peer id may take them.
 Before version 0.11.0 the write topics were `<topic>/set-parameters`
-and `<topic>/set-peers`. The runner still answers them in 0.11, with
-one warning in its log at the first request on each, and drops them in
-0.12. The routes keep their names in the 403 replies of
-[access control](#access-control): `set-parameters`, `set-properties`
-and `set-peers`.
+and `<topic>/set-peers`. Version 0.11 still answered them, with a
+warning, and 0.12.0 removes them: the runner does not subscribe to
+them, so a request on one gets no answer. The routes keep their names
+in the 403 replies of [access control](#access-control):
+`set-parameters`, `set-properties` and `set-peers`.
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on

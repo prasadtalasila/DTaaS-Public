@@ -46,8 +46,8 @@ state machine.
 
 `main.ts` starts the runner in this order, and the order matters:
 
-1. `Config.loadConfig` reads `runner.yaml`; `toLayout` first moves the
-   keys of before 0.11 to their paths under `relationships` (D42).
+1. `Config.loadConfig` reads `runner.yaml`; a key of before 0.11 is
+   refused, with its path under `relationships` (D42).
 1. `FsmService.load()` reads and checks the state machine file, before
    the database opens, so that an invalid file stops the runner before
    it touches the database. `loadConfigured` reads it as the instance
@@ -105,7 +105,6 @@ state machine.
 | `dto/timeline.dto.ts`        | timeline kinds, query schema, rows, and the `input` a role may see     |
 | `dto/parameters.dto.ts`      | parameters body schema and document                                    |
 | `dto/properties.dto.ts`      | properties body schema, document and the entry of the state document   |
-| `config/layout.ts`           | `toLayout`: moves the `runner.yaml` keys of before 0.11 (D42)          |
 | `descriptor.service.ts`      | builds `GET /dt`, `GET /state`, `GET /metrics`; forwards signals       |
 | `peers/peers.ts`             | `Peers`: the listed peers, their switches and their last notices       |
 | `peers/peers.config.ts`      | the `relationships.peers` schema, unique and not the runner            |
@@ -125,7 +124,7 @@ state machine.
 | `notify/notifier.service.ts` | sends state, escalation and presence notifications                     |
 | `notify/state-hold.ts`       | `StateHold`: holds documents that differ in property values only       |
 | `mqtt/*`                     | the request topics of the routes, and the notification topics          |
-| `mqtt/request-topics.ts`     | `RequestTopics`: topic to route, with the write topics of before 0.11  |
+| `mqtt/request-topics.ts`     | `RequestTopics`: topic to route                                        |
 | `execa-manager.service.ts`   | runs, joins and stops commands; closes the database at shutdown        |
 | `queue.service.ts`           | SQLite: commands, request keys, parameters, machine, peers, properties |
 | `queue.machine.ts`           | the SQL of the `machine` row and of marking commands interrupted       |
@@ -282,8 +281,7 @@ states:
   a keyword that does not apply to its type, a `default` that does not
   fit the declaration (a finite number for `number`, one of `enum`,
   within the bounds), or an `event` not in `events`. `type: enum` with
-  `values` is read as `type: string` with `enum`, with a warning, until
-  0.12 (D38);
+  `values`, which 0.11 still read, is refused from 0.12.0 (D38);
 - a property has a bad name or, at any depth, `__proto__`; a `type`
   other than those and `object` and `array`; a keyword other than those
   of `value-schema.ts`, or one that does not apply to its type; a
@@ -324,8 +322,8 @@ its peers.
 `events` may be left out, and a state without transitions may be left
 empty. Without `stateMachine`, and with a file without states, the
 machine is off, and its routes answer `404` to well-formed requests.
-`runner.yaml` is checked alike by `config.schema.ts`, after `toLayout`:
-a section set under its old key and its new path, a peer id `set` or
+`runner.yaml` is checked alike by `config.schema.ts`: a key of before
+0.11, whose new path `Config` names, a peer id `set` or
 `response`, and a `stateInterval` that is not a whole number of `0` or
 more stop the runner (D40, D42, D43). The error names the file and every
 problem; js-yaml errors and an empty file are wrapped to name the file.
@@ -418,9 +416,9 @@ malformed body or request key gets the `Validation Failed` response of
   (D37). `GET /properties` answers `404` `no state machine` without a
   file, as `GET /parameters` does.
 - Over MQTT, `RequestTopics` maps each topic to its route: a write
-  route to `<base>/<resource>/set`, and until 0.12 the old
-  `set-parameters` and `set-peers` topics too, with one warning at the
-  first request on each (D43).
+  route to `<base>/<resource>/set`. The old `set-parameters` and
+  `set-peers` topics, which 0.11 still answered, have no route from
+  0.12.0, so the runner does not subscribe to them (D43).
 - `POST /stop` belongs to the command API: `ExecaManager.stop` stops
   the named command or all, and resolves once they have exited (D18).
   The machine follows `$stopped` when the stopped script is the current
@@ -573,12 +571,12 @@ proposal to derive the events from the transitions was declined (D4).
 | D35 | With `scripts.user`, scripts run as a second account through `setpriv`                         | Added by issue 18. A hostile DT author, or a caller who abuses a script through its input, must not reach `runner.yaml`, the key, the database or the runner's environment. On Linux the runner, started unprivileged with `CAP_SETUID`, `CAP_SETGID` and `CAP_KILL` ambient, starts each script through `setpriv`, which sets the account and clears every capability, in the run directory and with an allow-listed environment. It checks its rights and the layout at startup and refuses to start on any mismatch; it never changes a mode. Without the setting nothing changes.                                                                                                                                                                                                                                                                                                                                                                                    |
 | D36 | Script resources cover the process tree, found afresh at each sample                           | Added by issue 17b. A script that starts a simulator works below the direct child, and on Windows the direct child is always `powershell.exe`, so D33 under-reported. Each sample walks the tree down from the direct child: on Linux through `/proc/<pid>/task/*/children`, or a scan of every `stat` where the kernel lacks those files, chosen once per runner process; on Windows from one CIM query of `Win32_Process`, whose rows give the figures too, in the one sampler per run of D33. Only world-readable files are read, so a script of another account is measured alike. A process is named by its pid and start time; the CPU time is the sum of the last value of every process seen, the peak the largest sum of one sample and never below the kernel peak of one process, and `processes` the largest tree. The tree is measured, not managed: a stop still signals the direct child only (D18). No version change, as `processes` is an added field. |
 | D37 | Declared properties, which scripts and sensors write and the runner never interprets           | Added by issue 19. P1's state of a DT is `(x_i, λ_i, θ_i)`, and the state document had the machine and the parameters but nothing for `x_i`, the state mirrored from the physical twin, which only the scripts know. They hand the runner the latest values with `PUT /properties`; the runner checks each against its declaration, stamps it with `time` and `by`, stores the latest in one row per name, shows it and publishes it in the state document. It never reads a value: a write raises no event, there is no `DT_PROP_*` variable, as a copy would go stale in a long run, and no `default`, so a property is `null` until written. `null` is a value of every type, for a value that is not known. A first plan's `source: sensed` or `computed` key was dropped, as nothing acted on it.                                                                                                                                                                   |
-| D38 | Values are declared with JSON Schema types; a property number names its unit, a parameter none | Added by issue 19 (C2). `type`, `enum`, `minimum`, `maximum`, `items`, `properties` and `required` are the part of JSON Schema that a Thing Description of the W3C Web of Things uses, so a declaration maps to one; `value-schema.ts` builds the zod check from them, without a new dependency, and refuses any other keyword. `unit` is required on every `number` and `integer` of a property, nested ones too, with `'1'` for a number without a dimension, so that a missing unit is always an error. Parameters take the scalar part and no unit: a parameter is a setting of a policy, not a measurement. Amends D21: an enum is `type: string` with `enum`, which changes the reply of `GET /parameters`; `type: enum` with `values` loads in 0.11 with a warning.                                                                                                                                                                                               |
+| D38 | Values are declared with JSON Schema types; a property number names its unit, a parameter none | Added by issue 19 (C2). `type`, `enum`, `minimum`, `maximum`, `items`, `properties` and `required` are the part of JSON Schema that a Thing Description of the W3C Web of Things uses, so a declaration maps to one; `value-schema.ts` builds the zod check from them, without a new dependency, and refuses any other keyword. `unit` is required on every `number` and `integer` of a property, nested ones too, with `'1'` for a number without a dimension, so that a missing unit is always an error. Parameters take the scalar part and no unit: a parameter is a setting of a policy, not a measurement. Amends D21: an enum is `type: string` with `enum`, which changes the reply of `GET /parameters`; `type: enum` with `values` loads in 0.11 with a warning. Amended by issue 23: 0.12.0 removes the old spelling, and the schema refuses `type: enum` as an invalid type.                                                                                 |
 | D39 | A role `sensor` may call only the property routes and `health`                                 | Added by issue 19 (S9, S10). A feeder outside the runner, such as a gateway of the physical twin, needs a credential that can do nothing else. `set-properties` is open to `client`, `script` and `sensor`, and not to `manager`: a Manager tunes `θ_i` and must not write `x_i`. Every role reads `properties`. Amends D29.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | D40 | A state notification that differs in property values only waits for `stateInterval`            | Added by issue 19. A feed may write many times a second, and each write changes the state document (D37). `StateHold` holds a document whose only change is in `properties` until `stateInterval` ms (1000) after the last one sent; a change of the machine, the parameters or the command is sent at once with the held values, so control changes are never delayed. The setting is in `runner.yaml`, as rates are the operator's call.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | D41 | A state machine file may have no states, and then only declares                                | Added by issue 19. Amends D21: the declarations live in the DT author's file, which needed a state, so a DT that only runs commands could have neither parameters nor properties. `states` is optional; `machineOf` gives no machine for such a file, so the machine routes answer `no state machine` and `GET /dt` shows `stateMachine: false`, as without a file. `events` and `subscriptions` are refused without states, as nothing would take them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| D42 | `notify` and `peers` of `runner.yaml` are grouped under `relationships`                        | Added by issue 19, which took in issue 20. Amends D17 and S4 of [docs/issues](issues/README.md): the operator's file had twelve top-level keys of three kinds, and the keys that say who the DT deals with move to `relationships.manager.notify` and `relationships.peers`. `mqtt` stays, as it carries the API too, and so do `auth` and `scripts`. `toLayout` moves an old key before the schema runs, so the code knows one layout and a problem is reported at the new path; 0.11 warns for each old key and refuses a section set twice, and 0.12 drops the old keys.                                                                                                                                                                                                                                                                                                                                                                                              |
-| D43 | An MQTT write topic is under its read topic; `set` and `response` are reserved names           | Added by issue 19. Amends D16: `parameters/set`, `properties/set` and `peers/set` make one resource one subtree, which a broker can grant as `<base>/properties/#` to a sensor. A read stays the bare noun, and all three resources follow one pattern. The route names of `ROUTE_ROLES` and of the 403 messages do not change. The default response topic of a write is two levels down, so `<topic>/+/response` no longer matches it. No parameter, property or peer id may be `set` or `response`, which leaves room for a topic per name. `set-parameters` and `set-peers` answer in 0.11 with one warning each (`RequestTopics`) and go in 0.12.                                                                                                                                                                                                                                                                                                                    |
+| D42 | `notify` and `peers` of `runner.yaml` are grouped under `relationships`                        | Added by issue 19, which took in issue 20. Amends D17 and S4 of [docs/issues](issues/README.md): the operator's file had twelve top-level keys of three kinds, and the keys that say who the DT deals with move to `relationships.manager.notify` and `relationships.peers`. `mqtt` stays, as it carries the API too, and so do `auth` and `scripts`. `toLayout` moves an old key before the schema runs, so the code knows one layout and a problem is reported at the new path; 0.11 warns for each old key and refuses a section set twice, and 0.12 drops the old keys. Amended by issue 23: 0.12.0 removes `toLayout`; the strict schema refuses an old key, and `Config` adds a line that names its new path, as zod names only the unknown key.                                                                                                                                                                                                                   |
+| D43 | An MQTT write topic is under its read topic; `set` and `response` are reserved names           | Added by issue 19. Amends D16: `parameters/set`, `properties/set` and `peers/set` make one resource one subtree, which a broker can grant as `<base>/properties/#` to a sensor. A read stays the bare noun, and all three resources follow one pattern. The route names of `ROUTE_ROLES` and of the 403 messages do not change. The default response topic of a write is two levels down, so `<topic>/+/response` no longer matches it. No parameter, property or peer id may be `set` or `response`, which leaves room for a topic per name. `set-parameters` and `set-peers` answer in 0.11 with one warning each (`RequestTopics`) and go in 0.12. Amended by issue 23: 0.12.0 removes the old topics, which `RequestTopics` no longer maps, so the runner does not subscribe to them and a request on one gets no answer.                                                                                                                                            |
 | D44 | The state machine file is a class that instances share, and names it with `class`              | Added by issue 21. Two DTs of one kind needed two copies of one file, which drift apart. The file holds what the DT author writes with the scripts, the declarations and the behaviour; `runner.yaml` holds what the operator sets for one DT, so several runners may name one file. The optional `class` section gives an `id` and a `version`, words without spaces, which `GET /dt` and the presence notice show, or `null`. A Manager can thus tell which DTs are of one kind; the runner never interprets the id and never compares versions. The interface of a class, what a caller sees of it, is not exported.                                                                                                                                                                                                                                                                                                                                                  |
 | D45 | `runner.yaml` gives parameters their values for its instance; the file has no placeholders     | Added by issue 21. Amends D21. Instances of one class differ in values such as a capacity. `parameters` of `runner.yaml` maps names to values, and `instantiate` puts each in place of the `default` of its declaration, for any declared parameter, controllable or not. So the file stays plain YAML that is valid by itself, without placeholders or templates, and the check of a default checks the value: an undeclared name or a value that does not fit stops the runner, as does `parameters` without a file. A stored value of a controllable parameter still wins at a restart, as over any default.                                                                                                                                                                                                                                                                                                                                                          |
 | D46 | A subscription may name a relationship, bound to peers at start; without a peer it is idle     | Added by issue 21. Amends D34. A shared file can not name the peer ids of each instance. A peer of `runner.yaml` may have one `relationship`, and a subscription names either a `peer` or a `relationship`. `bind` makes one subscription for each peer of the relationship at start, so `PeerEvents` is unchanged and each peer has its own edge; a peer reached twice with one condition and event is followed once. A relationship that no peer has is no error, as another instance may have such a peer: its subscriptions are idle, with one line in the log. `GET /peers` shows the relationship of each peer, or `null`.                                                                                                                                                                                                                                                                                                                                         |
@@ -655,9 +653,9 @@ proposal to derive the events from the transitions was declined (D4).
 - A failed write of the machine is logged; the reply stands. A stored
   state, parameter value or property value that the file no longer
   allows is dropped with a warning at startup.
-- A `runner.yaml` key, a parameter enum or an MQTT write topic of
-  before 0.11 is taken with a warning, once per key, per file or per
-  topic (D38, D42, D43).
+- A `runner.yaml` key or a parameter enum of before 0.11 stops the
+  runner at startup, and a request on an MQTT write topic of before
+  0.11 gets no answer (D38, D42, D43).
 - A webhook or broker failure never fails a request: notifications are
   queued or retried, and logged.
 
@@ -682,7 +680,7 @@ tests of the state machine:
   `peer-events.service.spec.ts` for the wiring to `Peers`.
 - Integration, with a real SQLite: `queue.machine.spec.ts`,
   `queue.migration.spec.ts`, `queue.history.spec.ts`,
-  `queue.properties.spec.ts`, `config.layout.spec.ts`, and the manager's
+  `queue.properties.spec.ts`, `config.values.spec.ts`, and the manager's
   shutdown and restart behaviour in `execa-manager.restart.spec.ts`.
 - End to end, with the Nest module and real scripts in a temporary
   folder (`test/e2e/fsm.util.ts`): `fsm.spec.ts`, `fsm.stop.spec.ts`,
@@ -694,8 +692,8 @@ tests of the state machine:
   and
   `restart.spec.ts`, which restarts a runner on
   its database file with `startStoredRunner`.
-- Around the machine: the layout of `runner.yaml` in
-  `config.layout.spec.ts`, the hold of notifications in
+- Around the machine: the values of `runner.yaml`, and the refusal of
+  its old keys, in `config.values.spec.ts`, the hold of notifications in
   `notify.state-hold.spec.ts` and `notifier.properties.spec.ts`, the
   request topics in `mqtt.request-topics.spec.ts`; access control in
   `auth.*.spec.ts` (unit) and `test/e2e/auth*.spec.ts`; peers in `peers*.spec.ts`,

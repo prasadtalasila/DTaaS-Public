@@ -9,8 +9,8 @@
 // {{ "" }} part after it sends nothing.
 //
 // A route that writes is one level under the topic that reads:
-// parameters/set, properties/set and peers/set. The set-parameters and
-// set-peers topics of before 0.11 answer until 0.12, with a warning.
+// parameters/set, properties/set and peers/set. Version 0.12.0 removed
+// the set-parameters and set-peers topics of before 0.11.
 
 @broker = mqtt://localhost:1883
 @topic = dtaas/user1/runner

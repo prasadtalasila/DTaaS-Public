@@ -56,13 +56,6 @@ const WRITE_TOPICS: Partial<Record<MqttRoute, string>> = {
   'set-properties': 'properties/set',
 };
 
-// The topic levels of the write routes before 0.11, which the runner
-// still answers until 0.12
-export const OLD_TOPICS: Partial<Record<MqttRoute, string>> = {
-  'set-parameters': 'set-parameters',
-  'set-peers': 'set-peers',
-};
-
 export const requestTopic = (base: string, route: MqttRoute): string =>
   `${base}/${WRITE_TOPICS[route] ?? route}`;
 

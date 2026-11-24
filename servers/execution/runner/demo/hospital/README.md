@@ -33,7 +33,8 @@ second account (`scripts.user`) is to follow.
 
 The Windows recording predates version 0.11.0 and shows none of that:
 it has a state machine file for each hospital, the flat `peers` key,
-and the topic `set-parameters`. Its scripts are the `.ps1` files.
+`type: enum` with `values`, and the topic `set-parameters`, which
+version 0.12.0 refuses. Its scripts are the `.ps1` files.
 
 ## Play
 

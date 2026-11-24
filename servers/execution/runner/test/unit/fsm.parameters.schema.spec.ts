@@ -1,7 +1,6 @@
-import { Logger } from '@nestjs/common';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { parseDefinition } from 'src/fsm/definition';
-import Parameters, { oldEnums } from 'src/fsm/parameters';
+import Parameters from 'src/fsm/parameters';
 
 const parse = (section: string) =>
   parseDefinition(`parameters:\n${section}\nstates: {create: {}}`, 'dt.yaml', {
@@ -14,15 +13,8 @@ const OLD = '  scope: {type: enum, values: [single, multi], default: single}';
 const NEW = '  scope: {type: string, enum: [single, multi], default: single}';
 
 describe('Parameter types', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('Should read an enum of before 0.11 as a string with an enum', () => {
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
-
-    expect(parse(OLD)).toEqual(parse(NEW));
-    expect(parse(OLD).get('scope')).toEqual({
+  it('Should read a string with an enum', () => {
+    expect(parse(NEW).get('scope')).toEqual({
       type: 'string',
       enum: ['single', 'multi'],
       default: 'single',
@@ -30,29 +22,14 @@ describe('Parameter types', () => {
     });
   });
 
-  it('Should warn of the parameters that spell an enum the old way', () => {
-    const warn = jest
-      .spyOn(Logger.prototype, 'warn')
-      .mockImplementation(() => {});
-    parse(NEW);
-
-    expect(warn).not.toHaveBeenCalled();
-
-    parse(`${OLD}\n  size: {type: number, default: 1}`);
-
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toMatch(
-      /dt.yaml: parameters scope use type enum/,
+  it('Should refuse type enum with values, which 0.12 removed', () => {
+    expect(() => parse(OLD)).toThrow(
+      'Invalid state machine in dt.yaml:\n' +
+        '✖ Unrecognized key: "values"\n' +
+        '  → at parameters.scope\n' +
+        '✖ Invalid option: expected one of "string"|"number"|"integer"|"boolean"\n' +
+        '  → at parameters.scope.type',
     );
-  });
-
-  it.each([
-    [undefined],
-    [null],
-    ['text'],
-    [{ a: null, b: { type: 'string' } }],
-  ])('Should find no old enum in %j', (section) => {
-    expect(oldEnums(section)).toEqual([]);
   });
 
   it('Should take an integer within its bounds and an enum of numbers', () => {

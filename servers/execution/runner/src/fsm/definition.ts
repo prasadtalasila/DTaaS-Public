@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
 import { classSchema, DtClass } from './class.js';
@@ -8,7 +7,6 @@ import { managerProblems, managerSchema } from './manager.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
-  oldEnums,
   parameterProblems,
   parametersSchema,
 } from './parameters.js';
@@ -17,7 +15,7 @@ import {
   propertiesSchema,
   propertyProblems,
 } from './properties.js';
-import { field, hasProtoKey } from './proto.js';
+import { hasProtoKey } from './proto.js';
 import { type Env, envProblems, envSchema } from './script-context.js';
 import {
   Known,
@@ -185,8 +183,6 @@ function crossCheck(definition: Definition, known: Known): string[] {
   ];
 }
 
-const logger = new Logger('StateMachineFile');
-
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid state machine in ${file}:\n${problems}`);
 
@@ -201,17 +197,6 @@ function readYaml(text: string, file: string): unknown {
     throw invalid(file, '✖ __proto__ is not a valid name');
   }
   return content;
-}
-
-// type: enum with values is the spelling of before 0.11
-function warnOldEnums(content: unknown, file: string): void {
-  const names = oldEnums(field(content, 'parameters'));
-  if (names.length > 0) {
-    logger.warn(
-      `${file}: parameters ${names.join(', ')} use type enum with values; ` +
-        'write type string with enum, as the old spelling goes in 0.12',
-    );
-  }
 }
 
 // Throws an error that names the file and every problem of an invalid
@@ -231,6 +216,5 @@ export function parseDefinition(
   if (problems.length > 0) {
     throw invalid(file, problems.map((problem) => `✖ ${problem}`).join('\n'));
   }
-  warnOldEnums(content, file);
   return definition;
 }

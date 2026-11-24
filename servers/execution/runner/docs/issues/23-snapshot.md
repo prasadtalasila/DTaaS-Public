@@ -380,7 +380,7 @@ Provisional:
 
 ## Tasks
 
-- [ ] The old keys, the old enum and the old topics are refused, and
+- [x] The old keys, the old enum and the old topics are refused, and
       nothing in the samples, the demo and the documents uses one.
       Check: `test/unit/config.schema.spec.ts`,
       `test/unit/fsm.parameters.schema.spec.ts`,

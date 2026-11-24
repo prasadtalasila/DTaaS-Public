@@ -82,9 +82,9 @@ describe('Parameter declarations', () => {
       'expected number, received NaN',
     ],
     [
-      'an enum without values',
+      'type enum, which 0.12 removed',
       '  a: {type: enum, default: x}',
-      'parameters.a.enum',
+      'parameters.a.type',
     ],
     [
       'an enum with no values',
