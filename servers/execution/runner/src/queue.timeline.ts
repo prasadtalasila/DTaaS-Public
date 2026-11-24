@@ -123,14 +123,15 @@ export default class Timeline {
     }
   }
 
-  // Writes the row of a command request, submits the command, and
-  // completes the row with the run in the history that the submit names
-  // at once; a refused request has no run
+  // Writes the row of a command or a what-if request, submits the
+  // command, and completes the row with the run in the history that the
+  // submit names at once; a refused request has no run
   command<Result>(
     { name, input }: { name: string; input?: Data },
     submit: (onRun: (run: number) => void) => Result,
+    kind: 'command' | 'whatif' = 'command',
   ): Result {
-    const seq = this.record('command', { name, input, run: null });
+    const seq = this.record(kind, { name, input, run: null });
     return submit((run) => this.complete(seq, 'run', run));
   }
 

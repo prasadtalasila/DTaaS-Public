@@ -83,6 +83,7 @@ function fakeConfig(file: string) {
     permitCommands: () => ['create', 'open', 'full', 'admit'],
     getParameters: () => ({ capacity: 30 }),
     getPeers: () => PEERS,
+    getSnapshots: () => undefined,
     getScriptUser: () => undefined,
     getAttributes: () => ({}),
     getStateInterval: () => 0,
@@ -162,5 +163,5 @@ export async function day(runner: Runner) {
     queue.timeline.command(command, (onRun) => onRun(queue.enqueue('admit'))),
   );
   as('alice', () => queue.timeline.record('stop', { name: null }));
-  descriptor.beforeApplicationShutdown();
+  await descriptor.beforeApplicationShutdown();
 }

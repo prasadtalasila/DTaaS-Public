@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Command forecast-beds, for POST /whatif only: the free beds of the
+# hospital after the horizon of the scenario on stdin, {"horizon":
+# "PT2H", "steps": [{"at": "PT10M", "peer": "hospital-2", "online":
+# false}]}, computed on the private copy of the twin. forecast.mjs says
+# what it computes. It refuses to run as a live command.
+set -euo pipefail
+if [[ ${DT_MODE:-} != what-if ]]; then
+  echo "forecast-beds runs only as a what-if, not in mode ${DT_MODE:-none}" >&2
+  exit 2
+fi
+exec node --no-warnings "$(dirname "$0")/forecast.mjs"

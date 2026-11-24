@@ -37,7 +37,7 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
 | [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
 | [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | in progress |      |
-| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | planned     |      |
+| [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | in progress |      |
 | [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
 
 Sizes: S is a day or less, M a few days with tests and documentation, L
@@ -256,7 +256,7 @@ open) or `done`.
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
 | S21 | A fifth role, `operator`, runs the twin and may copy it: reads, with a command's `input`, snapshots and `stop`. It can not steer. A `manager` steers and can not copy. Amends S10.                         |
 | S22 | A save is a route that pauses the changes, outside the machine: it holds completions and peer events. A snapshot holds the database, both files, the scripts and the save script's files.                  |
-| S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a replay twin, with tools. S1 and S2 stand.                 |
+| S23 | The runner starts no second runner for a what-if. A Manager asks the twin, which runs one script on a copy, without token or address, and changes nothing; an operator replays with tools. S1, S2 stand.   |
 
 ## Lessons for Every Issue
 
@@ -367,6 +367,20 @@ From implementing 23:
   in a `finally`, and a cleanup removes only what this start wrote
   (`COPYFILE_EXCL`), so that a failure leaves the twin able to go on.
 
+From implementing 24:
+
+- Two runs of one command share one run in `ExecaManager`. A feature
+  that runs a command in another mode must say what happens when the
+  other mode runs it too; a what-if first joined a live run, and a
+  live request took the output of a what-if.
+- A run that awaits between its check and its start can be overtaken.
+  Check again after the last `await`, and hold the id of a request
+  from its start, so that a second request joins instead of copying
+  again.
+- Mark every run that a feature makes for itself, its helper runs
+  too: the save run of a copy changed `GET /` until it was stored
+  with a mode of its own.
+
 ## Deferred
 
 From the research notes, with the decision that blocks each:
@@ -387,7 +401,7 @@ Out of scope for every file here, with what could reopen each:
 - The runner as Manager, or any runner-side policy evaluation such as
   P1's `γ_i` (open questions 5 and 6).
 - Forecasts and exogenous triggers (open question 9), in the twin
-  itself. [24](24-what-if.md) plans them for a copy of it.
+  itself. [24](24-what-if.md) runs them on a copy of it.
 - Server-sent events as a push transport (open question 2); the
   webhook of 03 covers HTTP.
 - A stdout line protocol for scripts to raise events (open question

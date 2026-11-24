@@ -38,6 +38,7 @@ function setup(
   const config = {
     getId: () => 'hospital-1',
     getPeers: () => [],
+    getSnapshots: () => undefined,
     getParameters: () => ({}),
     getStateInterval: () => 250,
   };

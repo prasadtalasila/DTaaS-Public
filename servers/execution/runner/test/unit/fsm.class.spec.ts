@@ -167,3 +167,60 @@ describe('Snapshot scripts of a class', () => {
     );
   });
 });
+
+describe('What-if commands of a class', () => {
+  const scripts = {
+    commands: ['create', 'save-ward', 'forecast'],
+    peers: [],
+  };
+  const read = (text: string) => parseDefinition(text, 'dt.yaml', scripts);
+  const SAVE = 'snapshot: {save: save-ward}\n';
+
+  it('Should read the what-if commands', () => {
+    const text = `${SAVE}whatIf: {commands: [forecast]}\n`;
+
+    expect(read(text).whatIf).toEqual({ commands: ['forecast'] });
+  });
+
+  it('Should name no what-if without the section', () => {
+    expect(read(SAVE).whatIf).toBeUndefined();
+  });
+
+  it('Should not need a manager command for a what-if command', () => {
+    const text = `${SAVE}whatIf: {commands: [forecast]}\nmanager: {commands: [create]}\n`;
+
+    expect(read(text).managerCommands).toEqual(['create']);
+  });
+
+  it('Should refuse a what-if command that is no command of runner.yaml', () => {
+    expect(() => read(`${SAVE}whatIf: {commands: [simulate]}\n`)).toThrow(
+      /dt\.yaml[\s\S]*what-if command simulate is not a permitted command/,
+    );
+  });
+
+  it('Should refuse a what-if command that is the script of a state', () => {
+    expect(() =>
+      read(`${SAVE}states: {forecast: {}}\nwhatIf: {commands: [forecast]}\n`),
+    ).toThrow(
+      /what-if command forecast is the script of a state, which runs for the machine; a what-if needs a script of its own/,
+    );
+  });
+
+  it('Should load a what-if command beside states of other commands', () => {
+    const text = `${SAVE}states: {create: {}}\nwhatIf: {commands: [forecast]}\n`;
+
+    expect(read(text).whatIf).toEqual({ commands: ['forecast'] });
+  });
+
+  it('Should refuse a what-if without a save script', () => {
+    expect(() => read('whatIf: {commands: [forecast]}\n')).toThrow(
+      /whatIf needs snapshot\.save, which makes its copy/,
+    );
+  });
+
+  it('Should refuse an unknown key of the section', () => {
+    expect(() => read(`${SAVE}whatIf: {commands: [], every: 1}\n`)).toThrow(
+      /Invalid state machine in dt\.yaml/,
+    );
+  });
+});

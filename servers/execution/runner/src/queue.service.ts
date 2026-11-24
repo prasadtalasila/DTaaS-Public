@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { Injectable, Scope } from '@nestjs/common';
 import {
+  CommandOptions,
   CommandRecord,
   CommandResult,
 } from './interfaces/command.interface.js';
@@ -10,7 +11,6 @@ import { DatabaseMode } from './dto/health.dto.js';
 import { HistoryEntryDto, HistoryQuery } from './dto/history.dto.js';
 import { CommandCounts, ResourceTotals } from './dto/metrics.dto.js';
 import { StoredMachine } from './dto/fsm.dto.js';
-import { RunOutcome } from './interfaces/runner.interface.js';
 import { ParameterValue } from './dto/parameters.dto.js';
 import Changes, { ChangeListener } from './notify/changes.js';
 import {
@@ -30,25 +30,22 @@ import { storedProperties, upsertProperties } from './queue.properties.js';
 import { createSchema, inTransaction } from './queue.schema.js';
 import Timeline from './queue.timeline.js';
 import {
+  ACTIVE,
   COMMAND_COUNTS,
   HISTORY,
   LAST_ID,
-  RECORD,
   RECORD_BY_KEY,
   RESOURCE_TOTALS,
+  STORED_STATUS,
   toCommandCounts,
   toHistoryEntry,
   toRecord,
   toResourceTotals,
+  WHAT_IF_RUN,
 } from './queue.history.js';
 
-// The status of a finished command in the commands table; a command
-// that is not permitted keeps the default, invalid
-const STATUS: Record<RunOutcome, string> = {
-  success: 'valid',
-  failed: 'failed',
-  stopped: 'stopped',
-};
+// What a command row holds of its request
+type Row = Pick<CommandOptions, 'by' | 'mode'>;
 
 // Keeps the received commands and their results in SQLite, in memory
 // unless open() names a database file
@@ -92,10 +89,10 @@ export default class Queue {
   }
 
   // by is the caller that submitted the command, if one did
-  enqueue(name: string, requestKey?: string, by?: string): number {
+  enqueue(name: string, requestKey?: string, { by, mode }: Row = {}): number {
     const { lastInsertRowid } = this.db
-      .prepare('INSERT INTO commands (name, by) VALUES (?, ?)')
-      .run(name, by ?? null);
+      .prepare('INSERT INTO commands (name, by, mode) VALUES (?, ?, ?)')
+      .run(name, by ?? null, mode ?? null);
     const id = Number(lastInsertRowid);
     if (requestKey !== undefined) {
       this.addKey(requestKey, id);
@@ -123,7 +120,7 @@ export default class Queue {
           processes = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?`,
       )
       .run(
-        STATUS[outcome],
+        STORED_STATUS[outcome],
         logs.get('stdout') ?? '',
         logs.get('stderr') ?? '',
         exitCode,
@@ -165,9 +162,11 @@ export default class Queue {
   }
 
   activeCommand(): CommandRecord | undefined {
-    return toRecord(
-      this.db.prepare(`${RECORD} ORDER BY id DESC LIMIT 1`).get(),
-    );
+    return toRecord(this.db.prepare(ACTIVE).get());
+  }
+
+  whatIfRun(id: number): Record<string, unknown> | undefined {
+    return this.db.prepare(WHAT_IF_RUN).get(id);
   }
 
   findByKey(requestKey: string): CommandRecord | undefined {

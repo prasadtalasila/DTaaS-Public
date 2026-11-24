@@ -312,3 +312,21 @@ content-type: {{ContentType}}
 {
     "stop": true
 }
+
+### Ask for a what-if; needs whatIf.commands, a database file,
+### snapshots and auth.principals. 202 with the id of the run
+
+POST http://{{hostname}}:{{port}}/whatif HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "name": "forecast-beds",
+    "input": {
+        "horizon": "PT2H",
+        "steps": [{ "at": "PT10M", "peer": "hospital-2", "online": false }]
+    }
+}
+
+### The run of a what-if, with its result once it has ended
+
+GET http://{{hostname}}:{{port}}/whatif/5 HTTP/1.1

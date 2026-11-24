@@ -17,7 +17,7 @@ example comes from elsewhere. The
 one story.
 
 The recording predates version 0.11.0, and this document describes
-0.12.0. The replies of [GET /parameters](#get-parameters) are shown as
+0.13.0. The replies of [GET /parameters](#get-parameters) are shown as
 0.11 and later give them, the state documents of the recording lack
 the `properties` member, and the examples of
 [properties](#properties) are not from the recording. The descriptors
@@ -33,15 +33,15 @@ and one at `hospital-2`. Most examples ask `hospital-1`, whose
 configuration, [demo/hospital/runner.yaml](../demo/hospital/runner.yaml),
 gives the addresses that the examples use:
 
-| Setting            | `hospital-1`                                   | `hospital-2`               |
-| :----------------- | :--------------------------------------------- | :------------------------- |
-| HTTP base URL      | `http://localhost:5100`                        | `http://localhost:5200`    |
-| MQTT broker        | `mqtt://127.0.0.1:18830`, MQTT 3.1.1           | the same                   |
-| MQTT base topic    | `dtaas/hospital-1`                             | `dtaas/hospital-2`         |
-| Webhook            | `http://127.0.0.1:18080/dt-events`             | the same                   |
-| Permitted commands | `open`, `full`, `closed`, `admit`, `discharge` | the same                   |
-| Manager commands   | `admit`, `discharge`                           | the same                   |
-| Peers              | `hospital-2`, 12.4 km away                     | `hospital-1`, 12.4 km away |
+| Setting            | `hospital-1`                                                                                     | `hospital-2`               |
+| :----------------- | :----------------------------------------------------------------------------------------------- | :------------------------- |
+| HTTP base URL      | `http://localhost:5100`                                                                          | `http://localhost:5200`    |
+| MQTT broker        | `mqtt://127.0.0.1:18830`, MQTT 3.1.1                                                             | the same                   |
+| MQTT base topic    | `dtaas/hospital-1`                                                                               | `dtaas/hospital-2`         |
+| Webhook            | `http://127.0.0.1:18080/dt-events`                                                               | the same                   |
+| Permitted commands | `open`, `full`, `closed`, `admit`, `discharge`, `save-script`, `restore-script`, `forecast-beds` | the same                   |
+| Manager commands   | `admit`, `discharge`, `forecast-beds`                                                            | the same                   |
+| Peers              | `hospital-2`, 12.4 km away                                                                       | `hospital-1`, 12.4 km away |
 
 Both runners name one state machine file,
 [demo/hospital/hospital.fsm.yaml](../demo/hospital/hospital.fsm.yaml),
@@ -92,34 +92,38 @@ published one level under the topic that reads it, on
 `<topic>/parameters/set`, `<topic>/properties/set` and
 `<topic>/peers/set` (see [Request Topics](#request-topics)).
 
-| HTTP                   | MQTT route       | Request body                        | Success |
-| :--------------------- | :--------------- | :---------------------------------- | :------ |
-| `GET /dt`              | `dt`             |                                     | 200     |
-| `GET /state`           | `state`          |                                     | 200     |
-| `GET /health`          | `health`         |                                     | 200     |
-| `GET /metrics`         | `metrics`        |                                     | 200     |
-| `POST /`               | `execute`        | `{"name": "admit", "input": {...}}` | 200     |
-| `GET /`                | `status`         |                                     | 200     |
-| `GET /history`         | `history`        | none; query `since`, `limit`        | 200     |
-| `POST /stop`           | `stop`           | `{"name": "open"}` or none          | 200     |
-| `POST /fsm/transition` | `transition`     | `{"state": "open"}`                 | 202     |
-| `POST /fsm/event`      | `event`          | `{"event": "close"}`                | 202     |
-| `GET /fsm`             | `fsm`            |                                     | 200     |
-| `GET /parameters`      | `parameters`     |                                     | 200     |
-| `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                | 200     |
-| `GET /properties`      | `properties`     |                                     | 200     |
-| `PUT /properties`      | `set-properties` | `{"free-beds": 3}`                  | 200     |
-| `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}` | 202     |
-| `GET /peers`           | `peers`          |                                     | 200     |
-| `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`             | 200     |
-| `GET /timeline`        | `timeline`       | none; query `after`, `kind`, ...    | 200     |
-| `POST /snapshot`       | `save`           | `{"stop": true}` or none            | 201     |
-| `GET /snapshot`        | `snapshots`      |                                     | 200     |
-| `DELETE /snapshot/<n>` | none             |                                     | 204     |
+| HTTP                   | MQTT route       | Request body                                | Success |
+| :--------------------- | :--------------- | :------------------------------------------ | :------ |
+| `GET /dt`              | `dt`             |                                             | 200     |
+| `GET /state`           | `state`          |                                             | 200     |
+| `GET /health`          | `health`         |                                             | 200     |
+| `GET /metrics`         | `metrics`        |                                             | 200     |
+| `POST /`               | `execute`        | `{"name": "admit", "input": {...}}`         | 200     |
+| `GET /`                | `status`         |                                             | 200     |
+| `GET /history`         | `history`        | none; query `since`, `limit`                | 200     |
+| `POST /stop`           | `stop`           | `{"name": "open"}` or none                  | 200     |
+| `POST /fsm/transition` | `transition`     | `{"state": "open"}`                         | 202     |
+| `POST /fsm/event`      | `event`          | `{"event": "close"}`                        | 202     |
+| `GET /fsm`             | `fsm`            |                                             | 200     |
+| `GET /parameters`      | `parameters`     |                                             | 200     |
+| `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                        | 200     |
+| `GET /properties`      | `properties`     |                                             | 200     |
+| `PUT /properties`      | `set-properties` | `{"free-beds": 3}`                          | 200     |
+| `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}`         | 202     |
+| `GET /peers`           | `peers`          |                                             | 200     |
+| `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`                     | 200     |
+| `GET /timeline`        | `timeline`       | none; query `after`, `kind`, ...            | 200     |
+| `POST /snapshot`       | `save`           | `{"stop": true}` or none                    | 201     |
+| `GET /snapshot`        | `snapshots`      |                                             | 200     |
+| `DELETE /snapshot/<n>` | none             |                                             | 204     |
+| `POST /whatif`         | `whatif`         | `{"name": "forecast-beds", "input": {...}}` | 202     |
+| `GET /whatif/<id>`     | `whatif-result`  | MQTT `{"id": 5}`                            | 200     |
 
 `<n>` is the name of a [snapshot](#snapshots). The two MQTT routes of
 the snapshots are published on `<topic>/snapshot/set` and
-`<topic>/snapshot`; no topic deletes one.
+`<topic>/snapshot`; no topic deletes one. The two routes of a
+[what-if](#what-if) are published on `<topic>/whatif/set` and
+`<topic>/whatif`.
 
 With access control, each route is open to some roles only; see
 [Roles](#roles).
@@ -667,6 +671,7 @@ six records, with `limit=2` (see below):
 | `finishedAt` | when the command finished; `null` while running                                                 |
 | `by`         | the [principal](#access-control) that sent it, or `null` without `auth` or for a state's script |
 | `resources`  | as on [POST /](#post-); `null` while running, and for refused, interrupted and older commands   |
+| `mode`       | `"what-if"` for the run of a [what-if](#what-if); absent for every other run                    |
 
 Record 5 is the run of `open` at entry 2, which the change of
 `fidelity` stopped with its figures; record 6 is the run at entry 3,
@@ -1432,13 +1437,13 @@ set `scope`, whose event restarted `execute`, and the sensor
 ]
 ```
 
-| Field  | Value                                                                                                                                                                                                                                                                                                        |
-| :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `seq`  | the number of the row, which only rises, also across restarts                                                                                                                                                                                                                                                |
-| `time` | when the row was written, to the millisecond                                                                                                                                                                                                                                                                 |
-| `kind` | one of the kinds below                                                                                                                                                                                                                                                                                       |
-| `by`   | for a request row (`transition`, `event`, `command`, `stop`, `parameters`, `properties`, `peers`, `snapshot`), the [principal](#access-control) that sent it, `script`, or `null` without `auth`; `null` for the rows that the runner writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`) |
-| `data` | what the row records, by kind                                                                                                                                                                                                                                                                                |
+| Field  | Value                                                                                                                                                                                                                                                                                                                  |
+| :----- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seq`  | the number of the row, which only rises, also across restarts                                                                                                                                                                                                                                                          |
+| `time` | when the row was written, to the millisecond                                                                                                                                                                                                                                                                           |
+| `kind` | one of the kinds below                                                                                                                                                                                                                                                                                                 |
+| `by`   | for a request row (`transition`, `event`, `command`, `stop`, `parameters`, `properties`, `peers`, `snapshot`, `whatif`), the [principal](#access-control) that sent it, `script`, or `null` without `auth`; `null` for the rows that the runner writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`) |
+| `data` | what the row records, by kind                                                                                                                                                                                                                                                                                          |
 
 | Kind         | Written when                                             | `data`                                                                                                                                                |
 | :----------- | :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1456,6 +1461,7 @@ set `scope`, whose event restarted `execute`, and the sensor
 | `sent`       | a notification goes to MQTT or a webhook                 | `kind`; for a state notification `cause`, the last row that was not `sent`, else the `data` of the notification, without its envelope                 |
 | `shutdown`   | the runner begins to shut down                           | `{}`                                                                                                                                                  |
 | `snapshot`   | a [save](#post-snapshot) has written its snapshot        | `time`, when the save began, and `name`, the directory of the snapshot                                                                                |
+| `whatif`     | a [what-if](#post-whatif) starts its run                 | `name`, its `input` if any, and `run`, the `id` of its run                                                                                            |
 
 - `source` is `client`, `script` for a script that calls with
   `RUNNER_TOKEN`, `peer` for an event of a
@@ -1483,9 +1489,10 @@ set `scope`, whose event restarted `execute`, and the sensor
   `reinstated`: the `id`, `time` and `seq` of the
   [snapshot](#snapshots) it came from. Other `start` rows have none.
 - A `snapshot` row is written after the copy of the database, so the
-  copy ends before it.
+  copy ends before it. A `whatif` row is written after its copy is
+  made, and a what-if writes no `snapshot` row.
 
-The `input` of a command may name a person. Only a `client`, an
+The `input` of a command or a what-if may name a person. Only a `client`, an
 `operator`, and every caller without access control, read it; any
 other role gets the row without `input`. `manager-1` asking for
 `?kind=command` of the same runner got:
@@ -1665,6 +1672,128 @@ directory gets `404`:
 { "message": "Not Found", "statusCode": 404 }
 ```
 
+## What-If
+
+A what-if runs one command of `whatIf.commands` of the state machine
+file on a private copy of the DT, and keeps what the command printed
+as its result ([WHAT-IF.md](../WHAT-IF.md)). The script gets the
+input on stdin, `DT_MODE=what-if` and the copy in `DT_WHATIF_DIR`,
+and neither `RUNNER_URL` nor `RUNNER_TOKEN`. Nothing of the DT
+changes: [GET /](#get-), the [state document](#get-state) and the
+state notifications skip the run. A what-if needs a database file,
+`snapshots.directory` and `auth.principals`.
+
+The examples come from a copy of the demo with `hospital-1` alone,
+in state `open` after the admissions of `p-1` and `p-2`.
+
+### POST /whatif
+
+Makes the copy, as a [save](#post-snapshot) does, with the same pause,
+starts the command on it, and answers `202` with the `id` of the run
+in [GET /history](#get-history). The body is that of [POST /](#post-).
+MQTT route: `whatif`, on `<topic>/whatif/set`.
+
+```bash
+curl -s -X POST http://localhost:5100/whatif \
+  -H "Authorization: Bearer $JWS" -H 'Content-Type: application/json' \
+  -d '{"name":"forecast-beds","input":{"horizon":"PT2H","steps":[{"at":"PT10M","peer":"hospital-2","online":false}]}}'
+```
+
+`202`, signed by `manager-1`:
+
+```json
+{ "id": 5, "name": "forecast-beds", "status": "running" }
+```
+
+A second request for a command whose what-if runs, also while its
+copy is made, gets the same `id`, and its input is ignored.
+
+| Case                                                              | Status | Body                                               |
+| :---------------------------------------------------------------- | :----- | :------------------------------------------------- |
+| A `client`, and `whatIf.commands` lacks it                        | 400    | `{"status": "invalid command"}`                    |
+| A `manager`, and `whatIf.commands` or `manager.commands` lacks it | 403    | `manager may not call whatif`                      |
+| The database is in memory                                         | 409    | `{"status": "no database"}`                        |
+| No `snapshots.directory`                                          | 409    | `{"status": "no snapshot directory"}`              |
+| No `auth.principals`                                              | 409    | `{"status": "no access control"}`                  |
+| The command runs live, or starts while the copy is made           | 409    | `{"status": "command running"}`                    |
+| A run of the save script is in progress                           | 409    | `{"status": "save script running"}`                |
+| The save script runs as [scripts.user][user]                      | 409    | `{"status": "save script of another account"}`     |
+| A save is in progress                                             | 503    | `{"status": "saving"}`, with `Retry-After: 1`      |
+| The runner shuts down                                             | 503    | `{"status": "shutting down"}`                      |
+| The save script fails or passes the timeout                       | 500    | the outcome of the save script, as `POST /` has it |
+
+[user]: ../README.md#script-user
+
+`admit` asked by `alice`, a `client`, got the `400`, and by
+`manager-1` the `403`:
+
+```json
+{
+  "message": "manager may not call whatif",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+
+A live request of a command whose what-if runs, by
+[POST /](#post-) or MQTT `execute`, with or without input, gets `409`
+with `{"status": "what-if running"}`. No refused request makes a copy.
+
+### GET /whatif/:id
+
+The run of that `id`. MQTT route: `whatif-result`, on
+`<topic>/whatif` with the payload `{"id": 5}`.
+
+```bash
+curl -s http://localhost:5100/whatif/5 -H "Authorization: Bearer $JWS"
+```
+
+`200`:
+
+```json
+{
+  "id": 5,
+  "name": "forecast-beds",
+  "status": "valid",
+  "mode": "what-if",
+  "receivedAt": "2026-11-24T13:59:00.000Z",
+  "by": "manager-1",
+  "exitCode": 0,
+  "result": {
+    "free-beds": 0,
+    "horizon": "PT2H",
+    "free-now": 2,
+    "admissions-per-hour": 2,
+    "state-now": "open",
+    "peers-offline-now": [],
+    "token": "absent"
+  },
+  "finishedAt": "2026-11-24T13:59:00.000Z",
+  "resources": { "cpuSeconds": 0, "peakRssBytes": 86016, "processes": 1 }
+}
+```
+
+| Field        | Value                                                                 |
+| :----------- | :-------------------------------------------------------------------- |
+| `status`     | `running`, then `valid`, `failed`, `stopped` or `interrupted`         |
+| `by`         | the caller of the what-if                                             |
+| `exitCode`   | as on [GET /](#get-); once ended                                      |
+| `result`     | the stdout parsed as JSON, or the text when it is no JSON; once ended |
+| `finishedAt` | once ended                                                            |
+| `resources`  | as in [GET /history](#get-history); once ended                        |
+
+While the command runs, the reply has `id`, `name`, `status`, `mode`,
+`receivedAt` and `by` only. An id that is no what-if, such as that of
+a command of `POST /` or of the save run that made a copy, gets `404`
+with `{"message": "Not Found", "statusCode": 404}`; an id that is no
+integer gets `400` `Validation failed (numeric string is expected)`.
+The save run is in [GET /history](#get-history) without `mode`, with
+the caller of the what-if.
+
+The end of the run is told by a [what-if notification](#what-if-notifications).
+A client or an operator stops a what-if with [POST /stop](#post-stop)
+and its name.
+
 ## Repeated Requests
 
 A client that is not sure its request arrived, such as one that lost
@@ -1817,9 +1946,11 @@ the properties but not write them, as they are what the DT observes.
 A `sensor` feeds property values from outside the runner, such as a
 gateway of the physical twin: it reads and writes the properties and
 calls nothing else.
-An `operator` runs the runner: it reads, stops commands, and saves,
-lists and removes [snapshots](#snapshots), and steers nothing. A
-manager can not copy the DT.
+An `operator` runs the runner: it reads, stops commands, saves,
+lists and removes [snapshots](#snapshots), and reads the result of a
+[what-if](#what-if); it steers nothing and asks for no what-if. A
+manager can not copy the DT, and asks for a what-if only of a command
+that `whatIf.commands` and `manager.commands` both list.
 The runner's own scripts send `Authorization: Bearer $RUNNER_TOKEN`
 (see [Calls From Scripts](#calls-from-scripts)) and act in the role
 `script`. A principal's token is accepted from a script too, in the
@@ -1849,6 +1980,8 @@ principal's role.
 | `GET /snapshot`        | `snapshots`       | yes    | yes      | no                 | no     | no     |
 | `POST /snapshot`       | `save`            | yes    | yes      | no                 | no     | no     |
 | `DELETE /snapshot/<n>` | `delete-snapshot` | yes    | yes      | no                 | no     | no     |
+| `POST /whatif`         | `whatif`          | yes    | no       | both lists         | no     | no     |
+| `GET /whatif/<id>`     | `whatif-result`   | yes    | yes      | yes                | no     | no     |
 
 A `manager` and a `script` read the [timeline](#timeline) without the
 `input` of a command, which only a `client` and an `operator` see.
@@ -1930,6 +2063,8 @@ whose payload is their query.
 | `<topic>/timeline`       | `GET /timeline`        | `{"kind": "command"}`                 |
 | `<topic>/snapshot`       | `GET /snapshot`        | none                                  |
 | `<topic>/snapshot/set`   | `POST /snapshot`       | `{"stop": true}`, `{}` or none        |
+| `<topic>/whatif/set`     | `POST /whatif`         | `{"name": "<command>", "input": {}}`  |
+| `<topic>/whatif`         | `GET /whatif/<id>`     | `{"id": 5}`                           |
 
 The topic of a route is `<topic>/<route>`, except for the three routes
 that write a resource. Their topic is one level under the topic that
@@ -1958,6 +2093,12 @@ sensor:
   (route `snapshots`) and `<topic>/snapshot/set` saves (route `save`).
   The replies are those of HTTP, and a change refused during a save
   gets `{"status": "saving"}`. No topic removes a snapshot.
+- So do the what-ifs: `<topic>/whatif/set` asks for one (route
+  `whatif`) and `<topic>/whatif` reads its result (route
+  `whatif-result`). The demo's `mq1 whatif/set` got
+  `{"id": 8, "name": "forecast-beds", "status": "running"}` on
+  `<topic>/whatif/set/response`, and `mq1 whatif '{"id":8}'` the run on
+  `<topic>/whatif/response`.
 
 ### Responses
 
@@ -2120,7 +2261,7 @@ is one JSON object, or with `auth.key` a JWS of it
 
 | Field  | Meaning                                                    |
 | :----- | :--------------------------------------------------------- |
-| `kind` | `state`, `escalation` or `presence`                        |
+| `kind` | `state`, `escalation`, `presence` or `whatif`              |
 | `id`   | the identity of the DT                                     |
 | `time` | the time of the notification; `null` only in the MQTT will |
 | `data` | the content, which depends on `kind`                       |
@@ -2323,6 +2464,46 @@ gracefully, so that the broker drops the will. Each step waits at most
 and logs a warning; the broker may then publish the will, which still
 says offline.
 
+### What-If Notifications
+
+When a [what-if](#what-if) has ended and its copy is gone, the runner
+sends a notification of kind `whatif`, with the `id`, `name`,
+`status`, `exitCode` and `result` of the run, as
+[GET /whatif/:id](#get-whatifid) shows them. From the copy of the demo
+with `hospital-1` alone:
+
+```json
+{
+  "kind": "whatif",
+  "id": "hospital-1",
+  "time": "2026-11-24T13:59:00.433Z",
+  "data": {
+    "id": 5,
+    "name": "forecast-beds",
+    "status": "valid",
+    "exitCode": 0,
+    "result": {
+      "free-beds": 0,
+      "horizon": "PT2H",
+      "free-now": 2,
+      "admissions-per-hour": 2,
+      "state-now": "open",
+      "peers-offline-now": [],
+      "token": "absent"
+    }
+  }
+}
+```
+
+A what-if that [POST /stop](#post-stop) stopped sends one with
+`"status": "stopped"`, `"exitCode": null` and `"result": ""`. A
+what-if that the shutdown stopped sends none. The subscriber of the
+demo summarised it as:
+
+```text
+13:59:00 hospital-1 verified whatif forecast-beds run 5 valid: free-beds=0 in PT2H
+```
+
 ### Over MQTT
 
 The runner publishes each notification with QoS 1 on
@@ -2333,6 +2514,7 @@ The runner publishes each notification with QoS 1 on
 | `<topic>/notify/state`      | yes      | a Manager that subscribes later gets the current state     |
 | `<topic>/notify/presence`   | yes      | a Manager that subscribes later knows whether the DT is up |
 | `<topic>/notify/escalation` | no       | a Manager that subscribes later does not act on an old one |
+| `<topic>/notify/whatif`     | no       | the Manager that asked reads the result on request too     |
 
 The online notice is published each time the runner connects, the first
 time and after each reconnect. The notification topics are two levels
@@ -2515,6 +2697,11 @@ own address and the context of the DT in environment variables.
 | `DT_STATE`        | `open`; empty before the first transition                                  |
 | `DT_ENTRY`        | `1`                                                                        |
 | `DT_PARAM_<NAME>` | `DT_PARAM_SCOPE=single`, `DT_PARAM_CAPACITY=2`, `DT_PARAM_FIDELITY=medium` |
+| `DT_MODE`         | `live`; `what-if` for the command of a [what-if](#what-if)                 |
+| `DT_WHATIF_DIR`   | the copy of the DT, for the command of a what-if only                      |
+
+The command of a what-if gets neither `RUNNER_URL` nor `RUNNER_TOKEN`,
+so it calls no route.
 
 Without a state machine, `DT_STATE` and `DT_ENTRY` are absent. There
 is no variable for a [property](#properties): a script reads
@@ -2639,7 +2826,15 @@ shares. `hospital-1` is asked unless the request names `hospital-2`.
 
 ## Version
 
-This document describes runner version 0.12.0. It removes what 0.11
+This document describes runner version 0.13.0. It adds the
+[what-ifs](#what-if): the routes `POST /whatif` and `GET /whatif/<id>`,
+the MQTT topics `<topic>/whatif/set` and `<topic>/whatif`, the
+notification kind `whatif`, the timeline kind `whatif`, `mode` in
+[GET /history](#get-history), and `DT_MODE` and `DT_WHATIF_DIR` in
+the [script environment](#script-environment). Every script now gets
+`DT_MODE`. Nothing that 0.12.0 answered changes.
+
+Version 0.12.0 removes what 0.11
 deprecated, and a file or a request that uses one is refused:
 
 | Removed                                                          | Use instead                                                                          |

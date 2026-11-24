@@ -60,7 +60,11 @@ describe('Command input and outcome of the execution manager', () => {
 
     await manager.newCommand('create', 'key-1', { by: 'alice' });
 
-    expect(enqueue).toHaveBeenCalledWith('create', 'key-1', 'alice');
+    expect(enqueue).toHaveBeenCalledWith(
+      'create',
+      'key-1',
+      expect.objectContaining({ by: 'alice' }),
+    );
   });
 
   it('Should report and store a failing script with its exit code', async () => {

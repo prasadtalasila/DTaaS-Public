@@ -19,6 +19,7 @@ export type HistoryQuery = z.infer<typeof historyQuerySchema>;
 // A command of the history, without its logs, which stay on GET /. by
 // is the principal that submitted it, or null without access control
 // and for a state's script. Its resources are null until it finishes.
+// mode is what-if for a run on a private copy, and absent otherwise.
 export type HistoryEntryDto = {
   id: number;
   name: string;
@@ -28,4 +29,5 @@ export type HistoryEntryDto = {
   finishedAt: string | null;
   by: string | null;
   resources: ScriptResources;
+  mode?: 'what-if';
 };

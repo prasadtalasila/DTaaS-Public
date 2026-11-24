@@ -16,7 +16,7 @@ import { Principal } from './auth.config.js';
 import {
   ACCESS_ROUTE,
   authorize,
-  listedCommand,
+  managerListed,
   Route,
   ROUTE_ROLES,
 } from './roles.js';
@@ -74,8 +74,7 @@ export default class AccessGuard implements CanActivate {
     const { method, path, rawBody, headers } = request;
     const call = { method, path, body: rawBody };
     const principal = access.http(headers.authorization, call);
-    const commands = this.fsm.declared()?.managerCommands ?? [];
-    const listed = listedCommand(commands, request.body);
+    const listed = managerListed(route, this.fsm.declared(), request.body);
     authorize(principal, route, listed);
     request.principal = principal;
     // for the rows of the timeline that this request leads to

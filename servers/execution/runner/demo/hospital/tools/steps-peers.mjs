@@ -1,7 +1,7 @@
 // The second half of the story of the demo (steps.mjs): the peer
 // events, the escalations, history, metrics, stop and shutdown
 import { MOVED } from './configs.mjs';
-import { fsmIs, logHas } from './waits.mjs';
+import { fsmIs, logHas, whatIfEnded } from './waits.mjs';
 
 // Windows runs <name>.ps1 of scripts/, and Linux the script <name>
 export const WINDOWS = process.platform === 'win32';
@@ -13,6 +13,11 @@ export const admit = (patient, ward) =>
 export const overflowLogged = (times) =>
   logHas(`${H1}/ward.log`, 'overflow to', times);
 const raised = `grep -o 'Raised.*' run/${H1}/runner.log`;
+// The question of the Manager: the free beds in two hours, if
+// hospital-2 stays offline from ten minutes on
+const SCENARIO =
+  '{"name":"forecast-beds","input":{"horizon":"PT2H","steps":[{"at":"PT10M","peer":"hospital-2","online":false}]}}';
+const WHATIF_ID = `$(grep -o '"id": [0-9]*' run/whatif.txt | cut -d' ' -f2)`;
 
 export default [
   { chapter: 'Peer event: neighbour full' },
@@ -101,6 +106,29 @@ export default [
     say: 'The webhook received every notification of both DTs; here those that are not state documents:',
   },
   { run: "grep -v ' | ' run/webhook.log" },
+
+  { chapter: 'What-if' },
+  {
+    say: 'The Manager asks hospital-1 about a state it is not in. The class names the command for it:',
+  },
+  { run: 'grep -A2 whatIf: hospital.fsm.yaml' },
+  {
+    say: 'The runner saves a private copy of the twin, answers 202 with the id, and runs forecast-beds on it.',
+  },
+  {
+    run: `DT_AS=manager-1 dt1 /whatif --json '${SCENARIO}' | tee run/whatif.txt`,
+  },
+  { wait: whatIfEnded(H1, 'whatif.txt') },
+  {
+    say: 'The result is what the script printed; token absent: it had no RUNNER_TOKEN, nor RUNNER_URL.',
+  },
+  { run: `DT_AS=manager-1 dt1 /whatif/${WHATIF_ID}` },
+  {
+    say: 'A whatif notification told the end (right). The twin did not change, and the copy is gone:',
+  },
+  {
+    run: `dt1 /fsm | head -n 3; echo "copies left: $(ls -A run/${H1}/snapshots/what-if | wc -l)"`,
+  },
 
   { chapter: 'Save and reinstate' },
   {

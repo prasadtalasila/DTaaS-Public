@@ -30,9 +30,13 @@ type CommandRecord = {
 // What a command request passes on: the options of its script, the
 // caller that submitted it, which the queue stores, and listeners of
 // the run in the history that the request was given, called at once
-// unless refused, and of the end of a run, called before it is stored
+// unless refused, and of the end of a run, called before it is stored.
+// mode marks a what-if run, or the save run that makes its copy.
+type RunMode = 'what-if' | 'what-if-copy';
+
 type CommandOptions = RunOptions & {
   by?: string;
+  mode?: RunMode;
   onRun?: (id: number) => void;
   ended?: (outcome: RunOutcome, id: number) => void;
 };
@@ -59,4 +63,11 @@ interface Manager {
   stop(name?: string): Promise<string[]>;
 }
 
-export { CommandOptions, CommandRecord, CommandResult, CommandStatus, Manager };
+export {
+  CommandOptions,
+  CommandRecord,
+  CommandResult,
+  CommandStatus,
+  Manager,
+  RunMode,
+};

@@ -60,10 +60,15 @@ manager:
   commands:
     - admit
     - discharge
+    - forecast-beds
 # the commands that copy the beds into a snapshot and back from one
 snapshot:
   save: save-script
   restore: restore-script
+# the commands that POST /whatif runs on a private copy of the twin
+whatIf:
+  commands:
+    - forecast-beds
 # events that the runner raises when a neighbour changes: a peer that
 # runner.yaml gives the relationship neighbour
 subscriptions:

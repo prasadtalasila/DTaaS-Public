@@ -16,8 +16,14 @@ import { DATABASE, manifestOf, writeParts } from './snapshot.js';
 import SnapshotStore, { snapshotName } from './store.js';
 
 // A save into a directory: whether it writes the snapshot row of the
-// timeline, and whether the runner shuts down after it
-export type SaveOptions = { record: boolean; stop: boolean };
+// timeline, and whether the runner shuts down after it. A copy for a
+// what-if also gets the present, written while the twin is paused, and
+// the run of its save script is of the what-if.
+export type SaveOptions = {
+  record: boolean;
+  stop: boolean;
+  whatIf?: (directory: string) => Promise<void>;
+};
 
 export type StopListener = () => Promise<void>;
 
@@ -60,10 +66,7 @@ export default class Snapshots {
 
   // A new snapshot of the directory, named by the time the save began
   async save({ stop }: SaveBody): Promise<SnapshotDto> {
-    if (this.queue.mode() === 'memory') {
-      throw conflict('no database');
-    }
-    const store = this.store();
+    const store = this.checked();
     const time = new Date().toISOString();
     const name = snapshotName(time);
     const directory = store.path(name) as string;
@@ -74,18 +77,26 @@ export default class Snapshots {
     return store.reply(name, manifest);
   }
 
+  // The snapshots of a twin that has a database file and a directory
+  checked(): SnapshotStore {
+    if (this.queue.mode() === 'memory') {
+      throw conflict('no database');
+    }
+    return this.store();
+  }
+
   // Saves the twin, paused, into the directory, which must not exist;
   // after a save with stop the pause lasts while the runner shuts down
   async saveInto(
     directory: string,
     time: string,
-    { record, stop }: SaveOptions,
+    { record, stop, whatIf }: SaveOptions,
   ): Promise<Manifest> {
     this.refuseSaveScript();
     this.fsm.pause.begin();
     let down = false;
     try {
-      const manifest = await this.capture(directory, time);
+      const manifest = await this.capture(directory, time, whatIf);
       if (record) {
         const name = basename(directory);
         this.queue.timeline.record('snapshot', { time, name });
@@ -127,9 +138,13 @@ export default class Snapshots {
     return new SnapshotStore(snapshots);
   }
 
-  // Writes the parts of the runner, then runs the save script; a save
-  // that fails leaves no directory
-  private async capture(directory: string, time: string): Promise<Manifest> {
+  // Writes the parts of the runner and what the caller adds, then runs
+  // the save script; a save that fails leaves no directory
+  private async capture(
+    directory: string,
+    time: string,
+    whatIf: SaveOptions['whatIf'],
+  ): Promise<Manifest> {
     await mkdir(dirname(directory), { recursive: true });
     // it holds the inputs and the logs of commands
     await mkdir(directory, { mode: 0o700 });
@@ -140,7 +155,8 @@ export default class Snapshots {
         stateMachine: this.config.getStateMachine(),
         scripts: this.config.getLocation(),
       });
-      await this.runSaveScript(directory);
+      await whatIf?.(directory);
+      await this.runSaveScript(directory, whatIf !== undefined);
       return manifest;
     } catch (error) {
       await rm(directory, { recursive: true, force: true });
@@ -162,14 +178,18 @@ export default class Snapshots {
   }
 
   // The save script of the class, if it names one, writes into files/
-  private async runSaveScript(directory: string): Promise<void> {
+  private async runSaveScript(
+    directory: string,
+    whatIf: boolean,
+  ): Promise<void> {
     const name = this.fsm.declared()?.snapshot.save;
     if (name === undefined) {
       return;
     }
     const files = join(directory, 'files');
     await mkdir(files);
-    const host = { config: this.config, fsm: this.fsm };
+    const mode = whatIf ? ('what-if-copy' as const) : undefined;
+    const host = { config: this.config, fsm: this.fsm, mode };
     const reply = await runSnapshotScript(host, name, files);
     if (reply.status !== 'success') {
       throw new HttpException(reply, HttpStatus.INTERNAL_SERVER_ERROR);

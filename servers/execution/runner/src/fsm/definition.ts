@@ -6,6 +6,9 @@ import {
   SnapshotScripts,
   snapshotProblems,
   snapshotScriptsSchema,
+  WhatIf,
+  whatIfProblems,
+  whatIfSchema,
 } from './class.js';
 import completionCycle from './completion-cycle.js';
 import { Escalation, escalationSchema } from './escalation.js';
@@ -23,7 +26,7 @@ import {
   propertyProblems,
 } from './properties.js';
 import { field, hasProtoKey } from './proto.js';
-import { type Env, envProblems, envSchema } from './script-context.js';
+import { type Env, envProblems, envSchema } from './declared-env.js';
 import {
   Known,
   Subscription,
@@ -60,6 +63,7 @@ export type Definition = {
   managerCommands: string[];
   subscriptions: Subscription[];
   snapshot: SnapshotScripts;
+  whatIf?: WhatIf;
 };
 
 // A state name, or an object that stops the script first
@@ -91,6 +95,7 @@ const fileSchema = z
     manager: managerSchema,
     subscriptions: subscriptionsSchema,
     snapshot: snapshotScriptsSchema,
+    whatIf: whatIfSchema,
   })
   .strict();
 
@@ -132,6 +137,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
     managerCommands: sections.manager?.commands ?? [],
     subscriptions: sections.subscriptions,
     snapshot: sections.snapshot,
+    whatIf: sections.whatIf,
   };
 }
 
@@ -191,6 +197,7 @@ function crossCheck(definition: Definition, known: Known): string[] {
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
     ...snapshotProblems(definition.snapshot, known.commands),
+    ...whatIfProblems(definition, known.commands),
   ];
 }
 

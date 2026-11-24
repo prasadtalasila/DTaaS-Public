@@ -80,7 +80,7 @@ it. A Manager steers it and can not copy it.
 | `timeline`                                                                         | yes      | yes        | yes                     | yes      | no       |
 | `snapshots` (list), `save`, `delete-snapshot`                                      | yes      | yes        | no                      | no       | no       |
 | `stop`                                                                             | yes      | yes        | no                      | no       | no       |
-| `whatif`                                                                           | yes      | no         | listed commands only    | no       | no       |
+| `whatif`                                                                           | yes      | no         | both lists only         | no       | no       |
 | `whatif-result`                                                                    | yes      | yes        | yes                     | no       | no       |
 | `execute`                                                                          | yes      | no         | `manager.commands` only | no       | no       |
 | `transition`                                                                       | yes      | no         | no                      | no       | no       |
@@ -93,7 +93,9 @@ application that acts for the owner, and the tests. Reinstating and
 replaying have no route: they are commands at a shell on the host.
 
 Version 0.12.0 (issue 23) built the role with every row of the table
-but `whatif` and `whatif-result`, which are not built. The list is the
+but `whatif` and `whatif-result`, which version 0.13.0 (issue 24)
+built: a `manager` asks for a what-if only of a command that
+`whatIf.commands` and `manager.commands` both list. The list is the
 route `snapshots`, the save `save` and the removal `delete-snapshot`,
 a route of HTTP alone. An operator also reads the `input` of a
 command row of the timeline, as a `client` does.
@@ -409,28 +411,38 @@ gives:
 
 A Manager asks: "How many beds are free in two hours if hospital-2
 goes down?" The twin answers with one script, written for the
-purpose, which runs on a private copy.
+purpose, which runs on a private copy. Version 0.13.0 (issue 24)
+built it as described here; [WHAT-IF.md](../WHAT-IF.md) is the guide
+for authors and Managers.
 
 ### What Is Declared
 
+The state machine file of the demo, `demo/hospital/hospital.fsm.yaml`,
+in part:
+
 ```yaml
-# the state machine file
-snapshot:
-  save: save-script
-  restore: restore-script
-whatIf:
-  commands:
-    - forecast-beds
 manager:
   commands:
     - admit
     - discharge
     - forecast-beds
+# the commands that copy the beds into a snapshot and back from one
+snapshot:
+  save: save-script
+  restore: restore-script
+# the commands that POST /whatif runs on a private copy of the twin
+whatIf:
+  commands:
+    - forecast-beds
 ```
 
-A Manager may ask only for a command that both lists hold. The
+A Manager may ask only for a command that both lists hold, and gets
+`403` for any other; a `client` gets `400` `invalid command` for a
+command that `whatIf.commands` lacks. A command
+of `whatIf.commands` must be permitted and may not be a state, and
+the class needs `snapshot.save`; else the runner does not start. The
 runner needs a database file, a directory for snapshots and access
-control; without any of them a what-if is refused.
+control; without any of them a what-if is refused with `409`.
 
 ### Asking, and the Answer
 
@@ -440,44 +452,58 @@ POST /whatif
   "name": "forecast-beds",
   "input": {
     "horizon": "PT2H",
-    "change": { "parameters": { "scope": "multi" } },
     "steps": [{ "at": "PT10M", "peer": "hospital-2", "online": false }]
   }
 }
 ```
 
 `input` is the scenario, in a shape of the class's own choosing. The
-reply comes at once:
+runner makes the copy, then replies at once:
 
 ```json
-{ "id": 57, "name": "forecast-beds", "status": "running" }
+{ "id": 5, "name": "forecast-beds", "status": "running" }
 ```
 
-The runner then:
+The runner:
 
-1. saves the twin into
-   `<snapshots>/what-if/20261123T101502120Z/`, with the pause of a
-   save, and without a row or an entry in the list;
-2. runs `forecast-beds` with the input on stdin, `DT_MODE=what-if`
+1. saves the twin into a directory such as
+   `<snapshots>/what-if/20261124T135903552Z/`, with the pause of a
+   save, and without a row or an entry in the list; the save run is
+   in the history with no `mode`;
+2. answers `202` with the `id`;
+3. runs `forecast-beds` with the input on stdin, `DT_MODE=what-if`
    and `DT_WHATIF_DIR`, and with no `RUNNER_TOKEN` and no
-   `RUNNER_URL`;
-3. stores what the script printed, with the outcome;
-4. sends a notification, and removes the copy.
+   `RUNNER_URL`, and writes a `whatif` row to the timeline;
+4. stores what the script printed, with the outcome, and the run with
+   `mode: what-if`;
+5. removes the copy, however the script ended, and then sends a
+   notification.
 
 The copy holds the present as four documents, `state.json`,
 `parameters.json`, `properties.json` and `peers.json`, each the reply
 of the route of its name, and the past in `state.db`, of which the
 `timeline` table is the part that a script may rely on.
 
-The script reads its copy and prints its answer:
+The script of the demo, `scripts/forecast-beds`, refuses to run live,
+then hands the copy to `scripts/forecast.mjs`, which reads the beds of
+`files/ward.json`, the capacity of `parameters.json`, the peers of
+`peers.json`, the `admit` requests of the last hour from `timeline`, and
+prints its answer:
 
 ```bash
 #!/usr/bin/env bash
-scenario=$(cat)
-free=$(simulate "$DT_WHATIF_DIR/files/ward.json" \
-  "$DT_WHATIF_DIR/state.db" "$scenario")
-echo "{\"free-beds\": $free, \"horizon\": \"PT2H\"}"
+set -euo pipefail
+if [[ ${DT_MODE:-} != what-if ]]; then
+  echo "forecast-beds runs only as a what-if, not in mode ${DT_MODE:-none}" >&2
+  exit 2
+fi
+exec node --no-warnings "$(dirname "$0")/forecast.mjs"
 ```
+
+A second request for the same command while its what-if runs, also
+while the copy is made, joins it. A what-if of a command that runs
+live is refused with `409` `command running`, and a live run of a
+command whose what-if runs with `409` `what-if running`.
 
 ### The Result
 
@@ -485,25 +511,35 @@ The result is what the script printed. The Manager is on another
 host and can not read a file of the runner, so the runner hands it
 over in two ways.
 
-On request, `GET /whatif/57`:
+On request, `GET /whatif/5`, from a copy of the demo with
+`hospital-1` alone after two admissions:
 
 ```json
 {
-  "id": 57,
+  "id": 5,
   "name": "forecast-beds",
   "status": "valid",
-  "exitCode": 0,
-  "result": { "free-beds": 1, "horizon": "PT2H" },
-  "receivedAt": "2026-11-23T10:15:02.120Z",
-  "finishedAt": "2026-11-23T10:15:09.804Z",
+  "mode": "what-if",
+  "receivedAt": "2026-11-24T13:59:00.000Z",
   "by": "manager-1",
-  "resources": { "cpuSeconds": 2.31, "peakRssBytes": 48234496, "processes": 3 }
+  "exitCode": 0,
+  "result": {
+    "free-beds": 0,
+    "horizon": "PT2H",
+    "free-now": 2,
+    "admissions-per-hour": 2,
+    "state-now": "open",
+    "peers-offline-now": [],
+    "token": "absent"
+  },
+  "finishedAt": "2026-11-24T13:59:00.000Z",
+  "resources": { "cpuSeconds": 0, "peakRssBytes": 86016, "processes": 1 }
 }
 ```
 
 `result` is the output parsed as JSON, or the text when it is no
 JSON. `status` is that of any command: `running`, `valid`, `failed`,
-`stopped` or `interrupted`.
+`stopped` or `interrupted`. An id that is no what-if gets `404`.
 
 And by a notification on `<base>/notify/whatif` and the webhook, not
 retained, in the envelope of every notification:
@@ -512,28 +548,40 @@ retained, in the envelope of every notification:
 {
   "kind": "whatif",
   "id": "hospital-1",
-  "time": "2026-11-23T10:15:09.804Z",
+  "time": "2026-11-24T13:59:00.433Z",
   "data": {
-    "id": 57,
+    "id": 5,
     "name": "forecast-beds",
     "status": "valid",
     "exitCode": 0,
-    "result": { "free-beds": 1, "horizon": "PT2H" }
+    "result": {
+      "free-beds": 0,
+      "horizon": "PT2H",
+      "free-now": 2,
+      "admissions-per-hour": 2,
+      "state-now": "open",
+      "peers-offline-now": [],
+      "token": "absent"
+    }
   }
 }
 ```
 
+A what-if stopped by `POST /stop` sends the notification with
+`stopped`; one that the shutdown stops sends none.
+
 ### Why the Twin Stays as It Is
 
 - The script has no token and no address, so it can not raise an
-  event, write a property or escalate.
+  event, write a property or escalate. The demo's result shows
+  `"token": "absent"`.
 - It reads a copy of the database, never the database.
 - The result is no property, and the state document does not change.
 - Without access control the request is refused, as a missing token
   would then protect nothing.
 
 The costs are a pause of the twin at each what-if, and a copy of the
-database each time.
+database and the scripts each time.
 
 ## Replay
 

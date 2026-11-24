@@ -120,7 +120,7 @@ describe('Queue exit codes and statuses', () => {
     const file = oldDatabase(dir);
 
     queue.open(file);
-    queue.enqueue('create', undefined, 'alice');
+    queue.enqueue('create', undefined, { by: 'alice' });
     queue.close();
     queue = new Queue();
     queue.open(file);
@@ -177,8 +177,8 @@ describe('Queue exit codes and statuses', () => {
     const file = join(dir, 'runner.db');
     queue.open(file);
 
-    queue.enqueue('create', 'key-1', 'manager-1');
-    queue.enqueue('create', undefined, 'script');
+    queue.enqueue('create', 'key-1', { by: 'manager-1' });
+    queue.enqueue('create', undefined, { by: 'script' });
     queue.enqueue('create');
     queue.close();
 

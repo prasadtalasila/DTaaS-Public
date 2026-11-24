@@ -64,12 +64,15 @@ async function startServices() {
 }
 
 // The options of a runner: the moved one is reinstated from the last
-// snapshot of hospital-1
+// snapshot of hospital-1, beside which what-if/ held the what-if copies
 function options(id) {
   if (id !== MOVED.id) {
     return ['-c', RUNNERS[id].config];
   }
-  const last = readdirSync(MOVED.snapshots).sort().at(-1);
+  const last = readdirSync(MOVED.snapshots)
+    .filter((name) => name !== 'what-if')
+    .sort()
+    .at(-1);
   return ['-c', MOVED.config, '--reinstate', `${MOVED.snapshots}/${last}`];
 }
 

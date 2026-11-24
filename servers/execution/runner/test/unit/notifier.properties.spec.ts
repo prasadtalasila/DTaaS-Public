@@ -33,6 +33,7 @@ function setup() {
     stateInterval: () => 1000,
     onChange: (listener: () => void) => listeners.push(listener),
     onEscalation: () => undefined,
+    whatIfs: () => ({ onEnd: () => undefined }),
   };
   const notify = jest.fn<MqttService['notify']>(() => Promise.resolve());
   const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());

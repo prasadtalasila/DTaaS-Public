@@ -63,6 +63,7 @@ is a secret or an address, belongs to the instance.
 | `manager`       | The commands that a Manager may run                              |
 | `subscriptions` | The events raised when a peer changes                            |
 | `snapshot`      | The commands that save and restore what the scripts keep         |
+| `whatIf`        | The commands that run on a private copy of the twin              |
 
 [STATE-MACHINE.md](STATE-MACHINE.md) describes every key.
 
@@ -104,7 +105,13 @@ problem before it stops:
 | `relationship: neighbour`            | nothing: see [Relationships](#relationships) | the subscription is idle, with a line in the log   |
 
 A command under `snapshot` is checked as one under `manager.commands`:
-`snapshot save script save-beds is not a permitted command`.
+`snapshot save script save-beds is not a permitted command`. So is one
+under `whatIf.commands`: `what-if command forecast-ward is not a
+permitted command`. The class itself must also name a save script for
+it, and may not use a state as one; see
+[WHAT-IF.md](WHAT-IF.md#what-the-author-writes). The operator gives a
+what-if the database file, `snapshots` and `auth.principals`, or the
+twin refuses it with `409`.
 
 The scripts are the third part. A state or a command has the name of
 its script, so the names in the class, the names under `commands` and

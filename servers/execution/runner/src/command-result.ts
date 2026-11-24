@@ -3,6 +3,7 @@ import {
   CommandRecord,
   CommandResult,
   CommandStatus,
+  RunMode,
 } from './interfaces/command.interface.js';
 import { RunOptions, RunOutcome } from './interfaces/runner.interface.js';
 import { NO_RESOURCES } from './resources/resources.js';
@@ -28,6 +29,16 @@ export function storedResult(command: CommandRecord): CommandResult {
     command.exitCode,
     command.resources,
   ];
+}
+
+// A live request does not join a what-if, nor a what-if a live run, so
+// that neither takes the output of the other
+export function refuseOtherMode(running?: RunMode, asked?: RunMode): void {
+  if (running !== asked) {
+    throw new CommandRefused(
+      running === 'what-if' ? 'what-if running' : 'command running',
+    );
+  }
 }
 
 // Joining a run would drop the input of the request

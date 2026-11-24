@@ -98,10 +98,11 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.context.setApi(url, token);
   }
 
-  // The environment of a script of POST /: the machine as it is
-  environment(command: string): Env {
-    const machine = this.machine;
-    return this.context.environment(command, machine?.state, machine?.entry);
+  // The environment of a script of POST /, or of a what-if on the copy
+  // given: the machine as it is
+  environment(command: string, whatIf?: string): Env {
+    const { state, entry } = this.machine ?? {};
+    return this.context.environment(command, { state, entry, whatIf });
   }
 
   // No transition or completion starts a script once shutdown begins,
@@ -215,7 +216,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     state: string,
     entry: number,
   ): Promise<void> {
-    const env = this.context.environment(state, state, entry);
+    const env = this.context.environment(state, { state, entry });
     const live = () => !this.stopping && machine.entry === entry;
     const script = { state, entry, env, live, timeline: this.queue.timeline };
     const outcome = await this.pause.hold(

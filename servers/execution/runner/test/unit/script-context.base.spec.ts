@@ -52,6 +52,7 @@ describe('Base of the script environment', () => {
       RUNNER_URL: 'http://127.0.0.1:5000',
       RUNNER_TOKEN: 'token-1',
       DT_ID: 'dt-1',
+      DT_MODE: 'live',
       LEVEL: 'file',
     });
   });

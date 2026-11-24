@@ -8,7 +8,7 @@ import {
 import { z } from 'zod';
 import { MESSAGES } from '@nestjs/core/constants.js';
 import { callerContext } from '../auth/caller-context.js';
-import { authorize, listedCommand } from '../auth/roles.js';
+import { authorize, managerListed } from '../auth/roles.js';
 import DescriptorService from '../descriptor.service.js';
 import ExecaManager from '../execa-manager.service.js';
 import {
@@ -26,6 +26,7 @@ import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import { PeersBody, peersBodySchema } from '../dto/peers.dto.js';
 import { PropertiesBody, propertiesBodySchema } from '../dto/properties.dto.js';
 import { saveSchema } from '../dto/snapshot.dto.js';
+import { whatIfResultSchema } from '../dto/whatif.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { timelineQuerySchema, timelineReply } from '../dto/timeline.dto.js';
 import { saving } from '../snapshot/pause.js';
@@ -108,6 +109,12 @@ export default class MqttRequestHandler {
     save: this.whenValid(saveSchema, (body) =>
       this.descriptor.snapshots().save(body),
     ),
+    whatif: this.whenValid(executeCommandSchema, (body) =>
+      this.descriptor.whatIfs().ask(body),
+    ),
+    'whatif-result': this.whenValid(whatIfResultSchema, ({ id }) =>
+      this.descriptor.whatIfs().result(id),
+    ),
   };
 
   // The role and a save that runs come before the body, as Nest runs
@@ -129,8 +136,7 @@ export default class MqttRequestHandler {
   // Only a request with a credential has a principal
   private authorize(route: MqttRoute, { principal, body }: MqttRequest) {
     if (principal !== undefined) {
-      const commands = this.fsm.declared()?.managerCommands ?? [];
-      const listed = listedCommand(commands, body);
+      const listed = managerListed(route, this.fsm.declared(), body);
       authorize(principal, route, listed);
       this.logger.debug(`${principal.name} calls ${route}`);
     }

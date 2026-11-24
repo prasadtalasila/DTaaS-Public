@@ -4,6 +4,7 @@ import { Role } from 'src/auth/auth.config';
 import {
   authorize,
   listedCommand,
+  managerListed,
   Route,
   ROUTE_ROLES,
   routes,
@@ -35,6 +36,8 @@ const TABLE: Record<Route, Row> = {
   snapshots: ['yes', 'yes', 'no', 'no', 'no'],
   save: ['yes', 'yes', 'no', 'no', 'no'],
   'delete-snapshot': ['yes', 'yes', 'no', 'no', 'no'],
+  whatif: ['yes', 'no', 'listed', 'no', 'no'],
+  'whatif-result': ['yes', 'yes', 'yes', 'no', 'no'],
 };
 
 const ROLES: Role[] = ['client', 'operator', 'manager', 'script', 'sensor'];
@@ -85,5 +88,27 @@ describe('Roles', () => {
         listed: [true, false],
       }[answer],
     );
+  });
+
+  const lists = {
+    managerCommands: ['admit', 'forecast-beds'],
+    whatIf: { commands: ['forecast-beds', 'forecast-staff'] },
+  };
+
+  it.each([
+    ['whatif', 'forecast-beds', true],
+    ['whatif', 'forecast-staff', false],
+    ['whatif', 'admit', false],
+    ['execute', 'admit', true],
+    ['execute', 'forecast-staff', false],
+  ] as const)(
+    'Should tell whether a manager may ask %s for %s',
+    (route, name, listed) => {
+      expect(managerListed(route, lists, { name })).toBe(listed);
+    },
+  );
+
+  it('Should list nothing for a manager without a class', () => {
+    expect(managerListed('whatif', undefined, { name: 'admit' })).toBe(false);
   });
 });
