@@ -36,9 +36,9 @@ runner-compare run/hospital-1/snapshots/20261123T060000000Z replays/scope-multi
 
 A replay is described in a file, `runner-replay.yaml` by default, so
 that it can be read, kept and run again. Without an argument the
-tool reads the file of that name in the current directory. The owner asked on 2026-11-24 for fewer options than the
-ten flags of the first plan; the tool now takes the file and one
-flag.
+tool reads the file of that name in the current directory. The owner
+asked on 2026-11-24 for fewer options than the ten flags of the first
+plan; the tool now takes the file and one flag.
 
 The formats that the tools read and write, a scenario file, the
 `replay.json` that a replay leaves and the list that a comparison
