@@ -1,7 +1,8 @@
-import { describe, expect, it } from '@jest/globals';
-import { HttpException } from '@nestjs/common';
+import { describe, expect, it, jest } from '@jest/globals';
+import { ArgumentsHost, HttpException } from '@nestjs/common';
 import { Route, routes } from 'src/auth/roles';
-import Pause from 'src/snapshot/pause';
+import Pause, { saving, SavingException } from 'src/snapshot/pause';
+import SavingFilter from 'src/snapshot/saving.filter';
 
 // The routes that a save refuses; every other route is answered
 const CHANGING: Route[] = [
@@ -104,5 +105,62 @@ describe('Pause of a save', () => {
     expect(await settled(held)).toBe(false);
     pause.end();
     expect(await held).toBe('success');
+  });
+});
+
+describe('Refusal of a change during a save', () => {
+  it('Should answer 503 saving with a Retry-After of 1 s', () => {
+    const headers: Record<string, unknown> = {};
+    const sent: unknown[] = [];
+    const response = {
+      setHeader: (name: string, value: unknown) => {
+        headers[name] = value;
+        return response;
+      },
+      status: (code: number) => {
+        sent.push(code);
+        return response;
+      },
+      json: (body: unknown) => sent.push(body),
+    };
+    const host = { switchToHttp: () => ({ getResponse: () => response }) };
+
+    new SavingFilter().catch(saving(), host as unknown as ArgumentsHost);
+
+    expect(headers).toEqual({ 'Retry-After': 1 });
+    expect(sent).toEqual([503, { status: 'saving' }]);
+  });
+
+  it('Should throw the refusal that the filter answers for a second save', () => {
+    const pause = new Pause();
+    pause.begin();
+
+    expect(() => pause.begin()).toThrow(SavingException);
+  });
+});
+
+describe('Deferred work of a save', () => {
+  it('Should do the work at once while no save runs', () => {
+    const work = jest.fn();
+
+    new Pause().defer(work, () => undefined);
+
+    expect(work).toHaveBeenCalledTimes(1);
+  });
+
+  it('Should do the work after the held completions that came first', async () => {
+    const pause = new Pause();
+    const order: string[] = [];
+    pause.begin();
+    void pause.hold(Promise.resolve('completion')).then((v) => order.push(v));
+    await new Promise(setImmediate);
+    pause.defer(
+      () => order.push('event'),
+      () => undefined,
+    );
+    pause.end();
+    await new Promise(setImmediate);
+
+    expect(order).toEqual(['completion', 'event']);
   });
 });

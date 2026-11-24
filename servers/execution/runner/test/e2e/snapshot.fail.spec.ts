@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
-import { http, snapshotTwin, startTwin } from './snapshot.util';
+import { http, snapshotTwin, startTwin, touch, until } from './snapshot.util';
 
 // PowerShell takes a second or more to start on a loaded Windows host
 const TIMEOUT = 30000;
@@ -74,6 +74,29 @@ describe('Failed saves end-to-end', () => {
       expect(status).toBe(500);
       expect(body).toMatchObject({ status: 'stopped' });
       expect(snapshots()).toEqual([]);
+      await goesOn();
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'Should refuse a save while a client runs the save script',
+    async () => {
+      await start('save-ward');
+      const run = http(app)
+        .post('/')
+        .send({ name: 'save-ward' })
+        .then((reply) => reply);
+      await until(() =>
+        Promise.resolve(app.get(ExecaManager).isRunning('save-ward')),
+      );
+
+      const { status, body } = await http(app).post('/snapshot').send({});
+      touch(dir, 'release');
+
+      expect([status, body]).toEqual([409, { status: 'save script running' }]);
+      expect(snapshots()).toEqual([]);
+      expect((await run).status).toBe(200);
       await goesOn();
     },
     TIMEOUT,

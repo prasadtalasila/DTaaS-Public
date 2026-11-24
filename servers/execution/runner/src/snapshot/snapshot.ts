@@ -60,12 +60,26 @@ function blank(mapping: unknown, key: string): void {
   }
 }
 
-// runner.yaml without the MQTT password and the webhook token; the
-// signing key is a path, and stays one
+// The URL without the user and password that it may hold
+function blankUserInfo(mqtt: unknown): void {
+  const { url } = (mqtt ?? {}) as Mapping;
+  if (typeof url !== 'string' || !url.includes('@')) {
+    return;
+  }
+  const parsed = new URL(url);
+  parsed.username = '';
+  parsed.password = '';
+  (mqtt as Mapping).url = parsed.toString();
+}
+
+// runner.yaml without the MQTT password, the user information of the
+// MQTT URL and the webhook token; the signing key is a path, and stays
+// one
 export function blankedConfig(text: string): string {
   const config = yaml.load(text) as Mapping;
   const manager = (config.relationships as Mapping | undefined)?.manager;
   blank(config.mqtt, 'password');
+  blankUserInfo(config.mqtt);
   blank((manager as Mapping | undefined)?.notify, 'token');
   return yaml.dump(config);
 }

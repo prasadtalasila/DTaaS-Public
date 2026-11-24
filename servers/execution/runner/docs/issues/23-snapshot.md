@@ -394,7 +394,8 @@ Provisional:
       list shows it; a removal removes it. A runner without a database
       file refuses. Check:
       `test/unit/snapshot.spec.ts`, `test/unit/snapshot.save.spec.ts`,
-      `test/e2e/snapshot.spec.ts`, `test/e2e/mqtt.snapshot.spec.ts`.
+      `test/unit/snapshot.refuse.spec.ts`, `test/e2e/snapshot.spec.ts`,
+      `test/e2e/mqtt.snapshot.spec.ts`.
 - [x] While a save runs, each changing route answers `503` `saving`,
       each read answers, and a script that ends has its completion
       handled after. Check: `test/unit/snapshot.pause.spec.ts`,

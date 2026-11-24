@@ -48,22 +48,10 @@ function execute(name: string, signed = true): Request {
   return { ...call, headers, body: { name }, rawBody: Buffer.from(body) };
 }
 
-// The headers that the guard sets on the response
-let headers: Record<string, unknown> = {};
-
-const response = {
-  setHeader: (name: string, value: unknown) => {
-    headers[name] = value;
-  },
-};
-
 const context = (handler: unknown, request: Request) =>
   ({
     getHandler: () => handler,
-    switchToHttp: () => ({
-      getRequest: () => request,
-      getResponse: () => response,
-    }),
+    switchToHttp: () => ({ getRequest: () => request }),
   }) as unknown as ExecutionContext;
 
 const status = (attempt: () => unknown): number => {
@@ -148,8 +136,7 @@ describe('Access guard', () => {
     it.each([
       ['with access control', access],
       ['without access control', undefined],
-    ])('Should refuse a change with 503 and a Retry-After %s', (_, control) => {
-      headers = {};
+    ])('Should refuse a change with 503 saving %s', (_, control) => {
       const request = execute('admit');
 
       expect(
@@ -157,7 +144,6 @@ describe('Access guard', () => {
           guard(control, paused()).canActivate(context(newCommand, request)),
         ),
       ).toBe(503);
-      expect(headers).toEqual({ 'Retry-After': 1 });
     });
 
     it('Should refuse the role before the save', () => {

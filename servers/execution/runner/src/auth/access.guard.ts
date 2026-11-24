@@ -6,10 +6,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import Config from '../config/configuration.service.js';
 import FsmService from '../fsm/fsm.service.js';
-import { RETRY_AFTER, saving } from '../snapshot/pause.js';
+import { saving } from '../snapshot/pause.js';
 import Access from './access.js';
 import { callerContext } from './caller-context.js';
 import { Principal } from './auth.config.js';
@@ -46,13 +46,11 @@ export default class AccessGuard implements CanActivate {
       ACCESS_ROUTE,
       context.getHandler(),
     );
-    const http = context.switchToHttp();
     const access = this.config.access();
     if (access !== undefined) {
-      this.authorize(access, route, http.getRequest());
+      this.authorize(access, route, context.switchToHttp().getRequest());
     }
     if (route !== undefined && this.fsm.pause.refuses(route)) {
-      http.getResponse<Response>().setHeader('Retry-After', RETRY_AFTER);
       throw saving();
     }
     return true;

@@ -23,6 +23,7 @@ import { NotifyConfig } from '../notify/notify.config.js';
 import { PeerConfig } from '../peers/peers.config.js';
 import { ScriptsConfig } from '../scripts/scripts.config.js';
 import { checkSeparation, ScriptUser } from '../scripts/separation.js';
+import { placementProblems } from '../snapshot/placement.js';
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid configuration in ${file}:\n${problems}`);
@@ -141,6 +142,13 @@ export default class Config {
     const values = parseConfig(readConfig(file), file);
     this.file = file;
     this.configValues = resolvePaths(path.dirname(file), values);
+    const placement = placementProblems({
+      ...this.configValues,
+      snapshots: this.getSnapshots()?.directory,
+    });
+    if (placement.length > 0) {
+      throw invalid(file, placement.join('\n'));
+    }
     const { principals, key } = this.configValues.auth ?? {};
     this.accessControl = principals && new Access(principals, values.id);
     this.signer = Signer.load(key, values.id);

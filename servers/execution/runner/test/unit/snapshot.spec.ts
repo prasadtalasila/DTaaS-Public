@@ -55,6 +55,14 @@ describe('Snapshot parts', () => {
     });
   });
 
+  it('Should blank the user and password of the MQTT URL', () => {
+    const text = CONFIG.replace('mqtt://localhost', 'mqtt://dt:pw@localhost');
+
+    expect(yaml.load(blankedConfig(text))).toMatchObject({
+      mqtt: { url: 'mqtt://localhost:1883', password: '' },
+    });
+  });
+
   it('Should add no secret that runner.yaml does not have', () => {
     const copy = yaml.load(blankedConfig('id: dt-1\nmqtt: {topic: t}\n'));
 

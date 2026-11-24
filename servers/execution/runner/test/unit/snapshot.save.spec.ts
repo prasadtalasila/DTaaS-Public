@@ -1,12 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
@@ -18,66 +10,19 @@ import {
   jest,
 } from '@jest/globals';
 import { HttpException } from '@nestjs/common';
-import Config from 'src/config/configuration.service';
-import FsmService from 'src/fsm/fsm.service';
-import { CommandOptions } from 'src/interfaces/command.interface';
 import { RunOutcome } from 'src/interfaces/runner.interface';
-import Queue from 'src/queue.service';
-import Pause from 'src/snapshot/pause';
-import Snapshots from 'src/snapshot/snapshots';
 import { UNMEASURED } from 'test/utils';
-
-type Run = (name: string, key?: string, options?: CommandOptions) => unknown;
-
-const result = (outcome: RunOutcome, code: number | null) =>
-  Promise.resolve([
-    outcome,
-    new Map([['stderr', 'no ward']]),
-    code,
-    UNMEASURED,
-  ]);
-
-// Snapshots of a twin whose class names the save script, with a real
-// database file and a fake state machine and manager
-function setup(dir: string, run: Run, database = true) {
-  const queue = new Queue();
-  if (database) {
-    queue.open(join(dir, 'dt.db'));
-  }
-  mkdirSync(join(dir, 'scripts'));
-  const config = {
-    getSnapshots: () => ({ directory: join(dir, 'snapshots'), given: 'snaps' }),
-    getSnapshotTimeout: () => 50,
-    getFile: () => join(dir, 'runner.yaml'),
-    getStateMachine: () => undefined,
-    getLocation: () => join(dir, 'scripts'),
-    getId: () => 'dt-1',
-  } as unknown as Config;
-  const manager = {
-    newCommand: jest.fn(run),
-    stop: jest.fn((_name?: string) => Promise.resolve<string[]>([])),
-  };
-  const fsm = {
-    pause: new Pause(),
-    manager,
-    declared: jest.fn(() => ({ snapshot: { save: 'save-ward' } as object })),
-    check: () => undefined,
-    environment: () => ({ DT_ID: 'dt-1' }),
-  };
-  const snapshots = new Snapshots(config, fsm as unknown as FsmService, queue);
-  return { queue, manager, fsm, pause: fsm.pause, snapshots };
-}
+import { removeDir, result, setup, twinDir } from './snapshot.fixture';
 
 describe('Saving a twin', () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'runner-save-'));
-    writeFileSync(join(dir, 'runner.yaml'), 'id: dt-1\n');
+    dir = twinDir();
   });
 
   afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
+    removeDir(dir);
   });
 
   it('Should run the save script with its directory, as the caller', async () => {
@@ -167,29 +112,6 @@ describe('Saving a twin', () => {
     expect(pause.saving).toBe(true);
   });
 
-  it('Should refuse a runner without a database file', async () => {
-    const { snapshots } = setup(dir, () => result('success', 0), false);
-
-    const refused = await snapshots
-      .save({ stop: false })
-      .catch((error) => error);
-
-    expect((refused as HttpException).getStatus()).toBe(409);
-    expect((refused as HttpException).getResponse()).toEqual({
-      status: 'no database',
-    });
-  });
-
-  it('Should answer 404 for a snapshot that is not there', async () => {
-    const { snapshots } = setup(dir, () => result('success', 0));
-
-    const missing = await snapshots
-      .remove('20261123T101502120Z')
-      .catch((error) => error);
-
-    expect((missing as HttpException).getStatus()).toBe(404);
-  });
-
   it('Should write no files without a save script', async () => {
     const { snapshots, manager, fsm } = setup(dir, () => result('success', 0));
     fsm.declared.mockReturnValue({ snapshot: {} });
@@ -202,14 +124,35 @@ describe('Saving a twin', () => {
     );
   });
 
-  it('Should go on when the shutdown after a save fails', async () => {
-    const { snapshots } = setup(dir, () => result('success', 0));
+  it('Should let the twin go on when the shutdown after a save fails', async () => {
+    let finish: (outcome: RunOutcome) => void = () => undefined;
+    const { snapshots, pause } = setup(dir, () => result('success', 0));
     const stop = jest.fn(() => Promise.reject(new Error('closed already')));
     snapshots.onStop(stop);
+    const held = pause.hold(
+      new Promise<RunOutcome>((resolve) => {
+        finish = resolve;
+      }),
+    );
 
     await snapshots.save({ stop: true });
+    finish('success');
     await new Promise(setImmediate);
 
     expect(stop).toHaveBeenCalledTimes(1);
+    expect(pause.saving).toBe(false);
+    expect(await held).toBe('success');
   });
+
+  (process.platform === 'win32' ? it.skip : it)(
+    'Should let only the account of the runner read the snapshot',
+    async () => {
+      const { snapshots } = setup(dir, () => result('success', 0));
+
+      const { path } = await snapshots.save({ stop: false });
+
+      const { mode } = statSync(join(dir, 'snapshots', basename(path)));
+      expect(mode & 0o777).toBe(0o700);
+    },
+  );
 });

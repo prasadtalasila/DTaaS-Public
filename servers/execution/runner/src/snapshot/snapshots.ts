@@ -22,7 +22,14 @@ export type SaveOptions = { record: boolean; stop: boolean };
 
 export type StopListener = () => Promise<void>;
 
-const conflict = (status: string) => new ConflictException({ status });
+const conflict = (status: string, message?: string) =>
+  new ConflictException(
+    message === undefined ? { status } : { status, message },
+  );
+
+// Why a class with a save script can not be saved with scripts.user
+const SEPARATED =
+  'With scripts.user the save script runs as another account, which can not write into a snapshot that only the account of the runner reads. Leave out scripts.user, or keep what the scripts need in properties and name no save script.';
 
 // Saves the twin into a directory while it is paused, and lists and
 // removes the snapshots of the directory of runner.yaml
@@ -69,29 +76,48 @@ export default class Snapshots {
   }
 
   // Saves the twin, paused, into the directory, which must not exist;
-  // after a save with stop the pause lasts until the runner has shut down
+  // after a save with stop the pause lasts while the runner shuts down
   async saveInto(
     directory: string,
     time: string,
     { record, stop }: SaveOptions,
   ): Promise<Manifest> {
-    const { pause } = this.fsm;
-    pause.begin();
-    const manifest = await this.capture(directory, time).catch((error) => {
-      pause.end();
-      throw error;
-    });
-    if (record) {
-      const name = basename(directory);
-      this.queue.timeline.record('snapshot', { time, name });
+    this.refuseSaveScript();
+    this.fsm.pause.begin();
+    let down = false;
+    try {
+      const manifest = await this.capture(directory, time);
+      if (record) {
+        const name = basename(directory);
+        this.queue.timeline.record('snapshot', { time, name });
+      }
+      down = stop;
+      return manifest;
+    } finally {
+      this.after(down);
     }
-    if (stop) {
-      // after the reply, which HTTP and MQTT send as the save resolves
-      setImmediate(() => void this.stop());
-    } else {
-      pause.end();
+  }
+
+  // The save script can not write into a directory that only the runner
+  // reads, and must not join a run that has no DT_SNAPSHOT_DIR
+  private refuseSaveScript(): void {
+    const name = this.fsm.declared()?.snapshot.save;
+    if (name !== undefined && this.config.getScriptUser() !== undefined) {
+      throw conflict('save script of another account', SEPARATED);
     }
-    return manifest;
+    if (name !== undefined && this.fsm.manager.isRunning(name)) {
+      throw conflict('save script running');
+    }
+  }
+
+  private after(down: boolean): void {
+    if (!down) {
+      this.fsm.pause.end();
+      return;
+    }
+    this.fsm.pause.close();
+    // after the reply, which HTTP and MQTT send as the save resolves
+    setImmediate(() => void this.stop());
   }
 
   private store(): SnapshotStore {
@@ -106,7 +132,8 @@ export default class Snapshots {
   // that fails leaves no directory
   private async capture(directory: string, time: string): Promise<Manifest> {
     await mkdir(dirname(directory), { recursive: true });
-    await mkdir(directory);
+    // it holds the inputs and the logs of commands
+    await mkdir(directory, { mode: 0o700 });
     try {
       const manifest = this.copyDatabase(directory, time);
       await writeParts(directory, manifest, {
@@ -164,7 +191,8 @@ export default class Snapshots {
   }
 
   // Stops the scripts that run, as a signal to the process group does,
-  // since the shutdown waits for them
+  // since the shutdown waits for them. If the shutdown fails, the twin
+  // goes on: the pause ends, and the held completions are handled.
   private async stop(): Promise<void> {
     this.logger.log('Shutting down after the save');
     try {
@@ -172,6 +200,7 @@ export default class Snapshots {
       await this.stopListener?.();
     } catch (error) {
       this.logger.error(`Could not shut down after the save: ${error}`);
+      this.fsm.pause.end();
     }
   }
 }

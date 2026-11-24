@@ -10,6 +10,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import { connectAsync, MqttClient } from 'mqtt';
 import Config from 'src/config/configuration.service';
+import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
 import { MqttRoute, requestTopic } from 'src/mqtt/mqtt.config';
 import MqttService from 'src/mqtt/mqtt.service';
@@ -25,6 +26,8 @@ describe('Runner MQTT snapshots end-to-end tests', () => {
   let client: MqttClient;
   let app: INestApplication;
   let dir: string;
+  // whether a save with stop closed the runner already
+  let closed: boolean;
   // Undo only what started, so that a failed setup can not keep jest
   // from exiting
   const cleanups: Array<() => Promise<void>> = [];
@@ -53,10 +56,13 @@ describe('Runner MQTT snapshots end-to-end tests', () => {
       broker.aedes.on('subscribe', () => resolve());
     });
     app = await startTwin(dir);
+    closed = false;
     cleanups.push(async () => {
       touch(dir, 'release');
-      await app.get(ExecaManager).stop();
-      await app.close();
+      if (!closed) {
+        await app.get(ExecaManager).stop();
+        await app.close();
+      }
     });
     const mqtt = { url: broker.url, topic: TOPIC, protocolVersion: 4 as const };
     jest.spyOn(app.get<Config>(Config), 'getMqtt').mockReturnValue(mqtt);
@@ -102,6 +108,31 @@ describe('Runner MQTT snapshots end-to-end tests', () => {
       expect(refused).toEqual({ status: 'saving' });
       expect(read).toMatchObject({ saving: true });
       expect(await saved).toMatchObject({ seq: expect.any(Number) });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'Should answer a save with stop before the runner shuts down',
+    async () => {
+      touch(dir, 'release');
+      const shutdown = new Promise<void>((resolve) => {
+        app
+          .get(DescriptorService)
+          .snapshots()
+          .onStop(async () => {
+            await app.close();
+            closed = true;
+            resolve();
+          });
+      });
+
+      const saved = await request('save', { stop: true });
+
+      expect(closed).toBe(false);
+      expect(saved).toMatchObject({ seq: expect.any(Number) });
+      await shutdown;
+      expect(closed).toBe(true);
     },
     TIMEOUT,
   );
