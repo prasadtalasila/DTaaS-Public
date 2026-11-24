@@ -107,8 +107,9 @@ As built:
 - Each snapshot directory is created with mode `0700`, as it holds
   the logs and the inputs of commands.
 - In the copy of `runner.yaml` the MQTT password, the webhook token and
-  the user information of `mqtt.url` are blanked. The copy is written
-  from the parsed file, so it has no comments.
+  the user information of `mqtt.url` are blanked; an `mqtt.url` that
+  can not be parsed is blanked whole. The copy is written from the
+  parsed file, so it has no comments.
 - The snapshot directory must lie outside `location`, as each save
   copies `location`; and the state machine file must not be named
   `runner.yaml` when `snapshots` is set, as it would replace the copy
@@ -235,7 +236,8 @@ runner -c runner.yaml --reinstate snapshots/20261124T125705005Z
    `DT_SNAPSHOT_DIR` set to `files/`. A snapshot without `files/`,
    saved without a save script, skips it with a warning. If the
    restore script or the resume of the machine fails, the runner
-   removes the copied database and stops with the error; a later start
+   removes the copied database, with the `-wal` and `-shm` files of
+   SQLite, and stops with the error; a later start
    can copy again. A failure after that, such as a port in use, leaves
    the copied database, and a second `--reinstate` stops with
    `the database exists already`: the operator starts without
@@ -539,6 +541,17 @@ What the plan did not foresee:
   and the copy itself
   refuses to overwrite (`COPYFILE_EXCL`), so the cleanup never removes
   a file that it did not write.
+- **The final review found four edges.** An `mqtt.url` that `new
+URL()` can not parse made every save fail with `500`; it is now
+  blanked whole. A snapshot directory `location/..x` was taken for
+  one outside `location`; the test is now on the path segment `..`.
+  The cleanup of a failed reinstate left `state.db-wal` and
+  `state.db-shm`, which SQLite would replay into the next copy, and
+  skipped the removal when closing the database threw; it now removes
+  the three files whatever the close does. A refusal at the start
+  printed a stack trace; `main.ts` now prints the message alone and
+  exits with 1, for the flags, the configuration and `--reinstate`
+  alike.
 - **The order of the checks matters to the operator.** The manifest
   is read first, so a directory that is no snapshot is named as such
   even when a database exists; a snapshot without `files/` skips the

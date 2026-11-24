@@ -21,7 +21,7 @@ export const oldEnumHints = (section: unknown): string[] =>
     .filter(([, value]) => field(value, 'type') === 'enum')
     .map(
       ([name]) =>
-        `✖ parameter ${name}: write type string with enum, as 0.12.0 removed type enum`,
+        `✖ parameter ${name}: write type: string with enum, as 0.12.0 removed type enum`,
     );
 
 const isSet = (value: unknown): boolean =>

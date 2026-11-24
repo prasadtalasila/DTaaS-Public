@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Saves the beds of the hospital into a snapshot: copies ward.json of
-# the ward directory of ward.sh, run/<DT_ID>/ or that of a replay twin,
-# to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+# the ward directory of ward.sh, run/<DT_ID>/ beside the scripts, to
+# DT_SNAPSHOT_DIR. POST /snapshot runs it.
 . "$(dirname "$0")/ward.sh"
 set -euo pipefail
 cp "$WARD_FILE" "$DT_SNAPSHOT_DIR/ward.json"

@@ -166,7 +166,9 @@ leaves a copy.
    `mode: what-if` in `GET /history`.
 5. **It removes the copy**, however the script ended, and then
    **tells that the run ended**. A copy that a crash left is removed
-   at the next start.
+   at the next start. A replay twin has no snapshot directory, so it
+   refuses a what-if with `409` `no snapshot directory` and removes no
+   copy at its start.
 
 `DT_MODE` is `live` for every other script.
 
@@ -425,6 +427,13 @@ As built:
 ## Learnings
 
 What the plan did not foresee:
+
+- **A second runner may share the directory of the first.** A replay
+  twin started by hand with a copy of the live `runner.yaml` kept its
+  `snapshots`, so at its start it removed the `what-if/` copies of the
+  live twin, and it saved and ran what-ifs into the live directory.
+  The final review found it; a replay twin now has no snapshot
+  directory, whatever `runner.yaml` lists.
 
 - **Two runs of one command are one run.** `ExecaManager` joins a
   running command of the same name. A what-if of a command that ran

@@ -29,7 +29,7 @@ describe('Parameter types', () => {
         '  → at parameters.scope\n' +
         '✖ Invalid option: expected one of "string"|"number"|"integer"|"boolean"\n' +
         '  → at parameters.scope.type\n' +
-        '✖ parameter scope: write type string with enum, as 0.12.0 removed type enum',
+        '✖ parameter scope: write type: string with enum, as 0.12.0 removed type enum',
     );
   });
 

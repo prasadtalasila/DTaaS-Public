@@ -11,6 +11,7 @@ import FsmService from './fsm/fsm.service.js';
 import { runnerUrl } from './fsm/script-context.js';
 import { openTwin } from './snapshot/reinstate.js';
 import { listenHost } from './replay/replay-mode.js';
+import { startFailure } from './config/start-failure.js';
 
 /*
 The js file extension in import is a limitation of typescript.
@@ -18,9 +19,15 @@ See: https://stackoverflow.com/questions/62619058/appending-js-extension-on-rela
      https://github.com/microsoft/TypeScript/issues/16577
 */
 
+// A refusal at start, of the options or of the twin, ends the runner
+const refuse = (error: unknown): never => {
+  process.stderr.write(`${startFailure(error)}\n`);
+  process.exit(1);
+};
+
 const PROGRAM_NAME = 'runner';
 const [program, CLIOptions] = createCommand(PROGRAM_NAME);
-await CLI(program, CLIOptions); // function fills the CLIOptions
+await CLI(program, CLIOptions).catch(refuse); // function fills the CLIOptions
 
 async function bootstrap(options: Keyv) {
   // the access guard hashes the raw body of a request
@@ -48,4 +55,4 @@ async function bootstrap(options: Keyv) {
   const token = config.access()?.scriptToken;
   fsm.setRunnerApi(runnerUrl(app.getHttpServer()), token);
 }
-bootstrap(CLIOptions);
+bootstrap(CLIOptions).catch(refuse);

@@ -119,7 +119,7 @@ refused with `409` and a status without one of:
 | Needed                                        | Status                  |
 | :-------------------------------------------- | :---------------------- |
 | `database`, a file                            | `no database`           |
-| `snapshots.directory`                         | `no snapshot directory` |
+| `snapshots.directory`, and no replay twin     | `no snapshot directory` |
 | `auth.principals` ([access control][control]) | `no access control`     |
 
 [control]: README.md#access-control

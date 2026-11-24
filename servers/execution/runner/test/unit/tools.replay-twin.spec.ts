@@ -68,7 +68,7 @@ describe('The configuration of a replay twin', () => {
       id: 'hospital-1.replay',
       attributes: { ward: 'cardiology' },
       port: 41873,
-      location: '../../run/snapshots/20261122T220000000Z/scripts',
+      location: 'scripts',
       commands: ['open', 'admit'],
       stateMachine: '../../run/snapshots/20261122T220000000Z/hospital.fsm.yaml',
       database: 'state.db',

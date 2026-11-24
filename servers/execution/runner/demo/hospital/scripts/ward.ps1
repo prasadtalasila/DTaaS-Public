@@ -1,13 +1,9 @@
 # Helpers of the hospital scripts: the beds in run/<DT_ID>/ward.json, the
 # ward log in run/<DT_ID>/ward.log, and requests to the runner. Not a
 # command.
-# A replay twin keeps its own beds, under run\<DT_ID> of its working
-# directory, so that its scripts never touch those of the twin
-if ($env:DT_MODE -eq 'what-if' -and $env:DT_REPLAY_OF) {
-  $WardDir = Join-Path (Get-Location) "run\$env:DT_ID"
-} else {
-  $WardDir = Join-Path $PSScriptRoot "..\run\$env:DT_ID"
-}
+# A replay twin runs a copy of the scripts in its out, so its beds are
+# there, and those of the twin are untouched
+$WardDir = Join-Path $PSScriptRoot "..\run\$env:DT_ID"
 $WardFile = Join-Path $WardDir 'ward.json'
 $WardLog = Join-Path $WardDir 'ward.log'
 $Capacity = [int]$env:DT_PARAM_CAPACITY

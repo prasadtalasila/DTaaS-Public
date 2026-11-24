@@ -15,6 +15,8 @@ commands: [create]
 mqtt:
   url: 'mqtt://localhost:1883'
   topic: dtaas/dt-1
+snapshots:
+  directory: ../snapshots
 relationships:
   manager:
     notify:
@@ -47,12 +49,13 @@ describe('The configuration of a replay twin', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('Should reach no broker and no manager, and keep the peers', async () => {
+  it('Should reach no broker and no manager, save nothing, and keep the peers', async () => {
     const config = await load(60);
 
     expect(config.replay()?.scale).toBe(60);
     expect(config.getMqtt()).toBeUndefined();
     expect(config.getNotify()).toBeUndefined();
+    expect(config.getSnapshots()).toBeUndefined();
     expect(config.getPeers().map(({ id }) => id)).toEqual(['dt-2']);
   });
 
@@ -78,6 +81,7 @@ describe('The configuration of a replay twin', () => {
 
     expect(config.replay()).toBeUndefined();
     expect(config.getMqtt()?.topic).toBe('dtaas/dt-1');
+    expect(config.getSnapshots()?.given).toBe('../snapshots');
     expect(config.getNotify()?.url).toBe(
       'https://manager.example.org/dt-events',
     );

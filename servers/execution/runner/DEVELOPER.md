@@ -238,8 +238,10 @@ routes in `src/snapshot.controller.ts`. Before changing them:
 - `openTwin` (`reinstate.ts`) is the one place that opens the database
   and resumes the machine, with or without `--reinstate`. `main.ts`
   and `startStoredRunner` of `test/e2e/util.ts` both call it, so the
-  tests start a twin as the runner does. A refusal is a thrown `Error`,
-  which ends the process as an invalid `runner.yaml` does.
+  tests start a twin as the runner does. A refusal is a thrown `Error`;
+  `main.ts` catches it, as it catches an invalid `runner.yaml` and a
+  misuse of the flags, prints its message with `startFailure`
+  (`src/config/start-failure.ts`) and exits with 1.
 - `placement.ts` adds its lines to the problems of `Config.loadConfig`;
   `configuration.service.ts` is at 247 lines.
 
@@ -308,7 +310,8 @@ the reasons. Before changing them:
 
 - The mode is one object, `ReplayMode` of `replay-mode.ts`, that
   `Config.replay()` returns, `undefined` in a twin. Each place that
-  differs asks it: `getMqtt()` and `getNotify()` return `undefined`,
+  differs asks it: `getMqtt()`, `getNotify()` and `getSnapshots()`
+  return `undefined`, so a replay twin saves nothing,
   `listenHost` of `main.ts` gives `127.0.0.1`, `AccessGuard` lets an
   `operator` call every route and parses the headers with
   `replayOrigin` of `origin.ts`, and `RunnerContext.load` adds the
@@ -328,16 +331,21 @@ the reasons. Before changing them:
   `readConfig`, `Timeline.rows` on a read-only `DatabaseSync`,
   `Signer`, `bodyHash`, `snapshotName` and `whatIfSchema`. Change those
   with the tools in mind.
+- `replay-run.ts` copies `scripts/` of the start into `out/scripts`,
+  and `ReplayTwin.start` spawns the runner with `out` as its working
+  directory, so that a script that writes beside itself never changes
+  the snapshot.
 - `shutdown.ts` stops the scripts of the replay twin with
   `POST /stop` before it ends the runner, on the normal end and on
   `SIGINT` and `SIGTERM`, as a runner that shuts down waits for its
-  scripts.
+  scripts. It waits 10 s at most for the answer, and a second signal
+  during the shutdown kills the replay twin.
 
 The tests of `src/replay/` are `test/unit/replay.*.spec.ts`,
 `test/integration/config.replay.spec.ts`,
 `test/integration/queue.timeline.replay.spec.ts` and
 `test/e2e/replay-twin*.spec.ts`. Those of the tools are
-`test/unit/tools.*.spec.ts`, `test/integration/tools.replay.spec.ts`,
+`test/unit/tools.*.spec.ts`, `test/integration/tools.replay*.spec.ts`,
 `test/e2e/replay.spec.ts`, `test/e2e/replay.refuse.spec.ts` and
 `test/e2e/dist.spec.ts`. The integration and end-to-end tests of the
 tools run the built `dist/src/main.js` and `dist/src/tools/*.js`, and

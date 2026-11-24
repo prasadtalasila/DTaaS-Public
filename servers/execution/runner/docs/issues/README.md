@@ -404,6 +404,26 @@ From implementing 25:
   again; all were fixed before the recording
   ([25](25-replay.md#what-the-demo-showed)).
 
+From the final review of 22 to 25:
+
+- A mode that withholds one side effect must withhold them all, in
+  one place. A replay twin dropped MQTT and the webhook in the
+  configuration but not the snapshot directory, which only the tool
+  left out, so a replay twin started by hand wrote into the live
+  twin's snapshots. Put each such rule in `Config`, not in one caller.
+- A second process of one class needs its own files. The replay twin
+  ran the snapshot's scripts from the tool's directory, and a script
+  that wrote beside itself changed the snapshot. Give the process a
+  copy and a working directory of its own, rather than ask every
+  script to branch on the mode.
+- A demo workaround is a symptom. The branch on `DT_REPLAY_OF` in the
+  demo's scripts hid the fault above; ask why a demo needs one before
+  documenting it.
+- Deferred minors add up across features. A `500` on a URL, a path
+  test on a prefix, a leftover SQLite file and a stack trace were each
+  small, and each broke a later feature; settle them before the next
+  feature builds on them.
+
 ## Deferred
 
 From the research notes, with the decision that blocks each:

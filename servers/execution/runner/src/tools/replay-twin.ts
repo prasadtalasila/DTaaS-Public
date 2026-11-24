@@ -1,6 +1,6 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import { closeSync, openSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sleep } from './times.js';
 import { ToolError } from './tool-error.js';
@@ -30,14 +30,15 @@ export default class ReplayTwin {
     private readonly main = MAIN,
   ) {}
 
+  // The runner works in out, so that its scripts write there
   start(snapshot: string, speed: number): void {
     const log = openSync(join(this.out, LOG), 'a');
-    const config = join(this.out, 'runner.yaml');
-    const args = ['-c', config, '--reinstate', snapshot, '--what-if'];
+    const config = resolve(this.out, 'runner.yaml');
+    const args = ['-c', config, '--reinstate', resolve(snapshot), '--what-if'];
     this.child = spawn(
       process.execPath,
       [this.main, ...args, '--time-scale', String(speed)],
-      { stdio: ['ignore', log, log] },
+      { cwd: this.out, stdio: ['ignore', log, log] },
     );
     closeSync(log);
   }

@@ -272,8 +272,8 @@ The two scripts get one variable, `DT_SNAPSHOT_DIR`, which is
 ```bash
 #!/usr/bin/env bash
 # Saves the beds of the hospital into a snapshot: copies ward.json of
-# the ward directory of ward.sh, run/<DT_ID>/ or that of a replay twin,
-# to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+# the ward directory of ward.sh, run/<DT_ID>/ beside the scripts, to
+# DT_SNAPSHOT_DIR. POST /snapshot runs it.
 . "$(dirname "$0")/ward.sh"
 set -euo pipefail
 cp "$WARD_FILE" "$DT_SNAPSHOT_DIR/ward.json"
@@ -282,8 +282,8 @@ cp "$WARD_FILE" "$DT_SNAPSHOT_DIR/ward.json"
 ```bash
 #!/usr/bin/env bash
 # Restores the beds of the hospital from a snapshot: copies ward.json of
-# DT_SNAPSHOT_DIR to the ward directory of ward.sh, run/<DT_ID>/ or that
-# of a replay twin. runner --reinstate runs it.
+# DT_SNAPSHOT_DIR to the ward directory of ward.sh, run/<DT_ID>/ beside
+# the scripts. runner --reinstate runs it.
 . "$(dirname "$0")/ward.sh"
 set -euo pipefail
 mkdir -p "$WARD_DIR"
@@ -688,8 +688,9 @@ everywhere in the API.
    the inputs are later, and that the class says
    `whatIf.replay: true`.
 2. It writes the configuration of the replay twin, from the copy of
-   `runner.yaml` in the start.
-3. It starts a runner on it:
+   `runner.yaml` in the start, and copies `scripts/` of the start into
+   `out/scripts`.
+3. It starts a runner on it, in `out` as its working directory:
    `runner -c <out>/runner.yaml --reinstate <start> --what-if --time-scale <speed>`.
 4. If the script of the saved state was running at the save, it asks
    for a transition to that state, so that the script runs: the first
@@ -712,7 +713,7 @@ attributes:
   longitude: 10.17
   wards: 2
 port: 41523
-location: ../../hospital-1/snapshots/20261124T183856368Z/scripts
+location: scripts
 commands:
   - open
   - full
@@ -745,6 +746,8 @@ auth:
 
 - No broker, no webhook, no `scripts` and no `snapshots`: a replay
   twin reaches nobody and saves nothing.
+- `location` is the copy of the scripts in `out`, so a script that
+  writes beside itself writes into `out`, never into the snapshot.
 - The peers are as in the copy, so that the subscriptions of the
   class bind. None is followed: a replay twin listens to no peer,
   whatever its configuration lists.
@@ -847,7 +850,7 @@ steps:
 ### What a Replay Twin Is
 
 A runner started with `--reinstate` and `--what-if`, and
-`--time-scale <factor>`, `1` by default. The mode changes eight things:
+`--time-scale <factor>`, `1` by default. The mode changes nine things:
 
 | In a replay twin                                                 | In any other runner          |
 | :--------------------------------------------------------------- | :--------------------------- |
@@ -856,6 +859,7 @@ A runner started with `--reinstate` and `--what-if`, and
 | Scripts get `DT_MODE=what-if`, `DT_REPLAY_OF`, `DT_TIME_SCALE`   | `DT_MODE=live`               |
 | The start is refused unless the class says `whatIf.replay: true` | Not asked                    |
 | It follows no peer and notifies nobody                           | It follows its enabled peers |
+| It has no snapshot directory: a save and a what-if get `409`     | Its `snapshots.directory`    |
 | It starts knowing the last notices of its peers up to the save   | It learns them from MQTT     |
 | `PUT /peers/<id>/notice` is answered, for an `operator`          | `404`                        |
 | A row records `at`, and `origin` for the headers of an input     | No such fields               |
@@ -865,8 +869,8 @@ In a replay twin, too, the role `operator` may call every route.
 The class must allow it because the scripts run for real. A class
 that was not written with the mode in mind would act on the real
 hospital from a second process. In the demo, the scripts keep the
-beds in `run/<DT_ID>/` of the working directory when `DT_MODE` is
-`what-if` and `DT_REPLAY_OF` is set, and the restore script puts the
+beds in `run/<DT_ID>/` beside the scripts, which in a replay twin is
+`run/hospital-1.replay/` of `out`, and the restore script puts the
 beds of the snapshot there; after the replay of the demo, the beds of
 hospital-1 were untouched.
 
@@ -886,8 +890,11 @@ scale.
 ```text
 replays/scope-multi/
 ├── replay.json
+├── run
+│   └── hospital-1.replay
 ├── runner.log
 ├── runner.yaml
+├── scripts
 └── state.db
 ```
 

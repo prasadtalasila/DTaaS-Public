@@ -1450,7 +1450,9 @@ Options:
 
 `--what-if` and `--time-scale` start a [replay twin](#replays), which
 `runner-replay` does for the operator; `--time-scale` takes a number
-above 0, and is `1` without the flag.
+above 0, and is `1` without the flag. A refusal at the start, of the
+flags, of the configuration or of a `--reinstate`, prints its message
+without a stack trace, and the runner exits with 1.
 
 The config option is not mandatory. If it is not used, **runner** looks for
 _runner.yaml_ in the directory from which it is being run.
@@ -1511,7 +1513,8 @@ The manifest of a save of a twin in the state `open`:
 
 The directory has mode `0700`. In the copy of _runner.yaml_ the MQTT
 password, the user and password of `mqtt.url` and the webhook token
-are blanked; the signing key is a path, and is not copied unless it
+are blanked, and an `mqtt.url` that can not be parsed is blanked
+whole; the signing key is a path, and is not copied unless it
 lies under `location`. The copy is
 written from the parsed file, so it has no comments. The whole
 directory of the scripts is copied at every save: a class with a large
@@ -1676,10 +1679,11 @@ runner-compare hospital-1/snapshots/20261124T183906126Z replays/scope-multi
 when the entries are the same and 1 when they differ. The replay twin
 is `runner --reinstate <start> --what-if --time-scale <speed>`: it
 listens on `127.0.0.1` only, connects to no broker, follows no peer
-and sends no notification, and its class must have
+and sends no notification, saves nothing, and its class must have
 [whatIf.replay](#what-if-commands). Its scripts run for real on the
-host. A `command` row marked `stored`, answered from the stored reply
-of a request key, is not sent. A replay from `inputs` needs a twin with
+host, from a copy in `out`, which is also their working directory. A
+`command` row marked `stored`, answered from the stored reply of a
+request key, is not sent. A replay from `inputs` needs a twin with
 [access control](#access-control); a file with `steps`, a scenario,
 works for any twin.
 

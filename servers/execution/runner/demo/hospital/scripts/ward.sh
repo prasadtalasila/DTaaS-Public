@@ -2,13 +2,9 @@
 # Helpers of the hospital scripts on Linux: the beds in
 # run/<DT_ID>/ward.json, the ward log in run/<DT_ID>/ward.log, and
 # requests to the runner. Not a command. Needs jq and curl.
-# A replay twin keeps its own beds, under run/<DT_ID> of its working
-# directory, so that its scripts never touch those of the twin
-if [[ ${DT_MODE:-} == what-if && -n ${DT_REPLAY_OF:-} ]]; then
-  WARD_DIR="$PWD/run/$DT_ID"
-else
-  WARD_DIR="$(dirname "${BASH_SOURCE[0]}")/../run/$DT_ID"
-fi
+# A replay twin runs a copy of the scripts in its out, so its beds are
+# there, and those of the twin are untouched
+WARD_DIR="$(dirname "${BASH_SOURCE[0]}")/../run/$DT_ID"
 WARD_FILE="$WARD_DIR/ward.json"
 WARD_LOG="$WARD_DIR/ward.log"
 CAPACITY=$DT_PARAM_CAPACITY
