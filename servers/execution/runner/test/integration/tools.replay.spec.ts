@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { promisify } from 'node:util';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { readRows } from 'src/tools/inputs';
@@ -11,6 +13,27 @@ const TIMEOUT = 60000;
 const MAIN = resolve('dist/src/main.js');
 
 const built = existsSync(MAIN) ? describe : describe.skip;
+
+// pgrep is there on Linux and macOS
+const unix = process.platform === 'win32' ? it.skip : it;
+
+// Whether a process whose command line holds the text runs
+const runs = (text: string): Promise<boolean> =>
+  promisify(execFile)('pgrep', ['-f', text]).then(
+    () => true,
+    () => false,
+  );
+
+const until = async (
+  check: () => Promise<boolean>,
+  left = 300,
+): Promise<void> => {
+  if (left === 0 || (await check())) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  return until(check, left - 1);
+};
 
 // runner-replay in this process, so that its steps are measured
 built('A replay in the process of the test', () => {
@@ -67,6 +90,41 @@ built('A replay in the process of the test', () => {
         ['stop', undefined],
         ['exit', 'stopped'],
       ]);
+    },
+    TIMEOUT,
+  );
+
+  // process.exit is replaced, so that the handler runs in this process
+  unix(
+    'Should leave no runner and no script behind when the tool gets a signal',
+    async () => {
+      const file = replayFile(dir, 'signal.yaml', {
+        ...pair,
+        out: 'signal',
+        speed: 50,
+      });
+      const script = join(dir, pair.start, 'scripts', 'work');
+      const runner = join(dir, 'signal', 'runner.yaml');
+      const exit = jest
+        .spyOn(process, 'exit')
+        .mockImplementation((() => undefined) as never);
+      const quiet = jest
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(() => true);
+      const ended = replay(file, false, MAIN).catch(() => 'ended');
+      await until(() => runs(script));
+      const started = await runs(script);
+      process.emit('SIGTERM');
+      await until(async () => exit.mock.calls.length > 0);
+      const codes = exit.mock.calls.map(([code]) => code);
+      exit.mockRestore();
+      quiet.mockRestore();
+      const left = [await runs(script), await runs(runner)];
+
+      expect(started).toBe(true);
+      expect(codes).toEqual([143]);
+      expect(left).toEqual([false, false]);
+      expect(await ended).toBeDefined();
     },
     TIMEOUT,
   );

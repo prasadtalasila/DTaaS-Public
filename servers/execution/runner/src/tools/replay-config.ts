@@ -17,7 +17,8 @@ export function newKeyPair(): { privateKey: KeyObject; publicKey: string } {
   };
 }
 
-// A port of 127.0.0.1 that is free now
+// A port of 127.0.0.1 that is free now; another process may take it
+// before the runner binds, and the runner then does not come up
 export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();

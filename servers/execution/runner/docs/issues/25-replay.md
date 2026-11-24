@@ -130,6 +130,12 @@ What is sent, and what is not:
 | `notice` of a peer                                                     | `PUT /peers/<id>/notice`                  |
 | `event` or `properties` of a script, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
 
+A replay from `inputs` needs a twin with access control: its
+`runner.yaml` lists `auth.principals`. Without them every row has
+`by: null`, and the timeline does not tell what a script wrote from
+what a client or a sensor sent, so the tool refuses such inputs. A
+file with `steps` works for any twin.
+
 The tool signs every request as one principal, `replay`. Each
 request also names the principal and the `seq` that it had in the
 twin, and the replay twin records both in its own row. The replay
@@ -177,8 +183,9 @@ kind is.
 
 A replay twin is a runner started with `--reinstate` and `--what-if`.
 The operator may also start one by hand in that way. The mode
-changes six things:
+changes seven things:
 
+- **It listens on `127.0.0.1` only**, as its scripts act for real.
 - **It follows no peer and notifies nobody**, whatever its
   configuration lists.
 - **It says what it is.** `GET /dt` shows

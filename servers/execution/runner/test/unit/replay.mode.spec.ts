@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import ReplayMode from 'src/replay/replay-mode';
+import ReplayMode, { listenHost } from 'src/replay/replay-mode';
 
 const ORIGIN = { of: 'hospital-1', time: '2026-11-22T22:00:00.000Z' };
 
@@ -50,5 +50,12 @@ describe('The mode of a replay twin', () => {
     expect(Date.parse(replay.at() ?? '')).toBeGreaterThanOrEqual(
       Date.parse(ORIGIN.time),
     );
+  });
+});
+
+describe('The host of a runner', () => {
+  it('Should listen on the loopback address in a replay twin only', () => {
+    expect(listenHost(new ReplayMode(10))).toBe('127.0.0.1');
+    expect(listenHost(undefined)).toBeUndefined();
   });
 });

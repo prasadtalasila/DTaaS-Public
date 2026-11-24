@@ -85,7 +85,7 @@ built('runner-replay and runner-compare', () => {
       expect(rows.every(({ at }) => at !== undefined)).toBe(true);
       expect(rows.find(({ kind }) => kind === 'event')).toMatchObject({
         by: 'replay',
-        origin: { by: null },
+        origin: { by: 'alice' },
       });
     },
     TIMEOUT,

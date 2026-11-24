@@ -16,6 +16,7 @@ import ReplayTwin, { MAIN } from './replay-twin.js';
 import { Counts, firstStep, sendAll, setProperties, settle } from './send.js';
 import { gap } from './times.js';
 import TwinClient from './twin-client.js';
+import { shutDown, stopWith } from './shutdown.js';
 import { complain, say } from './tool-error.js';
 
 // One line of a dry run: the time, its offset, kind, caller and request
@@ -71,24 +72,6 @@ async function setUp(plan: ReplayPlan, prepared: Prepared, main: string) {
   };
 }
 
-const exit = {
-  SIGINT: () => process.exit(130),
-  SIGTERM: () => process.exit(143),
-};
-
-// The child ends with the tool, by a signal too; returns the undoing
-function stopWith(twin: ReplayTwin): () => void {
-  const kill = () => twin.kill();
-  process.once('exit', kill);
-  process.once('SIGINT', exit.SIGINT);
-  process.once('SIGTERM', exit.SIGTERM);
-  return () => {
-    process.off('exit', kill);
-    process.off('SIGINT', exit.SIGINT);
-    process.off('SIGTERM', exit.SIGTERM);
-  };
-}
-
 // A runner that shuts down waits for its scripts, so stop any that runs
 // after settle
 async function stopScripts(client: TwinClient, seconds: number) {
@@ -110,7 +93,7 @@ async function drive(plan: ReplayPlan, prepared: Prepared, client: TwinClient) {
 
 async function run(plan: ReplayPlan, prepared: Prepared, main: string) {
   const { twin, client } = await setUp(plan, prepared, main);
-  const undo = stopWith(twin);
+  const undo = stopWith(twin, client);
   try {
     twin.start(prepared.start.dir, plan.speed);
     await twin.ready();
@@ -123,7 +106,7 @@ async function run(plan: ReplayPlan, prepared: Prepared, main: string) {
     );
     return 0;
   } finally {
-    await twin.stop();
+    await shutDown(twin, client);
     undo();
   }
 }

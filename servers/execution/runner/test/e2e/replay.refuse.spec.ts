@@ -151,4 +151,26 @@ built('runner-replay and runner-compare refuse', () => {
       'scripts is neither a snapshot nor the out of a replay',
     );
   });
+
+  it(
+    'Should refuse inputs of a twin without principals, and take its steps',
+    async () => {
+      const open = wardTwin(false);
+      const { start, inputs } = await endedPair(open);
+      const steps = [{ at: '20991231T000000000Z', event: 'next' }];
+      replayFile(open, 'inputs.yaml', { start, inputs, out: 'x' });
+      replayFile(open, 'steps.yaml', { start, steps, out: 'x' });
+      const refusedInputs = await tool('replay', ['inputs.yaml'], open);
+      const steered = await tool('replay', ['steps.yaml', '--dry-run'], open);
+      rmSync(open, { recursive: true, force: true });
+
+      expect(refusedInputs).toMatchObject(refusal('lists no auth.principals'));
+      expect(refusedInputs.stderr).toContain('a replay file with steps works');
+      expect(steered).toMatchObject({
+        code: 0,
+        stdout: expect.stringContaining('event - POST'),
+      });
+    },
+    TIMEOUT,
+  );
 });

@@ -43,15 +43,27 @@ function untilOf(
   return { seq: before.at(-1)?.seq ?? null, time: until };
 }
 
+// Without principals every row has by null, so the rows of a script
+// can not be told from those of a client or a sensor
+function checkPrincipals(roles: Roles, { dir }: SnapshotDir): void {
+  if (roles.size === 0) {
+    throw new ToolError(
+      `inputs: runner.yaml of ${dir} lists no auth.principals, so its timeline does not tell what a script wrote from what a client or a sensor sent; a replay file with steps works for this twin`,
+    );
+  }
+}
+
 async function fromSnapshot(
   plan: ReplayPlan,
   start: SnapshotDir,
 ): Promise<Prepared> {
   const inputs = await readSnapshot('inputs', String(plan.inputs));
   checkPair(start, inputs);
+  const roles = rolesOf(inputs);
+  checkPrincipals(roles, inputs);
   const rows = readRows(join(inputs.dir, DATABASE), start.manifest.seq);
   const { seq } = inputs.manifest;
-  const sent = rowInputs(rows, rolesOf(inputs), { seq, until: plan.until });
+  const sent = rowInputs(rows, roles, { seq, until: plan.until });
   return { start, inputs: sent, until: untilOf(rows, inputs, plan.until) };
 }
 

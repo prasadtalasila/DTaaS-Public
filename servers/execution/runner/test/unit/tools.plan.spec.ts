@@ -1,11 +1,11 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, describe, expect, it, jest } from '@jest/globals';
 import * as yaml from 'js-yaml';
 import { readReplayFile } from 'src/tools/replay-file';
 import { prepare } from 'src/tools/replay-plan';
 import { dryLine, replay, summary } from 'src/tools/replay-run';
-import { runTool, ToolError } from 'src/tools/tool-error';
+import { ToolError } from 'src/tools/tool-error';
 import { fakeSnapshot, newDir, Row } from './tools.fixture';
 
 const START = '2026-11-22T22:00:00.000Z';
@@ -107,6 +107,22 @@ describe('A replay file and its snapshots', () => {
     await expect(prepare(early)).rejects.toMatchObject({
       code: 2,
       message: expect.stringContaining('steps.0.at'),
+    });
+  });
+
+  it('Should refuse the inputs of a twin without principals', async () => {
+    fakeSnapshot(dir, 'open', {
+      time: '2026-11-23T06:00:00.000Z',
+      seq: 6,
+      rows: ROWS,
+    });
+    const plan = readReplayFile(
+      file({ start: 'start', inputs: 'open', out: 'o' }),
+    );
+
+    await expect(prepare(plan)).rejects.toMatchObject({
+      code: 2,
+      message: expect.stringContaining('lists no auth.principals'),
     });
   });
 
@@ -218,27 +234,5 @@ describe('A replay file and its snapshots', () => {
     expect(dryLine({ ...prepared.inputs[0], by: null }, START, 1)).toContain(
       ' event - POST',
     );
-  });
-});
-
-describe('A tool', () => {
-  afterEach(() => {
-    process.exitCode = undefined;
-  });
-
-  it('Should exit with the code of a refusal, and 1 for any other error', async () => {
-    const write = jest
-      .spyOn(process.stderr, 'write')
-      .mockImplementation(() => true);
-    await runTool(() => Promise.reject(new ToolError('no snapshot')));
-    const refused = process.exitCode;
-    await runTool(() => Promise.reject(new Error('lost')));
-    const failed = process.exitCode;
-    await runTool(() => Promise.resolve(0));
-    const lines = write.mock.calls.map(([text]) => String(text));
-    write.mockRestore();
-
-    expect([refused, failed, process.exitCode]).toEqual([2, 1, 0]);
-    expect(lines).toEqual(['Error: no snapshot\n', 'Error: lost\n']);
   });
 });

@@ -24,8 +24,6 @@ function tail(file: string, lines = 20): string {
 export default class ReplayTwin {
   private child?: ChildProcess;
 
-  private exited = false;
-
   constructor(
     private readonly out: string,
     readonly port: number,
@@ -42,9 +40,6 @@ export default class ReplayTwin {
       { stdio: ['ignore', log, log] },
     );
     closeSync(log);
-    this.child.once('exit', () => {
-      this.exited = true;
-    });
   }
 
   url(path: string): string {
@@ -61,7 +56,7 @@ export default class ReplayTwin {
     const deadline = Date.now() + timeout;
     const up = async (): Promise<boolean> => {
       const ok = await this.healthy();
-      if (ok || this.exited || Date.now() > deadline) {
+      if (ok || !this.running() || Date.now() > deadline) {
         return ok;
       }
       await sleep(100);
@@ -73,10 +68,16 @@ export default class ReplayTwin {
     }
   }
 
+  // Whether the child was started and has not ended, by its own codes
+  running(): boolean {
+    const child = this.child;
+    return child?.exitCode === null && child.signalCode === null;
+  }
+
   // Stops the runner as a signal does, and waits for it to end
   async stop(): Promise<void> {
     const child = this.child;
-    if (child === undefined || this.exited) {
+    if (child === undefined || !this.running()) {
       return;
     }
     const ended = new Promise((resolve) => child.once('exit', resolve));
@@ -88,7 +89,7 @@ export default class ReplayTwin {
 
   // Ends the runner at once, as the tool ends
   kill(): void {
-    if (!this.exited) {
+    if (this.running()) {
       this.child?.kill('SIGKILL');
     }
   }

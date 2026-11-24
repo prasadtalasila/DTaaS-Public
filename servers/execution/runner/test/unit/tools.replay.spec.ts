@@ -163,6 +163,15 @@ describe('Sending the inputs to a replay twin', () => {
     ).toBeNull();
     expect(await firstStep(client, { ...manifest, machine: null })).toBeNull();
     expect(await firstStep(client, { ...manifest, machine: running })).toBe(12);
+    replies.set('/timeline', [200, []]);
+    await expect(
+      firstStep(client, { ...manifest, machine: running }),
+    ).rejects.toMatchObject({
+      code: 1,
+      message: 'The replay twin recorded no entry for the first step',
+    });
+    replies.set('/timeline', [200, [{ seq: 12 }]]);
+    await firstStep(client, { ...manifest, machine: running });
     expect(
       received.slice(-2).map(({ method, url }) => `${method} ${url}`),
     ).toEqual([

@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import * as yaml from 'js-yaml';
 import { INestApplication } from '@nestjs/common';
-import { stopRunner } from './replay-twin.util';
-import { http, until } from './snapshot.util';
+import { newCaller } from 'test/sign.util';
+import { call, stopRunner } from './replay-twin.util';
+import { until } from './snapshot.util';
 import { startStoredRunner } from './util';
 
 // Each script in its Linux and its Windows version; work fails unless
@@ -43,7 +44,15 @@ whatIf:
   replay: true
 `;
 
-const CONFIG = `id: dt-1
+// The client of the twin, which sends every request of the tests
+export const alice = newCaller('alice');
+
+const AUTH = `auth:
+  principals:
+    - {name: alice, role: client, publicKey: ${alice.publicKey}}
+`;
+
+const config = (auth: boolean) => `id: dt-1
 port: 5000
 location: scripts
 commands: [idle, work, ok, failed]
@@ -51,10 +60,11 @@ stateMachine: ward.fsm.yaml
 database: run/dt-1.db
 snapshots:
   directory: snapshots
-`;
+${auth ? AUTH : ''}`;
 
-// The twin dt-1 in runner.yaml of a new directory
-export function wardTwin(): string {
+// The twin dt-1 in runner.yaml of a new directory, with access control
+// unless told otherwise
+export function wardTwin(auth = true): string {
   const dir = mkdtempSync(join(tmpdir(), 'runner-replays-'));
   const location = join(dir, 'scripts');
   mkdirSync(location);
@@ -63,30 +73,39 @@ export function wardTwin(): string {
     writeFileSync(join(location, `${name}.ps1`), `${ps1}\n`);
   });
   writeFileSync(join(dir, 'ward.fsm.yaml'), MACHINE);
-  writeFileSync(join(dir, 'runner.yaml'), CONFIG);
+  writeFileSync(join(dir, 'runner.yaml'), config(auth));
   return dir;
 }
 
 // The start and the inputs snapshot, as paths relative to the twin
 export type Pair = { start: string; inputs: string };
 
+// A request of alice to the twin, which ignores the signature without
+// access control
+const ask = (twin: INestApplication, path: string, body?: object) =>
+  call(
+    twin,
+    [alice, 'dt-1'],
+    [body === undefined ? 'get' : 'post', path, body],
+  );
+
 const save = async (twin: INestApplication): Promise<string> =>
-  (await http(twin).post('/snapshot').send({})).body.path;
+  (await ask(twin, '/snapshot', {})).body.path;
 
 const settled = (twin: INestApplication, state: string) =>
   until(async () => {
-    const { body } = await http(twin).get('/fsm');
+    const { body } = await ask(twin, '/fsm');
     return body.state === state && body.status !== 'running';
   });
 
 // Saved idle once its script ended, then moved to ok by next
 export async function endedPair(dir: string): Promise<Pair> {
   const twin = await startStoredRunner(join(dir, 'runner.yaml'));
-  await http(twin).post('/fsm/transition').send({ state: 'idle' });
+  await ask(twin, '/fsm/transition', { state: 'idle' });
   await settled(twin, 'idle');
   const start = await save(twin);
   writeFileSync(join(dir, 'go'), '');
-  await http(twin).post('/fsm/event').send({ event: 'next' });
+  await ask(twin, '/fsm/event', { event: 'next' });
   await settled(twin, 'ok');
   const inputs = await save(twin);
   await stopRunner(twin);
@@ -96,7 +115,7 @@ export async function endedPair(dir: string): Promise<Pair> {
 // Saved while the script of work ran, which then ended and moved to ok
 export async function runningPair(dir: string): Promise<Pair> {
   const twin = await startStoredRunner(join(dir, 'runner.yaml'));
-  await http(twin).post('/fsm/transition').send({ state: 'work' });
+  await ask(twin, '/fsm/transition', { state: 'work' });
   const start = await save(twin);
   writeFileSync(join(dir, 'go'), '');
   await settled(twin, 'ok');

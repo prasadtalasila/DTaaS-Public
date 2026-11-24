@@ -85,6 +85,12 @@ export async function firstStep(
   });
   const path = `/timeline?after=${seq}&kind=entry&limit=1`;
   const [entry] = (await client.json({ method: 'GET', path })) as Rows;
+  if (entry === undefined) {
+    throw new ToolError(
+      'The replay twin recorded no entry for the first step',
+      1,
+    );
+  }
   return entry.seq;
 }
 

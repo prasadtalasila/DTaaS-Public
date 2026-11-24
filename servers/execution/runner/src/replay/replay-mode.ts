@@ -43,3 +43,8 @@ export default class ReplayMode {
     };
   }
 }
+
+// The host that a runner listens on: a replay twin, whose scripts act
+// for real, only on the loopback address; any other on every address
+export const listenHost = (replay?: ReplayMode): string | undefined =>
+  replay === undefined ? undefined : '127.0.0.1';
