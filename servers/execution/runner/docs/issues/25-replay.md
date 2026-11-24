@@ -21,8 +21,8 @@ nothing (S1 and S2 stand).
 
 ```yaml
 # hospital-1 again, from its first save, under scope multi
-start: hospital-1/snapshots/20261124T180424484Z
-inputs: hospital-1/snapshots/20261124T180434183Z
+start: hospital-1/snapshots/20261124T183856368Z
+inputs: hospital-1/snapshots/20261124T183906126Z
 out: replays/scope-multi
 speed: 2
 settle: 2
@@ -33,7 +33,7 @@ set:
 
 ```bash
 runner-replay run/runner-replay.yaml
-runner-compare run/hospital-1/snapshots/20261124T180434183Z run/replays/scope-multi
+runner-compare run/hospital-1/snapshots/20261124T183906126Z run/replays/scope-multi
 ```
 
 The file is that of the chapter "Replay" of the
@@ -136,7 +136,7 @@ What it does:
    runs, for `settle` seconds at most, and stops a script that still
    runs with `POST /stop`, saying so on stderr. It stops the replay
    twin, writes `replay.json` and prints
-   `Sent 21 inputs, 2 refused; the replay is in <out>`.
+   `Sent 23 inputs, 3 refused; the replay is in <out>`.
 
 `out` then holds `runner.yaml`, `runner.log`, `replay.json` and
 `state.db`, the database of the replay twin, with the timeline of what
@@ -196,18 +196,18 @@ period. Each step has `at`, a time after that of the start snapshot,
 and one input:
 
 ```yaml
-start: hospital-1/snapshots/20261124T180424484Z
+start: hospital-1/snapshots/20261124T183856368Z
 out: replays/neighbour-down
 speed: 60
 settle: 2
 steps:
-  - at: 20261124T180600000Z
+  - at: 20261124T184000000Z
     notice:
       peer: hospital-2
       kind: presence
       data:
         online: false
-  - at: 20261124T180700000Z
+  - at: 20261124T184100000Z
     command:
       name: admit
       input:
@@ -231,9 +231,9 @@ changes eight things:
 - **It follows no peer and notifies nobody**, whatever its
   configuration lists.
 - **It says what it is.** `GET /dt` shows
-  `replay: {of: "hospital-1", time: "2026-11-24T18:04:24.484Z"}`, and
+  `replay: {of: "hospital-1", time: "2026-11-24T18:38:56.368Z"}`, and
   `null` in any other runner. It logs once: `A replay twin of
-hospital-1 at 2026-11-24T18:04:24.484Z, at 60 times the speed of the
+hospital-1 at 2026-11-24T18:38:56.368Z, at 60 times the speed of the
 clock: it connects to no MQTT broker, follows no peer and sends no
 notification`.
 - **Its scripts are told.** They get `DT_MODE=what-if`, `DT_REPLAY_OF`
@@ -485,32 +485,39 @@ What the plan did not foresee:
   in `replay.json` names it, so the comparison leaves it out.
 - **An unchanged replay is the check of a replay.** In the demo it
   found the twin equal, entry by entry, before the changed one was
-  read. The demo also showed what the tools do not do yet; see
+  read.
+- **The demo found what the tests did not.** Its first runs showed
+  seven faults: a repeated request key replayed as a new command, a
+  Node warning for a late input, a listing whose columns ran into each
+  other, entries paired by place after a missing one, a replay twin
+  that did not know its peers, `out` readable by others, and unclear
+  header messages. Each was fixed before the recording; see
   [What the Demo Showed](#what-the-demo-showed).
 
 ### What the Demo Showed
 
-The chapter "Replay" of the hospital demo, run twice before the
-recording, showed five things that the code does not handle, which
-are left for a later change:
+The chapter "Replay" of the hospital demo, run before the recording,
+showed seven faults of the tools and the replay twin. Each was fixed,
+and the Spec above states the rules:
 
-- A `command` row is written also for a request whose key replayed a
-  stored reply, and `runner-replay` sends it as a new command, so a
-  replay that includes such a row runs the command twice. The demo
-  takes its first snapshot after its request keys.
-- `sendAll` gives `setTimeout` a negative delay when an input is late,
-  and node prints a `TimeoutNegativeWarning` on stderr. The demo runs
-  the tools with `node --no-warnings`.
-- The listing of `runner-compare` pads each side to 33 characters,
-  and a longer cell, such as `open    fidelity-changed parameter`,
-  runs into the next column.
-- Entries that a parameter, a peer or a script caused have no key of
-  their own, so after a missing entry the rows of the two sides are
-  paired by place, and an entry that is in both appears on two rows.
-- A replay twin knows of a peer only what the notices after the start
-  tell it, where the twin knew what the peer had told before the save;
-  and `out` is created with the default mode of the account, not
-  `0700` as a snapshot.
-
-The second fix round of the tools corrected each of these, and the
-`Replay-By` and `Replay-Seq` messages; the Spec above states the rules.
+- A `command` row was written also for a request whose key replayed a
+  stored reply, and `runner-replay` sent it as a new command, which
+  then ran twice. The row now has `stored: true`, and the tool skips
+  it; `--dry-run` prints `skipped: the stored reply of run 3`. A row
+  written by a runner before 0.14.0 has no mark, and is still sent.
+- A late input gave `setTimeout` a negative delay, and Node printed a
+  `TimeoutNegativeWarning`. A late input is now sent at once.
+- The listing of `runner-compare` padded each side to 33 characters,
+  so a long cell ran into the next column. The columns are now as wide
+  as their longest cell.
+- Entries that a parameter, a peer or a script caused had no key, so
+  after one missing entry the rows of the two sides were paired by
+  place. Blocks of one key are now lined up by their longest common
+  sequence: the demo's missing restart is one row with `-`.
+- A replay twin knew of a peer only what the notices after the start
+  told it. It now starts knowing the last notice of each kind of each
+  peer up to the save, without a row or an event.
+- `out` was made with the default mode of the account; it is now
+  `0700`.
+- A malformed `Replay-By` or `Replay-Seq` got an unclear message; the
+  message now names the header and what it must be.

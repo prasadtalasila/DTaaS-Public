@@ -18,7 +18,7 @@ stored in Git LFS).
 
 | Recording | Manager                                                | Notifications                                          | Video                                | Length     | Runner                                           |
 | :-------- | :----------------------------------------------------- | :----------------------------------------------------- | :----------------------------------- | :--------- | :----------------------------------------------- |
-| Linux     | [demo-linux-manager.cast](demo-linux-manager.cast)     | [demo-linux-network.cast](demo-linux-network.cast)     | [demo-linux.mp4](demo-linux.mp4)     | 6 min 8 s  | 0.14.0, with the class of issue 25               |
+| Linux     | [demo-linux-manager.cast](demo-linux-manager.cast)     | [demo-linux-network.cast](demo-linux-network.cast)     | [demo-linux.mp4](demo-linux.mp4)     | 6 min 7 s  | 0.14.0, with the class of issue 25               |
 | Windows   | [demo-windows-manager.cast](demo-windows-manager.cast) | [demo-windows-network.cast](demo-windows-network.cast) | [demo-windows.mp4](demo-windows.mp4) | 6 min 23 s | 0.10.0, `feature/distributed-demo` at `0885d759` |
 
 Both were recorded with access control and signed notifications on.
@@ -149,30 +149,30 @@ beds of each state notification on the right, and the last three
 chapters before "Presence: offline", which the Windows recording
 lacks (—).
 
-| Linux | Windows | Section                                       | Features                                                                                                                 |
-| ----: | ------: | :-------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  0:00 |    0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers               |
-|  0:33 |    0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)                  |
-|  0:50 |    0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role                |
-|  1:03 |    1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                                 |
-|  1:08 |    1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state`         |
-|  1:27 |    1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                                  |
-|  1:35 |    1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command; the first snapshot                     |
-|  2:02 |    2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                                      |
-|  2:21 |    2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures            |
-|  2:47 |    3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                          |
-|  3:05 |    4:03 | Script raises an event; escalation on failure | `full` raised over HTTP; `full` finds no open peer; `$failure` without a transition escalates                            |
-|  3:21 |    4:29 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                                                            |
-|  3:32 |    4:46 | MQTT request/response with input              | MQTT `execute` and `fsm`, verified                                                                                       |
-|  3:40 |    4:59 | Disable and enable a peer                     | `PUT /peers`; the retained `full` counts again after the enable                                                          |
-|  3:54 |    5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                                   |
-|  4:04 |    5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                            |
-|  4:15 |    5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                         |
-|  4:26 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                                      |
-|  4:30 |       — | What-if                                       | `POST /whatif` by the Manager, `GET /whatif/<id>` with `"token": "absent"`, the `whatif` notification                    |
-|  4:56 |       — | Save and reinstate                            | `POST /snapshot` with `stop`; `--reinstate` on port 5300; the restored beds, `GET /fsm`, `reinstated`                    |
-|  5:22 |       — | Replay                                        | A replay file under scope `multi`; `runner-replay --dry-run`, `runner-replay`; the live beds untouched; `runner-compare` |
-|  5:58 |    6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                                      |
+| Linux | Windows | Section                                       | Features                                                                                                                             |
+| ----: | ------: | :-------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+|  0:00 |    0:00 | Setup                                         | `runner.yaml` with `peers`, the keys and `auth` that `record.mjs` adds, both state machines, shell helpers                           |
+|  0:33 |    0:37 | Presence: online                              | Both runners start; signed online notices and first state documents, verified by the subscriber (right)                              |
+|  0:50 |    0:56 | Descriptor, health and access control         | `GET /dt` with `peers` and `publicKey`; `GET /health` with `scripts: null`; `401` unsigned; `403` by role                            |
+|  1:02 |    1:16 | Signed output                                 | MQTT `dt` response verified with the runner's public key                                                                             |
+|  1:08 |    1:23 | State machine and script context              | `POST /fsm/transition`; `DT_*`, `RUNNER_URL`, declared `env`, fidelity; `GET /peers` from a script; `GET /state`; the first snapshot |
+|  1:31 |    1:46 | Peers                                         | `GET /peers` with the peer's descriptor and state; `PUT /peers` refused                                                              |
+|  1:40 |    1:59 | Command input and request keys                | `POST /` with input on stdin; replayed key; `409` for input to a running command                                                     |
+|  2:02 |    2:29 | Failed command and explicit escalation        | `failed` with exit code 3; `POST /escalate` from a script; `GET /` with `resources`                                                  |
+|  2:21 |    2:57 | Parameters and fidelity                       | `GET`/`PUT /parameters`, MQTT `set-parameters`; refused non-controllable; `fidelity` restart; history figures                        |
+|  2:46 |    3:36 | Peer event: neighbour full                    | `hospital-2` fills up over MQTT and HTTP; its `full` succeeds; `neighbour-full` restarts `open`                                      |
+|  3:04 |    4:03 | Script raises an event; escalation on failure | `full` raised over HTTP; `full` finds no open peer; `$failure` without a transition escalates                                        |
+|  3:20 |    4:29 | Escalation on no transition                   | `409 no transition`, escalated once per entry                                                                                        |
+|  3:31 |    4:46 | MQTT request/response with input              | MQTT `execute` and `fsm`, verified                                                                                                   |
+|  3:39 |    4:59 | Disable and enable a peer                     | `PUT /peers`; the retained `full` counts again after the enable                                                                      |
+|  3:53 |    5:20 | Peer event: neighbour down                    | The runner of `hospital-2` is killed; its will raises `neighbour-down`                                                               |
+|  4:03 |    5:36 | History and metrics                           | `GET /history` with `since` and `limit`, `by` of each record; `GET /metrics` with `resources`                                        |
+|  4:14 |    5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                                     |
+|  4:25 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                                                  |
+|  4:29 |       — | What-if                                       | `POST /whatif` by the Manager, `GET /whatif/<id>` with `"token": "absent"`, the `whatif` notification                                |
+|  4:56 |       — | Save and reinstate                            | `POST /snapshot` with `stop`; `--reinstate` on port 5300; the restored beds, `GET /fsm`, `reinstated`                                |
+|  5:21 |       — | Replay                                        | A replay file under scope `multi`; `runner-replay --dry-run`, `runner-replay`; the live beds untouched; `runner-compare`             |
+|  5:58 |    6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                                                  |
 
 ## Save and Reinstate
 
@@ -308,7 +308,7 @@ chapter showed:
   "name": "forecast-beds",
   "status": "valid",
   "mode": "what-if",
-  "receivedAt": "2026-11-24T18:04:33.000Z",
+  "receivedAt": "2026-11-24T18:39:05.000Z",
   "by": "manager-1",
   "exitCode": 0,
   "result": {
@@ -320,8 +320,8 @@ chapter showed:
     "peers-offline-now": ["hospital-2"],
     "token": "absent"
   },
-  "finishedAt": "2026-11-24T18:04:33.000Z",
-  "resources": { "cpuSeconds": 0, "peakRssBytes": 4104192, "processes": 1 }
+  "finishedAt": "2026-11-24T18:39:05.000Z",
+  "resources": { "cpuSeconds": 0, "peakRssBytes": 970752, "processes": 1 }
 }
 ```
 
@@ -351,7 +351,7 @@ between samples by `DT_TIME_SCALE`. The bash scripts were run; the
 PowerShell ones have not been run.
 
 The story takes two snapshots of `hospital-1`: the first at the end of
-"Command input and request keys", with `open` running, and the second
+"State machine and script context", with `open` running, and the second
 in "Save and reinstate". The chapter "Replay" of
 [tools/steps-peers.mjs](tools/steps-peers.mjs) comes after it, with
 `hospital-1` reinstated on port 5300:
@@ -359,7 +359,9 @@ in "Save and reinstate". The chapter "Replay" of
 1. [tools/replay-file.mjs](tools/replay-file.mjs) writes
    `run/runner-replay.yaml`: from the first snapshot to the last, at
    speed 2, with `settle: 2` and `scope: multi`.
-2. `runner-replay --dry-run` lists the first inputs, and
+2. `runner-replay --dry-run` lists the first inputs, without their
+   bodies, and marks the second `admit` of `p-1`, whose request key
+   replayed a stored reply, as skipped; then
    `runner-replay` runs the replay into `run/replays/scope-multi`.
    `runner-replay` and `runner-compare` of
    [tools/shell.sh](tools/shell.sh) run the tools built in this
@@ -369,9 +371,12 @@ in "Save and reinstate". The chapter "Replay" of
 4. `runner-compare` lists the state entries of the second snapshot
    and of the replay, and marks the first difference.
 
-In the run of the recording, the replay sent 21 inputs, of which the
-replay twin refused the two `close` events, as the twin did, and its
-`open` still ran after `settle`, so the tool stopped it. The beds:
+In the run of the recording, the replay sent 23 inputs, of which the
+replay twin refused three, as the twin did: the input to the running
+`open` and the two `close` events. Its `open` still ran after
+`settle`, so the tool stopped it. The replay twin started knowing what
+`hospital-2` had told before the save, so its `open` logged overflow
+to `hospital-2` as the twin's did. The beds:
 
 ```text
 {"cardiology":["p-2"],"maternity":["p-3","p-4"]}
@@ -384,24 +389,26 @@ again at the second, as the script does not check for a patient that
 it already has. The comparison:
 
 ```text
-at        hospital-1                       hospital-1.replay
-18:04:25  open    scope-changed parameter  open    fidelity-changed parameter   <- first difference
-18:04:26  open    fidelity-changed parameteropen    neighbour-full peer
-18:04:28  open    neighbour-full peer      full    full        script
-18:04:29  full    full        script       open    beds-free   script
-18:04:30  open    beds-free   script       open    neighbour-full peer
-18:04:31  open    neighbour-full peer      open    neighbour-down peer
-18:04:31  open    neighbour-down peer      closed  stopped
-18:04:33  closed  stopped                  -
+at        hospital-1                            hospital-1.replay
+18:38:58  open    scope-changed     parameter   -   <- first difference
+18:38:59  open    fidelity-changed  parameter   open    fidelity-changed  parameter
+18:39:00  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:01  full    full              script      full    full              script
+18:39:02  open    beds-free         script      open    beds-free         script
+18:39:03  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:03  open    neighbour-down    peer        open    neighbour-down    peer
+18:39:04  closed  stopped                       closed  stopped
 
-entries: 8 and 7; first difference at 18:04:25
-cpu seconds: 0.1 and 0.1
+entries: 8 and 7; first difference at 18:38:58
+cpu seconds: 0.0 and 0.0
 ```
 
 The Manager's change of scope was no change in the replay twin, so
-`open` did not restart. The same replay without `set` was found equal
-to the twin, with 8 entries on each side. Everything of the chapter
-is under `run/`, which the next recording clears.
+`open` did not restart: one entry fewer, shown as `-`, and the other
+seven lined up beside their counterparts. The same replay without
+`set` was found equal to the twin, with 8 entries on each side.
+Everything of the chapter is under `run/`, which the next recording
+clears.
 
 ## Assumptions
 
@@ -534,4 +541,4 @@ too. It renders `run/demo-windows-*.gif`
 at font size 16 with an idle limit of 60 s, so that agg keeps the gaps
 as `record.mjs` set them, and writes `demo-windows.mp4` with libx264 at
 CRF 32. The conversion took 14 minutes in WSL under `/mnt/c`, most of it in
-agg, and 6 minutes on Linux for the Linux recording of 6 min 8 s.
+agg, and 6 minutes on Linux for the Linux recording of 6 min 7 s.

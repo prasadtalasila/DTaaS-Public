@@ -163,10 +163,10 @@ export default [
     run: 'node tools/replay-file.mjs multi > run/runner-replay.yaml; cat run/runner-replay.yaml',
   },
   {
-    say: 'The dry run lists the inputs that the twin took between the saves, and when each goes:',
+    say: 'The dry run lists the inputs between the saves, without bodies; a stored reply is skipped:',
   },
   {
-    run: 'runner-replay --dry-run run/runner-replay.yaml | cut -c 1-99 | head -n 6',
+    run: `runner-replay --dry-run run/runner-replay.yaml | sed 's/ {.*}//' | head -n 6`,
   },
   {
     say: 'runner-replay starts a replay twin on 127.0.0.1, which reaches nobody, and feeds it the inputs.',

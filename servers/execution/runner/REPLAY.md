@@ -72,8 +72,8 @@ directory, or the file that it is given. The file of the
 
 ```yaml
 # hospital-1 again, from its first save, under scope multi
-start: hospital-1/snapshots/20261124T180424484Z
-inputs: hospital-1/snapshots/20261124T180434183Z
+start: hospital-1/snapshots/20261124T183856368Z
+inputs: hospital-1/snapshots/20261124T183906126Z
 out: replays/scope-multi
 speed: 2
 settle: 2
@@ -125,9 +125,15 @@ order:
 | `notice` of a peer                                                     | `PUT /peers/<id>/notice`                  |
 | `event` or `properties` of a script, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
 
-`stop`, `snapshot`, `start` and `shutdown` rows are not sent either.
-An input that the replay twin refuses with a `4xx` is counted as
-refused and the replay goes on; a `5xx` ends it with exit code 1.
+`stop`, `snapshot`, `start` and `shutdown` rows are not sent either,
+nor a `command` row marked `stored: true`: the twin answered that
+request from the stored reply of an earlier request with the same
+`Idempotency-Key`, and ran nothing. Such a row of a runner before
+0.14.0 has no mark, so it is sent, and the command runs again in the
+replay twin. An input that the replay twin refuses with a `4xx` is
+counted as refused and the replay goes on; a `5xx` ends it with exit
+code 1. An input that is late, as the one before took long, is sent
+at once.
 
 ### A Scenario
 
@@ -139,18 +145,18 @@ and `notice` (`peer`, `kind` and `data`), and is sent as the row of
 that kind is. A scenario run on the first snapshot of the demo:
 
 ```yaml
-start: hospital-1/snapshots/20261124T180424484Z
+start: hospital-1/snapshots/20261124T183856368Z
 out: replays/neighbour-down
 speed: 60
 settle: 2
 steps:
-  - at: 20261124T180600000Z
+  - at: 20261124T184000000Z
     notice:
       peer: hospital-2
       kind: presence
       data:
         online: false
-  - at: 20261124T180700000Z
+  - at: 20261124T184100000Z
     command:
       name: admit
       input:
@@ -166,17 +172,18 @@ its kind, who sent it, and the request, and starts nothing. Of the
 scenario above:
 
 ```text
-20261124T180600000Z +1.592s notice - PUT /peers/hospital-2/notice {"kind":"presence","data":{"online":false}}
-20261124T180700000Z +2.592s command - POST / {"name":"admit","input":{"patient":"p-9","ward":"cardiology"}}
+20261124T184000000Z +1.061s notice - PUT /peers/hospital-2/notice {"kind":"presence","data":{"online":false}}
+20261124T184100000Z +2.061s command - POST / {"name":"admit","input":{"patient":"p-9","ward":"cardiology"}}
 ```
 
-And the first lines of the replay file of the demo:
+And the first lines of the replay file of the demo, where the second
+`admit` of `p-1` repeated a request key:
 
 ```text
-20261124T180424802Z +0.159s command alice POST / {"name":"admit","input":{"patient":"p-2","ward":"cardiology"}}
-20261124T180424983Z +0.249s command alice POST / {"name":"admit","input":{"patient":"p-3","ward":"cardiology"}}
-20261124T180425773Z +0.644s parameters manager-1 PUT /parameters {"scope":"multi"}
-20261124T180426564Z +1.040s parameters alice PUT /parameters {"fidelity":"high"}
+20261124T183856897Z +0.265s command alice POST / {"name":"admit","input":{"patient":"p-1","ward":"cardiology"}}
+20261124T183857138Z +0.385s command alice POST / {"name":"admit","input":{"patient":"p-1","ward":"cardiology"}} skipped: the stored reply of run 3
+20261124T183857274Z +0.453s command alice POST / {"name":"open","input":{}}
+20261124T183857443Z +0.537s command alice POST / {"name":"admit","input":{"patient":"p-2","ward":"cardiology"}}
 ```
 
 ## Running a Replay
@@ -208,7 +215,7 @@ In the demo:
 
 ```text
 The replay twin still ran a script after 2 s: stopped
-Sent 21 inputs, 2 refused; the replay is in .../run/replays/scope-multi
+Sent 23 inputs, 3 refused; the replay is in .../run/replays/scope-multi
 ```
 
 The script was `open`, which samples the beds until a stop. Ctrl+C or
@@ -225,8 +232,8 @@ attributes:
   latitude: 56.19
   longitude: 10.17
   wards: 2
-port: 36619
-location: ../../hospital-1/snapshots/20261124T180424484Z/scripts
+port: 41523
+location: ../../hospital-1/snapshots/20261124T183856368Z/scripts
 commands:
   - open
   - full
@@ -238,7 +245,7 @@ commands:
   - forecast-beds
 database: state.db
 stopGrace: 1000
-stateMachine: ../../hospital-1/snapshots/20261124T180424484Z/hospital.fsm.yaml
+stateMachine: ../../hospital-1/snapshots/20261124T183856368Z/hospital.fsm.yaml
 parameters:
   scope: multi
 relationships:
@@ -249,12 +256,12 @@ relationships:
       relationship: neighbour
       attributes:
         distance: 12.4
-      publicKey: nUC5NU0GW-skpJ05rEgWfz3W9uMbi6QbY6493afm9qU
+      publicKey: kgYa05vm-01xoCn9TtU9Ba-HkS-qVfOwvXhamAWvPlg
 auth:
   principals:
     - name: replay
       role: operator
-      publicKey: ZO9tWsSvoJVnkQwO2uB8nACWj4pC9UxV6DXjaomWjM8
+      publicKey: KgTqjucPYIKPuotZzRiBD8U-HbrcUkXZ5OYkw0PCY7s
 ```
 
 - `mqtt`, `relationships.manager`, `scripts` and `snapshots` are left
@@ -283,15 +290,15 @@ what it did. `replay.json` says what the replay was (paths shortened):
 {
   "format": 1,
   "of": "hospital-1",
-  "start": ".../run/hospital-1/snapshots/20261124T180424484Z",
-  "inputs": ".../run/hospital-1/snapshots/20261124T180434183Z",
+  "start": ".../run/hospital-1/snapshots/20261124T183856368Z",
+  "inputs": ".../run/hospital-1/snapshots/20261124T183906126Z",
   "from": {
-    "seq": 18,
-    "time": "2026-11-24T18:04:24.484Z"
+    "seq": 12,
+    "time": "2026-11-24T18:38:56.368Z"
   },
   "until": {
-    "seq": 111,
-    "time": "2026-11-24T18:04:34.183Z"
+    "seq": 110,
+    "time": "2026-11-24T18:39:06.126Z"
   },
   "speed": 2,
   "set": {
@@ -299,9 +306,9 @@ what it did. `replay.json` says what the replay was (paths shortened):
       "scope": "multi"
     }
   },
-  "sent": 21,
-  "refused": 2,
-  "firstStep": 21
+  "sent": 23,
+  "refused": 3,
+  "firstStep": 15
 }
 ```
 
@@ -318,17 +325,19 @@ what it did. `replay.json` says what the replay was (paths shortened):
 
 `refused` counts inputs such as an event with no transition in the
 state that the replay twin was then in. That is a finding, not a
-fault: the changed twin may be somewhere else. In the demo both were
-the event `close` that the twin refused too.
+fault: the changed twin may be somewhere else. In the demo the three
+were refused by the twin too: input to the running `open`, and two
+`close` events in `full`.
 
 The scripts of the replay twin keep their own files where their class
 puts them; in the demo, `run/hospital-1.replay/` of the directory
-where `runner-replay` ran.
+where `runner-replay` ran. The tool makes `out` with mode `0700`, as
+`state.db` holds the inputs of commands.
 
 ## Compare
 
 ```bash
-runner-compare run/hospital-1/snapshots/20261124T180434183Z run/replays/scope-multi
+runner-compare run/hospital-1/snapshots/20261124T183906126Z run/replays/scope-multi
 ```
 
 Each argument is a snapshot or the `out` of a replay. The tool reads
@@ -338,18 +347,18 @@ caused it and who, side by side. In the demo, scope `multi` from the
 start:
 
 ```text
-at        hospital-1                       hospital-1.replay
-18:04:25  open    scope-changed parameter  open    fidelity-changed parameter   <- first difference
-18:04:26  open    fidelity-changed parameteropen    neighbour-full peer
-18:04:28  open    neighbour-full peer      full    full        script
-18:04:29  full    full        script       open    beds-free   script
-18:04:30  open    beds-free   script       open    neighbour-full peer
-18:04:31  open    neighbour-full peer      open    neighbour-down peer
-18:04:31  open    neighbour-down peer      closed  stopped
-18:04:33  closed  stopped                  -
+at        hospital-1                            hospital-1.replay
+18:38:58  open    scope-changed     parameter   -   <- first difference
+18:38:59  open    fidelity-changed  parameter   open    fidelity-changed  parameter
+18:39:00  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:01  full    full              script      full    full              script
+18:39:02  open    beds-free         script      open    beds-free         script
+18:39:03  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:03  open    neighbour-down    peer        open    neighbour-down    peer
+18:39:04  closed  stopped                       closed  stopped
 
-entries: 8 and 7; first difference at 18:04:25
-cpu seconds: 0.1 and 0.1
+entries: 8 and 7; first difference at 18:38:58
+cpu seconds: 0.0 and 0.0
 ```
 
 The Manager's change of scope was no change in the replay twin, so
@@ -357,18 +366,18 @@ The Manager's change of scope was no change in the replay twin, so
 that the tool found equal:
 
 ```text
-at        hospital-1                       hospital-1.replay
-18:04:25  open    scope-changed parameter  open    scope-changed parameter
-18:04:26  open    fidelity-changed parameteropen    fidelity-changed parameter
-18:04:28  open    neighbour-full peer      open    neighbour-full peer
-18:04:29  full    full        script       full    full        script
-18:04:30  open    beds-free   script       open    beds-free   script
-18:04:31  open    neighbour-full peer      open    neighbour-full peer
-18:04:31  open    neighbour-down peer      open    neighbour-down peer
-18:04:33  closed  stopped                  closed  stopped
+at        hospital-1                            hospital-1.replay
+18:38:58  open    scope-changed     parameter   open    scope-changed     parameter
+18:38:59  open    fidelity-changed  parameter   open    fidelity-changed  parameter
+18:39:00  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:01  full    full              script      full    full              script
+18:39:02  open    beds-free         script      open    beds-free         script
+18:39:03  open    neighbour-full    peer        open    neighbour-full    peer
+18:39:03  open    neighbour-down    peer        open    neighbour-down    peer
+18:39:04  closed  stopped                       closed  stopped
 
 entries: 8 and 8; the same
-cpu seconds: 0.1 and 0.1
+cpu seconds: 0.0 and 0.0
 ```
 
 - A cause is a transition and who sent it, an event and who sent it
@@ -378,9 +387,13 @@ cpu seconds: 0.1 and 0.1
   numbers are not compared.
 - Entries are lined up by the `seq` that the input which caused them
   had in the twin: its own `seq` in the twin, `origin.seq` in the
-  replay twin. The entries that no transition or event of a client
-  caused follow the last such entry in their order, so after a missing
-  entry the rows are paired by place.
+  replay twin. Each such entry and the entries after it that no
+  transition or event of a client caused form a block. Two blocks of
+  one key are lined up by the longest common sequence of state and
+  cause, so an entry that one side lacks is one row with `-`, and a
+  changed entry sits beside the one that it replaces.
+- The state and cause columns are as wide as the longest on either
+  side.
 - The entry of the first step is left out of the replay's side. A
   snapshot beside a replay counts the rows after the start up to the
   `seq` of the snapshot.
@@ -482,23 +495,27 @@ one above without `auth`, on port 5400:
 
 ```bash
 runner -c run/replays/by-hand/runner.yaml \
-  --reinstate run/hospital-1/snapshots/20261124T180424484Z \
+  --reinstate run/hospital-1/snapshots/20261124T183856368Z \
   --what-if --time-scale 60
 ```
 
 It logs once: `A replay twin of hospital-1 at
-2026-11-24T18:04:24.484Z, at 60 times the speed of the clock: it
+2026-11-24T18:38:56.368Z, at 60 times the speed of the clock: it
 connects to no MQTT broker, follows no peer and sends no
 notification`. It listens on `127.0.0.1:5400` only, `GET /health`
 shows `"mqtt": "disabled"`, and `GET /dt` ends with:
 
 ```json
-"replay": {"of": "hospital-1", "time": "2026-11-24T18:04:24.484Z"}
+"replay": {"of": "hospital-1", "time": "2026-11-24T18:38:56.368Z"}
 ```
 
-It waits in the saved state, `open`, as `interrupted`. A notice of a
-peer is handed to it on a route that only a replay twin answers, here
-with the header `Replay-Seq: 57`:
+It waits in the saved state, `open`, as `interrupted`, and knows its
+peers as the twin knew them at the save: the last notice of each kind
+of each peer up to the snapshot's `seq`, without a row or an event.
+Right after the start, `GET /peers` showed `hospital-2` `online:
+true`, in state `open`. A notice of a peer is handed to it on a route
+that only a replay twin answers, here with the header
+`Replay-Seq: 57`:
 
 ```http
 PUT /peers/hospital-2/notice
@@ -509,13 +526,14 @@ Replay-Seq: 57
 
 It answered with `GET /peers`, where `hospital-2` was `online: false`,
 and its timeline then held the notice and the event of the
-subscription, each with `at`, the time that it stands for:
+subscription, each with `at`, the time that it stands for. A notice
+equal to what the replay twin knows raises nothing:
 
 ```json
 [
   {
-    "seq": 20,
-    "time": "2026-11-24T18:06:00.476Z",
+    "seq": 14,
+    "time": "2026-11-24T18:39:59.608Z",
     "kind": "notice",
     "by": null,
     "data": {
@@ -523,29 +541,32 @@ subscription, each with `at`, the time that it stands for:
       "kind": "presence",
       "data": { "online": false }
     },
-    "at": "2026-11-24T18:07:43.024Z",
+    "at": "2026-11-24T18:42:07.828Z",
     "origin": { "by": null, "seq": 57 }
   },
   {
-    "seq": 21,
-    "time": "2026-11-24T18:06:00.485Z",
+    "seq": 15,
+    "time": "2026-11-24T18:39:59.635Z",
     "kind": "event",
     "by": null,
     "data": {
       "event": "neighbour-down",
       "source": "peer",
       "peer": "hospital-2",
-      "cause": 20,
+      "cause": 14,
       "reply": { "status": "accepted", "state": "open" }
     },
-    "at": "2026-11-24T18:07:43.564Z"
+    "at": "2026-11-24T18:42:09.448Z"
   }
 ]
 ```
 
 `Replay-By` names the principal that sent the input to the twin, and
 `Replay-Seq` its `seq` there; the replay twin records them as
-`origin`. In a replay twin the role `operator` may call every route.
+`origin`. A malformed header gets `400` with a message that names it,
+such as `Replay-Seq must be a whole number above 0, not "x"` or
+`Replay-Seq is missing: Replay-By needs it, a whole number above 0`.
+In a replay twin the role `operator` may call every route.
 A runner that shuts down waits for its scripts, so stop the script
 with `POST /stop` before Ctrl+C. The routes
 and headers are in [API.md](api/API.md#replay-twins).
@@ -560,15 +581,13 @@ and headers are in [API.md](api/API.md#replay-twins).
   another way. Compare an unchanged replay with the twin first: if it
   differs, so will a changed one, for reasons that are not the
   change.
-- **The peers start unknown.** A replay twin knows of a peer only
-  what the notices after the start tell it; in the demo, `open` of the
-  replay twin found no peer to take overflow until hospital-2's first
-  notice, where the twin knew hospital-2 to be open.
 - **Some rows are not inputs.** A `stop` of a script, a save and a
   what-if are not sent. In the demo the twin's `open` was stopped by
   `POST /stop`; in the replay twin the tool stopped it after `settle`.
-- **A request key is not kept.** A `command` row is sent as a new
-  command, also when the twin answered it from a stored reply.
+- **Old rows of a repeated request key.** A runner before 0.14.0 did
+  not mark the row of a request answered from a stored reply, so the
+  tool sends it, and the command runs a second time in the replay
+  twin.
 - **Scripts act for real on the host.** They run as the account of
   the tool, with the files, the network and the devices of the host.
   `whatIf.replay: true` is the author's promise that they keep to

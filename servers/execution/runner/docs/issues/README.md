@@ -399,9 +399,10 @@ From implementing 25:
   leaves them running; stop the scripts first, on every path out,
   signals too.
 - Run the demo of a feature before its documents. The replay of the
-  hospital found five things that the tests did not, among them a
-  command row written for a replayed request key, which a replay runs
-  again ([25](25-replay.md#what-the-demo-showed)).
+  hospital found seven faults that the tests did not, among them a
+  command row written for a replayed request key, which a replay ran
+  again; all were fixed before the recording
+  ([25](25-replay.md#what-the-demo-showed)).
 
 ## Deferred
 

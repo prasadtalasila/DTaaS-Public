@@ -238,9 +238,11 @@ from the world and from the twin:
   peer and sends no notification, whatever its configuration lists.
   `runner-replay` also leaves `mqtt`, `relationships.manager`,
   `scripts` and `snapshots` out of the configuration that it writes.
-  The notices of peers come from the recording, on a route that only a
-  replay twin answers; any other runner answers `404`, as anyone could
-  otherwise put words in a peer's mouth.
+  It starts knowing what its peers had told the twin up to the save,
+  read from the snapshot's timeline. The later notices come from the
+  recording, on a route that only a replay twin answers; any other
+  runner answers `404`, as anyone could otherwise put words in a
+  peer's mouth.
 - **One principal, with a key per run.** The tool makes an Ed25519 key
   pair for each run, writes only the public key into `runner.yaml` of
   the replay twin, as the principal `replay`, and keeps the private
@@ -268,9 +270,8 @@ nothing in the runner checks it. Any process of the host can reach
 `127.0.0.1`; without the private key it gets `401` on every route
 but `GET /health`. The timeline of
 the start snapshot and of the inputs, with the inputs of commands,
-is copied into `out`, which `runner-replay` creates with the default
-mode of the account (its umask), not `0700` as a snapshot: choose an
-`out` under a directory that only the operator reads.
+is copied into `out`, which `runner-replay` creates with mode `0700`,
+as a snapshot directory is.
 
 ### The Boundary Between Users
 

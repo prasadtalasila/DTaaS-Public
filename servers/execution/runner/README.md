@@ -1657,8 +1657,8 @@ entries of the two timelines side by side. Neither contacts the twin.
 
 ```yaml
 # runner-replay.yaml
-start: hospital-1/snapshots/20261124T180424484Z
-inputs: hospital-1/snapshots/20261124T180434183Z
+start: hospital-1/snapshots/20261124T183856368Z
+inputs: hospital-1/snapshots/20261124T183906126Z
 out: replays/scope-multi
 speed: 2
 settle: 2
@@ -1669,7 +1669,7 @@ set:
 
 ```bash
 runner-replay runner-replay.yaml
-runner-compare hospital-1/snapshots/20261124T180434183Z replays/scope-multi
+runner-compare hospital-1/snapshots/20261124T183906126Z replays/scope-multi
 ```
 
 `runner-compare` marks the first entry that differs, and exits with 0
@@ -1678,7 +1678,8 @@ is `runner --reinstate <start> --what-if --time-scale <speed>`: it
 listens on `127.0.0.1` only, connects to no broker, follows no peer
 and sends no notification, and its class must have
 [whatIf.replay](#what-if-commands). Its scripts run for real on the
-host. A replay from `inputs` needs a twin with
+host. A `command` row marked `stored`, answered from the stored reply
+of a request key, is not sent. A replay from `inputs` needs a twin with
 [access control](#access-control); a file with `steps`, a scenario,
 works for any twin.
 
@@ -1986,7 +1987,7 @@ enabled [peers](#peers) in the order of _runner.yaml_, `[]` without
 any, and `publicKey` the public key of the
 [signing key](#signed-output), `null` without one. `replay` is `null`,
 or in a [replay twin](#replays) the twin and the time of its snapshot:
-`{"of": "hospital-1", "time": "2026-11-24T18:04:24.484Z"}`.
+`{"of": "hospital-1", "time": "2026-11-24T18:38:56.368Z"}`.
 
 #### GET Request to /state
 
@@ -2401,8 +2402,9 @@ curl http://localhost:5000/peers
 curl -X PUT http://localhost:5000/peers   -H 'Content-Type: application/json' -d '{"hospital-2": false}'
 ```
 
-A [replay twin](#replays) follows no peer, so `runner-replay` hands it
-the notices that the twin received, with
+A [replay twin](#replays) follows no peer. It starts knowing the last
+notices that the twin had of each peer at the save, without a row or
+an event, and `runner-replay` hands it the later notices, with
 `PUT /peers/<id>/notice` and a body `{"kind": "presence", "data":
 {"online": false}}` or `{"kind": "state", "data": <state document>}`.
 The runner takes it as it would the notice over MQTT, raises the

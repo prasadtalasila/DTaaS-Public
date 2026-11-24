@@ -233,7 +233,7 @@ by hand from a snapshot of `hospital-1`, answered with `id`
 `hospital-1.replay`, `publicKey` `null` and:
 
 ```json
-"replay": { "of": "hospital-1", "time": "2026-11-24T18:04:24.484Z" }
+"replay": { "of": "hospital-1", "time": "2026-11-24T18:38:56.368Z" }
 ```
 
 ### GET /state
@@ -1543,7 +1543,13 @@ set `scope`, whose event restarted `execute`, and the sensor
   (a repeat of a refused one is handled again), a property write that
   changes no value, and the end of a command of `POST /`
   make no row; the history holds the end of a command. A repeated
-  command request makes a row that names the run of the first.
+  command request makes a row that names the run of the first, with
+  `stored: true` since 0.14.0, as the demo's second `admit` of `p-1`
+  with the key `admit-p-1`, whose `data` was `{"name": "admit",
+"input": {"patient": "p-1", "ward": "cardiology"}, "run": 3,
+"stored": true}`.
+  `runner-replay` does not send such a row. A request that joined a
+  running command without a key has no mark.
 - `sent` rows are written only for a configured transport.
 - The `start` row of a runner started with `--reinstate` has
   `reinstated`: the `id`, `time` and `seq` of the
@@ -1607,8 +1613,8 @@ replayed parameter raised:
 ```json
 [
   {
-    "seq": 22,
-    "time": "2026-11-24T18:04:38.491Z",
+    "seq": 18,
+    "time": "2026-11-24T18:39:10.729Z",
     "kind": "command",
     "by": "replay",
     "data": {
@@ -1616,21 +1622,21 @@ replayed parameter raised:
       "input": { "patient": "p-2", "ward": "cardiology" },
       "run": 5
     },
-    "at": "2026-11-24T18:04:25.404Z",
+    "at": "2026-11-24T18:38:58.222Z",
     "origin": { "by": "alice", "seq": 22 }
   },
   {
-    "seq": 27,
-    "time": "2026-11-24T18:04:39.383Z",
+    "seq": 23,
+    "time": "2026-11-24T18:39:11.652Z",
     "kind": "event",
     "by": "replay",
     "data": {
       "event": "fidelity-changed",
       "source": "parameter",
-      "cause": 26,
+      "cause": 22,
       "reply": { "status": "accepted", "state": "open" }
     },
-    "at": "2026-11-24T18:04:27.188Z"
+    "at": "2026-11-24T18:39:00.068Z"
   }
 ]
 ```
@@ -1922,20 +1928,25 @@ The headers are a label that the tool sets, not a credential: the
 request is signed by the principal of the replay twin, and the headers
 are not part of the signature. A runner that is no replay twin ignores
 them. A replay twin checks them after the signature, and refuses a
-malformed header, or one given twice, with `400`:
+malformed header with `400` and a message that names it and what it
+must be:
 
 ```json
 {
-  "message": ["Replay-Seq must be a whole number above 0"],
+  "message": ["Replay-Seq must be a whole number above 0, not \"x\""],
   "error": "Bad Request",
   "statusCode": 400
 }
 ```
 
-`Replay-By` without `Replay-Seq` gets
-`["Replay-Seq Invalid input: expected string, received undefined"]`.
-A replay twin would run the same without the headers; they serve the
-comparison of `runner-compare` and the reader of the timeline.
+Other headers, as a replay twin of the demo answered them:
+
+- `Replay-By: alice` alone: `Replay-Seq is missing: Replay-By needs
+it, a whole number above 0`;
+- `Replay-By: a b`: `Replay-By must be the name of a principal, up to
+64 letters, digits, _, . or -, from a letter, not "a b"`;
+- `Replay-Seq` twice, `3` and `4`: `Replay-Seq must be a whole number
+above 0, not "3, 4"`, as Node joins the two values.
 
 ## Repeated Requests
 
