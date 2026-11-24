@@ -11,6 +11,7 @@ import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { NO_RESOURCES } from 'src/resources/resources';
 import { mqttRequest } from './mqtt.fixture';
 import Timeline from 'src/queue.timeline';
+import Pause from 'src/snapshot/pause';
 
 const LOGS = new Map([
   ['stdout', 'hello world'],
@@ -37,6 +38,7 @@ function createHandler(run: () => Promise<CommandResult>) {
   const handler = new MqttRequestHandler(
     manager as unknown as ExecaManager,
     {
+      pause: new Pause(),
       environment: jest.fn((_command: string) => ENV),
     } as unknown as FsmService,
     { timeline: () => new Timeline() } as unknown as DescriptorService,

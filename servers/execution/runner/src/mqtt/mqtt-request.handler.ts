@@ -25,8 +25,10 @@ import { historyQuerySchema } from '../dto/history.dto.js';
 import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import { PeersBody, peersBodySchema } from '../dto/peers.dto.js';
 import { PropertiesBody, propertiesBodySchema } from '../dto/properties.dto.js';
+import { saveSchema } from '../dto/snapshot.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import { timelineQuerySchema, timelineReply } from '../dto/timeline.dto.js';
+import { saving } from '../snapshot/pause.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
 import { MqttRequest } from './mqtt-request.js';
@@ -81,11 +83,11 @@ export default class MqttRequestHandler {
     metrics: () => this.descriptor.metrics(),
     // a request arrives only over a connected client
     health: () =>
-      healthReport(
-        'connected',
-        this.manager.databaseMode(),
-        this.manager.scriptsHealth(),
-      ),
+      healthReport('connected', {
+        database: this.manager.databaseMode(),
+        scripts: this.manager.scriptsHealth(),
+        saving: this.fsm.pause.saving,
+      }),
     parameters: () => this.parameterDocument(),
     'set-parameters': this.whenValid(parametersBodySchema, (body) =>
       this.setParameters(body),
@@ -102,14 +104,21 @@ export default class MqttRequestHandler {
     'set-properties': this.whenValid(propertiesBodySchema, (body, request) =>
       this.setProperties(body, request.principal?.name),
     ),
+    snapshots: () => this.descriptor.snapshots().list(),
+    save: this.whenValid(saveSchema, (body) =>
+      this.descriptor.snapshots().save(body),
+    ),
   };
 
-  // The role comes before the body, as Nest runs guards before pipes. A
-  // refusal gets the body of its HTTP reply, and an unexpected error the
-  // body of an HTTP 500 response.
+  // The role and a save that runs come before the body, as Nest runs
+  // guards before pipes. A refusal gets the body of its HTTP reply, and
+  // an unexpected error the body of an HTTP 500 response.
   async handle(route: MqttRoute, request: MqttRequest): Promise<unknown> {
     try {
       this.authorize(route, request);
+      if (this.fsm.pause.refuses(route)) {
+        throw saving();
+      }
       const caller = { by: request.principal?.name };
       return await callerContext.run(caller, () => this.routes[route](request));
     } catch (error) {

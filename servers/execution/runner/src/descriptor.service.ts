@@ -16,6 +16,7 @@ import { ChangeListener } from './notify/changes.js';
 import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
 import Timeline from './queue.timeline.js';
+import Snapshots from './snapshot/snapshots.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
 const now = (): number => performance.timeOrigin + performance.now();
@@ -34,11 +35,14 @@ export default class DescriptorService
   // The latest values that scripts and sensors wrote
   private readonly propertyValues = new Properties();
 
+  private readonly saves: Snapshots;
+
   constructor(
     private readonly config: Config,
     private readonly fsm: FsmService,
     private readonly queue: Queue,
   ) {
+    this.saves = new Snapshots(config, fsm, queue);
     // registered first, so that the row of a notice comes before the
     // rows of the events that it raises
     this.peerList.onNotice((peer, kind, data) =>
@@ -91,6 +95,11 @@ export default class DescriptorService
         `Dropped the stored properties ${dropped.join(', ')}, which no longer fit their declarations`,
       );
     }
+  }
+
+  // The saves of the twin into snapshots
+  snapshots(): Snapshots {
+    return this.saves;
   }
 
   properties(): Properties {

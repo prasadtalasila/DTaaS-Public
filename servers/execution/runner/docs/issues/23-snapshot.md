@@ -385,26 +385,30 @@ Provisional:
       Check: `test/unit/config.schema.spec.ts`,
       `test/unit/fsm.parameters.schema.spec.ts`,
       `test/unit/mqtt.request-topics.spec.ts`.
-- [ ] `operator` has the rights of the table, and no other role
-      gained or lost one. Check: `test/unit/auth.roles.spec.ts`.
-- [ ] A save writes the manifest, a database that opens and ends at
+- [x] `operator` has the rights of the table, and no other role
+      gained or lost one. Check: `test/unit/auth.roles.spec.ts`,
+      `test/e2e/snapshot.access.spec.ts`.
+- [x] A save writes the manifest, a database that opens and ends at
       the row before the save, the two files without their secrets and
       the scripts, and runs the save script with its directory; the
       list shows it; a removal removes it. A runner without a database
       file refuses. Check:
-      `test/unit/snapshot.spec.ts`, `test/e2e/snapshot.spec.ts`.
-- [ ] While a save runs, each changing route answers `503` `saving`,
+      `test/unit/snapshot.spec.ts`, `test/unit/snapshot.save.spec.ts`,
+      `test/e2e/snapshot.spec.ts`, `test/e2e/mqtt.snapshot.spec.ts`.
+- [x] While a save runs, each changing route answers `503` `saving`,
       each read answers, and a script that ends has its completion
       handled after. Check: `test/unit/snapshot.pause.spec.ts`,
-      `test/e2e/snapshot.spec.ts`.
+      `test/unit/auth.guard.spec.ts`,
+      `test/unit/mqtt-request.snapshot.spec.ts`,
+      `test/e2e/snapshot.during.spec.ts`.
 - [ ] A save with `stop` answers, then shuts the runner down with
       nothing changed after the snapshot; when the save fails the
       runner goes on. A twin saved so, removed and reinstated has its
       history and goes on at the next request. Check:
       `test/e2e/snapshot.spec.ts`, `test/e2e/reinstate.spec.ts`.
-- [ ] A save script that fails or runs past the timeout leaves no
+- [x] A save script that fails or runs past the timeout leaves no
       directory, and the twin goes on. Check:
-      `test/e2e/snapshot.spec.ts`.
+      `test/e2e/snapshot.fail.spec.ts`.
 - [ ] A runner started with `--reinstate` has the history, the
       timeline and the state of the snapshot under its own `id`, has
       run the restore script, waits in the saved state as

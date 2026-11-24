@@ -5,10 +5,12 @@ import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { mqttRequest } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 // A handler whose state machine service accepts every escalation
 function createHandler() {
   const fsm = {
+    pause: new Pause(),
     escalate: jest.fn((_body: EscalateBody, _requestKey?: string) => ({
       status: 'accepted',
     })),

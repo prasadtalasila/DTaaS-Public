@@ -22,6 +22,29 @@ export const classSchema = z
 
 export type DtClass = NonNullable<z.infer<typeof classSchema>>;
 
+// The scripts that save and restore what the scripts of the class keep
+// for themselves, each a command of runner.yaml
+export const snapshotScriptsSchema = z
+  .strictObject({
+    save: z.string().min(1).optional(),
+    restore: z.string().min(1).optional(),
+  })
+  .default({});
+
+export type SnapshotScripts = z.infer<typeof snapshotScriptsSchema>;
+
+// The snapshot scripts that runner.yaml does not permit
+export const snapshotProblems = (
+  scripts: SnapshotScripts,
+  permitted: string[],
+): string[] =>
+  Object.entries(scripts)
+    .filter(([, command]) => !permitted.includes(command))
+    .map(
+      ([kind, command]) =>
+        `snapshot ${kind} script ${command} is not a permitted command`,
+    );
+
 // The values that runner.yaml gives the parameters of one instance of
 // the class, in place of the defaults of the file
 export type InstanceValues = Record<string, ParameterValue>;

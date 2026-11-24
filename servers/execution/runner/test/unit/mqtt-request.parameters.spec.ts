@@ -4,6 +4,7 @@ import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { mqttRequest } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 const document = {
   scope: {
@@ -20,6 +21,7 @@ const document = {
 function createHandler(machine = true) {
   const parameters = { document: jest.fn(() => document) };
   const fsm = {
+    pause: new Pause(),
     parameters: jest.fn(() => (machine ? parameters : undefined)),
     setParameters: jest.fn((_body: object): string[] => []),
   };

@@ -44,20 +44,25 @@ export const mqttRoutes = [
   'properties',
   'set-properties',
   'timeline',
+  'snapshots',
+  'save',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];
 
 // The topic levels of the routes that write a resource, which sit under
-// its read topic; every other route is its own topic level
-const WRITE_TOPICS: Partial<Record<MqttRoute, string>> = {
+// its read topic, and of the snapshots; every other route is its own
+// topic level
+const TOPIC_LEVELS: Partial<Record<MqttRoute, string>> = {
   'set-parameters': 'parameters/set',
   'set-peers': 'peers/set',
   'set-properties': 'properties/set',
+  snapshots: 'snapshot',
+  save: 'snapshot/set',
 };
 
 export const requestTopic = (base: string, route: MqttRoute): string =>
-  `${base}/${WRITE_TOPICS[route] ?? route}`;
+  `${base}/${TOPIC_LEVELS[route] ?? route}`;
 
 export const defaultResponseTopic = (topic: string): string =>
   `${topic}/response`;

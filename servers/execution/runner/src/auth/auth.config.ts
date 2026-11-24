@@ -26,8 +26,9 @@ export const publicKeySchema = z
 // The role of the scripts, which no listed principal may take
 export const SCRIPT = 'script';
 
-// A sensor feeds property values and calls nothing else
-export type Role = 'client' | 'manager' | 'sensor' | typeof SCRIPT;
+// A sensor feeds property values and calls nothing else; an operator
+// keeps the twin running and saves it, and does not steer it
+export type Role = 'client' | 'operator' | 'manager' | 'sensor' | typeof SCRIPT;
 
 // Who made a request, as the runner logs and stores it
 export type Principal = { name: string; role: Role };
@@ -35,7 +36,7 @@ export type Principal = { name: string; role: Role };
 const principalSchema = z
   .object({
     name: nameSchema.refine((name) => name !== SCRIPT, 'script is reserved'),
-    role: z.enum(['client', 'manager', 'sensor']),
+    role: z.enum(['client', 'operator', 'manager', 'sensor']),
     publicKey: publicKeySchema,
   })
   .strict();

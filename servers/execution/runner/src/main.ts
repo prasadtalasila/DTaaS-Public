@@ -7,6 +7,7 @@ import Config from './config/configuration.service.js';
 import CLI, { createCommand } from './config/commander.js';
 import MqttService from './mqtt/mqtt.service.js';
 import Queue from './queue.service.js';
+import DescriptorService from './descriptor.service.js';
 import FsmService from './fsm/fsm.service.js';
 import { runnerUrl } from './fsm/script-context.js';
 
@@ -29,6 +30,11 @@ async function bootstrap(options: Keyv) {
   app.get<Queue>(Queue).open(config.getDatabase());
   app.get<FsmService>(FsmService).restore();
   app.enableShutdownHooks();
+  // a save with stop shuts down as a signal does, and the process ends
+  app
+    .get<DescriptorService>(DescriptorService)
+    .snapshots()
+    .onStop(() => app.close());
   // MQTT starts before listen, so that the startup state notification
   // reaches the broker. init and listen yield only to microtasks and
   // nextTick, so no MQTT request is read before RUNNER_URL is set; keep

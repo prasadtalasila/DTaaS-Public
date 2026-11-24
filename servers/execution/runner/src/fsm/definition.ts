@@ -1,6 +1,12 @@
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
-import { classSchema, DtClass } from './class.js';
+import {
+  classSchema,
+  DtClass,
+  SnapshotScripts,
+  snapshotProblems,
+  snapshotScriptsSchema,
+} from './class.js';
 import completionCycle from './completion-cycle.js';
 import { Escalation, escalationSchema } from './escalation.js';
 import { managerProblems, managerSchema } from './manager.js';
@@ -53,6 +59,7 @@ export type Definition = {
   escalation: Escalation;
   managerCommands: string[];
   subscriptions: Subscription[];
+  snapshot: SnapshotScripts;
 };
 
 // A state name, or an object that stops the script first
@@ -83,6 +90,7 @@ const fileSchema = z
     escalation: escalationSchema,
     manager: managerSchema,
     subscriptions: subscriptionsSchema,
+    snapshot: snapshotScriptsSchema,
   })
   .strict();
 
@@ -123,6 +131,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
     escalation: sections.escalation,
     managerCommands: sections.manager?.commands ?? [],
     subscriptions: sections.subscriptions,
+    snapshot: sections.snapshot,
   };
 }
 
@@ -181,6 +190,7 @@ function crossCheck(definition: Definition, known: Known): string[] {
     ...envProblems(definition, known.separated),
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
+    ...snapshotProblems(definition.snapshot, known.commands),
   ];
 }
 

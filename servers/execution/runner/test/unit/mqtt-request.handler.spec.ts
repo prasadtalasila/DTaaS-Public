@@ -14,11 +14,13 @@ import {
   status,
   mqttRequest,
 } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 function createHandler(outcome: RunOutcome) {
   const manager = fakeManager(outcome);
   const accepted = { status: 'accepted', state: 'create' };
   const fsm = {
+    pause: new Pause(),
     transition: jest.fn((_state: string, _requestKey?: string) => accepted),
     event: jest.fn((_event: string, _requestKey?: string) => accepted),
     check: jest.fn((): unknown => undefined),
@@ -135,6 +137,7 @@ describe('MQTT request handler', () => {
       mqtt: 'connected',
       database: 'file',
       scripts: null,
+      saving: false,
     });
   });
 

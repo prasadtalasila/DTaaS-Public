@@ -14,12 +14,13 @@ import { EscalateBody, EscalateReplyDto } from '../dto/escalation.dto.js';
 import { ParametersBody } from '../dto/parameters.dto.js';
 import Changes, { ChangeListener } from '../notify/changes.js';
 import { scriptBase } from '../scripts/launch.js';
+import Pause from '../snapshot/pause.js';
 import { CompletionEvent, Definition } from './definition.js';
 import { loadConfigured } from './load.js';
 import Escalations, { EscalationListener } from './escalation.js';
 import MachineStore from './machine-store.js';
 import Parameters from './parameters.js';
-import Requests, { AnswerListener, logStay } from './requests.js';
+import Requests, { AnswerListener, logStay, moveOn } from './requests.js';
 import { Env, RunnerContext } from './script-context.js';
 import scriptOutcome from './script-outcome.js';
 import StateMachine, { machineOf } from './state-machine.js';
@@ -61,8 +62,11 @@ export default class FsmService implements BeforeApplicationShutdown {
 
   private readonly escalations = new Escalations();
 
+  // Refuses changes and holds completions while a save runs
+  readonly pause = new Pause();
+
   constructor(
-    private readonly manager: ExecaManager,
+    readonly manager: ExecaManager,
     private readonly config: Config,
     private readonly queue: Queue,
   ) {
@@ -174,15 +178,9 @@ export default class FsmService implements BeforeApplicationShutdown {
   }
 
   private move(machine: StateMachine, event: string): FsmReplyDto {
-    if (!machine.hasEvent(event)) {
-      return fsmReply('invalid event', machine.state);
-    }
-    const next = machine.next(event);
-    if (next === undefined) {
-      return fsmReply('no transition', machine.state);
-    }
-    const left = next.stop ? machine.state : undefined;
-    return this.enter(machine, next.state, left);
+    return moveOn(machine, event, (state, left) =>
+      this.enter(machine, state, left),
+    );
   }
 
   // ExecaManager joins a run in progress, which would not run the
@@ -220,7 +218,9 @@ export default class FsmService implements BeforeApplicationShutdown {
     const env = this.context.environment(state, state, entry);
     const live = () => !this.stopping && machine.entry === entry;
     const script = { state, entry, env, live, timeline: this.queue.timeline };
-    const outcome = await scriptOutcome(this.manager, script, this.logger);
+    const outcome = await this.pause.hold(
+      scriptOutcome(this.manager, script, this.logger),
+    );
     if (outcome === undefined || machine.entry !== entry) {
       return;
     }

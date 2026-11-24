@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   configDefault,
   ConfigValues,
+  DEFAULT_SNAPSHOT_TIMEOUT,
   DEFAULT_STATE_INTERVAL,
   DEFAULT_STOP_GRACE,
 } from './config.interface.js';
@@ -118,9 +119,15 @@ const resolvePaths = (dir: string, values: ConfigValues): ConfigValues => ({
   scripts: resolveScripts(dir, values.scripts),
 });
 
+// Where snapshots go: the directory resolved, and as runner.yaml gives
+// it, for the replies
+export type SnapshotsConfig = { directory: string; given: string };
+
 @Injectable()
 export default class Config {
   private configValues: ConfigValues = configDefault;
+
+  private file = '';
 
   private accessControl: Access | undefined;
 
@@ -132,6 +139,7 @@ export default class Config {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
     const values = parseConfig(readConfig(file), file);
+    this.file = file;
     this.configValues = resolvePaths(path.dirname(file), values);
     const { principals, key } = this.configValues.auth ?? {};
     this.accessControl = principals && new Access(principals, values.id);
@@ -148,6 +156,24 @@ export default class Config {
   // are plain JSON
   getSigner(): Signer {
     return this.signer;
+  }
+
+  // runner.yaml itself, resolved
+  getFile(): string {
+    return this.file;
+  }
+
+  // Relative to runner.yaml, or absolute; undefined without the section
+  getSnapshots(): SnapshotsConfig | undefined {
+    const given = this.configValues.snapshots?.directory;
+    if (given === undefined) {
+      return undefined;
+    }
+    return { directory: path.resolve(path.dirname(this.file), given), given };
+  }
+
+  getSnapshotTimeout(): number {
+    return this.configValues.snapshots?.timeout ?? DEFAULT_SNAPSHOT_TIMEOUT;
   }
 
   getId(): string {

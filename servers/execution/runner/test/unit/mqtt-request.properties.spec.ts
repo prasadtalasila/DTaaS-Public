@@ -5,6 +5,7 @@ import FsmService from 'src/fsm/fsm.service';
 import Properties from 'src/fsm/properties';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { mqttRequest } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 const DECLARED = new Map([
   ['free-beds', { type: 'integer' as const, unit: 'beds' }],
@@ -25,7 +26,10 @@ describe('MQTT request handler properties', () => {
     properties.load(DECLARED, STORE);
     handler = new MqttRequestHandler(
       {} as ExecaManager,
-      { declared: () => undefined } as unknown as FsmService,
+      {
+        pause: new Pause(),
+        declared: () => undefined,
+      } as unknown as FsmService,
       { properties: () => properties } as unknown as DescriptorService,
     );
   });

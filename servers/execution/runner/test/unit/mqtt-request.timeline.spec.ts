@@ -17,6 +17,7 @@ import { CommandRefused } from 'src/dto/command.dto';
 import { CommandOptions } from 'src/interfaces/command.interface';
 import { NO_RESOURCES } from 'src/resources/resources';
 import { mqttRequest } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
@@ -46,7 +47,10 @@ describe('MQTT request handler timeline', () => {
     queue.timeline.record('command', { name: 'admit', input: INPUT }, 'alice');
     handler = new MqttRequestHandler(
       {} as ExecaManager,
-      { declared: () => undefined } as unknown as FsmService,
+      {
+        pause: new Pause(),
+        declared: () => undefined,
+      } as unknown as FsmService,
       { timeline: () => queue.timeline } as unknown as DescriptorService,
     );
   });
@@ -59,6 +63,7 @@ describe('MQTT request handler timeline', () => {
   it.each([
     ['without access control', undefined, INPUT],
     ['to a client', 'client' as const, INPUT],
+    ['to an operator', 'operator' as const, INPUT],
     ['without the input to a manager', 'manager' as const, undefined],
   ])('Should answer the rows %s', async (_, role, input) => {
     expect(await read({}, role)).toEqual([
@@ -125,6 +130,7 @@ describe('MQTT request handler rows of commands and stops', () => {
     handler = new MqttRequestHandler(
       manager as unknown as ExecaManager,
       {
+        pause: new Pause(),
         declared: () => undefined,
         environment: () => ({}),
       } as unknown as FsmService,

@@ -11,6 +11,7 @@ import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
 import HealthController from 'src/health.controller';
 import { httpAuthorization, newCaller } from 'test/sign.util';
+import Pause from 'src/snapshot/pause';
 
 const manager = newCaller('manager-1');
 
@@ -19,9 +20,10 @@ const access = new Access(
   'hospital-1',
 );
 
-function guard(control: Access | undefined) {
+function guard(control: Access | undefined, pause = new Pause()) {
   const config = { access: () => control } as unknown as Config;
   const fsm = {
+    pause,
     declared: () => ({ managerCommands: ['admit'] }),
   } as unknown as FsmService;
   return new AccessGuard(new Reflector(), config, fsm);
@@ -46,10 +48,22 @@ function execute(name: string, signed = true): Request {
   return { ...call, headers, body: { name }, rawBody: Buffer.from(body) };
 }
 
+// The headers that the guard sets on the response
+let headers: Record<string, unknown> = {};
+
+const response = {
+  setHeader: (name: string, value: unknown) => {
+    headers[name] = value;
+  },
+};
+
 const context = (handler: unknown, request: Request) =>
   ({
     getHandler: () => handler,
-    switchToHttp: () => ({ getRequest: () => request }),
+    switchToHttp: () => ({
+      getRequest: () => request,
+      getResponse: () => response,
+    }),
   }) as unknown as ExecutionContext;
 
 const status = (attempt: () => unknown): number => {
@@ -122,5 +136,51 @@ describe('Access guard', () => {
       status(() => guard(access).canActivate(context(newCommand, request))),
     ).toBe(code);
     expect(request.principal).toBeUndefined();
+  });
+
+  describe('During a save', () => {
+    const paused = () => {
+      const pause = new Pause();
+      pause.begin();
+      return pause;
+    };
+
+    it.each([
+      ['with access control', access],
+      ['without access control', undefined],
+    ])('Should refuse a change with 503 and a Retry-After %s', (_, control) => {
+      headers = {};
+      const request = execute('admit');
+
+      expect(
+        status(() =>
+          guard(control, paused()).canActivate(context(newCommand, request)),
+        ),
+      ).toBe(503);
+      expect(headers).toEqual({ 'Retry-After': 1 });
+    });
+
+    it('Should refuse the role before the save', () => {
+      const request = execute('open');
+
+      expect(
+        status(() =>
+          guard(access, paused()).canActivate(context(newCommand, request)),
+        ),
+      ).toBe(403);
+    });
+
+    it('Should answer a read', () => {
+      const request = {
+        ...execute('x', false),
+        method: 'GET',
+        path: '/health',
+      };
+      const check = HealthController.prototype.check;
+
+      expect(guard(access, paused()).canActivate(context(check, request))).toBe(
+        true,
+      );
+    });
   });
 });
