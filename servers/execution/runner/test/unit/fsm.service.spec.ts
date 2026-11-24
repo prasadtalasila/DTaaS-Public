@@ -49,6 +49,7 @@ describe('State machine service', () => {
     // synchronously, so that the manager knows the script runs
     expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
       env: expect.objectContaining({ DT_STATE: 'create', DT_ENTRY: '1' }),
+      ended: expect.any(Function),
     });
     expect(service.check()).toMatchObject({ status: 'running', entry: 1 });
   });

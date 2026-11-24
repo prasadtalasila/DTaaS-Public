@@ -57,19 +57,21 @@ export default class Notifier
   // The presence and the state document at startup
   onApplicationBootstrap(): void {
     if (!this.stopped) {
-      void this.webhook.post(this.record(this.online()));
+      const online = this.record(this.online(), this.webhook.enabled());
+      void this.webhook.post(online);
     }
     this.sendState();
   }
 
   // MqttService publishes the offline notice itself, as its client is
-  // already disconnecting when this hook runs
+  // already disconnecting when this hook runs; each is a row
   async beforeApplicationShutdown(): Promise<void> {
     this.stopped = true;
     this.hold.cancel();
     const { id } = this.descriptor.describe();
-    const time = new Date().toISOString();
-    await this.webhook.sendOnce(this.record(offlineNotification(id, time)));
+    const offline = offlineNotification(id, new Date().toISOString());
+    this.record(offline, this.mqttEnabled());
+    await this.webhook.sendOnce(this.record(offline, this.webhook.enabled()));
   }
 
   send(kind: NotifyKind, data: unknown): void {
@@ -98,7 +100,7 @@ export default class Notifier
 
   private announce(): void {
     if (!this.stopped) {
-      const online = this.record(this.online());
+      const online = this.record(this.online(), true);
       void this.mqtt.notify('presence', online, RETAINED.presence);
     }
   }
@@ -112,18 +114,25 @@ export default class Notifier
 
   // Neither transport rejects
   private publish(notification: NotificationDto): void {
-    const { kind } = this.record(notification);
+    const sent = this.mqttEnabled() || this.webhook.enabled();
+    const { kind } = this.record(notification, sent);
     void this.mqtt.notify(kind, notification, RETAINED[kind]);
     void this.webhook.post(notification);
   }
 
-  // The timeline holds what is sent: a state document follows from its
-  // rows, so only the row that led to it is named
-  private record(notification: NotificationDto): NotificationDto {
-    const { kind, data } = notification;
-    const timeline = this.descriptor.timeline();
-    const sent = kind === 'state' ? { cause: timeline.lastCause() } : { data };
-    timeline.record('sent', { kind, ...sent }, null);
+  private mqttEnabled(): boolean {
+    return this.mqtt.status() !== 'disabled';
+  }
+
+  // The timeline holds what is sent over a transport: a state document
+  // follows from its rows, so only the row that led to it is named
+  private record(notification: NotificationDto, sent: boolean) {
+    if (sent) {
+      const { kind, data } = notification;
+      const timeline = this.descriptor.timeline();
+      const row = kind === 'state' ? { cause: timeline.lastCause() } : { data };
+      timeline.record('sent', { kind, ...row }, null);
+    }
     return notification;
   }
 }

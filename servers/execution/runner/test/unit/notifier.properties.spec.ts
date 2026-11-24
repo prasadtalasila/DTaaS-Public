@@ -39,8 +39,12 @@ function setup() {
   const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
   const notifier = new Notifier(
     source as unknown as DescriptorService,
-    { notify, onConnect: () => undefined } as unknown as MqttService,
-    { post, sendOnce } as unknown as WebhookClient,
+    {
+      notify,
+      onConnect: () => undefined,
+      status: () => 'connected',
+    } as unknown as MqttService,
+    { post, sendOnce, enabled: () => true } as unknown as WebhookClient,
   );
   notifier.onModuleInit();
   notifier.onApplicationBootstrap();

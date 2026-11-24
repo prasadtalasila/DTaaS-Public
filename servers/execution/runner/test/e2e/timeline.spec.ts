@@ -85,22 +85,21 @@ describe('Timeline end-to-end tests', () => {
   });
 
   it('Should record the run, in order, with the callers', () => {
-    const changes = rows.filter(({ kind }) => kind !== 'sent');
+    // the script of raise-event ends after the entry that its event led
+    // to, at a time that varies, so the exits are checked on their own
+    const changes = rows.filter(({ kind }) => kind !== 'exit');
     expect(changes.map(what)).toEqual([
       'start null',
       'transition alice',
       'entry null',
-      'exit null',
       'entry null',
       'event script script',
       'entry null',
-      'exit null',
       'event alice client',
       'command alice',
       'parameters manager-1',
       'event manager-1 parameter',
       'entry null',
-      'exit null',
       'properties ward-gateway',
       'command alice',
       'stop alice',
@@ -108,8 +107,28 @@ describe('Timeline end-to-end tests', () => {
     expect(changes.find(({ kind }) => kind === 'command')?.data).toEqual({
       name: 'echo-input',
       input: { patient: 'p-7' },
-      id: 4,
+      run: 4,
     });
+  });
+
+  it('Should end each entry with one exit, after it', () => {
+    const entries = rows.filter(({ kind }) => kind === 'entry');
+    const exits = entries.map(({ seq, data }) =>
+      rows.filter(
+        (row) =>
+          row.kind === 'exit' && row.data.entry === data.entry && row.seq > seq,
+      ),
+    );
+
+    expect(exits.map((ends) => ends.length)).toEqual([1, 1, 1, 1]);
+    expect(
+      exits.map(([{ by, data }]) => [by, data.state, data.status]),
+    ).toEqual([
+      [null, 'create', 'valid'],
+      [null, 'raise-event', 'valid'],
+      [null, 'execute', 'valid'],
+      [null, 'execute', 'valid'],
+    ]);
   });
 
   it('Should page with after', async () => {
@@ -126,8 +145,8 @@ describe('Timeline end-to-end tests', () => {
     const read = await timeline(app, manager, '?kind=command');
 
     expect(read.map(({ data }) => data)).toEqual([
-      { name: 'echo-input', id: 4 },
-      { name: 'loop', id: 6 },
+      { name: 'echo-input', run: 4 },
+      { name: 'loop', run: 6 },
     ]);
   });
 

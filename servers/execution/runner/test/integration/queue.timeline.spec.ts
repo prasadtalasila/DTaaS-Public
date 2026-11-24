@@ -77,24 +77,18 @@ describe('Queue timeline', () => {
     ]);
   });
 
-  it('Should name the run that each command request led to', () => {
-    const queue = open();
-    const { timeline } = queue;
-    const submit = (name: string, key?: string) => () =>
-      queue.enqueue(name, key);
-    // the id that the row of the request names
-    const idOf = (name: string, key: string | undefined, act: () => void) => {
-      timeline.command({ name }, key, act);
-      const query = timelineQuerySchema.parse({ kind: 'command' });
-      return timeline.rows(query).at(-1)?.data.id;
-    };
+  it('Should name the run that a command request was given, if any', () => {
+    const { timeline } = open();
+    const input = { patient: 'p-7' };
 
-    expect(idOf('create', 'k-1', submit('create', 'k-1'))).toBe(1);
-    expect(idOf('create', '', submit('create'))).toBe(2);
-    // a repeat of k-1, which ExecaManager answers from the first run
-    expect(idOf('create', 'k-1', () => undefined)).toBe(1);
-    // the key of another command, which ExecaManager refuses
-    expect(idOf('execute', 'k-1', () => undefined)).toBeNull();
+    timeline.command({ name: 'admit', input }, (onRun) => onRun(58));
+    timeline.command({ name: 'admit' }, () => undefined);
+
+    const rows = timeline.rows(timelineQuerySchema.parse({}));
+    expect(rows.map(({ data }) => data)).toEqual([
+      { name: 'admit', input, run: 58 },
+      { name: 'admit', run: null },
+    ]);
   });
 
   describe('queries', () => {

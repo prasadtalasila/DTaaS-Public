@@ -64,7 +64,7 @@ describe('Runner MQTT timeline end-to-end tests', () => {
         time: expect.any(String),
         kind: 'command',
         by: null,
-        data: { name: 'echo-input', input, id: 1 },
+        data: { name: 'echo-input', input, run: 1 },
       },
     ]);
     expect(rows).toEqual(await http('?kind=command'));

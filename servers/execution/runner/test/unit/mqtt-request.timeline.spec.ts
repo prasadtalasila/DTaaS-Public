@@ -13,11 +13,20 @@ import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import Queue from 'src/queue.service';
+import { CommandRefused } from 'src/dto/command.dto';
+import { CommandOptions } from 'src/interfaces/command.interface';
+import { NO_RESOURCES } from 'src/resources/resources';
 import { mqttRequest } from './mqtt.fixture';
 
 const json = (body: unknown) => Buffer.from(JSON.stringify(body));
 
 const INPUT = { patient: 'p-7' };
+
+// The rows of the timeline, without their seq and time
+const rowsOf = (queue: Queue) =>
+  queue.timeline
+    .rows({ after: 0, limit: 100, count: false })
+    .map(({ kind, by, data }) => [kind, by, data]);
 
 describe('MQTT request handler timeline', () => {
   let queue: Queue;
@@ -82,5 +91,69 @@ describe('MQTT request handler timeline', () => {
       error: 'Bad Request',
       statusCode: 400,
     });
+  });
+});
+
+describe('MQTT request handler rows of commands and stops', () => {
+  let queue: Queue;
+  let handler: MqttRequestHandler;
+
+  // Names run 7 for a command it starts, and refuses any other
+  const manager = {
+    newCommand: jest.fn(
+      (name: string, _key?: string, options?: CommandOptions) => {
+        if (name !== 'admit') {
+          return Promise.reject(new CommandRefused('command running'));
+        }
+        options?.onRun?.(7);
+        return Promise.resolve(['success', new Map(), 0, NO_RESOURCES]);
+      },
+    ),
+    stop: jest.fn((name?: string) => Promise.resolve(name ? [name] : [])),
+  };
+
+  // The request of the client alice on the route
+  const send = (route: 'execute' | 'stop', body: unknown) =>
+    handler.handle(route, {
+      ...mqttRequest(json(body)),
+      principal: { name: 'alice', role: 'client' },
+    });
+
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'debug').mockReturnValue(undefined);
+    queue = new Queue();
+    handler = new MqttRequestHandler(
+      manager as unknown as ExecaManager,
+      {
+        declared: () => undefined,
+        environment: () => ({}),
+      } as unknown as FsmService,
+      { timeline: () => queue.timeline } as unknown as DescriptorService,
+    );
+  });
+
+  afterEach(() => {
+    queue.close();
+    jest.restoreAllMocks();
+  });
+
+  it('Should write a row of each command, with its run or none', async () => {
+    await send('execute', { name: 'admit', input: INPUT });
+    await send('execute', { name: 'discharge', input: INPUT });
+
+    expect(rowsOf(queue)).toEqual([
+      ['command', 'alice', { name: 'admit', input: INPUT, run: 7 }],
+      ['command', 'alice', { name: 'discharge', input: INPUT, run: null }],
+    ]);
+  });
+
+  it('Should write a row of each stop request', async () => {
+    await send('stop', { name: 'admit' });
+    await send('stop', {});
+
+    expect(rowsOf(queue)).toEqual([
+      ['stop', 'alice', { name: 'admit' }],
+      ['stop', 'alice', { name: null }],
+    ]);
   });
 });

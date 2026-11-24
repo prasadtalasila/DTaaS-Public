@@ -3,8 +3,10 @@ import DescriptorService from 'src/descriptor.service';
 import { CommandRefused, MAX_INPUT_BYTES } from 'src/dto/command.dto';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
-import { CommandResult } from 'src/interfaces/command.interface';
-import { RunOptions } from 'src/interfaces/runner.interface';
+import {
+  CommandOptions,
+  CommandResult,
+} from 'src/interfaces/command.interface';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import { NO_RESOURCES } from 'src/resources/resources';
 import { mqttRequest } from './mqtt.fixture';
@@ -29,7 +31,7 @@ const validationError = {
 function createHandler(run: () => Promise<CommandResult>) {
   const manager = {
     newCommand: jest.fn(
-      (_name: string, _requestKey?: string, _options?: RunOptions) => run(),
+      (_name: string, _requestKey?: string, _options?: CommandOptions) => run(),
     ),
   };
   const handler = new MqttRequestHandler(
@@ -58,6 +60,7 @@ describe('MQTT execute requests', () => {
 
     expect(manager.newCommand).toHaveBeenCalledWith('create', undefined, {
       env: ENV,
+      onRun: expect.any(Function),
     });
     expect(body).toEqual({
       status: 'success',
@@ -79,6 +82,7 @@ describe('MQTT execute requests', () => {
     expect(manager.newCommand).toHaveBeenCalledWith('admit', 'key-1', {
       env: ENV,
       input: '{"ward":"B"}\n',
+      onRun: expect.any(Function),
     });
   });
 

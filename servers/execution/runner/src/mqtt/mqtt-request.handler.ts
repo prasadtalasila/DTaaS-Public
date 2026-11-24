@@ -49,19 +49,16 @@ export default class MqttRequestHandler {
   > = {
     execute: this.whenValid(executeCommandSchema, (command, request) =>
       executeReply(
-        this.descriptor
-          .timeline()
-          .command(command, request.requestKey, () =>
-            this.manager.newCommand(
-              command.name,
-              request.requestKey,
-              runOptions(
-                command,
-                this.fsm.environment(command.name),
-                request.principal?.name,
-              ),
+        this.descriptor.timeline().command(command, (onRun) =>
+          this.manager.newCommand(command.name, request.requestKey, {
+            ...runOptions(
+              command,
+              this.fsm.environment(command.name),
+              request.principal?.name,
             ),
-          ),
+            onRun,
+          }),
+        ),
       ),
     ),
     stop: this.whenValid(stopSchema, async ({ name }) => {

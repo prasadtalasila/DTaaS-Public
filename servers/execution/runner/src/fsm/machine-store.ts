@@ -19,14 +19,13 @@ export default class MachineStore {
   ) {}
 
   // Stores the machine as it enters a state, when its script is
-  // running, or as that script ends, and writes the row of the timeline
+  // running, with the entry row of the timeline, or as that script ends,
+  // whose exit row scriptOutcome wrote
   save(position: Position, status: ScriptStatus): void {
     this.store(position, status);
     const { state = '', entry } = position;
     if (status === 'running') {
       this.queue.timeline.entered(state, entry);
-    } else {
-      this.queue.timeline.exited(state, entry, status);
     }
   }
 

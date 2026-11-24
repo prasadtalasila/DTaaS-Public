@@ -117,6 +117,7 @@ describe('MQTT request handler with a principal', () => {
     expect(executor.newCommand).toHaveBeenCalledWith('admit', undefined, {
       env: {},
       by: 'manager-1',
+      onRun: expect.any(Function),
     });
   });
 

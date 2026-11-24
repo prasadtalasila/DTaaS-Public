@@ -39,14 +39,6 @@ const ROWS = `SELECT seq, time, kind, by, data FROM timeline ${WHERE}
 
 const COUNT = `SELECT COUNT(*) AS count FROM timeline ${WHERE}`;
 
-// The run in the command history that a request of the command led to:
-// the one its request key names, if of the same command, or the latest
-const RUN = `SELECT CASE WHEN :key IS NOT NULL AND EXISTS
-    (SELECT 1 FROM request_keys WHERE request_key = :key)
-  THEN (SELECT id FROM request_keys JOIN commands ON id = command_id
-    WHERE request_key = :key AND name = :name)
-  ELSE (SELECT MAX(id) FROM commands WHERE name = :name) END AS id`;
-
 type Data = Record<string, unknown>;
 
 const bound = ({ after, since, until, kind }: TimelineQuery) => ({
@@ -130,16 +122,14 @@ export default class Timeline {
   }
 
   // Writes the row of a command request, submits the command, and
-  // completes the row with the id of its run; an empty key marks none
-  command<Run>(
+  // completes the row with the run in the history that the submit names
+  // at once; a refused request has no run
+  command<Result>(
     { name, input }: { name: string; input?: Data },
-    key: string | undefined,
-    submit: () => Run,
-  ): Run {
-    const seq = this.record('command', { name, input });
-    const run = submit();
-    this.complete(seq, 'id', this.run(name, key || null));
-    return run;
+    submit: (onRun: (run: number) => void) => Result,
+  ): Result {
+    const seq = this.record('command', { name, input, run: null });
+    return submit((run) => this.complete(seq, 'run', run));
   }
 
   // Writes the changes of one request, if any
@@ -156,10 +146,15 @@ export default class Timeline {
     this.record('entry', { state, entry, cause }, null);
   }
 
-  // The script of an entry ended, with the run that the history holds
-  exited(state: string, entry: number, status: string): void {
-    const command = this.run(state, null);
-    this.record('exit', { state, entry, status, command }, null);
+  // The script of an entry ended, with its status and its run in the
+  // history, or none when it never started
+  exited(exit: {
+    state: string;
+    entry: number;
+    status: string;
+    run: number | null;
+  }): void {
+    this.record('exit', exit, null);
   }
 
   // The seq of the last row that was not sent, which led to what is sent
@@ -193,15 +188,6 @@ export default class Timeline {
       this.statement(COMPLETE).run(key, JSON.stringify(value), seq);
     } catch (error) {
       this.failed(error);
-    }
-  }
-
-  private run(name: string, key: string | null): number | null {
-    try {
-      const id = this.statement(RUN).get({ name, key })?.id;
-      return id === null || id === undefined ? null : Number(id);
-    } catch {
-      return null;
     }
   }
 

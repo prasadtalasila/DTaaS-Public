@@ -37,8 +37,16 @@ function transports() {
   const post = jest.fn<WebhookClient['post']>(() => Promise.resolve());
   const sendOnce = jest.fn<WebhookClient['sendOnce']>(() => Promise.resolve());
   return {
-    mqtt: { notify, onConnect } as unknown as MqttService,
-    webhook: { post, sendOnce } as unknown as WebhookClient,
+    mqtt: {
+      notify,
+      onConnect,
+      status: () => 'connected',
+    } as unknown as MqttService,
+    webhook: {
+      post,
+      sendOnce,
+      enabled: () => true,
+    } as unknown as WebhookClient,
     calls: { notify, post, sendOnce },
     connect: () => connects.forEach((listener) => listener()),
   };

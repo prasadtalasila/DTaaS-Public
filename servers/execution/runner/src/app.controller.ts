@@ -87,15 +87,12 @@ export default class AppController {
     const { name } = executeCommandDto;
     const env = this.fsm.environment(name);
     const reply = await executeReply(
-      this.descriptor
-        .timeline()
-        .command(executeCommandDto, requestKey, () =>
-          this.manager.newCommand(
-            name,
-            requestKey,
-            runOptions(executeCommandDto, env, by),
-          ),
-        ),
+      this.descriptor.timeline().command(executeCommandDto, (onRun) =>
+        this.manager.newCommand(name, requestKey, {
+          ...runOptions(executeCommandDto, env, by),
+          onRun,
+        }),
+      ),
     );
     res.status(EXECUTE_STATUS_CODES[reply.status]).send(reply);
   }
