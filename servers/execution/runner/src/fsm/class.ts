@@ -45,9 +45,13 @@ export const snapshotProblems = (
         `snapshot ${kind} script ${command} is not a permitted command`,
     );
 
-// The commands that POST /whatif runs on a private copy of the twin
+// The commands that POST /whatif runs on a private copy of the twin,
+// and whether the class allows a replay twin, which runs its scripts
 export const whatIfSchema = z
-  .strictObject({ commands: z.array(z.string().min(1)).default([]) })
+  .strictObject({
+    commands: z.array(z.string().min(1)).default([]),
+    replay: z.boolean().optional(),
+  })
   .optional();
 
 export type WhatIf = NonNullable<z.infer<typeof whatIfSchema>>;
@@ -66,7 +70,8 @@ const stateProblems = (
     );
 
 // The what-if commands that runner.yaml does not permit or that are
-// states, and a what-if without the save script that makes its copy
+// states, and a what-if command without the save script that makes its
+// copy; a replay twin alone needs no save script
 export function whatIfProblems(
   { whatIf, snapshot: { save }, states }: Definition,
   permitted: string[],
@@ -82,7 +87,7 @@ export function whatIfProblems(
       ),
     ...stateProblems(whatIf.commands, states),
   ];
-  return save === undefined
+  return save === undefined && whatIf.commands.length > 0
     ? [...problems, 'whatIf needs snapshot.save, which makes its copy']
     : problems;
 }

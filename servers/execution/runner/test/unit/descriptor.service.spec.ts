@@ -63,6 +63,7 @@ function createService(
       peer('hospital-4', true),
     ],
     getSigner,
+    replay: () => undefined,
   };
   const fsm = {
     check: () => state,
@@ -104,6 +105,7 @@ describe('Descriptor service', () => {
       manager: { commands: ['execute'] },
       peers: [],
       publicKey: null,
+      replay: null,
     });
   });
 

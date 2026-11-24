@@ -10,8 +10,8 @@ export type { Env } from './declared-env.js';
 // What the environment of one script is built from. Without a state
 // machine there is no entry, definition or parameter value, and without
 // access control no token. whatIf is the copy of a what-if run, which
-// gets no address and no token. inherited and platform default to those
-// of the runner process.
+// gets no address and no token; replay holds the variables of a replay
+// twin. inherited and platform default to those of the runner process.
 export type ScriptContext = {
   id: string;
   url?: string;
@@ -20,6 +20,7 @@ export type ScriptContext = {
   state?: string;
   entry?: number;
   whatIf?: string;
+  replay?: Env;
   values?: Readonly<Record<string, ParameterValue>>;
   definition?: Definition;
   inherited?: Inherited;
@@ -49,17 +50,23 @@ function apiVariables({ url, token, whatIf }: ScriptContext): Env {
   };
 }
 
-const modeVariables = (whatIf?: string): Env =>
-  whatIf === undefined
+// A replay twin runs in what-if mode on its own machine, so it keeps
+// the API and has no copy
+function modeVariables({ whatIf, replay }: ScriptContext): Env {
+  if (whatIf !== undefined) {
+    return { DT_MODE: 'what-if', DT_WHATIF_DIR: whatIf };
+  }
+  return replay === undefined
     ? { DT_MODE: 'live' }
-    : { DT_MODE: 'what-if', DT_WHATIF_DIR: whatIf };
+    : { DT_MODE: 'what-if', ...replay };
+}
 
 function runnerVariables(context: ScriptContext) {
-  const { id, state, entry, values, whatIf } = context;
+  const { id, state, entry, values } = context;
   return {
     ...apiVariables(context),
     DT_ID: id,
-    ...modeVariables(whatIf),
+    ...modeVariables(context),
     ...machineVariables(state, entry),
     ...parameterVariables(values),
   };
@@ -135,11 +142,18 @@ export function runnerUrl(server: Pick<Server, 'address'>): string | undefined {
 // Where the machine is, and the copy of a what-if
 export type ScriptAt = Pick<ScriptContext, 'state' | 'entry' | 'whatIf'>;
 
+// The runner as its scripts see it: its id, and the mode of a replay
+// twin, which Config gives
+export type RunnerIdentity = {
+  getId(): string;
+  replay(): { variables(): Env } | undefined;
+};
+
 // What the scripts of a runner learn about it: its identity, the
 // address of its API and the token for it, and the declared env and
 // parameters of its DT
 export class RunnerContext {
-  private id = '';
+  private runner: RunnerIdentity | undefined;
 
   private url: string | undefined;
 
@@ -151,8 +165,12 @@ export class RunnerContext {
 
   private inherited: Inherited | undefined;
 
-  load(id: string, definition?: Definition, parameters?: Parameters): void {
-    this.id = id;
+  load(
+    runner: RunnerIdentity,
+    definition?: Definition,
+    parameters?: Parameters,
+  ): void {
+    this.runner = runner;
     this.definition = definition;
     this.parameters = parameters;
   }
@@ -172,7 +190,8 @@ export class RunnerContext {
   // state, or for a what-if on the copy
   environment(command: string, at: ScriptAt = {}): Env {
     return scriptEnvironment({
-      id: this.id,
+      id: this.runner?.getId() ?? '',
+      replay: this.runner?.replay()?.variables(),
       url: this.url,
       token: this.token,
       command,

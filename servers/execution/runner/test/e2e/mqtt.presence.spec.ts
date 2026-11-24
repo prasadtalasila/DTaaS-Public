@@ -89,6 +89,7 @@ describe('Runner MQTT presence end-to-end tests', () => {
           manager: { commands: [] },
           peers: [],
           publicKey: null,
+          replay: null,
         },
       },
     });

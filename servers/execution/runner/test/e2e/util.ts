@@ -9,10 +9,18 @@ import FsmService from 'src/fsm/fsm.service';
 import { openTwin } from 'src/snapshot/reinstate';
 import { MEASURED, UNMEASURED } from 'test/utils';
 
-// Loads the configuration file given and the state machine it names
-async function configure(app: INestApplication, configFile: string) {
+// Loads the configuration file given and the state machine it names,
+// as a replay twin at the time scale given, if one is
+async function configure(
+  app: INestApplication,
+  configFile: string,
+  replay?: number,
+) {
   const options = new Keyv();
   await options.set('configFile', configFile);
+  if (replay !== undefined) {
+    await options.set('replay', replay);
+  }
   const config = app.get<Config>(Config);
   await config.loadConfig(options);
   app.get<FsmService>(FsmService).load();
@@ -38,13 +46,14 @@ export async function startRunner(
 }
 
 // Starts the runner as main.ts does, with its database and the machine
-// stored there, but without MQTT
+// stored there, but without MQTT; a replay twin with a time scale
 export async function startStoredRunner(
   configFile: string,
   snapshot?: string,
+  replay?: number,
 ): Promise<INestApplication> {
   const app = await createApp();
-  await configure(app, configFile);
+  await configure(app, configFile, replay);
   await openTwin(app, snapshot);
   await app.init();
   return app;

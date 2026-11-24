@@ -1,9 +1,6 @@
-import { readFileSync } from 'fs';
 import path from 'node:path';
-import * as yaml from 'js-yaml';
 import { Injectable } from '@nestjs/common';
 import Keyv from 'keyv';
-import { z } from 'zod';
 import {
   configDefault,
   ConfigValues,
@@ -12,83 +9,18 @@ import {
   DEFAULT_STOP_GRACE,
 } from './config.interface.js';
 import { Attributes } from './attributes.js';
-import { configSchema } from './config.schema.js';
+import { invalid, parseConfig, readConfig } from './parse.js';
 import resolveFile from './util.js';
 import Access from '../auth/access.js';
 import { AuthConfig } from '../auth/auth.config.js';
 import Signer from '../auth/signer.js';
-import { hasOwnProto } from '../fsm/definition.js';
 import { MqttConfig } from '../mqtt/mqtt.config.js';
 import { NotifyConfig } from '../notify/notify.config.js';
 import { PeerConfig } from '../peers/peers.config.js';
 import { ScriptsConfig } from '../scripts/scripts.config.js';
 import { checkSeparation, ScriptUser } from '../scripts/separation.js';
 import { placementProblems } from '../snapshot/placement.js';
-
-const invalid = (file: string, problems: string): Error =>
-  new Error(`Invalid configuration in ${file}:\n${problems}`);
-
-// js-yaml throws on an empty file and on a syntax error, neither of
-// which names the file
-function readConfig(file: string): unknown {
-  try {
-    return yaml.load(readFileSync(file, 'utf8'));
-  } catch (error) {
-    throw invalid(file, String(error));
-  }
-}
-
-// The value of a key of a parsed YAML mapping
-const field = (value: unknown, key: string): unknown =>
-  (value as Record<string, unknown> | null | undefined)?.[key];
-
-// zod skips a __proto__ key of a record without an error, so look for
-// one among the attributes of the runner and of each peer first
-function protoProblem(content: unknown): string | undefined {
-  const peers = field(field(content, 'relationships'), 'peers');
-  const attributes = [
-    ['attributes', field(content, 'attributes')],
-    ...(Array.isArray(peers) ? peers : []).map((peer, index) => [
-      `relationships.peers.${index}.attributes`,
-      field(peer, 'attributes'),
-    ]),
-  ];
-  const found = attributes.find(([, value]) => hasOwnProto(value));
-  return found && `✖ __proto__ is not a valid name\n  → at ${found[0]}`;
-}
-
-// The keys that moved under relationships in 0.11; 0.12 refuses them
-const MOVED: Readonly<Record<string, string>> = {
-  notify: 'relationships.manager.notify',
-  peers: 'relationships.peers',
-};
-
-// zod names an unknown key only, so say where each old key moved
-const movedKeys = (error: z.ZodError): string[] =>
-  error.issues
-    .flatMap((issue) =>
-      issue.code === 'unrecognized_keys' && issue.path.length === 0
-        ? issue.keys
-        : [],
-    )
-    .filter((key) => Object.hasOwn(MOVED, key))
-    .map((key) => `✖ ${key} moved to ${MOVED[key]} in 0.11`);
-
-function parseConfig(content: unknown, file: string): ConfigValues {
-  const problem = protoProblem(content);
-  if (problem !== undefined) {
-    throw invalid(file, problem);
-  }
-  const result = configSchema.safeParse(content);
-  if (!result.success) {
-    const problems = [
-      z.prettifyError(result.error),
-      ...movedKeys(result.error),
-    ];
-    throw invalid(file, problems.join('\n'));
-  }
-  return result.data;
-}
+import ReplayMode from '../replay/replay-mode.js';
 
 // The signing key, like stateMachine, may be absolute, as it often
 // lives in a mounted secret directory
@@ -136,6 +68,8 @@ export default class Config {
 
   private scriptUser: ScriptUser | undefined;
 
+  private replayMode: ReplayMode | undefined;
+
   async loadConfig(CLIOptions: Keyv): Promise<void> {
     const configFile = await CLIOptions.get('configFile');
     const file = resolveFile(configFile.toString());
@@ -153,6 +87,14 @@ export default class Config {
     this.accessControl = principals && new Access(principals, values.id);
     this.signer = Signer.load(key, values.id);
     this.scriptUser = checkSeparation(file, this.configValues);
+    const scale: number | undefined = await CLIOptions.get('replay');
+    this.replayMode = scale === undefined ? undefined : new ReplayMode(scale);
+  }
+
+  // The mode of a replay twin, which main.ts starts with --what-if;
+  // undefined for any other runner
+  replay(): ReplayMode | undefined {
+    return this.replayMode;
   }
 
   // Verifies the callers; without principals every route is open
@@ -218,8 +160,9 @@ export default class Config {
     return this.configValues.database;
   }
 
+  // A replay twin connects to no broker, whatever runner.yaml lists
   getMqtt(): MqttConfig | undefined {
-    return this.configValues.mqtt;
+    return this.replayMode ? undefined : this.configValues.mqtt;
   }
 
   getStopGrace(): number {
@@ -230,8 +173,11 @@ export default class Config {
     return this.configValues.stateInterval ?? DEFAULT_STATE_INTERVAL;
   }
 
+  // A replay twin sends no webhook
   getNotify(): NotifyConfig | undefined {
-    return this.configValues.relationships.manager?.notify;
+    return this.replayMode
+      ? undefined
+      : this.configValues.relationships.manager?.notify;
   }
 
   // The peers in the order of runner.yaml, with the enabled of the file

@@ -61,24 +61,29 @@ export function inTransaction<Result>(
   }
 }
 
-// Adds a column that the commands table of an older version lacks
-function addColumn(db: DatabaseSync, column: string, type: string): void {
-  const columns = db.prepare('PRAGMA table_info(commands)').all();
-  if (!columns.some(({ name }) => name === column)) {
-    db.exec(`ALTER TABLE commands ADD COLUMN ${column} ${type}`);
+// Adds a column, given as "name TYPE", that a table of an older
+// version lacks
+function addColumn(db: DatabaseSync, table: string, column: string): void {
+  const [name] = column.split(' ');
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some((found) => found.name === name)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column}`);
   }
 }
 
 // A database file of a version before 0.7.0 has no exit_code column,
 // one before 0.9.0 no by column, one before issue 17a no resource
 // columns, one before issue 17b no processes column, and one before
-// issue 24 no mode column
+// issue 24 no mode column; a timeline before issue 25 has no at and no
+// origin column
 export function createSchema(db: DatabaseSync): void {
   db.exec(SCHEMA);
-  addColumn(db, 'exit_code', 'INTEGER');
-  addColumn(db, 'by', 'TEXT');
-  addColumn(db, 'cpu_seconds', 'REAL');
-  addColumn(db, 'peak_rss_bytes', 'INTEGER');
-  addColumn(db, 'processes', 'INTEGER');
-  addColumn(db, 'mode', 'TEXT');
+  addColumn(db, 'commands', 'exit_code INTEGER');
+  addColumn(db, 'commands', 'by TEXT');
+  addColumn(db, 'commands', 'cpu_seconds REAL');
+  addColumn(db, 'commands', 'peak_rss_bytes INTEGER');
+  addColumn(db, 'commands', 'processes INTEGER');
+  addColumn(db, 'commands', 'mode TEXT');
+  addColumn(db, 'timeline', 'at TEXT');
+  addColumn(db, 'timeline', 'origin TEXT');
 }

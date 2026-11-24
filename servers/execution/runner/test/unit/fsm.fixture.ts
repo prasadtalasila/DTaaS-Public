@@ -103,6 +103,7 @@ export function createService(file: string | undefined, user?: ScriptUser) {
     getParameters: () => ({}),
     getPeers: () => PEERS,
     getScriptUser: () => user,
+    replay: () => undefined,
   } as unknown as Config;
   const queue = {
     timeline: new Timeline(),

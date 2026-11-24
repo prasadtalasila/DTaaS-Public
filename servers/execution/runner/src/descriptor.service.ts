@@ -149,6 +149,7 @@ export default class DescriptorService
       manager: { commands: this.fsm.declared()?.managerCommands ?? [] },
       peers: this.peerList.enabledIds(),
       publicKey: this.config.getSigner().publicKey(),
+      replay: this.config.replay()?.describe() ?? null,
     };
   }
 

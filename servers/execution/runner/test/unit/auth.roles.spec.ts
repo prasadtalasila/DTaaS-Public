@@ -38,6 +38,7 @@ const TABLE: Record<Route, Row> = {
   'delete-snapshot': ['yes', 'yes', 'no', 'no', 'no'],
   whatif: ['yes', 'no', 'listed', 'no', 'no'],
   'whatif-result': ['yes', 'yes', 'yes', 'no', 'no'],
+  notice: ['no', 'yes', 'no', 'no', 'no'],
 };
 
 const ROLES: Role[] = ['client', 'operator', 'manager', 'script', 'sensor'];

@@ -188,7 +188,11 @@ describe('Runner context', () => {
 
   it('Should build the environment from what it holds', () => {
     const context = new RunnerContext();
-    context.load('dt-1', definition, new Parameters(definition.parameters));
+    context.load(
+      { getId: () => 'dt-1', replay: () => undefined },
+      definition,
+      new Parameters(definition.parameters),
+    );
     context.setApi('http://127.0.0.1:5000', 'token-1');
 
     expect(

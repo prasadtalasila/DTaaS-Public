@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Origin } from '../auth/caller-context.js';
 
 // What enters the DT, what changes in it, and what it sends
 export const TIMELINE_KINDS = [
@@ -50,13 +51,17 @@ export const timelineQuerySchema = z
 export type TimelineQuery = z.infer<typeof timelineQuerySchema>;
 
 // A row of the timeline: seq only rises, time is that of the runner to
-// the millisecond, and by is the principal, script, or null
+// the millisecond, and by is the principal, script, or null. Only a
+// replay twin writes at, the time that the row stands for, and origin,
+// the principal and the seq of the input in the twin.
 export type TimelineRow = {
   seq: number;
   time: string;
   kind: TimelineKind;
   by: string | null;
   data: Record<string, unknown>;
+  at?: string;
+  origin?: Origin;
 };
 
 export type TimelineCount = { count: number };

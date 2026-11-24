@@ -79,7 +79,7 @@ export default class FsmService implements BeforeApplicationShutdown {
     this.definition = definition;
     this.machine = machineOf(definition);
     this.params = definition && new Parameters(definition.parameters);
-    this.context.load(this.config.getId(), definition, this.params);
+    this.context.load(this.config, definition, this.params);
     this.context.inherit(scriptBase(this.config.getScriptUser(), process.env));
     this.escalations.declare(definition?.escalation);
   }

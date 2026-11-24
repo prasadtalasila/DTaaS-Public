@@ -8,7 +8,12 @@ import { Reinstated } from '../dto/snapshot.dto.js';
 import FsmService from '../fsm/fsm.service.js';
 import Queue from '../queue.service.js';
 import { differences } from './differences.js';
-import { checkClass, checkDatabase, readManifest } from './manifest.js';
+import {
+  checkClass,
+  checkDatabase,
+  ReadManifest,
+  readManifest,
+} from './manifest.js';
 import { runSnapshotScript } from './script.js';
 import { DATABASE } from './snapshot.js';
 
@@ -60,6 +65,27 @@ async function resume(twin: Twin, directory: string, database: string) {
   }
 }
 
+// Why a replay twin needs a class written for it
+const NO_REPLAY =
+  'the class has no whatIf.replay: true, and a class that was not written for a replay twin would act on the real twin from a second process';
+
+// A replay twin starts its time at the save, and stamps the timeline
+// with it from the first row it writes
+function beginReplay({ config, fsm, queue }: Twin, manifest: ReadManifest) {
+  const replay = config.replay();
+  if (replay === undefined) {
+    return;
+  }
+  if (fsm.declared()?.whatIf?.replay !== true) {
+    throw new Error(`Can not start a replay twin: ${NO_REPLAY}`);
+  }
+  replay.begin({ of: manifest.id, time: manifest.time });
+  queue.timeline.standFor(() => replay.at());
+  logger.log(
+    `A replay twin of ${manifest.id} at ${manifest.time}, at ${replay.scale} times the speed of the clock: it connects to no MQTT broker, follows no peer and sends no notification`,
+  );
+}
+
 // Reinstating: check, compare, copy, restore, resume
 async function reinstate(twin: Twin, directory: string): Promise<Reinstated> {
   const { config, fsm } = twin;
@@ -76,6 +102,7 @@ async function reinstate(twin: Twin, directory: string): Promise<Reinstated> {
     dtClass,
   });
   found.forEach((difference) => logger.warn(difference));
+  beginReplay(twin, manifest);
   await mkdir(dirname(database), { recursive: true });
   // refuses a database that appeared since the check
   await copyFile(join(directory, DATABASE), database, constants.COPYFILE_EXCL);

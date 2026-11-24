@@ -44,6 +44,7 @@ describe('Runner descriptor end-to-end tests', () => {
         manager: { commands: [] },
         peers: [],
         publicKey: null,
+        replay: null,
       },
     ]);
   });
@@ -76,6 +77,7 @@ describe('Runner descriptor end-to-end tests', () => {
         manager: { commands: ['execute'] },
         peers: ['hospital-2'],
         publicKey: null,
+        replay: null,
       },
     ]);
   });

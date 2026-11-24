@@ -318,7 +318,7 @@ Provisional:
 
 ## Tasks
 
-- [ ] `--what-if` is refused without `--reinstate` and without
+- [x] `--what-if` is refused without `--reinstate` and without
       `whatIf.replay`; a replay twin shows `replay` in `/dt`, gives its
       scripts the three variables, and takes a notice on the route,
       which any other runner answers with `404`. Check:

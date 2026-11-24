@@ -21,7 +21,10 @@ const access = new Access(
 );
 
 function guard(control: Access | undefined, pause = new Pause()) {
-  const config = { access: () => control } as unknown as Config;
+  const config = {
+    access: () => control,
+    replay: () => undefined,
+  } as unknown as Config;
   const fsm = {
     pause,
     declared: () => ({ managerCommands: ['admit'] }),
