@@ -42,6 +42,7 @@ describe('Runner configuration schema', () => {
       stateMachine: 'scripts/state-machine.yaml',
       database: 'runner.db',
       mqtt: { url: 'mqtt://localhost:1883', topic: 'dtaas/runner' },
+      snapshots: { directory: 'run/snapshots', timeout: 5000 },
     };
 
     expect(configSchema.parse(config)).toEqual({
@@ -49,6 +50,15 @@ describe('Runner configuration schema', () => {
       mqtt: { ...config.mqtt, protocolVersion: 5 },
       relationships: { peers: [] },
     });
+  });
+
+  it.each([
+    [{ timeout: 5000 }, 'directory'],
+    [{ directory: '' }, 'directory'],
+    [{ directory: 'snapshots', timeout: 0 }, 'timeout'],
+    [{ directory: 'snapshots', every: 60 }, 'every'],
+  ])('Should refuse the snapshots section %j', (snapshots, key) => {
+    expect(problems({ ...valid, snapshots })).toContain(key);
   });
 
   it('Should accept an auth section with a key and no principals', () => {
@@ -91,6 +101,16 @@ describe('Runner configuration schema', () => {
       'an unknown key',
       { ...valid, script: 'create' },
       /Unrecognized key[\s\S]*script/,
+    ],
+    [
+      'peers at the top, which 0.12 removed',
+      { ...valid, peers: [{ id: 'hospital-2', topic: 'dtaas/hospital-2' }] },
+      /Unrecognized key: "peers"/,
+    ],
+    [
+      'notify at the top, which 0.12 removed',
+      { ...valid, notify: { url: 'https://manager.example.org/dt-events' } },
+      /Unrecognized key: "notify"/,
     ],
     [
       'an empty state machine path',

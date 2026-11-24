@@ -36,6 +36,9 @@ mq() {
   return $?
 }
 
+# dt3: hospital-1 once it is reinstated on port 5300
+dt3() { DT_ID=hospital-1 dt http://localhost:5300 "$@"; }
+
 # The same for each hospital: dt1 and mq1 ask hospital-1, dt2 and mq2
 # hospital-2
 dt1() { DT_ID=hospital-1 dt http://localhost:5100 "$@"; }

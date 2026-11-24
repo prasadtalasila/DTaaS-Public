@@ -41,6 +41,13 @@ source or the experiment are marked _unverified_.
 | privilege separation | Running two parts of one system as two accounts, so that the less trusted part can not read or change what the other owns.                                                                                                                                                             |
 | ambient capabilities | A Linux capability set that a process passes on to the programs it executes, so that an unprivileged account can hold a few chosen capabilities, such as `CAP_SETUID`, without being root and without file capabilities.                                                               |
 
+Since 0.12.0 a caller may also be in the role **`operator`**: whoever
+runs the runner. It reads, stops commands, and saves, lists and
+removes snapshots of the DT; it does not steer the DT. A `manager`
+steers the DT and may not copy it. The operator of the table above is
+the person; a principal in the role `operator` acts for that person
+over the API.
+
 ## Threat Model
 
 These are the owner's decisions.
@@ -126,11 +133,43 @@ may name a person, such as the patient of the demo's `admit`. Its
 `notice` rows the documents of the peers, either of which may name a
 person too. It keeps them without a limit, and no route deletes a row.
 `GET /timeline` serves the rows to every role but `sensor`, and the
-`input` only to a `client`; a `manager` and a script read the rows
-without it, but with the escalations and the notices. Without
+`input` only to a `client` and an `operator`; a `manager` and a script
+read the rows without it, but with the escalations and the notices. Without
 access control every caller reads everything. The database file, and
 any copy of it, holds all of it, so whoever may read the file reads
 the inputs and the callers too.
+
+### Snapshots
+
+A snapshot (issue 23) is a copy of the DT in a directory: the
+database, `runner.yaml`, the state machine file, the whole scripts
+directory, and what the save script of the class wrote. It therefore
+holds what the database holds, the command history with the logs of
+each command and the timeline with the inputs, which may name a
+person. It also holds anything that the operator put under
+`location`, such as a key or a database file, as the whole directory
+is copied.
+
+What protects it:
+
+- Only a `client` and an `operator` may save, list and remove
+  snapshots (`ROUTE_ROLES` in `src/auth/roles.ts`); a `manager` gets
+  `403`.
+- Each snapshot directory is created with mode `0700`, so only the
+  account of the runner reads it.
+- In the copy of `runner.yaml` the MQTT `password`, the user and
+  password in `mqtt.url`, and the webhook `token` are blanked. The
+  signing key is a path, and the key itself is not copied, unless it
+  lies under `location`.
+
+What does not: a snapshot is a directory, and goes wherever it is
+copied. Its mode does not travel with a copy made by another account
+or tool, nothing encrypts or signs it, and nothing removes personal
+data from it. An operator who moves a twin to another host moves its
+history and its inputs too. A runner started with `--reinstate`
+trusts the snapshot as it trusts its own database: it checks the
+format, the class `id` and that it writes over no database, and runs
+the restore script of the class with the snapshot's `files/`.
 
 ### The Boundary Between Users
 

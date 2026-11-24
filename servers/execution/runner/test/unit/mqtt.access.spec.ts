@@ -15,6 +15,7 @@ import {
   packet,
   setup,
 } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 const manager = newCaller('manager-1');
 
@@ -96,6 +97,7 @@ describe('MQTT request handler with a principal', () => {
   function createHandler() {
     const executor = fakeManager('success');
     const fsm = {
+      pause: new Pause(),
       environment: jest.fn(() => ({})),
       declared: () => ({ managerCommands: ['admit'] }),
     };

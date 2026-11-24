@@ -1,15 +1,22 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import Config from 'src/config/configuration.service';
+import FsmService from 'src/fsm/fsm.service';
 import HealthService from 'src/health.service';
 import Queue from 'src/queue.service';
 import type { ScriptUser } from 'src/scripts/separation';
+import Pause from 'src/snapshot/pause';
 
-function createService(mode: 'file' | 'memory', user?: ScriptUser) {
+function createService(
+  mode: 'file' | 'memory',
+  user?: ScriptUser,
+  pause = new Pause(),
+) {
   const queue = { mode: jest.fn(() => mode) };
   const config = { getScriptUser: () => user };
   return new HealthService(
     queue as unknown as Queue,
     config as unknown as Config,
+    { pause } as unknown as FsmService,
   );
 }
 
@@ -55,6 +62,17 @@ describe('Health service', () => {
     expect(createService('file', user).check('connected').scripts).toEqual({
       user: 'dt-script',
     });
+  });
+
+  it('Should report whether a save runs', () => {
+    const pause = new Pause();
+    const service = createService('file', undefined, pause);
+
+    expect(service.check('disabled').saving).toBe(false);
+    pause.begin();
+    expect(service.check('disabled').saving).toBe(true);
+    pause.end();
+    expect(service.check('disabled').saving).toBe(false);
   });
 
   it('Should report the uptime in whole seconds', () => {

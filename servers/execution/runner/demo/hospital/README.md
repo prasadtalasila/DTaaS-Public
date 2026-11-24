@@ -33,7 +33,8 @@ second account (`scripts.user`) is to follow.
 
 The Windows recording predates version 0.11.0 and shows none of that:
 it has a state machine file for each hospital, the flat `peers` key,
-and the topic `set-parameters`. Its scripts are the `.ps1` files.
+`type: enum` with `values`, and the topic `set-parameters`, which
+version 0.12.0 refuses. Its scripts are the `.ps1` files.
 
 ## Play
 
@@ -162,6 +163,83 @@ free beds of each state notification on the right.
 |  4:09 |    5:52 | Stop                                          | `POST /stop`; `stopGrace`; `$stopped` transition                                                                 |
 |  4:19 |    6:08 | Webhook                                       | Every notification of both DTs also posted to the webhook, verified                                              |
 |  4:23 |    6:13 | Presence: offline                             | Graceful shutdown; the retained state and presence of both DTs, the will among them                              |
+
+## Save and Reinstate
+
+The class names two commands that copy the beds into a snapshot and
+back from one ([README](../../README.md#saving-and-reinstating)):
+
+```yaml
+# the commands that copy the beds into a snapshot and back from one
+snapshot:
+  save: save-script
+  restore: restore-script
+```
+
+Both runners permit them, and each saves into a directory of its own:
+`run/hospital-1/snapshots` and `run/hospital-2/snapshots`, under the
+`snapshots` key of `runner.yaml` and `runner-2.yaml`. The beds in
+`run/<id>/ward.json` are all that the scripts keep beside the
+properties, so `save-script` copies that file to `DT_SNAPSHOT_DIR` and
+`restore-script` copies it back:
+
+| Script           | Linux                                    | Windows                                          |
+| :--------------- | :--------------------------------------- | :----------------------------------------------- |
+| `save-script`    | [save-script](scripts/save-script)       | [save-script.ps1](scripts/save-script.ps1)       |
+| `restore-script` | [restore-script](scripts/restore-script) | [restore-script.ps1](scripts/restore-script.ps1) |
+
+The bash scripts were run; the PowerShell ones have not been run yet.
+
+The chapter "Save and reinstate" of
+[tools/steps-peers.mjs](tools/steps-peers.mjs) comes before "Presence:
+offline". `dt1 /snapshot` with `{"stop": true}` saves `hospital-1` and
+shuts its runner down; the step removes `run/hospital-1/ward.json` and
+starts hospital-1 again on port 5300 with `runner-moved.auth.yaml`,
+which `record.mjs` writes from `runner.auth.yaml` with a database of
+its own, and `--reinstate` with the snapshot. `dt3` of
+[tools/shell.sh](tools/shell.sh) asks it. The restored `ward.json`
+has the patients, `GET /fsm` the saved `closed`, and the `start` row
+names the snapshot. Everything is under `run/hospital-1`, which the
+next recording clears. The recordings predate the snapshots and do
+not show the chapter; they are recorded again after issue 25.
+
+A copy of the demo without its `mqtt` section, with `hospital-1` in
+`open` after `admit` of `p-1` to cardiology, answered
+`POST /snapshot` with `{"stop": true}`:
+
+```json
+{
+  "time": "2026-11-24T12:57:05.005Z",
+  "seq": 5,
+  "path": "run/hospital-1/snapshots/20261124T125705005Z"
+}
+```
+
+and shut down. With `run/hospital-1` removed, the snapshot moved to
+`snaps/`, and `runner -c runner.yaml --reinstate
+snaps/20261124T125705005Z`, the runner restored
+`run/hospital-1/ward.json` as `{"cardiology":["p-1"],"maternity":[]}`,
+and `GET /fsm` answered:
+
+```json
+{
+  "state": "open",
+  "status": "interrupted",
+  "entry": 1,
+  "events": [
+    "beds-free",
+    "close",
+    "fidelity-changed",
+    "full",
+    "neighbour-down",
+    "neighbour-full",
+    "reopen",
+    "scope-changed"
+  ]
+}
+```
+
+An event or a transition moves the hospital on.
 
 ## Assumptions
 

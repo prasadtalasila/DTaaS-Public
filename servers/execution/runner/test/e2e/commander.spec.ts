@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { jest } from '@jest/globals';
 import CLI, { createCommand } from 'src/config/commander';
 
@@ -43,6 +44,23 @@ describe('Commander functionality', () => {
     expect(program.opts()).toEqual({
       config: 'runner.test.yaml',
     });
+  });
+
+  it('Should keep the snapshot directory of --reinstate, resolved', async () => {
+    const [program, CLIOptionsExp] = createCommand('runner');
+    jest.replaceProperty(process, 'argv', [
+      'node',
+      'main.js',
+      '--config',
+      'runner.test.yaml',
+      '--reinstate',
+      'snapshots/20261123T101502120Z',
+    ]);
+    await CLI(program, CLIOptionsExp);
+
+    expect(await CLIOptionsExp.get('reinstate')).toBe(
+      resolve('snapshots/20261123T101502120Z'),
+    );
   });
 
   it('Should throw exception of the config file is not found', async () => {

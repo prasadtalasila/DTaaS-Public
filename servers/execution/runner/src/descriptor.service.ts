@@ -7,6 +7,7 @@ import {
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
 import { MetricsDto } from './dto/metrics.dto.js';
+import type { Reinstated } from './dto/snapshot.dto.js';
 import { commandState, StateDocumentDto } from './dto/state.dto.js';
 import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
@@ -16,6 +17,7 @@ import { ChangeListener } from './notify/changes.js';
 import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
 import Timeline from './queue.timeline.js';
+import Snapshots from './snapshot/snapshots.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
 const now = (): number => performance.timeOrigin + performance.now();
@@ -34,11 +36,17 @@ export default class DescriptorService
   // The latest values that scripts and sensors wrote
   private readonly propertyValues = new Properties();
 
+  private readonly saves: Snapshots;
+
+  // The snapshot that this start reinstated the twin from, if any
+  private reinstated: Reinstated | undefined;
+
   constructor(
     private readonly config: Config,
     private readonly fsm: FsmService,
     private readonly queue: Queue,
   ) {
+    this.saves = new Snapshots(config, fsm, queue);
     // registered first, so that the row of a notice comes before the
     // rows of the events that it raises
     this.peerList.onNotice((peer, kind, data) =>
@@ -69,8 +77,14 @@ export default class DescriptorService
       instance: this.config.getParameters(),
       state: { machine, parameters, properties },
       peers: this.peerList.enabledIds(),
+      ...(this.reinstated && { reinstated: this.reinstated }),
     };
     this.queue.timeline.record('start', start, null);
+  }
+
+  // Before init, so that the start row names the snapshot
+  reinstatedFrom(snapshot: Reinstated): void {
+    this.reinstated = snapshot;
   }
 
   // The database closes after this hook
@@ -91,6 +105,11 @@ export default class DescriptorService
         `Dropped the stored properties ${dropped.join(', ')}, which no longer fit their declarations`,
       );
     }
+  }
+
+  // The saves of the twin into snapshots
+  snapshots(): Snapshots {
+    return this.saves;
   }
 
   properties(): Properties {

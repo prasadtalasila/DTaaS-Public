@@ -19,6 +19,11 @@ import {
   SAVE_MACHINE,
   toStoredMachine,
 } from './queue.machine.js';
+import {
+  INSERT_PARAMETER,
+  PARAMETER_VALUES,
+  toParameterValues,
+} from './queue.parameters.js';
 import { INSERT_PEER, PEER_SWITCHES, toSwitches } from './queue.peers.js';
 import type { PropertyRow } from './fsm/properties.js';
 import { storedProperties, upsertProperties } from './queue.properties.js';
@@ -169,6 +174,13 @@ export default class Queue {
     return toRecord(this.db.prepare(RECORD_BY_KEY).get(requestKey));
   }
 
+  // A copy that SQLite makes in one step, so that it needs no journal,
+  // and the seq of the last row of the timeline that it holds
+  copyTo(file: string): number {
+    this.db.prepare('VACUUM INTO ?').run(file);
+    return this.timeline.lastSeq();
+  }
+
   // an in-memory database has no location
   mode(): DatabaseMode {
     return this.db.location() === null ? 'memory' : 'file';
@@ -176,9 +188,7 @@ export default class Queue {
 
   // Records the changes of one request together, or none of them
   setParameters(changes: ReadonlyMap<string, ParameterValue>): void {
-    const insert = this.db.prepare(
-      'INSERT INTO parameters (name, value, changed_at) VALUES (?, ?, ?)',
-    );
+    const insert = this.db.prepare(INSERT_PARAMETER);
     const time = new Date().toISOString();
     inTransaction(this.db, () =>
       changes.forEach((value, name) =>
@@ -188,18 +198,8 @@ export default class Queue {
     this.timeline.changes('parameters', Object.fromEntries(changes));
   }
 
-  // The latest value of each parameter; the highest id is the latest,
-  // as two changes can share a timestamp
   parameterValues(): Record<string, ParameterValue> {
-    const rows = this.db
-      .prepare(
-        `SELECT name, value FROM parameters WHERE id IN
-          (SELECT MAX(id) FROM parameters GROUP BY name)`,
-      )
-      .all();
-    return Object.fromEntries(
-      rows.map(({ name, value }) => [String(name), JSON.parse(String(value))]),
-    );
+    return toParameterValues(this.db.prepare(PARAMETER_VALUES).all());
   }
 
   // Records the switches of one request together, or none of them

@@ -6,6 +6,7 @@ import {
   ParameterValue,
 } from '../dto/parameters.dto.js';
 import { nameSchema, reservedProblems } from './name.js';
+import { field, isRecord } from './proto.js';
 import {
   scalarKeywords,
   SCALAR_TYPES,
@@ -14,48 +15,28 @@ import {
   valueProblems as fitProblems,
 } from './value-schema.js';
 
-type Mapping = Record<string, unknown>;
-
-const isMapping = (value: unknown): value is Mapping =>
-  typeof value === 'object' && value !== null;
-
-// An enum as written before 0.11: its own type, with its values
-const isOldEnum = (value: unknown): value is Mapping =>
-  isMapping(value) && value.type === 'enum';
-
-// The JSON Schema spelling of an old enum: a string with an enum,
-// which is empty, and so refused, without values
-function modern(value: unknown): unknown {
-  if (!isOldEnum(value)) {
-    return value;
-  }
-  const { values = [], ...rest } = value;
-  return { ...rest, type: 'string', enum: values };
-}
-
-// The parameters of a parsed section that spell an enum the old way,
-// which goes in 0.12
-export const oldEnums = (section: unknown): string[] =>
-  Object.entries(isMapping(section) ? section : {})
-    .filter(([, value]) => isOldEnum(value))
-    .map(([name]) => name);
+// zod names the invalid type only, so say what replaced type enum
+export const oldEnumHints = (section: unknown): string[] =>
+  Object.entries(isRecord(section) ? section : {})
+    .filter(([, value]) => field(value, 'type') === 'enum')
+    .map(
+      ([name]) =>
+        `✖ parameter ${name}: write type string with enum, as 0.12.0 removed type enum`,
+    );
 
 const isSet = (value: unknown): boolean =>
   value !== undefined && value !== null;
 
 // A scalar of JSON Schema, without a unit: a parameter is a setting of
 // a policy, not a measurement
-const parameterSchema = z.preprocess(
-  modern,
-  z.strictObject({
-    type: z.enum(SCALAR_TYPES),
-    ...scalarKeywords,
-    // checked against the declaration, which names what it expects
-    default: z.custom<ParameterValue>(isSet, 'needs a default'),
-    controllable: z.boolean().default(false),
-    event: nameSchema.optional(),
-  }),
-);
+const parameterSchema = z.strictObject({
+  type: z.enum(SCALAR_TYPES),
+  ...scalarKeywords,
+  // checked against the declaration, which names what it expects
+  default: z.custom<ParameterValue>(isSet, 'needs a default'),
+  controllable: z.boolean().default(false),
+  event: nameSchema.optional(),
+});
 
 export const parametersSchema = z
   .record(nameSchema, parameterSchema)

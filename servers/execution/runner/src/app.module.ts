@@ -1,6 +1,6 @@
 import { connect } from 'mqtt';
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import RunnerFactory from './runner-factory.service.js';
 import AppController from './app.controller.js';
 import ExecaManager from './execa-manager.service.js';
@@ -20,6 +20,8 @@ import AccessGuard from './auth/access.guard.js';
 import PeersController from './peers/peers.controller.js';
 import PropertiesController from './properties.controller.js';
 import TimelineController from './timeline.controller.js';
+import SnapshotController from './snapshot.controller.js';
+import SavingFilter from './snapshot/saving.filter.js';
 import PeerWatch from './peers/peer-watch.js';
 import PeerEventsService from './fsm/peer-events.service.js';
 
@@ -33,6 +35,7 @@ import PeerEventsService from './fsm/peer-events.service.js';
     PeersController,
     PropertiesController,
     TimelineController,
+    SnapshotController,
   ],
   providers: [
     ExecaManager,
@@ -50,6 +53,7 @@ import PeerEventsService from './fsm/peer-events.service.js';
     PeerWatch,
     PeerEventsService,
     { provide: APP_GUARD, useClass: AccessGuard },
+    { provide: APP_FILTER, useClass: SavingFilter },
   ],
 })
 export default class AppModule {}

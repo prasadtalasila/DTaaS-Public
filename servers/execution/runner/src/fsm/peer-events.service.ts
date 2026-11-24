@@ -41,7 +41,20 @@ export default class PeerEventsService implements OnModuleInit {
     }
   }
 
-  private raise({ peer, when, event }: Subscription): void {
+  // During a save the event waits until it ends, like a completion;
+  // after a save with stop it is dropped, as the runner goes down
+  private raise(subscription: Subscription): void {
+    const { peer, event } = subscription;
+    this.fsm.pause.defer(
+      () => this.raiseNow(subscription),
+      () =>
+        this.logger.log(
+          `Dropped ${event} of peer ${peer}: the runner shuts down after a save`,
+        ),
+    );
+  }
+
+  private raiseNow({ peer, when, event }: Subscription): void {
     // the timeline names the notice of the peer as the cause
     const source = { source: 'peer', peer } as const;
     const reply = callerContext.run(source, () => this.fsm.event(event));

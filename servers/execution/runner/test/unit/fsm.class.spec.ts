@@ -133,3 +133,37 @@ describe('Instance of a class', () => {
     expect(loadDefinition(undefined, known)).toBeUndefined();
   });
 });
+
+describe('Snapshot scripts of a class', () => {
+  const scripts = {
+    commands: ['create', 'save-ward', 'restore-ward'],
+    peers: [],
+  };
+
+  it('Should read the save and the restore script', () => {
+    const text = 'snapshot: {save: save-ward, restore: restore-ward}\n';
+
+    expect(parseDefinition(text, 'dt.yaml', scripts).snapshot).toEqual({
+      save: 'save-ward',
+      restore: 'restore-ward',
+    });
+  });
+
+  it('Should name no scripts without the section', () => {
+    expect(parse('states: {create: {}}').snapshot).toEqual({});
+  });
+
+  it('Should refuse a snapshot script that is no command of runner.yaml', () => {
+    expect(() =>
+      parse('snapshot: {save: save-ward, restore: create}\n'),
+    ).toThrow(
+      /dt\.yaml[\s\S]*snapshot save script save-ward is not a permitted command/,
+    );
+  });
+
+  it('Should refuse an unknown key of the section', () => {
+    expect(() => parse('snapshot: {save: create, every: 60}\n')).toThrow(
+      /Invalid state machine in dt\.yaml/,
+    );
+  });
+});

@@ -14,6 +14,7 @@ import FsmService from 'src/fsm/fsm.service';
 import PeerEventsService from 'src/fsm/peer-events.service';
 import Peers from 'src/peers/peers';
 import { PeerConfig } from 'src/peers/peers.config';
+import Pause from 'src/snapshot/pause';
 
 const PEER: PeerConfig = {
   id: 'hospital-2',
@@ -36,6 +37,7 @@ const store = () => ({
 describe('PeerEventsService', () => {
   let peers: Peers;
   let fsm: {
+    pause: Pause;
     declared: jest.Mock<() => Definition | undefined>;
     event: jest.Mock<(event: string) => FsmReplyDto>;
   };
@@ -61,7 +63,7 @@ describe('PeerEventsService', () => {
 
   beforeEach(() => {
     peers = new Peers();
-    fsm = { declared: jest.fn(), event: jest.fn() };
+    fsm = { pause: new Pause(), declared: jest.fn(), event: jest.fn() };
     reply('accepted');
   });
 
@@ -119,5 +121,50 @@ describe('PeerEventsService', () => {
     peers.observe('hospital-2', 'state', FULL);
 
     expect(fsm.event).toHaveBeenCalledTimes(2);
+  });
+
+  describe('During a save', () => {
+    const HALF = { id: 'hospital-2', machine: { state: 'half' } };
+
+    // Two events of the same subscription, raised while a save runs
+    function raiseTwice(): void {
+      createService(SUBSCRIPTIONS);
+      fsm.pause.begin();
+      peers.observe('hospital-2', 'state', FULL);
+      peers.observe('hospital-2', 'state', HALF);
+      peers.observe('hospital-2', 'state', FULL);
+    }
+
+    it('Should hold the events until the save ends, in their order', async () => {
+      const order: number[] = [];
+      fsm.event.mockImplementation(() => {
+        order.push(order.length + 1);
+        return fsmReply('accepted', 'open');
+      });
+      raiseTwice();
+      await Promise.resolve();
+
+      expect(fsm.event).not.toHaveBeenCalled();
+      fsm.pause.end();
+      await new Promise(setImmediate);
+      expect(order).toEqual([1, 2]);
+    });
+
+    it('Should drop the events, with a log line, after a save with stop', async () => {
+      const log = jest.spyOn(Logger.prototype, 'log').mockReturnValue();
+      raiseTwice();
+
+      fsm.pause.close();
+      peers.observe('hospital-2', 'state', HALF);
+      peers.observe('hospital-2', 'state', FULL);
+      fsm.pause.end();
+      await new Promise(setImmediate);
+
+      expect(fsm.event).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledTimes(3);
+      expect(log).toHaveBeenCalledWith(
+        'Dropped neighbour-full of peer hospital-2: the runner shuts down after a save',
+      );
+    });
   });
 });

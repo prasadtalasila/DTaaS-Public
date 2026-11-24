@@ -1,39 +1,49 @@
 import { describe, expect, it } from '@jest/globals';
 import { ForbiddenException } from '@nestjs/common';
 import { Role } from 'src/auth/auth.config';
-import { authorize, listedCommand, ROUTE_ROLES } from 'src/auth/roles';
-import { MqttRoute, mqttRoutes } from 'src/mqtt/mqtt.config';
+import {
+  authorize,
+  listedCommand,
+  Route,
+  ROUTE_ROLES,
+  routes,
+} from 'src/auth/roles';
+
+type Row = [string, string, string, string, string];
 
 // The role table of the spec: open, yes, no, or manager.commands
-const TABLE: Record<MqttRoute, [string, string, string, string]> = {
-  health: ['open', 'open', 'open', 'open'],
-  dt: ['yes', 'yes', 'yes', 'no'],
-  state: ['yes', 'yes', 'yes', 'no'],
-  status: ['yes', 'yes', 'yes', 'no'],
-  history: ['yes', 'yes', 'yes', 'no'],
-  metrics: ['yes', 'yes', 'yes', 'no'],
-  fsm: ['yes', 'yes', 'yes', 'no'],
-  parameters: ['yes', 'yes', 'yes', 'no'],
-  execute: ['yes', 'listed', 'no', 'no'],
-  stop: ['yes', 'no', 'no', 'no'],
-  transition: ['yes', 'no', 'no', 'no'],
-  event: ['yes', 'no', 'yes', 'no'],
-  escalate: ['yes', 'no', 'yes', 'no'],
-  'set-parameters': ['yes', 'yes', 'no', 'no'],
-  peers: ['yes', 'yes', 'yes', 'no'],
-  'set-peers': ['yes', 'yes', 'no', 'no'],
-  properties: ['yes', 'yes', 'yes', 'yes'],
-  'set-properties': ['yes', 'no', 'yes', 'yes'],
-  timeline: ['yes', 'yes', 'yes', 'no'],
+const TABLE: Record<Route, Row> = {
+  health: ['open', 'open', 'open', 'open', 'open'],
+  dt: ['yes', 'yes', 'yes', 'yes', 'no'],
+  state: ['yes', 'yes', 'yes', 'yes', 'no'],
+  status: ['yes', 'yes', 'yes', 'yes', 'no'],
+  history: ['yes', 'yes', 'yes', 'yes', 'no'],
+  metrics: ['yes', 'yes', 'yes', 'yes', 'no'],
+  fsm: ['yes', 'yes', 'yes', 'yes', 'no'],
+  parameters: ['yes', 'yes', 'yes', 'yes', 'no'],
+  execute: ['yes', 'no', 'listed', 'no', 'no'],
+  stop: ['yes', 'yes', 'no', 'no', 'no'],
+  transition: ['yes', 'no', 'no', 'no', 'no'],
+  event: ['yes', 'no', 'no', 'yes', 'no'],
+  escalate: ['yes', 'no', 'no', 'yes', 'no'],
+  'set-parameters': ['yes', 'no', 'yes', 'no', 'no'],
+  peers: ['yes', 'yes', 'yes', 'yes', 'no'],
+  'set-peers': ['yes', 'no', 'yes', 'no', 'no'],
+  properties: ['yes', 'yes', 'yes', 'yes', 'yes'],
+  'set-properties': ['yes', 'no', 'no', 'yes', 'yes'],
+  timeline: ['yes', 'yes', 'yes', 'yes', 'no'],
+  snapshots: ['yes', 'yes', 'no', 'no', 'no'],
+  save: ['yes', 'yes', 'no', 'no', 'no'],
+  'delete-snapshot': ['yes', 'yes', 'no', 'no', 'no'],
 };
 
-const ROLES: Role[] = ['client', 'manager', 'script', 'sensor'];
+const ROLES: Role[] = ['client', 'operator', 'manager', 'script', 'sensor'];
 
-const cases = mqttRoutes.flatMap((route) =>
+const cases = routes.flatMap((route) =>
   ROLES.map((role, column) => [route, role, TABLE[route][column]] as const),
 );
 
-function allows(role: Role, route: MqttRoute, listed: boolean): boolean {
+function allows(role: Role, route: Route, listed: boolean): boolean {
   try {
     authorize({ name: 'someone', role }, route, listed);
     return true;
@@ -48,7 +58,7 @@ function allows(role: Role, route: MqttRoute, listed: boolean): boolean {
 
 describe('Roles', () => {
   it('Should have a row for every route, health open', () => {
-    expect(Object.keys(ROUTE_ROLES).sort()).toEqual([...mqttRoutes].sort());
+    expect(Object.keys(ROUTE_ROLES).sort()).toEqual([...routes].sort());
     expect(ROUTE_ROLES.health).toBe('public');
   });
 

@@ -5,6 +5,7 @@ import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
 import Peers from 'src/peers/peers';
 import { mqttRequest } from './mqtt.fixture';
+import Pause from 'src/snapshot/pause';
 
 const LIST = [
   {
@@ -41,7 +42,7 @@ describe('MQTT request handler peers', () => {
     });
     handler = new MqttRequestHandler(
       {} as ExecaManager,
-      {} as FsmService,
+      { pause: new Pause() } as unknown as FsmService,
       { peers: () => peers } as unknown as DescriptorService,
     );
   });

@@ -15,6 +15,7 @@ export const TIMELINE_KINDS = [
   'exit',
   'sent',
   'shutdown',
+  'snapshot',
 ] as const;
 
 export type TimelineKind = (typeof TIMELINE_KINDS)[number];
@@ -60,7 +61,8 @@ export type TimelineRow = {
 export type TimelineCount = { count: number };
 
 // The rows as a caller may see them: the input of a command may name a
-// person, so only a client, or anyone without access control, reads it
+// person, so only a client or an operator, or anyone without access
+// control, reads it
 export const visibleRows = (rows: TimelineRow[], full: boolean) =>
   full
     ? rows
@@ -76,6 +78,9 @@ export type TimelineSource = {
   count(query: TimelineQuery): number;
 };
 
+// The roles that read the input of a command row
+const FULL_READERS = new Set(['client', 'operator']);
+
 // The reply of GET /timeline: the rows, or their number. Without
 // access control there is no principal, and every reader sees all.
 export function timelineReply(
@@ -86,6 +91,6 @@ export function timelineReply(
   if (query.count) {
     return { count: timeline.count(query) };
   }
-  const full = principal === undefined || principal.role === 'client';
+  const full = principal === undefined || FULL_READERS.has(principal.role);
   return visibleRows(timeline.rows(query), full);
 }

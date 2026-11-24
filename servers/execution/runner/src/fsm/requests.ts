@@ -114,6 +114,25 @@ export default class Requests {
   }
 }
 
+// Enters the state, once the script of the state left, if any, stopped
+export type Enter = (state: string, left?: string) => FsmReplyDto;
+
+// Moves the machine on the event to the next state, if it has one
+export function moveOn(
+  machine: StateMachine,
+  event: string,
+  enter: Enter,
+): FsmReplyDto {
+  if (!machine.hasEvent(event)) {
+    return fsmReply('invalid event', machine.state);
+  }
+  const next = machine.next(event);
+  if (next === undefined) {
+    return fsmReply('no transition', machine.state);
+  }
+  return enter(next.state, next.stop ? machine.state : undefined);
+}
+
 // Logs an event that left the machine where it was; an event without a
 // transition is common, so it is logged at debug level
 export function logStay(

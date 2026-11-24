@@ -39,6 +39,8 @@ const ROWS = `SELECT seq, time, kind, by, data FROM timeline ${WHERE}
 
 const COUNT = `SELECT COUNT(*) AS count FROM timeline ${WHERE}`;
 
+const LAST_SEQ = 'SELECT MAX(seq) AS seq FROM timeline';
+
 type Data = Record<string, unknown>;
 
 const bound = ({ after, since, until, kind }: TimelineQuery) => ({
@@ -168,6 +170,11 @@ export default class Timeline {
     return this.statement(ROWS)
       .all({ ...bound(query), limit: query.limit })
       .map(toRow);
+  }
+
+  // The seq of the last row, 0 before the first
+  lastSeq(): number {
+    return Number(this.statement(LAST_SEQ).get()?.seq);
   }
 
   count(query: TimelineQuery): number {

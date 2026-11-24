@@ -40,8 +40,8 @@ export default [
   {
     say: 'The property free-beds, and subscriptions that turn a change at a neighbour into an event.',
   },
-  { run: 'sed -n 46,73p hospital.fsm.yaml' },
-  { run: 'tail -n +74 hospital.fsm.yaml' },
+  { run: 'sed -n 46,77p hospital.fsm.yaml' },
+  { run: 'tail -n +78 hospital.fsm.yaml' },
   {
     say: 'hospital-2 runs the same class, with one bed per ward and no neighbour:',
   },

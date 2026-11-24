@@ -21,6 +21,10 @@ export default async function CLI(
       'runner config file specified in yaml format',
       DEFAULT_CONFIG_FILENAME,
     )
+    .option(
+      '--reinstate <directory>',
+      'start the twin from the snapshot in the directory',
+    )
     .helpOption('-h --help', 'display help')
     .showHelpAfterError()
     .helpInformation();
@@ -37,6 +41,9 @@ export default async function CLI(
       throw new Error('Invalid configuration', { cause: err });
     }
     await CLIOptions.set('configFile', resolvedFilename);
+  }
+  if (options.reinstate !== undefined) {
+    await CLIOptions.set('reinstate', resolveFile(options.reinstate));
   }
   return CLIOptions;
 }

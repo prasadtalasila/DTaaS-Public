@@ -60,6 +60,10 @@ manager:
   commands:
     - admit
     - discharge
+# the commands that copy the beds into a snapshot and back from one
+snapshot:
+  save: save-script
+  restore: restore-script
 # events that the runner raises when a neighbour changes: a peer that
 # runner.yaml gives the relationship neighbour
 subscriptions:

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Restores the beds of the hospital from a snapshot: copies ward.json of
+# DT_SNAPSHOT_DIR to run/<DT_ID>/. runner --reinstate runs it.
+set -euo pipefail
+ward_dir="$(dirname "$0")/../run/$DT_ID"
+mkdir -p "$ward_dir"
+cp "$DT_SNAPSHOT_DIR/ward.json" "$ward_dir/ward.json"

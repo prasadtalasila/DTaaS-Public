@@ -6,8 +6,6 @@ import { startBroker, startRunner, stopBroker } from './mqtt.util';
 
 const TOPIC = 'dtaas/test/runner';
 
-const NO_MACHINE = { status: 'no state machine', state: null };
-
 describe('Runner MQTT write topics end-to-end tests', () => {
   let client: MqttClient;
   let app: INestApplication;
@@ -72,23 +70,20 @@ describe('Runner MQTT write topics end-to-end tests', () => {
   );
 
   it.each([
-    ['set-parameters', NO_MACHINE],
-    ['set-peers', {}],
+    ['set-parameters', 'parameters/set'],
+    ['set-peers', 'peers/set'],
+    ['set-properties', 'properties/set'],
   ])(
-    'still answers a write on %s, the topic of before 0.11',
-    async (level, body) => {
-      expect(await reply(level, {})).toEqual(body);
+    'answers no write on %s, which 0.12 removed or never had',
+    async (old, current) => {
+      let answered = false;
+      void reply(old, {}).then(() => {
+        answered = true;
+      });
+
+      await reply(current, {});
+
+      expect(answered).toBe(false);
     },
   );
-
-  it('has no topic of before 0.11 for the properties, which are new', async () => {
-    const old = reply('set-properties', {});
-    const current = reply('properties/set', {});
-    const first = await Promise.race([
-      old.then(() => 'old'),
-      current.then(() => 'current'),
-    ]);
-
-    expect(first).toBe('current');
-  });
 });

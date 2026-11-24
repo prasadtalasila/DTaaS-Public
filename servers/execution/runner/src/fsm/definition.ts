@@ -1,14 +1,19 @@
-import { Logger } from '@nestjs/common';
 import * as yaml from 'js-yaml';
 import { z } from 'zod';
-import { classSchema, DtClass } from './class.js';
+import {
+  classSchema,
+  DtClass,
+  SnapshotScripts,
+  snapshotProblems,
+  snapshotScriptsSchema,
+} from './class.js';
 import completionCycle from './completion-cycle.js';
 import { Escalation, escalationSchema } from './escalation.js';
 import { managerProblems, managerSchema } from './manager.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
-  oldEnums,
+  oldEnumHints,
   parameterProblems,
   parametersSchema,
 } from './parameters.js';
@@ -54,6 +59,7 @@ export type Definition = {
   escalation: Escalation;
   managerCommands: string[];
   subscriptions: Subscription[];
+  snapshot: SnapshotScripts;
 };
 
 // A state name, or an object that stops the script first
@@ -84,6 +90,7 @@ const fileSchema = z
     escalation: escalationSchema,
     manager: managerSchema,
     subscriptions: subscriptionsSchema,
+    snapshot: snapshotScriptsSchema,
   })
   .strict();
 
@@ -124,6 +131,7 @@ function toDefinition({ events, states, ...sections }: File): Definition {
     escalation: sections.escalation,
     managerCommands: sections.manager?.commands ?? [],
     subscriptions: sections.subscriptions,
+    snapshot: sections.snapshot,
   };
 }
 
@@ -182,10 +190,9 @@ function crossCheck(definition: Definition, known: Known): string[] {
     ...envProblems(definition, known.separated),
     ...managerProblems(definition.managerCommands, known.commands),
     ...subscriptionProblems(definition, known.peers),
+    ...snapshotProblems(definition.snapshot, known.commands),
   ];
 }
-
-const logger = new Logger('StateMachineFile');
 
 const invalid = (file: string, problems: string): Error =>
   new Error(`Invalid state machine in ${file}:\n${problems}`);
@@ -203,17 +210,6 @@ function readYaml(text: string, file: string): unknown {
   return content;
 }
 
-// type: enum with values is the spelling of before 0.11
-function warnOldEnums(content: unknown, file: string): void {
-  const names = oldEnums(field(content, 'parameters'));
-  if (names.length > 0) {
-    logger.warn(
-      `${file}: parameters ${names.join(', ')} use type enum with values; ` +
-        'write type string with enum, as the old spelling goes in 0.12',
-    );
-  }
-}
-
 // Throws an error that names the file and every problem of an invalid
 // definition
 export function parseDefinition(
@@ -224,13 +220,14 @@ export function parseDefinition(
   const content = readYaml(text, file);
   const result = fileSchema.safeParse(content);
   if (!result.success) {
-    throw invalid(file, z.prettifyError(result.error));
+    const hints = oldEnumHints(field(content, 'parameters'));
+    const problems = [z.prettifyError(result.error), ...hints];
+    throw invalid(file, problems.join('\n'));
   }
   const definition = toDefinition(result.data);
   const problems = crossCheck(definition, known);
   if (problems.length > 0) {
     throw invalid(file, problems.map((problem) => `✖ ${problem}`).join('\n'));
   }
-  warnOldEnums(content, file);
   return definition;
 }

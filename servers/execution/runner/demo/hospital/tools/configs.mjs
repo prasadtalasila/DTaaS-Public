@@ -10,6 +10,13 @@ export const RUNNERS = {
   'hospital-1': { file: 'runner.yaml', config: 'runner.auth.yaml' },
   'hospital-2': { file: 'runner-2.yaml', config: 'runner-2.auth.yaml' },
 };
+// hospital-1 reinstated on another port, with a database of its own
+export const MOVED = {
+  id: 'hospital-1-moved',
+  config: 'runner-moved.auth.yaml',
+  log: 'run/hospital-1/moved.log',
+  snapshots: 'run/hospital-1/snapshots',
+};
 const PRINCIPALS = [
   ['alice', 'client'],
   ['manager-1', 'manager'],
@@ -56,4 +63,17 @@ export function writeConfigs() {
     const peerKey = `      publicKey: '${keys[peer]}'\n`;
     writeFileSync(config, text + peerKey + auth(id, principals));
   }
+  writeMoved();
+}
+
+// The configuration of hospital-1, moved to port 5300 and a new database
+function writeMoved() {
+  const text = readFileSync(RUNNERS['hospital-1'].config, 'utf8');
+  const moved = text
+    .replace('port: 5100', 'port: 5300')
+    .replace('run/hospital-1/hospital.db', 'run/hospital-1/moved/hospital.db');
+  if (!moved.includes('port: 5300') || !moved.includes('/moved/')) {
+    throw new Error('runner.yaml no longer has the port or database to move');
+  }
+  writeFileSync(MOVED.config, moved);
 }

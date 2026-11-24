@@ -122,11 +122,30 @@ key of _runner.yaml_ and subscriptions by `relationship`
 - The names `set` and `response` are reserved: no parameter, property
   or peer id may take them.
 
-Three spellings of earlier versions still work in 0.11, each with a
-warning in the log, and go in 0.12: `notify` and `peers` at the top of
-_runner.yaml_ ([Relationships](#relationships)), `type: enum` with
-`values` for a [parameter](#parameters), and the MQTT topics
-`<topic>/set-parameters` and `<topic>/set-peers` ([MQTT API](#mqtt-api)).
+Three spellings of earlier versions still worked in 0.11, each with a
+warning in the log: `notify` and `peers` at the top of _runner.yaml_
+([Relationships](#relationships)), `type: enum` with `values` for a
+[parameter](#parameters), and the MQTT topics `<topic>/set-parameters`
+and `<topic>/set-peers` ([MQTT API](#mqtt-api)).
+
+Version 0.12.0 removes those three spellings:
+
+| Removed                                          | Use instead                                           |
+| :----------------------------------------------- | :---------------------------------------------------- |
+| `notify` and `peers` at the top of _runner.yaml_ | `relationships.manager.notify`, `relationships.peers` |
+| `type: enum` with `values`, for a parameter      | `type: string` with `enum`                            |
+| The MQTT topics `set-parameters` and `set-peers` | `parameters/set` and `peers/set`                      |
+
+The runner does not start with a file that uses one of the first two,
+and does not answer a request on an old topic.
+
+Version 0.12.0 also adds the role `operator`
+([Access Control](#access-control)), the [snapshots](#snapshots) of a
+digital twin and the `--reinstate` option
+([Saving and Reinstating](#saving-and-reinstating)), `saving` in
+[GET /health](#health) and the timeline row `snapshot`. A request that
+changes the digital twin may now get `503` with the status `saving`,
+while a save runs.
 
 It is suggested that the configuration file be named as _runner.yaml_
 and placed in the directory in which the _runner_ microservice is run.
@@ -198,7 +217,8 @@ thing that entered the digital twin, changed in it, or left it. Each
 request to the state machine, each command, stop request, parameter,
 property and peer change, each notice of a peer, each entry into a
 state and each end of its script, each start and shutdown of the
-runner, and each notification it sends is a row. Rows are never
+runner, each [save](#saving), and each notification it sends is a
+row. Rows are never
 deleted. A request row names its caller, and an entry the row that
 caused it. So the timeline tells why the digital twin is in
 its state, also after a restart; the command history tells only what
@@ -210,6 +230,39 @@ database in memory the timeline is lost at a restart, as the history
 is. There is no limit on the rows: a sensor that changes a value at
 every write adds a row at every write, so watch the size of the
 database file.
+
+### Snapshots
+
+An optional `snapshots` section names the directory where the runner
+saves the digital twin ([Saving and Reinstating](#saving-and-reinstating)):
+
+```yaml
+snapshots:
+  directory: 'run/ward-1/snapshots' # relative to this config file
+  timeout: 30000 # optional; milliseconds for the save script
+```
+
+- `directory` is relative to _runner.yaml_, or absolute. The runner
+  creates it at the first save. Each snapshot is a directory in it.
+- `timeout` is how long the save script and the restore script of the
+  class may run; 30 seconds without it. A script past it is stopped,
+  and the save or the reinstating fails.
+- The directory must not lie inside `location`, as each save copies
+  the scripts; and the state machine file must not be named
+  _runner.yaml_, the name of the copy of the configuration in a
+  snapshot. The runner does not start with either. With
+  `location: '.'`, `stateMachine: 'runner.yaml'` and
+  `directory: 'snaps'` in _/opt/dt/runner.yaml_ it stops with:
+
+```text
+Error: Invalid configuration in /opt/dt/runner.yaml:
+✖ snapshots.directory /opt/dt/snaps is inside location /opt/dt, whose scripts every save copies
+✖ stateMachine /opt/dt/runner.yaml is named runner.yaml, the name of the copy of the configuration in a snapshot
+```
+
+Without the section, the snapshot routes answer `409`
+`no snapshot directory`. A snapshot holds the inputs and the logs of
+commands; see [SECURITY-MODEL.md](SECURITY-MODEL.md).
 
 ### MQTT
 
@@ -273,19 +326,19 @@ _runner.yaml_:
 | `notify`    | `relationships.manager.notify` |
 | `peers`     | `relationships.peers`          |
 
-- Version 0.11 loads either layout. For each old key the runner logs
-  one warning at startup:
+Version 0.11 loaded either layout, with a warning for each old key.
+Version 0.12.0 removes the old keys: a file with one does not load,
+and the error names the new path:
 
-  ```text
-  runner.yaml: notify moved to relationships.manager.notify; the old key goes in 0.12
-  ```
+```text
+Invalid configuration in /opt/dt/runner.yaml:
+✖ Unrecognized keys: "notify", "peers"
+✖ notify moved to relationships.manager.notify in 0.11
+✖ peers moved to relationships.peers in 0.11
+```
 
-- A section set in both places stops the runner at startup, with
-  `peers and relationships.peers are both set`.
-- A problem in an old key is reported at its new path, such as
-  `at relationships.peers[0].topic`.
-- Version 0.12 removes the old keys. To migrate, indent each section
-  under its new path; its content does not change.
+To migrate, indent each section under its new path; its content does
+not change.
 
 ### Webhook
 
@@ -334,7 +387,7 @@ callers it lists, each in a role:
 auth:
   principals:
     - name: manager-1
-      role: manager # manager, client or sensor
+      role: manager # manager, client, operator or sensor
       publicKey: 'mCpoaytWvGJ9K0lxNlSNw6sjUG7UezRWtxPvL1pyxKA'
     - name: alice
       role: client
@@ -360,8 +413,12 @@ auth:
   `RUNNER_TOKEN` (see [Script Environment](#script-environment)): they
   may read, raise events, escalate and write
   [properties](#properties).
+- An `operator` runs the runner and keeps the digital twin running: it
+  may read, stop commands, and save, list and remove
+  [snapshots](#snapshots). It may not steer the twin. A `manager`
+  steers it and may not copy it.
 - Every role but `sensor` may read the [timeline](#timeline); only a
-  `client` sees the `input` of a command in it.
+  `client` and an `operator` see the `input` of a command in it.
 - A `sensor` feeds property values from outside the runner, such as a
   gateway of the physical twin. It may read and write the properties
   and call nothing else. A `manager` may read the properties but not
@@ -878,8 +935,9 @@ states:
   parameter needs quotes, as in `'20'`. A `number` parameter refuses
   `"20"`, a string, and `.inf` and `.nan`.
 - Before version 0.11.0 an enum was written `type: enum` with
-  `values: [single, multi]`. That spelling still loads in 0.11, with a
-  warning in the log that names the parameters, and goes in 0.12.
+  `values: [single, multi]`. Version 0.11 loaded that spelling with a
+  warning, and 0.12.0 refuses it as an unknown key and an invalid
+  type; write `type: string` with `enum`.
 - `controllable` is `false` unless given. Only controllable parameters
   can be [set over the API](#parameters-requests); the others are
   configuration that the digital twin shares with a Manager.
@@ -1282,6 +1340,28 @@ principal in the role `manager` may run only these commands and gets
 `403` for any other; a `client` may run every permitted command.
 Without access control the list is not enforced.
 
+### Snapshot Scripts
+
+What the scripts keep in their own files is known to their author
+alone. The state machine file may name two commands that save those
+files into a [snapshot](#saving-and-reinstating) and restore them
+from one:
+
+```yaml
+snapshot:
+  save: save-ward
+  restore: restore-ward
+```
+
+Each must be one of the `commands` of _runner.yaml_, or the runner
+does not start: `✖ snapshot save script save-beds is not a permitted
+command`. Each gets the directory `files/` of the snapshot as
+`DT_SNAPSHOT_DIR`, writes there or reads from there, and has
+`snapshots.timeout` to end. A class that keeps everything in
+[properties](#properties) needs neither.
+[STATE-MACHINE.md](STATE-MACHINE.md#snapshot) tells what an author does
+so that a twin can be saved.
+
 ## Use
 
 Display help.
@@ -1293,8 +1373,10 @@ Usage: runner [options]
 Remote code execution for humans
 
 Options:
-  -c --config <string>  runner config file specified in yaml format (default: "runner.yaml")
-  -h --help             display help
+  -c --config <string>     runner config file specified in yaml format (default:
+                           "runner.yaml")
+  --reinstate <directory>  start the twin from the snapshot in the directory
+  -h --help                display help
 ```
 
 The config option is not mandatory. If it is not used, **runner** looks for
@@ -1313,21 +1395,171 @@ you can access the same at `http://localhost:<port>`.
 
 Access to the service on network is available at `http://<ip or hostname>:<port>/`.
 
+### Saving and Reinstating
+
+A digital twin lives in the database file of its runner and in the
+files of its scripts. An `operator` or a `client` can save it as a
+snapshot, and an operator can start a runner from one. Both need a
+[database file](#command-history) and the [snapshots](#snapshots)
+section.
+
+A snapshot is a directory named by the time of the save in UTC, such
+as _20261124T124902069Z_. It holds:
+
+| Part                   | Holds                                                                                                        |
+| :--------------------- | :----------------------------------------------------------------------------------------------------------- |
+| _snapshot.json_        | the manifest: the format, the runner version, the `id`, the `class`, the `time`, the `seq` and the `machine` |
+| _state.db_             | a copy of the database, which ends at the row `seq` of the [timeline](#timeline)                             |
+| _runner.yaml_          | a copy of the configuration, with the secrets blanked                                                        |
+| the state machine file | a copy of it, under its own name                                                                             |
+| _scripts/_             | a copy of the whole directory of `location`                                                                  |
+| _files/_               | what the [save script](#snapshot-scripts) wrote; absent if the class names none                              |
+
+The manifest of a save of a twin in the state `open`:
+
+```json
+{
+  "format": 1,
+  "runner": "0.12.0",
+  "id": "ward-1",
+  "class": {
+    "id": "urn:dtaas:demo:ward",
+    "version": "1.0.0"
+  },
+  "time": "2026-11-24T12:49:02.069Z",
+  "seq": 6,
+  "machine": {
+    "state": "open",
+    "entry": 1,
+    "status": "running"
+  }
+}
+```
+
+The directory has mode `0700`. In the copy of _runner.yaml_ the MQTT
+password, the user and password of `mqtt.url` and the webhook token
+are blanked; the signing key is a path, and is not copied unless it
+lies under `location`. The copy is
+written from the parsed file, so it has no comments. The whole
+directory of the scripts is copied at every save: a class with a large
+simulator in `location` makes every snapshot as large.
+
+#### Saving
+
+`POST /snapshot` saves the twin ([Snapshot Requests](#snapshot-requests)):
+
+1. The runner pauses. Each request that would change the twin gets
+   `503` with `Retry-After: 1` and `{"status": "saving"}`: a command, a
+   stop, a transition, an event, an escalation, a write of parameters,
+   properties or peers, and a second save. Reads are answered, and
+   [GET /health](#health) has `"saving": true`.
+2. It copies the database, then writes the manifest and the copies.
+3. It runs the save script of the class, if it names one.
+4. It writes a `snapshot` row to the timeline and goes on.
+
+A script that ends during the save has its completion held, and an
+event raised by a [subscription](#peer-events) to a peer is held with
+it. Both are handled after the save, in the order they came. The
+script of the current state is not stopped, and the entry does not
+change: what that script held in memory alone is not saved. A save
+that fails, for example as its save script fails or passes the
+timeout, leaves no directory, and the twin goes on.
+
+`GET /snapshot` lists the snapshots, oldest first, and
+`DELETE /snapshot/<name>` removes one.
+
+#### Taking a Twin Out of Execution
+
+With `{"stop": true}` the runner saves, answers `201`, then stops the
+scripts that run and shuts down without taking another request.
+Nothing changes after the snapshot: an event that a peer raises then
+is dropped, with a line in the log. If the save fails, the runner
+answers `500` and goes on running. If the shutdown fails, the runner
+logs it and goes on, with its scripts already stopped.
+
+To move a twin to another host, or to keep it for later:
+
+1. `POST /snapshot` with `{"stop": true}`, and keep the directory of
+   the reply's `path`.
+2. Remove the database and the files of the runner, or the host.
+3. Later, on this host or another, start a runner with
+   `--reinstate <snapshot>`.
+4. Send the twin an event or a transition. It waits in its saved state
+   as `interrupted`.
+
+#### Reinstating
+
+```bash
+runner -c runner.yaml --reinstate run/ward-1/snapshots/20261124T124902069Z
+```
+
+The _runner.yaml_ of `-c` is the one that counts: a moved twin needs
+another port and other paths, and may have another `id`. The runner:
+
+1. reads _snapshot.json_, and stops if it is missing, not JSON or of
+   another format;
+2. stops if _runner.yaml_ names no database file or its database
+   exists, if the class names a restore script and `scripts.user` is
+   set ([PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md)), or if the class of
+   the snapshot has another `id` than that of the state machine file;
+3. warns of each difference between the twin of _runner.yaml_ and the
+   copies in the snapshot: the class version, the values of the
+   instance parameters, the state machine file, and each script;
+4. copies _state.db_ to the database of _runner.yaml_, and never over
+   a file;
+5. runs the restore script of the class with the _files/_ of the
+   snapshot; if the snapshot has no _files/_, it skips the script with
+   a warning;
+6. starts as after a [restart](#restarts), and writes a `start` row
+   with `reinstated`: the `id`, `time` and `seq` of the snapshot.
+
+If the restore script or the resume of the machine fails, the runner
+removes the copied database and stops, so that a later start can copy
+again. A failure after that, such as a port in use, leaves the copied
+database: a second `--reinstate` then stops with
+`the database exists already`. Start without `--reinstate`, which
+resumes from that database, or remove it before reinstating again. A
+refusal
+stops the runner with exit code 1 and a line such as:
+
+```text
+Error: Can not reinstate into /opt/dt/run/ward-1/ward.db: the database exists already
+Error: Can not reinstate from /opt/dt/run/snapshot.json: there is no manifest of a snapshot
+```
+
+A second runner, `ward-2` on another port, reinstated from the same
+snapshot with a changed script `closed`, warned:
+
+```text
+WARN [Reinstate] The script /opt/dt/scripts/closed is not the same as /opt/dt/moved/snap/scripts/closed of the snapshot
+```
+
+The reinstated twin has its state, its parameter values, its
+properties with their times, its peer switches, its command history
+and its timeline. Its machine is in the saved state as `interrupted`,
+and no script of that state starts by itself. It does not have what a
+script held in memory, what its peers last told it (it comes with
+their next notices), the replies kept for request keys, or the
+[metrics](#metrics), which count since a start. The physical twin has
+moved on in the meantime, and the scripts of the class catch up with
+it.
+
 ### Application Programming Interface (API)
 
 [API.md](api/API.md) is the full reference of the HTTP and MQTT APIs and of
 the notifications, with examples from the
 [hospital demo](demo/hospital/README.md).
 
-The runner serves nineteen routes. Four run and stop commands, three
+The runner serves twenty-two routes. Four run and stop commands, three
 drive the [state machine](#state-machine-requests), two read and set
 its [parameters](#parameters-requests), two read and write its
 [properties](#properties-requests), one
 [describes the digital twin](#get-request-to-dt), one returns
 [its state](#get-request-to-state), one its [health](#health), one
 [metrics](#metrics), one [its timeline](#get-request-to-timeline), one
-[escalates to the Manager](#escalation-requests) and two
-[read and switch its peers](#peers-requests). The routes for commands
+[escalates to the Manager](#escalation-requests), two
+[read and switch its peers](#peers-requests) and three save, list and
+remove its [snapshots](#snapshot-requests). The routes for commands
 and their responses are:
 
 | REST API Route         | HTTP Method | Return Value                                                            | Comment                                                                                                 |
@@ -1824,9 +2056,9 @@ parameter, without its `event`:
 ```
 
 Version 0.11.0 changed this reply: an enum is `"type": "string"` with
-`"enum"`, also for a parameter that the file still declares as
-`type: enum` with `values`. Before, the reply had `"type": "enum"` and
-`"values"`.
+`"enum"`. Before, the reply had `"type": "enum"` and `"values"`. A
+state machine file that declares `type: enum` with `values` loaded in
+0.11, with a warning, and does not load from 0.12.0.
 
 `default` is the default of this digital twin: the value that
 `parameters` of _runner.yaml_ gives the parameter, else the `default`
@@ -2051,6 +2283,50 @@ memory.
 curl -X POST http://localhost:5000/escalate   -H 'Content-Type: application/json'   -H 'Idempotency-Key: 3f2b9c4e'   -d '{"reason": "capacity", "proposal": {"scope": "multi"}}'
 ```
 
+#### Snapshot Requests
+
+`POST /snapshot` [saves the digital twin](#saving), and answers `201`
+once the save has ended:
+
+```bash
+curl -X POST http://localhost:5317/snapshot \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+```http
+{"time":"2026-11-24T12:48:51.220Z","seq":3,"path":"run/ward-1/snapshots/20261124T124851220Z"}
+```
+
+`time` is when the save began, `seq` the last row of the timeline in
+the copy of the database, and `path` the directory of the snapshot.
+The body `{"stop": true}` shuts the runner down after the save. A
+refused save answers:
+
+- `409` with `{"status": "no database"}` for a database in memory,
+  `{"status": "no snapshot directory"}` without the
+  [snapshots](#snapshots) section, `{"status": "save script running"}`
+  while a run of the save script is in progress, and
+  `{"status": "save script of another account"}` with a `message` for
+  a class with a save script under [scripts.user](#script-user);
+- `503` with `{"status": "saving"}` and `Retry-After: 1` while another
+  save runs;
+- `500` with the outcome of the save script, as `POST /` gives it, when
+  that script fails or passes the timeout.
+
+`GET /snapshot` lists the snapshots of the directory, oldest first:
+
+```http
+[{"time":"2026-11-24T12:48:51.220Z","seq":3,"path":"run/ward-1/snapshots/20261124T124851220Z"}]
+```
+
+`DELETE /snapshot/<name>` removes a snapshot, named by the last part of
+its `path`. It answers `204`, or `404` for a name that is not of a
+snapshot:
+
+```bash
+curl -X DELETE http://localhost:5317/snapshot/20261124T124851220Z
+```
+
 #### Health
 
 `GET /health` tells whether the runner answers and whether its
@@ -2060,10 +2336,11 @@ whether the digital twin does its job.
 ```http
 {
   "status": "ok",
-  "uptime": 3724,
-  "mqtt": "connected",
+  "uptime": 3,
+  "mqtt": "disabled",
   "database": "file",
-  "scripts": null
+  "scripts": null,
+  "saving": false
 }
 ```
 
@@ -2077,6 +2354,7 @@ whether the digital twin does its job.
   that the [scripts run as](#script-user), also when _runner.yaml_
   gives a uid; `null` without it. `GET /health` is open, so any caller
   learns that name.
+- `saving` is `true` while a [save](#saving) runs, else `false`.
 - `status` is `degraded` while `mqtt` is `disconnected`, else `ok`.
 
 The runner answers `200` in both cases. It connects to the broker after
@@ -2165,6 +2443,8 @@ JSON as the matching HTTP request and response; with a
 | `<topic>/timeline`       | GET /timeline         | `{"kind": "command"}` or none              |
 | `<topic>/peers`          | GET /peers            | ignored                                    |
 | `<topic>/peers/set`      | PUT /peers            | `{"<peer id>": <boolean>}`                 |
+| `<topic>/snapshot`       | GET /snapshot         | ignored                                    |
+| `<topic>/snapshot/set`   | POST /snapshot        | `{"stop": true}`, `{}` or none             |
 
 A topic that writes is one level under the topic that reads the same
 resource: `<topic>/parameters/set`, `<topic>/properties/set` and
@@ -2172,11 +2452,13 @@ resource: `<topic>/parameters/set`, `<topic>/properties/set` and
 `<topic>/properties/#` alone. The names `set` and `response` are
 therefore reserved: no parameter, property or peer id may take them.
 Before version 0.11.0 the write topics were `<topic>/set-parameters`
-and `<topic>/set-peers`. The runner still answers them in 0.11, with
-one warning in its log at the first request on each, and drops them in
-0.12. The routes keep their names in the 403 replies of
-[access control](#access-control): `set-parameters`, `set-properties`
-and `set-peers`.
+and `<topic>/set-peers`. Version 0.11 still answered them, with a
+warning, and 0.12.0 removes them: the runner does not subscribe to
+them, so a request on one gets no answer. The routes keep their names
+in the 403 replies of [access control](#access-control):
+`set-parameters`, `set-properties` and `set-peers`. The snapshots take
+the same form, with the routes `snapshots` and `save`; no topic
+removes a snapshot.
 
 The runner also publishes [notifications](#notifications) under
 `<topic>/notify/<kind>`, among them its [presence](#presence) on

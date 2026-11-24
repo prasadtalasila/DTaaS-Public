@@ -19,6 +19,15 @@ const relationshipsSchema = z
   .strict()
   .prefault({});
 
+// Where the snapshots of the twin go, and how many milliseconds the save
+// script may take
+const snapshotsSchema = z
+  .object({
+    directory: z.string().min(1),
+    timeout: z.int().positive().optional(),
+  })
+  .strict();
+
 // The whole of runner.yaml; the paths are relative to that file
 export const configSchema = z
   .object({
@@ -50,6 +59,8 @@ export const configSchema = z
     relationships: relationshipsSchema,
     // optional; the account, on Linux, and the directory the scripts run in
     scripts: scriptsSchema.optional(),
+    // optional; without it the twin can not be saved
+    snapshots: snapshotsSchema.optional(),
   })
   .strict()
   .superRefine(({ id, mqtt, relationships }, context) =>

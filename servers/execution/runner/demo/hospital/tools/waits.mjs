@@ -8,7 +8,7 @@ import { authorization } from './sign.mjs';
 // fails: a keep-alive socket that the runner closes can reset a poll
 async function get(id, path) {
   try {
-    const header = authorization('GET', path, '', id);
+    const header = authorization('GET', path, '', DTS[id].aud ?? id);
     const headers = header === undefined ? {} : { Authorization: header };
     return await (await fetch(`${DTS[id].url}${path}`, { headers })).json();
   } catch {
