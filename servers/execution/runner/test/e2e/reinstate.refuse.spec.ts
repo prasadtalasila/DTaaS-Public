@@ -18,6 +18,7 @@ import {
 } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import ExecaManager from 'src/execa-manager.service';
+import FsmService from 'src/fsm/fsm.service';
 import { http } from './snapshot.util';
 import { config, machine, reinstated, reinstateTwin } from './reinstate.util';
 import { startStoredRunner } from './util';
@@ -99,11 +100,44 @@ describe('Reinstating refusals and warnings end-to-end', () => {
     );
   });
 
-  it('Should refuse a database that exists', async () => {
+  it('Should refuse a database that exists, and leave it as it was', async () => {
     const database = join(dir, 'run', 'dt-1.db');
+    const before = readFileSync(database);
 
     expect(await refusal('runner.yaml', path)).toBe(
       `Can not reinstate into ${database}: the database exists already`,
+    );
+    expect(readFileSync(database).equals(before)).toBe(true);
+  });
+
+  it('Should report a directory that is no snapshot before a database that exists', async () => {
+    expect(await refusal('runner.yaml', 'snapshots/none')).toContain(
+      'there is no manifest of a snapshot',
+    );
+  });
+
+  it('Should remove the copied database when resuming throws', async () => {
+    jest.spyOn(FsmService.prototype, 'restore').mockImplementation(() => {
+      throw new Error('no machine');
+    });
+
+    expect(await refusal('second.yaml', path)).toBe('no machine');
+    expect(existsSync(join(dir, 'run', 'dt-2.db'))).toBe(false);
+  });
+
+  it('Should skip the restore script of a snapshot without files', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn');
+    const copy = changedCopy({});
+    rmSync(join(dir, copy, 'files'), { recursive: true });
+    writeFileSync(join(dir, 'bare.yaml'), config('dt-7', 5007));
+
+    const app = await reinstated(dir, 'bare.yaml', copy);
+    const { body } = await http(app).get('/history');
+    await app.close();
+
+    expect(body.map(({ name }: { name: string }) => name)).toEqual(['work']);
+    expect(warn).toHaveBeenCalledWith(
+      `Skipped the restore script restore-ward: ${join(dir, copy, 'files')} does not exist`,
     );
   });
 

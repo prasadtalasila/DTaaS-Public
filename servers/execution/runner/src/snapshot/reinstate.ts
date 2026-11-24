@@ -1,3 +1,4 @@
+import { constants, existsSync } from 'node:fs';
 import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { INestApplication, Logger } from '@nestjs/common';
@@ -26,28 +27,45 @@ function refuseScriptUser({ config, fsm }: Twin): void {
   }
 }
 
-// Runs the restore script of the class, if it names one; when it fails,
-// the copied database goes
-async function restoreFiles(twin: Twin, directory: string, database: string) {
+// Runs the restore script of the class, if it names one and the
+// snapshot has files/ for it
+async function restoreFiles(twin: Twin, directory: string): Promise<void> {
   const name = twin.fsm.declared()?.snapshot.restore;
+  const files = join(directory, 'files');
   if (name === undefined) {
     return;
   }
-  const reply = await runSnapshotScript(twin, name, join(directory, 'files'));
+  if (!existsSync(files)) {
+    logger.warn(`Skipped the restore script ${name}: ${files} does not exist`);
+    return;
+  }
+  const reply = await runSnapshotScript(twin, name, files);
   if (reply.status !== 'success') {
-    twin.queue.close();
-    await rm(database, { force: true });
     const outcome = JSON.stringify(reply);
     throw new Error(`The restore script ${name} did not succeed: ${outcome}`);
   }
 }
 
-// Steps 1 to 4 of reinstating: check, compare, copy, restore
+// Opens the copied database and resumes the twin; on any failure the
+// copy that this start made goes, so that a later start may copy again
+async function resume(twin: Twin, directory: string, database: string) {
+  try {
+    twin.queue.open(database);
+    await restoreFiles(twin, directory);
+    twin.fsm.restore();
+  } catch (error) {
+    twin.queue.close();
+    await rm(database, { force: true });
+    throw error;
+  }
+}
+
+// Reinstating: check, compare, copy, restore, resume
 async function reinstate(twin: Twin, directory: string): Promise<Reinstated> {
-  const { config, fsm, queue } = twin;
+  const { config, fsm } = twin;
+  const manifest = await readManifest(directory);
   const database = checkDatabase(config.getFile(), config.getDatabase());
   refuseScriptUser(twin);
-  const manifest = await readManifest(directory);
   const dtClass = fsm.declared()?.dtClass;
   checkClass(directory, manifest.class, {
     dtClass,
@@ -59,9 +77,9 @@ async function reinstate(twin: Twin, directory: string): Promise<Reinstated> {
   });
   found.forEach((difference) => logger.warn(difference));
   await mkdir(dirname(database), { recursive: true });
-  await copyFile(join(directory, DATABASE), database);
-  queue.open(database);
-  await restoreFiles(twin, directory, database);
+  // refuses a database that appeared since the check
+  await copyFile(join(directory, DATABASE), database, constants.COPYFILE_EXCL);
+  await resume(twin, directory, database);
   return { id: manifest.id, time: manifest.time, seq: manifest.seq };
 }
 
@@ -77,9 +95,9 @@ export async function openTwin(
   const queue = app.get(Queue);
   if (snapshot === undefined) {
     queue.open(config.getDatabase());
-  } else {
-    const from = await reinstate({ config, fsm, queue }, snapshot);
-    app.get(DescriptorService).reinstatedFrom(from);
+    fsm.restore();
+    return;
   }
-  fsm.restore();
+  const from = await reinstate({ config, fsm, queue }, snapshot);
+  app.get(DescriptorService).reinstatedFrom(from);
 }

@@ -45,6 +45,9 @@ describe('Reinstating', () => {
       [Queue, {}],
     ]);
     const app = { get: (token: unknown) => services.get(token) };
+    manifest(
+      JSON.stringify({ format: 1, id: 'dt', class: null, time: 't', seq: 1 }),
+    );
 
     await expect(
       openTwin(app as unknown as INestApplication, dir),

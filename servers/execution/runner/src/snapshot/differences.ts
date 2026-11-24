@@ -21,7 +21,9 @@ async function same(a?: string, b?: string): Promise<boolean> {
     return a === b;
   }
   const [first, second] = await Promise.all([bytes(a), bytes(b)]);
-  return first?.toString('base64') === second?.toString('base64');
+  return first === undefined || second === undefined
+    ? first === second
+    : first.equals(second);
 }
 
 // The copy of runner.yaml in the snapshot, empty if it has none
