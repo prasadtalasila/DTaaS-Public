@@ -5,6 +5,8 @@
 . "$PSScriptRoot\ward.ps1"
 $factor = @{ low = 4; medium = 1; high = 0.2 }[$env:DT_PARAM_FIDELITY]
 $interval = [int]([int]$env:POLL_MS * $factor)
+# a replay twin runs DT_TIME_SCALE times as fast, and so do the samples
+$scale = if ($env:DT_TIME_SCALE) { [double]$env:DT_TIME_SCALE } else { 1 }
 Write-WardLog "open   DT_ID=$env:DT_ID DT_STATE=$env:DT_STATE DT_ENTRY=$env:DT_ENTRY"
 Write-WardLog "open   DT_PARAM_SCOPE=$env:DT_PARAM_SCOPE DT_PARAM_CAPACITY=$env:DT_PARAM_CAPACITY POLL_MS=$env:POLL_MS"
 Write-WardLog "open   HINT=$env:HINT RUNNER_URL=$env:RUNNER_URL"
@@ -14,7 +16,7 @@ $free = Get-FreeBeds
 $written = -1
 while ($free -gt 0) {
   if ($free -ne $written) { Send-FreeBeds $free; $written = $free }
-  Start-Sleep -Milliseconds $interval
+  Start-Sleep -Milliseconds ([int]($interval / $scale))
   $free = Get-FreeBeds
 }
 Send-FreeBeds 0

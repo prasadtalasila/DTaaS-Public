@@ -65,10 +65,13 @@ manager:
 snapshot:
   save: save-script
   restore: restore-script
-# the commands that POST /whatif runs on a private copy of the twin
+# the commands that POST /whatif runs on a private copy of the twin;
+# replay: the scripts keep to their own beds in a replay twin, so
+# runner-replay may start one
 whatIf:
   commands:
     - forecast-beds
+  replay: true
 # events that the runner raises when a neighbour changes: a peer that
 # runner.yaml gives the relationship neighbour
 subscriptions:
