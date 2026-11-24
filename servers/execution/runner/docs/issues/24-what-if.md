@@ -129,8 +129,8 @@ input is ignored.
 
 | Refusal                                                    | Status                                                        |
 | :--------------------------------------------------------- | :------------------------------------------------------------ |
-| a command that `whatIf.commands` lacks                     | `400` `invalid command`                                       |
-| a `manager`, for a command that `manager.commands` lacks   | `403` `manager may not call whatif`                           |
+| a `client`, for a command that `whatIf.commands` lacks     | `400` `invalid command`                                       |
+| a `manager`, for a command that either list lacks          | `403` `manager may not call whatif`                           |
 | a database in memory                                       | `409` `no database`                                           |
 | no `snapshots.directory`                                   | `409` `no snapshot directory`                                 |
 | no `auth.principals`                                       | `409` `no access control`                                     |

@@ -69,7 +69,10 @@ own`. A state entry and a what-if are thus never runs of one command;
 
 A Manager may ask for a what-if only of a command that
 `manager.commands` lists as well. A `client` may ask for any command
-of `whatIf.commands`.
+of `whatIf.commands`. A `manager` that asks for a command which either
+list lacks gets `403` `manager may not call whatif`, as the role check
+comes first; a `client` that asks for a command which
+`whatIf.commands` lacks gets `400` `invalid command`.
 
 The save script runs for the copy as for a save: it gets
 `DT_SNAPSHOT_DIR`, which is `files/` of the copy, and writes the files
@@ -331,7 +334,7 @@ table:
 
 The past is in the `timeline` table of `state.db`
 ([README](README.md#timeline)): `seq`, `time`, `kind`, `by` and
-`data`, a JSON text. The admissions of the copy above:
+`data`, a JSON text. The `admit` requests of the copy above:
 
 ```sql
 SELECT time, json_extract(data, '$.input.patient') AS patient

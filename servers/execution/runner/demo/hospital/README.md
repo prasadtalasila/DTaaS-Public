@@ -261,8 +261,9 @@ and refuses to run when `DT_MODE` is not `what-if`. The forecast
 itself is [scripts/forecast.mjs](scripts/forecast.mjs), which both
 versions run with node and which says what it computes: the free beds
 now, from the capacity of `parameters.json` and the patients of
-`files/ward.json`, that `save-script` copied; the admissions less the
-discharges of the last hour, from the `timeline` table of `state.db`,
+`files/ward.json`, that `save-script` copied; the `admit` less the
+`discharge` requests of the last hour, failed ones included, from the
+`timeline` table of `state.db`,
 read with `node:sqlite`; and the free beds at the horizon, where each
 step that takes a peer offline doubles the rate from its time on. It
 prints a JSON result, with `"token": "absent"` when the script has no

@@ -1708,19 +1708,19 @@ curl -s -X POST http://localhost:5100/whatif \
 A second request for a command whose what-if runs, also while its
 copy is made, gets the same `id`, and its input is ignored.
 
-| Case                                                    | Status | Body                                               |
-| :------------------------------------------------------ | :----- | :------------------------------------------------- |
-| The command is not in `whatIf.commands`                 | 400    | `{"status": "invalid command"}`                    |
-| A `manager`, and `manager.commands` lacks it            | 403    | `manager may not call whatif`                      |
-| The database is in memory                               | 409    | `{"status": "no database"}`                        |
-| No `snapshots.directory`                                | 409    | `{"status": "no snapshot directory"}`              |
-| No `auth.principals`                                    | 409    | `{"status": "no access control"}`                  |
-| The command runs live, or starts while the copy is made | 409    | `{"status": "command running"}`                    |
-| A run of the save script is in progress                 | 409    | `{"status": "save script running"}`                |
-| The save script runs as [scripts.user][user]            | 409    | `{"status": "save script of another account"}`     |
-| A save is in progress                                   | 503    | `{"status": "saving"}`, with `Retry-After: 1`      |
-| The runner shuts down                                   | 503    | `{"status": "shutting down"}`                      |
-| The save script fails or passes the timeout             | 500    | the outcome of the save script, as `POST /` has it |
+| Case                                                              | Status | Body                                               |
+| :---------------------------------------------------------------- | :----- | :------------------------------------------------- |
+| A `client`, and `whatIf.commands` lacks it                        | 400    | `{"status": "invalid command"}`                    |
+| A `manager`, and `whatIf.commands` or `manager.commands` lacks it | 403    | `manager may not call whatif`                      |
+| The database is in memory                                         | 409    | `{"status": "no database"}`                        |
+| No `snapshots.directory`                                          | 409    | `{"status": "no snapshot directory"}`              |
+| No `auth.principals`                                              | 409    | `{"status": "no access control"}`                  |
+| The command runs live, or starts while the copy is made           | 409    | `{"status": "command running"}`                    |
+| A run of the save script is in progress                           | 409    | `{"status": "save script running"}`                |
+| The save script runs as [scripts.user][user]                      | 409    | `{"status": "save script of another account"}`     |
+| A save is in progress                                             | 503    | `{"status": "saving"}`, with `Retry-After: 1`      |
+| The runner shuts down                                             | 503    | `{"status": "shutting down"}`                      |
+| The save script fails or passes the timeout                       | 500    | the outcome of the save script, as `POST /` has it |
 
 [user]: ../README.md#script-user
 

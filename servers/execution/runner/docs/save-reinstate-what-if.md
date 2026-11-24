@@ -436,7 +436,9 @@ whatIf:
     - forecast-beds
 ```
 
-A Manager may ask only for a command that both lists hold. A command
+A Manager may ask only for a command that both lists hold, and gets
+`403` for any other; a `client` gets `400` `invalid command` for a
+command that `whatIf.commands` lacks. A command
 of `whatIf.commands` must be permitted and may not be a state, and
 the class needs `snapshot.save`; else the runner does not start. The
 runner needs a database file, a directory for snapshots and access
@@ -485,7 +487,7 @@ of the route of its name, and the past in `state.db`, of which the
 The script of the demo, `scripts/forecast-beds`, refuses to run live,
 then hands the copy to `scripts/forecast.mjs`, which reads the beds of
 `files/ward.json`, the capacity of `parameters.json`, the peers of
-`peers.json`, the admissions of the last hour from `timeline`, and
+`peers.json`, the `admit` requests of the last hour from `timeline`, and
 prints its answer:
 
 ```bash

@@ -50,8 +50,7 @@ export function whatIfEnded(id, file) {
   return async () => {
     const reply = readFileSync(`run/${file}`, 'utf8');
     const run = /"id": (\d+)/.exec(reply)[1];
-    return ['valid', 'invalid', 'stopped'].includes(
-      (await get(id, `/whatif/${run}`))?.status,
-    );
+    const status = (await get(id, `/whatif/${run}`))?.status;
+    return status !== undefined && status !== 'running';
   };
 }

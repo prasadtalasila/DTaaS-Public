@@ -2411,8 +2411,10 @@ curl -X DELETE http://localhost:5317/snapshot/20261124T124851220Z
 `exitCode`, `result`, `finishedAt` and `resources`; `result` is the
 output parsed as JSON, or the text. A refused request answers:
 
-- `400` with `{"status": "invalid command"}` for a command that
-  `whatIf.commands` lacks;
+- `403` `manager may not call whatif` for a `manager`, when
+  `whatIf.commands` or `manager.commands` lacks the command;
+- `400` with `{"status": "invalid command"}` for a `client`, when
+  `whatIf.commands` lacks the command;
 - `409` with `{"status": "no database"}`, `"no snapshot directory"`
   or `"no access control"`, or the `409` of a save;
   `{"status": "command running"}` while the command runs live;

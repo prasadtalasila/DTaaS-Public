@@ -5,8 +5,10 @@
 // What it computes, a guess for the demo and no model of a hospital:
 // - free now: capacity (parameters.json) times the wards, less the
 //   patients of files/ward.json, the beds that save-script copied;
-// - the rate: admissions less discharges in the last hour of the
-//   timeline of state.db, per hour;
+// - the rate: the admit requests less the discharge requests of the
+//   last hour in the timeline of state.db, per hour; a request counts
+//   also when its script failed, as the timeline is all that a
+//   what-if may rely on and it records requests;
 // - free at the horizon: free now less the rate times the horizon, and
 //   each step that takes a peer offline doubles the rate from its time
 //   on, as the patients of that peer come here; never below 0.
@@ -35,7 +37,7 @@ function freeNow() {
   );
 }
 
-// Admissions less discharges of the last hour, from the timeline
+// Admit less discharge requests of the last hour, from the timeline
 function ratePerHour() {
   const database = new DatabaseSync(join(copy, 'state.db'), {
     readOnly: true,
