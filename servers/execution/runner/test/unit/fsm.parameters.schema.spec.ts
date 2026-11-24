@@ -28,7 +28,8 @@ describe('Parameter types', () => {
         '✖ Unrecognized key: "values"\n' +
         '  → at parameters.scope\n' +
         '✖ Invalid option: expected one of "string"|"number"|"integer"|"boolean"\n' +
-        '  → at parameters.scope.type',
+        '  → at parameters.scope.type\n' +
+        '✖ parameter scope: write type string with enum, as 0.12.0 removed type enum',
     );
   });
 

@@ -18,11 +18,11 @@ one story.
 
 The recording predates version 0.11.0, and this document describes
 0.12.0. The replies of [GET /parameters](#get-parameters) are shown as
-0.11 and later give them, the state documents of the recording lack the `properties`
-member, and the examples of [properties](#properties) are not from the
-recording. The descriptors are shown with the `class` member and the
-peers with the `relationship` member, which 0.11 added after the
-recording.
+0.11 and later give them, the state documents of the recording lack
+the `properties` member, and the examples of
+[properties](#properties) are not from the recording. The descriptors
+are shown with the `class` member and the peers with the
+`relationship` member, which 0.11 added after the recording.
 
 ## The Demo Setup
 
@@ -1764,11 +1764,11 @@ reads the resource, so that one resource is one subtree, which a
 broker can grant as a whole, such as `<topic>/properties/#` to a
 sensor:
 
-| Resource   | Read                 | Write                    | Write before 0.11, removed in 0.12 |
-| :--------- | :------------------- | :----------------------- | :--------------------------------- |
-| parameters | `<topic>/parameters` | `<topic>/parameters/set` | `<topic>/set-parameters`           |
-| properties | `<topic>/properties` | `<topic>/properties/set` | none                               |
-| peers      | `<topic>/peers`      | `<topic>/peers/set`      | `<topic>/set-peers`                |
+| Resource   | Read                 | Write                    | Write before 0.11, removed in 0.12.0 |
+| :--------- | :------------------- | :----------------------- | :----------------------------------- |
+| parameters | `<topic>/parameters` | `<topic>/parameters/set` | `<topic>/set-parameters`             |
+| properties | `<topic>/properties` | `<topic>/properties/set` | none                                 |
+| peers      | `<topic>/peers`      | `<topic>/peers/set`      | `<topic>/set-peers`                  |
 
 - Version 0.11 still answered the write topics of before 0.11, with a
   warning. Version 0.12.0 removes them: the runner does not subscribe

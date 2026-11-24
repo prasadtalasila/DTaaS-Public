@@ -1836,9 +1836,9 @@ parameter, without its `event`:
 ```
 
 Version 0.11.0 changed this reply: an enum is `"type": "string"` with
-`"enum"`, also for a parameter that the file still declares as
-`type: enum` with `values`. Before, the reply had `"type": "enum"` and
-`"values"`.
+`"enum"`. Before, the reply had `"type": "enum"` and `"values"`. A
+state machine file that declares `type: enum` with `values` loaded in
+0.11, with a warning, and does not load from 0.12.0.
 
 `default` is the default of this digital twin: the value that
 `parameters` of _runner.yaml_ gives the parameter, else the `default`

@@ -6,6 +6,7 @@ import {
   ParameterValue,
 } from '../dto/parameters.dto.js';
 import { nameSchema, reservedProblems } from './name.js';
+import { field, isRecord } from './proto.js';
 import {
   scalarKeywords,
   SCALAR_TYPES,
@@ -13,6 +14,15 @@ import {
   validator,
   valueProblems as fitProblems,
 } from './value-schema.js';
+
+// zod names the invalid type only, so say what replaced type enum
+export const oldEnumHints = (section: unknown): string[] =>
+  Object.entries(isRecord(section) ? section : {})
+    .filter(([, value]) => field(value, 'type') === 'enum')
+    .map(
+      ([name]) =>
+        `✖ parameter ${name}: write type string with enum, as 0.12.0 removed type enum`,
+    );
 
 const isSet = (value: unknown): boolean =>
   value !== undefined && value !== null;

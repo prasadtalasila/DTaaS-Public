@@ -7,6 +7,7 @@ import { managerProblems, managerSchema } from './manager.js';
 import { nameSchema } from './name.js';
 import {
   Declarations,
+  oldEnumHints,
   parameterProblems,
   parametersSchema,
 } from './parameters.js';
@@ -15,7 +16,7 @@ import {
   propertiesSchema,
   propertyProblems,
 } from './properties.js';
-import { hasProtoKey } from './proto.js';
+import { field, hasProtoKey } from './proto.js';
 import { type Env, envProblems, envSchema } from './script-context.js';
 import {
   Known,
@@ -209,7 +210,9 @@ export function parseDefinition(
   const content = readYaml(text, file);
   const result = fileSchema.safeParse(content);
   if (!result.success) {
-    throw invalid(file, z.prettifyError(result.error));
+    const hints = oldEnumHints(field(content, 'parameters'));
+    const problems = [z.prettifyError(result.error), ...hints];
+    throw invalid(file, problems.join('\n'));
   }
   const definition = toDefinition(result.data);
   const problems = crossCheck(definition, known);
