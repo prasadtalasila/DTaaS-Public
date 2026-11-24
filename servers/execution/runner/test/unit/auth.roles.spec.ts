@@ -24,6 +24,7 @@ const TABLE: Record<MqttRoute, [string, string, string, string]> = {
   'set-peers': ['yes', 'yes', 'no', 'no'],
   properties: ['yes', 'yes', 'yes', 'yes'],
   'set-properties': ['yes', 'no', 'yes', 'yes'],
+  timeline: ['yes', 'yes', 'yes', 'no'],
 };
 
 const ROLES: Role[] = ['client', 'manager', 'script', 'sensor'];

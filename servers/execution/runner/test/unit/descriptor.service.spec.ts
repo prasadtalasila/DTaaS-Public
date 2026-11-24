@@ -10,6 +10,7 @@ import { PeerConfig } from 'src/peers/peers.config';
 import Changes from 'src/notify/changes';
 import Queue from 'src/queue.service';
 import { NO_RESOURCES } from 'src/resources/resources';
+import Timeline from 'src/queue.timeline';
 
 const NOW = new Date('2026-10-25T10:00:00.000Z');
 
@@ -52,6 +53,7 @@ function createService(
 ) {
   const config = {
     getId: () => 'hospital-1',
+    getParameters: () => ({}),
     getAttributes: () => ({ city: 'Aarhus' }),
     permitCommands: () => ['create', 'execute'],
     getPeers: () => [
@@ -74,6 +76,7 @@ function createService(
     onEscalation: jest.fn(),
   };
   const queue = {
+    timeline: new Timeline(),
     activeCommand: () => latest,
     peerSwitches: () => new Map([['hospital-4', false]]),
     setPeers: jest.fn(),

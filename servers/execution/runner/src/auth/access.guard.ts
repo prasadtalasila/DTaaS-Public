@@ -11,6 +11,7 @@ import Config from '../config/configuration.service.js';
 import FsmService from '../fsm/fsm.service.js';
 import { MqttRoute } from '../mqtt/mqtt.config.js';
 import Access from './access.js';
+import { callerContext } from './caller-context.js';
 import { Principal } from './auth.config.js';
 import {
   ACCESS_ROUTE,
@@ -65,6 +66,8 @@ export default class AccessGuard implements CanActivate {
     const listed = listedCommand(commands, request.body);
     authorize(principal, route, listed);
     request.principal = principal;
+    // for the rows of the timeline that this request leads to
+    callerContext.enterWith({ by: principal.name });
     this.logger.debug(`${principal.name} calls ${route}`);
   }
 }

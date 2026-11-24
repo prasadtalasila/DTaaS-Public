@@ -6,6 +6,7 @@ import { EscalationListener } from 'src/fsm/escalation';
 import MqttService from 'src/mqtt/mqtt.service';
 import Notifier from 'src/notify/notifier.service';
 import WebhookClient from 'src/notify/webhook.client';
+import Timeline from 'src/queue.timeline';
 
 const NOW = new Date('2026-10-25T10:00:00.000Z');
 
@@ -51,6 +52,7 @@ function setup() {
   const listeners: Array<() => void> = [];
   const escalations: EscalationListener[] = [];
   const source = {
+    timeline: () => new Timeline(),
     describe: () => descriptor,
     stateInterval: () => 1000,
     state: () => current,

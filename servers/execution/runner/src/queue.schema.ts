@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { MACHINE_SCHEMA } from './queue.machine.js';
 import { PEERS_SCHEMA } from './queue.peers.js';
 import { PROPERTIES_SCHEMA } from './queue.properties.js';
+import { TIMELINE_SCHEMA } from './queue.timeline.js';
 
 // by is the principal that submitted a command: a name of runner.yaml,
 // script, or NULL without access control and for a state's script.
@@ -37,14 +38,20 @@ export const SCHEMA = `
   );
   ${MACHINE_SCHEMA};
   ${PEERS_SCHEMA};
-  ${PROPERTIES_SCHEMA}`;
+  ${PROPERTIES_SCHEMA};
+  ${TIMELINE_SCHEMA}`;
 
-// Runs the work in one transaction, which an error rolls back
-export function inTransaction(db: DatabaseSync, work: () => void): void {
+// Runs the work in one transaction, which an error rolls back, and
+// returns what the work returns
+export function inTransaction<Result>(
+  db: DatabaseSync,
+  work: () => Result,
+): Result {
   db.exec('BEGIN');
   try {
-    work();
+    const result = work();
     db.exec('COMMIT');
+    return result;
   } catch (error) {
     db.exec('ROLLBACK');
     throw error;

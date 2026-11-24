@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { MESSAGES } from '@nestjs/core/constants.js';
+import { callerContext } from '../auth/caller-context.js';
 import { authorize, listedCommand } from '../auth/roles.js';
 import DescriptorService from '../descriptor.service.js';
 import ExecaManager from '../execa-manager.service.js';
@@ -25,6 +26,7 @@ import { ParametersBody, parametersBodySchema } from '../dto/parameters.dto.js';
 import { PeersBody, peersBodySchema } from '../dto/peers.dto.js';
 import { PropertiesBody, propertiesBodySchema } from '../dto/properties.dto.js';
 import FsmService from '../fsm/fsm.service.js';
+import { timelineQuerySchema, timelineReply } from '../dto/timeline.dto.js';
 import { validationFailed } from '../validation.pipe.js';
 import { MqttRoute } from './mqtt.config.js';
 import { MqttRequest } from './mqtt-request.js';
@@ -47,20 +49,25 @@ export default class MqttRequestHandler {
   > = {
     execute: this.whenValid(executeCommandSchema, (command, request) =>
       executeReply(
-        this.manager.newCommand(
-          command.name,
-          request.requestKey,
-          runOptions(
-            command,
-            this.fsm.environment(command.name),
-            request.principal?.name,
+        this.descriptor
+          .timeline()
+          .command(command, request.requestKey, () =>
+            this.manager.newCommand(
+              command.name,
+              request.requestKey,
+              runOptions(
+                command,
+                this.fsm.environment(command.name),
+                request.principal?.name,
+              ),
+            ),
           ),
-        ),
       ),
     ),
-    stop: this.whenValid(stopSchema, async ({ name }) => ({
-      stopped: await this.manager.stop(name),
-    })),
+    stop: this.whenValid(stopSchema, async ({ name }) => {
+      this.descriptor.timeline().record('stop', { name: name ?? null });
+      return { stopped: await this.manager.stop(name) };
+    }),
     status: () => this.manager.checkStatus(),
     history: this.whenValid(historyQuerySchema, (query) =>
       this.manager.checkHistory(query),
@@ -89,6 +96,9 @@ export default class MqttRequestHandler {
     escalate: this.whenValid(escalateSchema, (body, request) =>
       this.fsm.escalate(body, request.requestKey),
     ),
+    timeline: this.whenValid(timelineQuerySchema, (query, request) =>
+      timelineReply(this.descriptor.timeline(), query, request.principal),
+    ),
     peers: () => this.descriptor.peers().document(),
     'set-peers': this.whenValid(peersBodySchema, (body) => this.setPeers(body)),
     properties: () => this.propertyDocument(),
@@ -103,7 +113,8 @@ export default class MqttRequestHandler {
   async handle(route: MqttRoute, request: MqttRequest): Promise<unknown> {
     try {
       this.authorize(route, request);
-      return await this.routes[route](request);
+      const caller = { by: request.principal?.name };
+      return await callerContext.run(caller, () => this.routes[route](request));
     } catch (error) {
       return this.failure(route, error);
     }

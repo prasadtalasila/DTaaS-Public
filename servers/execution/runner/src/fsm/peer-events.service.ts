@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { callerContext } from '../auth/caller-context.js';
 import DescriptorService from '../descriptor.service.js';
 import FsmService from './fsm.service.js';
 import { logStay } from './requests.js';
@@ -41,7 +42,9 @@ export default class PeerEventsService implements OnModuleInit {
   }
 
   private raise({ peer, when, event }: Subscription): void {
-    const reply = this.fsm.event(event);
+    // the timeline names the notice of the peer as the cause
+    const source = { source: 'peer', peer } as const;
+    const reply = callerContext.run(source, () => this.fsm.event(event));
     if (reply.status === 'accepted') {
       this.logger.log(
         `Raised ${event} on ${condition(when)} of peer ${peer}: entered ${reply.state}`,

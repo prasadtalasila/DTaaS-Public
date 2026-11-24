@@ -43,6 +43,7 @@ export const mqttRoutes = [
   'set-peers',
   'properties',
   'set-properties',
+  'timeline',
 ] as const;
 
 export type MqttRoute = (typeof mqttRoutes)[number];

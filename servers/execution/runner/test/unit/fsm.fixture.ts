@@ -12,6 +12,7 @@ import { RunOptions, RunOutcome } from 'src/interfaces/runner.interface';
 import Queue from 'src/queue.service';
 import { NO_RESOURCES } from 'src/resources/resources';
 import type { ScriptUser } from 'src/scripts/separation';
+import Timeline from 'src/queue.timeline';
 
 const DEFINITION = `
 events: [stop, reset]
@@ -96,6 +97,7 @@ export function createService(file: string | undefined, user?: ScriptUser) {
     getScriptUser: () => user,
   } as unknown as Config;
   const queue = {
+    timeline: new Timeline(),
     setParameters: jest.fn(),
     parameterValues: jest.fn(() => ({})),
     saveMachine: jest.fn(),

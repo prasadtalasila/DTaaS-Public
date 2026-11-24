@@ -19,6 +19,7 @@ import Notifier from './notify/notifier.service.js';
 import AccessGuard from './auth/access.guard.js';
 import PeersController from './peers/peers.controller.js';
 import PropertiesController from './properties.controller.js';
+import TimelineController from './timeline.controller.js';
 import PeerWatch from './peers/peer-watch.js';
 import PeerEventsService from './fsm/peer-events.service.js';
 
@@ -31,6 +32,7 @@ import PeerEventsService from './fsm/peer-events.service.js';
     ParametersController,
     PeersController,
     PropertiesController,
+    TimelineController,
   ],
   providers: [
     ExecaManager,

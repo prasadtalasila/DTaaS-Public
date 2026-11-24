@@ -18,8 +18,20 @@ export default class MachineStore {
     private readonly logger: Logger,
   ) {}
 
+  // Stores the machine as it enters a state, when its script is
+  // running, or as that script ends, and writes the row of the timeline
+  save(position: Position, status: ScriptStatus): void {
+    this.store(position, status);
+    const { state = '', entry } = position;
+    if (status === 'running') {
+      this.queue.timeline.entered(state, entry);
+    } else {
+      this.queue.timeline.exited(state, entry, status);
+    }
+  }
+
   // A failed write is logged, as no reply depends on it
-  save({ state, entry }: Position, status: ScriptStatus): void {
+  private store({ state, entry }: Position, status: ScriptStatus): void {
     try {
       this.queue.saveMachine({ state, entry, status });
     } catch (error) {
@@ -38,7 +50,7 @@ export default class MachineStore {
       return UNSTARTED;
     }
     const recovered = recover(definition, stored);
-    this.save(recovered, recovered.status);
+    this.store(recovered, recovered.status);
     const dropped = parameters?.restore(this.queue.parameterValues());
     this.warn(recovered.warning, dropped ?? []);
     return recovered;

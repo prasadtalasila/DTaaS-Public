@@ -41,6 +41,7 @@ describe('MQTT service', () => {
         'dtaas/runner/peers/set',
         'dtaas/runner/properties',
         'dtaas/runner/properties/set',
+        'dtaas/runner/timeline',
         // the write topics of before 0.11
         'dtaas/runner/set-parameters',
         'dtaas/runner/set-peers',

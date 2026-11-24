@@ -50,6 +50,7 @@ export default class FsmService implements BeforeApplicationShutdown {
   private readonly requests = new Requests(
     () => ({ machine: this.machine, stopping: this.stopping }),
     this.logger,
+    () => this.queue.timeline,
   );
 
   // Signals a new state, or a new status of its script
@@ -226,8 +227,8 @@ export default class FsmService implements BeforeApplicationShutdown {
       return;
     }
     this.status = STATUS[outcome];
-    this.changes.emit();
     this.store.save(machine, this.status);
+    this.changes.emit();
     if (!this.stopping) {
       this.complete(machine, COMPLETION[outcome]);
     }

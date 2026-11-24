@@ -6,6 +6,7 @@ import { PropertyRow } from 'src/fsm/properties';
 import FsmService from 'src/fsm/fsm.service';
 import Queue from 'src/queue.service';
 import { ValueSchema } from 'src/fsm/value-schema';
+import Timeline from 'src/queue.timeline';
 
 const T1 = '2026-11-22T10:00:00.000Z';
 
@@ -27,6 +28,7 @@ function setup(
     onEscalation: jest.fn(),
   };
   const queue = {
+    timeline: new Timeline(),
     activeCommand: () => undefined,
     peerSwitches: () => new Map(),
     onChange: jest.fn(),
@@ -36,6 +38,7 @@ function setup(
   const config = {
     getId: () => 'hospital-1',
     getPeers: () => [],
+    getParameters: () => ({}),
     getStateInterval: () => 250,
   };
   const service = new DescriptorService(

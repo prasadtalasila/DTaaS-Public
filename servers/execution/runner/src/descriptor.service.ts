@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
 import { MetricsDto } from './dto/metrics.dto.js';
@@ -10,6 +15,7 @@ import Properties from './fsm/properties.js';
 import { ChangeListener } from './notify/changes.js';
 import Peers from './peers/peers.js';
 import Queue from './queue.service.js';
+import Timeline from './queue.timeline.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
 const now = (): number => performance.timeOrigin + performance.now();
@@ -17,7 +23,9 @@ const now = (): number => performance.timeOrigin + performance.now();
 // Describes the digital twin that this runner serves, its state, and
 // the metrics of what it did since the runner started
 @Injectable()
-export default class DescriptorService implements OnModuleInit {
+export default class DescriptorService
+  implements OnModuleInit, BeforeApplicationShutdown
+{
   private readonly counters = new Metrics();
 
   // The peers of runner.yaml, which PeerWatch follows
@@ -30,7 +38,13 @@ export default class DescriptorService implements OnModuleInit {
     private readonly config: Config,
     private readonly fsm: FsmService,
     private readonly queue: Queue,
-  ) {}
+  ) {
+    // registered first, so that the row of a notice comes before the
+    // rows of the events that it raises
+    this.peerList.onNotice((peer, kind, data) =>
+      this.queue.timeline.record('notice', { peer, kind, data }, null),
+    );
+  }
 
   // Runs at init, after main.ts restored the machine, which is the
   // baseline of the metrics, and opened the database of the queue
@@ -43,6 +57,29 @@ export default class DescriptorService implements OnModuleInit {
     this.fsm.onEscalation((data) => this.counters.escalated(data));
     this.peerList.load(this.config.getPeers(), this.queue);
     this.restoreProperties();
+    this.recordStart();
+  }
+
+  // The first row of the timeline of this start: the class, what the
+  // instance sets, and the whole state that the runner starts with
+  private recordStart(): void {
+    const { machine, parameters, properties } = this.state();
+    const start = {
+      class: this.fsm.declared()?.dtClass ?? null,
+      instance: this.config.getParameters(),
+      state: { machine, parameters, properties },
+      peers: this.peerList.enabledIds(),
+    };
+    this.queue.timeline.record('start', start, null);
+  }
+
+  // The database closes after this hook
+  beforeApplicationShutdown(): void {
+    this.queue.timeline.record('shutdown', {}, null);
+  }
+
+  timeline(): Timeline {
+    return this.queue.timeline;
   }
 
   // A stored value that no longer fits its declaration is dropped
