@@ -17,8 +17,13 @@ commands:
   - closed
   - admit
   - discharge
+  - save-script
+  - restore-script
 stateMachine: 'hospital.fsm.yaml'
 database: 'run/hospital-1/hospital.db'
+# where POST /snapshot saves the twin
+snapshots:
+  directory: 'run/hospital-1/snapshots'
 # milliseconds from SIGTERM to SIGKILL on a stop
 stopGrace: 1000
 mqtt:

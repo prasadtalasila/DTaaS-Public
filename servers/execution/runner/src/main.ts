@@ -6,10 +6,10 @@ import AppModule from './app.module.js';
 import Config from './config/configuration.service.js';
 import CLI, { createCommand } from './config/commander.js';
 import MqttService from './mqtt/mqtt.service.js';
-import Queue from './queue.service.js';
 import DescriptorService from './descriptor.service.js';
 import FsmService from './fsm/fsm.service.js';
 import { runnerUrl } from './fsm/script-context.js';
+import { openTwin } from './snapshot/reinstate.js';
 
 /*
 The js file extension in import is a limitation of typescript.
@@ -27,8 +27,7 @@ async function bootstrap(options: Keyv) {
   const config = app.get<Config>(Config);
   await config.loadConfig(options);
   app.get<FsmService>(FsmService).load();
-  app.get<Queue>(Queue).open(config.getDatabase());
-  app.get<FsmService>(FsmService).restore();
+  await openTwin(app, await options.get('reinstate'));
   app.enableShutdownHooks();
   // a save with stop shuts down as a signal does, and the process ends
   app

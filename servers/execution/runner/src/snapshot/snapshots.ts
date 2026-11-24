@@ -7,12 +7,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { currentCaller } from '../auth/caller-context.js';
 import type Config from '../config/configuration.service.js';
-import { executeReply, ExecuteResponseDto } from '../dto/command.dto.js';
 import { Manifest, SaveBody, SnapshotDto } from '../dto/snapshot.dto.js';
 import type FsmService from '../fsm/fsm.service.js';
 import type Queue from '../queue.service.js';
+import { runSnapshotScript } from './script.js';
 import { DATABASE, manifestOf, writeParts } from './snapshot.js';
 import SnapshotStore, { snapshotName } from './store.js';
 
@@ -170,23 +169,10 @@ export default class Snapshots {
     }
     const files = join(directory, 'files');
     await mkdir(files);
-    const reply = await this.run(name, files);
+    const host = { config: this.config, fsm: this.fsm };
+    const reply = await runSnapshotScript(host, name, files);
     if (reply.status !== 'success') {
       throw new HttpException(reply, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // Runs the script as any command, and stops it once the timeout passes
-  private async run(name: string, files: string): Promise<ExecuteResponseDto> {
-    const { manager } = this.fsm;
-    const env = { ...this.fsm.environment(name), DT_SNAPSHOT_DIR: files };
-    const options = { env, by: currentCaller().by };
-    const timeout = this.config.getSnapshotTimeout();
-    const timer = setTimeout(() => void manager.stop(name), timeout);
-    try {
-      return await executeReply(manager.newCommand(name, undefined, options));
-    } finally {
-      clearTimeout(timer);
     }
   }
 

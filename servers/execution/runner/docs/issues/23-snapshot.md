@@ -402,24 +402,27 @@ Provisional:
       `test/unit/auth.guard.spec.ts`,
       `test/unit/mqtt-request.snapshot.spec.ts`,
       `test/e2e/snapshot.during.spec.ts`.
-- [ ] A save with `stop` answers, then shuts the runner down with
+- [x] A save with `stop` answers, then shuts the runner down with
       nothing changed after the snapshot; when the save fails the
       runner goes on. A twin saved so, removed and reinstated has its
       history and goes on at the next request. Check:
-      `test/e2e/snapshot.spec.ts`, `test/e2e/reinstate.spec.ts`.
+      `test/e2e/snapshot.stop.spec.ts`, `test/e2e/snapshot.fail.spec.ts`,
+      `test/e2e/reinstate.stop.spec.ts`.
 - [x] A save script that fails or runs past the timeout leaves no
       directory, and the twin goes on. Check:
       `test/e2e/snapshot.fail.spec.ts`.
-- [ ] A runner started with `--reinstate` has the history, the
+- [x] A runner started with `--reinstate` has the history, the
       timeline and the state of the snapshot under its own `id`, has
       run the restore script, waits in the saved state as
       `interrupted`, and names the snapshot in a `start` row. Check:
       `test/e2e/reinstate.spec.ts`.
-- [ ] It refuses a database that exists, a class with another `id`
+- [x] It refuses a database that exists, a class with another `id`
       and a directory that is no snapshot; it stops, and leaves no
       database, when the restore script fails; it warns of instance
       values and scripts that differ from the copies. Check:
-      `test/e2e/reinstate.spec.ts`.
+      `test/e2e/reinstate.refuse.spec.ts`,
+      `test/unit/snapshot.reinstate.spec.ts`,
+      `test/e2e/dist.spec.ts`.
 - [ ] The demo hospital is saved, reinstated on another port, and has
       its patients. Check: a step of `demo/hospital/tools/steps.mjs`.
 - [ ] Documents updated. Check: markdownlint and prettier from the

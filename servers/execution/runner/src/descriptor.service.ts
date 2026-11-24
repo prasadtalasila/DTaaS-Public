@@ -7,6 +7,7 @@ import {
 import Config from './config/configuration.service.js';
 import { DescriptorDto } from './dto/descriptor.dto.js';
 import { MetricsDto } from './dto/metrics.dto.js';
+import type { Reinstated } from './dto/snapshot.dto.js';
 import { commandState, StateDocumentDto } from './dto/state.dto.js';
 import { EscalationListener } from './fsm/escalation.js';
 import FsmService from './fsm/fsm.service.js';
@@ -36,6 +37,9 @@ export default class DescriptorService
   private readonly propertyValues = new Properties();
 
   private readonly saves: Snapshots;
+
+  // The snapshot that this start reinstated the twin from, if any
+  private reinstated: Reinstated | undefined;
 
   constructor(
     private readonly config: Config,
@@ -73,8 +77,14 @@ export default class DescriptorService
       instance: this.config.getParameters(),
       state: { machine, parameters, properties },
       peers: this.peerList.enabledIds(),
+      ...(this.reinstated && { reinstated: this.reinstated }),
     };
     this.queue.timeline.record('start', start, null);
+  }
+
+  // Before init, so that the start row names the snapshot
+  reinstatedFrom(snapshot: Reinstated): void {
+    this.reinstated = snapshot;
   }
 
   // The database closes after this hook

@@ -39,3 +39,6 @@ export type Manifest = {
 // What the list reads of a manifest; a directory without it is no
 // snapshot
 export const listedSchema = z.object({ time: z.string(), seq: z.number() });
+
+// The snapshot that a runner was reinstated from, for its start row
+export type Reinstated = { id: string; time: string; seq: number };

@@ -17,12 +17,17 @@ commands:
   - closed
   - admit
   - discharge
+  - save-script
+  - restore-script
 # the class that hospital-1 runs too; this instance has one bed per
 # ward, and no neighbour to follow
 stateMachine: 'hospital.fsm.yaml'
 parameters:
   capacity: 1
 database: 'run/hospital-2/hospital.db'
+# where POST /snapshot saves the twin
+snapshots:
+  directory: 'run/hospital-2/snapshots'
 # milliseconds from SIGTERM to SIGKILL on a stop
 stopGrace: 1000
 mqtt:

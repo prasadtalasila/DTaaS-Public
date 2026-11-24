@@ -6,7 +6,7 @@ import Keyv from 'keyv';
 import AppModule from 'src/app.module';
 import Config from 'src/config/configuration.service';
 import FsmService from 'src/fsm/fsm.service';
-import Queue from 'src/queue.service';
+import { openTwin } from 'src/snapshot/reinstate';
 import { MEASURED, UNMEASURED } from 'test/utils';
 
 // Loads the configuration file given and the state machine it names
@@ -41,11 +41,11 @@ export async function startRunner(
 // stored there, but without MQTT
 export async function startStoredRunner(
   configFile: string,
+  snapshot?: string,
 ): Promise<INestApplication> {
   const app = await createApp();
-  const config = await configure(app, configFile);
-  app.get<Queue>(Queue).open(config.getDatabase());
-  app.get<FsmService>(FsmService).restore();
+  await configure(app, configFile);
+  await openTwin(app, snapshot);
   await app.init();
   return app;
 }

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Saves the beds of the hospital into a snapshot: copies
+# run/<DT_ID>/ward.json to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+set -euo pipefail
+cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
