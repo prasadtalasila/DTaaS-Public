@@ -36,7 +36,7 @@ no file. Issue 20 was merged into the file of 19 on 2026-11-22.
 | [19-properties.md](19-properties.md)                   | Properties; runner.yaml, 20 | L    | in progress |      |
 | [21-dt-class.md](21-dt-class.md)                       | DT class, instance values   | M    | in progress |      |
 | [22-timeline.md](22-timeline.md)                       | Durable timeline            | M    | in progress |      |
-| [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | planned     |      |
+| [23-snapshot.md](23-snapshot.md)                       | Save and reinstate a DT     | M    | in progress |      |
 | [24-what-if.md](24-what-if.md)                         | What-if inside the twin     | M    | planned     |      |
 | [25-replay.md](25-replay.md)                           | Replay and compare a twin   | L    | planned     |      |
 
@@ -254,8 +254,8 @@ open) or `done`.
 | S18 | A fourth role, `sensor`, may write and read the properties and nothing else. A `manager` may read them, never write them. Amends S10.                                                                      |
 | S19 | Over MQTT a resource is read on its own topic and written one level under it, `<base>/<resource>/set`. `set` and `response` are reserved names.                                                            |
 | S20 | The state machine file is a class, and `runner.yaml` one instance of it. An instance sets parameter values and gives its peers relationships; it never edits the class. Amends S4.                         |
-| S21 | A fifth role, `operator`, runs the twin and may copy it: reads, snapshots and `stop`. It can not steer the twin. A `manager` steers and can not copy. `client` keeps every right. Amends S10.              |
-| S22 | A DT is saved by a route that pauses the runner, outside the state machine. A snapshot is a directory with the database, the configuration, the class and its scripts, and what the scripts keep.          |
+| S21 | A fifth role, `operator`, runs the twin and may copy it: reads, with a command's `input`, snapshots and `stop`. It can not steer. A `manager` steers and can not copy. Amends S10.                         |
+| S22 | A save is a route that pauses the changes, outside the machine: it holds completions and peer events. A snapshot holds the database, both files, the scripts and the save script's files.                  |
 | S23 | The runner starts no process for a what-if. A Manager asks the twin, which runs a script on a copy and changes nothing; an operator replays in a replay twin, with tools. S1 and S2 stand.                 |
 
 ## Lessons for Every Issue
@@ -354,6 +354,18 @@ From implementing 22:
   as a mock keeps any order.
 - The caller of a request is in `callerContext`; a new writer of rows
   reads it there instead of taking the caller as a parameter.
+
+From implementing 23:
+
+- Refusing the routes does not freeze a twin. List every path that
+  changes it, completions and the events of peers among them, and hold
+  each one; the plan listed only routes.
+- With `scripts.user` the runner can not hand a directory to the
+  script account. Check a feature in which a script writes or reads a
+  file of the runner against PRIVILEGE-SETUP.md before planning it.
+- A lock or a copy needs a test of each failure path: the pause ends
+  in a `finally`, and a cleanup removes only what this start wrote
+  (`COPYFILE_EXCL`), so that a failure leaves the twin able to go on.
 
 ## Deferred
 

@@ -92,6 +92,12 @@ A `client` keeps every right. It is the owner of the twin, or an
 application that acts for the owner, and the tests. Reinstating and
 replaying have no route: they are commands at a shell on the host.
 
+Version 0.12.0 (issue 23) built the role with every row of the table
+but `whatif` and `whatif-result`, which are not built. The list is the
+route `snapshots`, the save `save` and the removal `delete-snapshot`,
+a route of HTTP alone. An operator also reads the `input` of a
+command row of the timeline, as a `client` does.
+
 ## The Timeline
 
 One table that only grows. Each row has a number, `seq`, that only
@@ -153,19 +159,19 @@ the millisecond:
 
 ```text
 run/hospital-1/snapshots/
-└── 20261123T101502120Z/
+└── 20261124T125705005Z/
     ├── snapshot.json
     ├── state.db
     ├── runner.yaml
     ├── hospital.fsm.yaml
     ├── scripts/
-    │   ├── open
-    │   ├── full
-    │   ├── closed
     │   ├── admit
-    │   ├── discharge
+    │   ├── admit.ps1
+    │   ├── ...
     │   ├── save-script
-    │   └── restore-script
+    │   ├── save-script.ps1
+    │   ├── ward.ps1
+    │   └── ward.sh
     └── files/
         └── ward.json
 ```
@@ -174,25 +180,44 @@ run/hospital-1/snapshots/
 | :--------------------- | :-------------- | :-------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- |
 | `snapshot.json`        | the runner      | The manifest                                                                                  | A runner checks it before it opens anything else                  |
 | `state.db`             | the runner      | The database: machine, parameter values, properties, peer switches, command history, timeline | It is the twin. A runner without a database file can not be saved |
-| `runner.yaml`          | the runner      | The configuration, with the MQTT password and the webhook token blanked                       | The values that an instance sets for parameters are only there    |
+| `runner.yaml`          | the runner      | The configuration, with the secrets blanked                                                   | The values that an instance sets for parameters are only there    |
 | the state machine file | the runner      | The class                                                                                     | A name and a version do not bring the file to another host        |
 | `scripts/`             | the runner      | The whole directory of `location`                                                             | The class is the file and its scripts                             |
 | `files/`               | the save script | What the scripts keep for themselves                                                          | Only their author knows what that is                              |
 
 The signing key of the runner is a path in `runner.yaml`. The key
-itself is never copied.
+itself is not copied, unless the operator put it under `location`, as
+anything there is copied with the scripts.
+
+- The directory has mode `0700`, as it holds the inputs and the logs
+  of commands.
+- In the copy of `runner.yaml` the MQTT password, the user and password
+  of `mqtt.url` and the webhook token are blanked. The copy is written
+  from the parsed file, so it has no comments.
+- `snapshots.directory` must lie outside `location`, and the state
+  machine file must not be named `runner.yaml` when `snapshots` is
+  set. The runner refuses both when it loads the configuration.
 
 ### The Manifest
+
+A save of the demo's `hospital-1`, in `open` after one `admit`, wrote:
 
 ```json
 {
   "format": 1,
   "runner": "0.12.0",
   "id": "hospital-1",
-  "class": { "id": "urn:dtaas:demo:hospital", "version": "1.0.0" },
-  "time": "2026-11-23T10:15:02.120Z",
-  "seq": 412,
-  "machine": { "state": "open", "entry": 7, "status": "running" }
+  "class": {
+    "id": "urn:dtaas:demo:hospital",
+    "version": "1.0.0"
+  },
+  "time": "2026-11-24T12:57:05.005Z",
+  "seq": 5,
+  "machine": {
+    "state": "open",
+    "entry": 1,
+    "status": "running"
+  }
 }
 ```
 
@@ -228,18 +253,24 @@ snapshots:
 ```
 
 The two scripts get one variable, `DT_SNAPSHOT_DIR`, which is
-`files/` of the snapshot. The demo's would be one line each:
+`files/` of the snapshot. Those of the demo:
 
 ```bash
 #!/usr/bin/env bash
-# save-script: the beds are all that the hospital scripts keep
-cp "run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
+# Saves the beds of the hospital into a snapshot: copies
+# run/<DT_ID>/ward.json to DT_SNAPSHOT_DIR. POST /snapshot runs it.
+set -euo pipefail
+cp "$(dirname "$0")/../run/$DT_ID/ward.json" "$DT_SNAPSHOT_DIR/ward.json"
 ```
 
 ```bash
 #!/usr/bin/env bash
-# restore-script
-mkdir -p "run/$DT_ID" && cp "$DT_SNAPSHOT_DIR/ward.json" "run/$DT_ID/ward.json"
+# Restores the beds of the hospital from a snapshot: copies ward.json of
+# DT_SNAPSHOT_DIR to run/<DT_ID>/. runner --reinstate runs it.
+set -euo pipefail
+ward_dir="$(dirname "$0")/../run/$DT_ID"
+mkdir -p "$ward_dir"
+cp "$DT_SNAPSHOT_DIR/ward.json" "$ward_dir/ward.json"
 ```
 
 A class whose scripts keep everything in properties names neither.
@@ -251,17 +282,20 @@ POST /snapshot
 ```
 
 1. The runner pauses. A request that would change the twin is
-   refused with `503` `saving`; reads are answered; a script that ends
-   has its completion held.
-2. The runner writes its parts of the directory.
+   refused with `503` `saving` and `Retry-After`; reads are answered;
+   a script that ends has its completion held, and an event that a
+   subscription to a peer raises is held with the completions.
+2. The runner copies the database, then writes the manifest and the
+   other parts of the directory.
 3. The runner runs the save script, within the timeout.
-4. The runner writes a `snapshot` row and goes on.
+4. The runner writes a `snapshot` row, goes on, and handles what it
+   held in the order it came.
 
 ```json
 {
-  "time": "2026-11-23T10:15:02.120Z",
-  "seq": 412,
-  "path": "run/hospital-1/snapshots/20261123T101502120Z"
+  "time": "2026-11-24T12:57:05.005Z",
+  "seq": 5,
+  "path": "run/hospital-1/snapshots/20261124T125705005Z"
 }
 ```
 
@@ -271,29 +305,61 @@ runner ends every script without a warning already.
 
 | Request                                | Reply                                                                                     |
 | :------------------------------------- | :---------------------------------------------------------------------------------------- |
-| `POST /snapshot`                       | `201` as above; `409` without a database or a directory; `500` when the save script fails |
+| `POST /snapshot`                       | `201` as above; `409` with one of four statuses (below); `500` when the save script fails |
 | `POST /snapshot` with `{"stop": true}` | The same, and the runner then shuts down                                                  |
 | `GET /snapshot`                        | `200`, a list of `{time, seq, path}`, oldest first                                        |
 | `DELETE /snapshot/<name>`              | `204`, or `404`                                                                           |
 | any changing route, during a save      | `503` `{"status": "saving"}`, with `Retry-After`                                          |
 
+A save is refused with `409` and a status:
+
+- `no database`, for a twin whose database is in memory;
+- `no snapshot directory`, without `snapshots` in `runner.yaml`;
+- `save script running`, while a run of the save script is in
+  progress, as a save would join that run, which has no
+  `DT_SNAPSHOT_DIR`;
+- `save script of another account`, for a class with a save script
+  under `scripts.user`. The script account can not write into a
+  directory that only the runner's account reads, and the runner holds
+  no privilege to hand it one. The operator keeps what the scripts
+  need in properties and names no save script, or leaves out
+  `scripts.user`. Staging the files through the run directory, which
+  the script account owns, could lift this later.
+
+A save script that fails or passes the timeout fails the save with
+`500` and its outcome, and leaves no directory.
+
+After a save with `stop`, the runner answers, stops the scripts that
+run and shuts down. An event that a peer raises then is dropped, with
+a line in the log. If the shutdown fails, the twin goes on, with its
+scripts already stopped.
+
 ## Reinstating
 
 ```bash
-runner -c runner.yaml --reinstate run/hospital-1/snapshots/20261123T101502120Z
+runner -c runner.yaml --reinstate run/hospital-1/snapshots/20261124T125705005Z
 ```
 
-1. The runner reads the manifest. It stops if the format is unknown,
-   the class has another `id`, or the database of `runner.yaml`
-   exists.
+1. The runner reads the manifest first, and stops if there is none, if
+   it is not JSON, or if its format is unknown. It then stops if
+   `runner.yaml` names no database or its database exists, if the
+   class names a restore script and `scripts.user` is set, or if the
+   class of the snapshot has another `id`.
 2. It warns of each difference that matters between the `-c` file
-   and the copy in the snapshot: instance values, the state machine
-   file, the scripts. The `-c` file is the one that counts.
-3. It copies `state.db` to the database of `runner.yaml`.
-4. It runs the restore script. If that fails, it removes the copied
-   database and stops.
-5. It starts as after any restart, and writes a `start` row that
-   names the snapshot.
+   and the copy in the snapshot: the class version, each instance
+   value, the state machine file, and each script of the copy that
+   `location` lacks or has otherwise. The `-c` file is the one that
+   counts.
+3. It copies `state.db` to the database of `runner.yaml`. The copy
+   refuses to overwrite a file.
+4. It runs the restore script. A snapshot without `files/` skips it
+   with a warning.
+5. It starts as after any restart, and writes a `start` row with
+   `reinstated`: the `id`, `time` and `seq` of the snapshot.
+
+Any failure after the copy, of the restore script or of the start,
+removes the copied database, and the runner stops; a later start can
+copy again.
 
 The reinstated twin has everything that the first had: the values,
 the command history with its logs, and the timeline. Its machine is
@@ -311,7 +377,8 @@ POST /snapshot
 ```
 
 1. The runner saves, answers, and shuts down without taking another
-   request. Nothing changes after the snapshot.
+   request. Nothing changes after the snapshot. If the shutdown fails,
+   the twin goes on, with its scripts already stopped.
 2. The operator removes the database and the files, or the host.
 3. Later, anywhere: `runner -c runner.yaml --reinstate <snapshot>`.
 4. A caller sends an event or a transition, and the twin goes on.

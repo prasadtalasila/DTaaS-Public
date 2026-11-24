@@ -212,6 +212,47 @@ CI=true NODE_OPTIONS=--experimental-vm-modules npx jest --coverage=false test/e2
 The test leaves the account `dt-script-test` behind; remove it with
 `sudo userdel dt-script-test`.
 
+### Snapshot Code and Tests
+
+Saving and reinstating (issue 23) live in `src/snapshot/`, with the
+routes in `src/snapshot.controller.ts`. Before changing them:
+
+- `Pause` (`pause.ts`) is a plain object that `FsmService` owns, and
+  `Snapshots` (`snapshots.ts`) one that `DescriptorService` owns, as
+  `Peers` is. A new injectable would push a constructor of the MQTT
+  handler or of `DescriptorService` to four parameters. `Snapshots`
+  runs the save script through `fsm.manager`, which is public for it.
+- `FsmService.run` awaits `pause.hold(...)` for the outcome of a
+  script, and `PeerEventsService` passes the events of peers through
+  `pause.defer(...)`. Both go into one queue, which drains in order
+  when the save ends; anything that a save must hold goes through it
+  too. `src/fsm/fsm.service.ts` is at 247 lines: move code out before
+  adding.
+- `Snapshots.copyDatabase` reads the machine, runs `VACUUM INTO` and
+  reads the last `seq` in one synchronous step. Do not put an `await`
+  between them, or a row can come between the copy and its manifest.
+- `Snapshots.onStop` takes the shutdown after a save with `stop`;
+  `main.ts` gives `app.close`. Without a listener nothing shuts down,
+  so a test gives its own, which closes the app and resolves a promise.
+- `openTwin` (`reinstate.ts`) is the one place that opens the database
+  and resumes the machine, with or without `--reinstate`. `main.ts`
+  and `startStoredRunner` of `test/e2e/util.ts` both call it, so the
+  tests start a twin as the runner does. A refusal is a thrown `Error`,
+  which ends the process as an invalid `runner.yaml` does.
+- `placement.ts` adds its lines to the problems of `Config.loadConfig`;
+  `configuration.service.ts` is at 247 lines.
+
+The end-to-end tests build a twin in a temporary directory:
+`snapshotTwin` of `test/e2e/snapshot.util.ts` writes a class whose
+`work` waits for the file `go` and whose `save-ward` waits for the file
+`release`, so a test holds a save open with `touch`, asks the routes
+during it, and then releases it. `reinstateTwin` of
+`test/e2e/reinstate.util.ts` writes one with a restore script. Each
+script has a shell and a PowerShell version. The unit tests of the
+save use the fake manager of `test/unit/snapshot.fixture.ts`. The test
+of mode `0700` is skipped on Windows, and `test/e2e/dist.spec.ts` runs
+the build with `--reinstate` on a directory that is no snapshot.
+
 ### On Filenames in Tests
 
 The jest and nestjs combination can not detect tests in files

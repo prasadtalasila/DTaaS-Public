@@ -62,6 +62,7 @@ is a secret or an address, belongs to the instance.
 | `escalation`    | When the runner asks the Manager for help by itself              |
 | `manager`       | The commands that a Manager may run                              |
 | `subscriptions` | The events raised when a peer changes                            |
+| `snapshot`      | The commands that save and restore what the scripts keep         |
 
 [STATE-MACHINE.md](STATE-MACHINE.md) describes every key.
 
@@ -80,6 +81,7 @@ is a secret or an address, belongs to the instance.
 | `relationships.peers`          | The other twins it deals with, and what each is to it  |
 | `auth`                         | Who may call this twin, and the key that it signs with |
 | `scripts`                      | The account that its scripts run as                    |
+| `snapshots`                    | Where this twin is saved, and the time its scripts get |
 
 [README.md](README.md#configure) describes every key.
 
@@ -100,6 +102,9 @@ problem before it stops:
 | a parameter, such as `capacity`      | under `parameters`, only declared names      | `parameter beds is not declared`                   |
 | the type and range of a parameter    | under `parameters`, a value that fits        | `parameter capacity: Too small: ...`               |
 | `relationship: neighbour`            | nothing: see [Relationships](#relationships) | the subscription is idle, with a line in the log   |
+
+A command under `snapshot` is checked as one under `manager.commands`:
+`snapshot save script save-beds is not a permitted command`.
 
 The scripts are the third part. A state or a command has the name of
 its script, so the names in the class, the names under `commands` and
@@ -339,6 +344,36 @@ operator, who must be told.
 The author raises `version` so that a Manager can see which instances
 run which version of a class.
 
+## Moving a Twin and Bringing It Back
+
+An operator saves a twin as a snapshot, and starts a runner from it
+with `--reinstate` ([README](README.md#saving-and-reinstating)). A
+snapshot holds a copy of both files: the class, under its own name,
+and `runner.yaml`, with its secrets blanked. It also holds the
+database and the scripts.
+
+The `runner.yaml` given with `-c` is the one that counts, as a moved
+twin needs another port and other paths, and may have another `id`.
+The runner compares the copies with the twin of that file:
+
+| Compared                                    | When they differ          |
+| :------------------------------------------ | :------------------------ |
+| The `id` of the class                       | The runner stops          |
+| The `version` of the class                  | A warning                 |
+| The values of `parameters` in `runner.yaml` | A warning for each name   |
+| The state machine file, byte for byte       | A warning                 |
+| Each script of the copy, against `location` | A warning for each script |
+
+Then it starts as after a restart, with the checks of
+[A New Version of a Class](#a-new-version-of-a-class): a stored value
+that no longer fits the class is dropped with a warning. A twin is
+brought back under a new version of its class in the same way as it
+restarts under one.
+
+A snapshot keeps the instance values of the twin, which the database
+does not hold. A copy of the class alone, or of the database alone,
+would bring the twin back with the defaults of the class.
+
 ## One File or Two for the Operator
 
 `runner.yaml` holds two kinds of settings: those of the runner as a
@@ -355,6 +390,9 @@ For two files:
 - **Different people.** A platform operator could own the process
   file, and the owner of the twin the instance file.
 - **A saved twin** would be the instance file plus its stored state.
+  Since 0.12.0 a snapshot copies both files, and the operator gives
+  the instance file of the new host
+  ([Moving a Twin](#moving-a-twin-and-bringing-it-back)).
 
 For one file:
 

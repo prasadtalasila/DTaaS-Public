@@ -113,6 +113,13 @@ published one level under the topic that reads it, on
 | `GET /peers`           | `peers`          |                                     | 200     |
 | `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`             | 200     |
 | `GET /timeline`        | `timeline`       | none; query `after`, `kind`, ...    | 200     |
+| `POST /snapshot`       | `save`           | `{"stop": true}` or none            | 201     |
+| `GET /snapshot`        | `snapshots`      |                                     | 200     |
+| `DELETE /snapshot/<n>` | none             |                                     | 204     |
+
+`<n>` is the name of a [snapshot](#snapshots). The two MQTT routes of
+the snapshots are published on `<topic>/snapshot/set` and
+`<topic>/snapshot`; no topic deletes one.
 
 With access control, each route is open to some roles only; see
 [Roles](#roles).
@@ -328,6 +335,20 @@ curl -s http://localhost:5100/health
 }
 ```
 
+From 0.12.0 the reply also has `saving`. A runner on port 5317 without
+MQTT, asked while a [save](#post-snapshot) ran, answered:
+
+```json
+{
+  "status": "ok",
+  "uptime": 25,
+  "mqtt": "disabled",
+  "database": "file",
+  "scripts": null,
+  "saving": true
+}
+```
+
 The demo runs on Windows, where the runner refuses `scripts.user`, so
 `scripts` is `null`; a Linux runner with that setting answers
 `"scripts": { "user": "dt-script" }`.
@@ -339,6 +360,7 @@ The demo runs on Windows, where the runner refuses `scripts.user`, so
 | `mqtt`     | `connected`; `disconnected`, also while it reconnects; `disabled` without an `mqtt` section |
 | `database` | `file` with a `database` file in the configuration, else `memory`                           |
 | `scripts`  | `{ "user": <name> }` with `scripts.user`, the script account's name; else `null`            |
+| `saving`   | `true` while a [save](#post-snapshot) runs, else `false`                                    |
 
 The reply is `200` in both cases. The runner connects to the broker
 after it starts, so the first replies may say `degraded`. Over MQTT the
@@ -1410,17 +1432,17 @@ set `scope`, whose event restarted `execute`, and the sensor
 ]
 ```
 
-| Field  | Value                                                                                                                                                                                                                                                                                            |
-| :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `seq`  | the number of the row, which only rises, also across restarts                                                                                                                                                                                                                                    |
-| `time` | when the row was written, to the millisecond                                                                                                                                                                                                                                                     |
-| `kind` | one of the kinds below                                                                                                                                                                                                                                                                           |
-| `by`   | for a request row (`transition`, `event`, `command`, `stop`, `parameters`, `properties`, `peers`), the [principal](#access-control) that sent it, `script`, or `null` without `auth`; `null` for the rows that the runner writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`) |
-| `data` | what the row records, by kind                                                                                                                                                                                                                                                                    |
+| Field  | Value                                                                                                                                                                                                                                                                                                        |
+| :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seq`  | the number of the row, which only rises, also across restarts                                                                                                                                                                                                                                                |
+| `time` | when the row was written, to the millisecond                                                                                                                                                                                                                                                                 |
+| `kind` | one of the kinds below                                                                                                                                                                                                                                                                                       |
+| `by`   | for a request row (`transition`, `event`, `command`, `stop`, `parameters`, `properties`, `peers`, `snapshot`), the [principal](#access-control) that sent it, `script`, or `null` without `auth`; `null` for the rows that the runner writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`) |
+| `data` | what the row records, by kind                                                                                                                                                                                                                                                                                |
 
 | Kind         | Written when                                             | `data`                                                                                                                                                |
 | :----------- | :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `start`      | the runner starts                                        | `class`, the `instance` values, the whole `state` it starts with (`machine`, `parameters`, `properties`), and the enabled `peers`                     |
+| `start`      | the runner starts                                        | `class`, the `instance` values, the whole `state` it starts with (`machine`, `parameters`, `properties`), the enabled `peers`, and `reinstated`       |
 | `transition` | a transition request is handled                          | `state`, and the `reply`                                                                                                                              |
 | `event`      | an event request is handled, also one that moves nothing | `event`, `source`, and the `reply`; `peer` and `cause` for a peer's event, `cause` for a parameter's                                                  |
 | `command`    | a command is submitted                                   | `name`, its `input` if any, and `run`, the `id` of its run in [GET /history](#get-history), `null` when refused                                       |
@@ -1433,6 +1455,7 @@ set `scope`, whose event restarted `execute`, and the sensor
 | `exit`       | the script of an entry ends                              | `state`, `entry`, `status` (`valid`, `invalid` or `stopped`), and `run`                                                                               |
 | `sent`       | a notification goes to MQTT or a webhook                 | `kind`; for a state notification `cause`, the last row that was not `sent`, else the `data` of the notification, without its envelope                 |
 | `shutdown`   | the runner begins to shut down                           | `{}`                                                                                                                                                  |
+| `snapshot`   | a [save](#post-snapshot) has written its snapshot        | `time`, when the save began, and `name`, the directory of the snapshot                                                                                |
 
 - `source` is `client`, `script` for a script that calls with
   `RUNNER_TOKEN`, `peer` for an event of a
@@ -1456,11 +1479,16 @@ set `scope`, whose event restarted `execute`, and the sensor
   make no row; the history holds the end of a command. A repeated
   command request makes a row that names the run of the first.
 - `sent` rows are written only for a configured transport.
+- The `start` row of a runner started with `--reinstate` has
+  `reinstated`: the `id`, `time` and `seq` of the
+  [snapshot](#snapshots) it came from. Other `start` rows have none.
+- A `snapshot` row is written after the copy of the database, so the
+  copy ends before it.
 
-The `input` of a command may name a person. Only a `client`, and every
-caller without access control, reads it; any other role gets the row
-without `input`. `manager-1` asking for `?kind=command` of the same
-runner got:
+The `input` of a command may name a person. Only a `client`, an
+`operator`, and every caller without access control, read it; any
+other role gets the row without `input`. `manager-1` asking for
+`?kind=command` of the same runner got:
 
 ```json
 [
@@ -1501,6 +1529,141 @@ in a URL.
 
 There is no limit on the rows. A sensor that changes a value at every
 write adds a row at every write, and the database file grows with it.
+
+## Snapshots
+
+A snapshot is a copy of the DT in a directory: its database, its
+configuration, its state machine file, its scripts, and what the save
+script of the class wrote. The configuration names the directory in
+`snapshots.directory`; without it every route here answers `409`
+`no snapshot directory`. A runner started with `--reinstate <snapshot>`
+is the DT again ([README](../README.md#saving-and-reinstating)). The
+routes are for a `client` and an `operator` ([Roles](#roles)).
+
+The examples come from a runner on port 5317 without access control,
+whose class names the save script `save-ward`.
+
+### POST /snapshot
+
+Saves the DT now, into a new directory named by the time in UTC.
+MQTT route: `save`, on `<topic>/snapshot/set`, with the same body as
+payload. With `{"stop": true}` the runner shuts down after the save;
+an empty body, or `{}`, leaves it running.
+
+```bash
+curl -s http://localhost:5317/snapshot --json '{}'
+```
+
+`201`:
+
+```json
+{
+  "time": "2026-11-24T12:48:51.220Z",
+  "seq": 3,
+  "path": "run/ward-1/snapshots/20261124T124851220Z"
+}
+```
+
+| Field  | Value                                                                    |
+| :----- | :----------------------------------------------------------------------- |
+| `time` | when the save began, which names the directory                           |
+| `seq`  | the last row of the [timeline](#timeline) in the copy of the database    |
+| `path` | the directory of the snapshot, from `snapshots.directory` as it is given |
+
+While the save runs, the runner pauses. Every route that would change
+the DT is refused with `503`, a `Retry-After` header and the status
+`saving`: `POST /`, `POST /stop`, a transition, an event, an
+escalation, `PUT /parameters`, `PUT /properties`, `PUT /peers` and a
+second save. The reads are answered, and `GET /health` has
+`"saving": true`. An event during the save got:
+
+```text
+HTTP/1.1 503 Service Unavailable
+Retry-After: 1
+```
+
+```json
+{ "status": "saving" }
+```
+
+A script that ends during the save has its completion held, and an
+event that a subscription to a peer raises is held with it. Both are
+handled in their order once the save ends. After a save with `stop`,
+nothing held is handled.
+
+| Case                                                     | Status | Body                                                     |
+| :------------------------------------------------------- | :----- | :------------------------------------------------------- |
+| The database is in memory                                | 409    | `{"status": "no database"}`                              |
+| No `snapshots` section in the configuration              | 409    | `{"status": "no snapshot directory"}`                    |
+| A run of the save script is in progress                  | 409    | `{"status": "save script running"}`                      |
+| The class names a save script, and `scripts.user` is set | 409    | `{"status": "save script of another account", ...}`      |
+| A save runs already                                      | 503    | `{"status": "saving"}`, with `Retry-After`               |
+| The save script fails, or runs past `snapshots.timeout`  | 500    | the reply of [POST /](#post-) for that run of the script |
+| A body other than `{"stop": <boolean>}`                  | 400    | the [validation error](#conventions)                     |
+
+The `409` for `scripts.user` has a `message` that says what to do
+([PRIVILEGE-SETUP.md](../PRIVILEGE-SETUP.md)). A save script that
+exited with code 3 gave:
+
+```json
+{
+  "status": "failed",
+  "result": {
+    "exitCode": 3,
+    "stdout": "",
+    "stderr": "no ward",
+    "resources": { "cpuSeconds": null, "peakRssBytes": null, "processes": null }
+  }
+}
+```
+
+A save that fails leaves no directory, and the DT goes on, also when
+the request had `stop`. A save that succeeds writes a `snapshot` row
+to the timeline. The save script has a run in
+[GET /history](#get-history) under the caller of the save.
+
+With `stop`, the runner answers `201`, then stops the scripts that
+run and shuts down without taking a request again. If the shutdown
+fails, the runner logs it and goes on, with its scripts already
+stopped.
+
+### GET /snapshot
+
+Lists the snapshots of the directory, oldest first. A directory there
+without a readable `snapshot.json` is left out. MQTT route:
+`snapshots`, on `<topic>/snapshot`.
+
+```bash
+curl -s http://localhost:5317/snapshot
+```
+
+`200`:
+
+```json
+[
+  {
+    "time": "2026-11-24T12:48:51.220Z",
+    "seq": 3,
+    "path": "run/ward-1/snapshots/20261124T124851220Z"
+  }
+]
+```
+
+### DELETE /snapshot/:name
+
+Removes the snapshot of that name, the last part of its `path`. It
+has no MQTT route.
+
+```bash
+curl -s -X DELETE http://localhost:5317/snapshot/20261124T124851220Z
+```
+
+`204`, with no body. A name that is not of a snapshot of the
+directory gets `404`:
+
+```json
+{ "message": "Not Found", "statusCode": 404 }
+```
 
 ## Repeated Requests
 
@@ -1654,39 +1817,47 @@ the properties but not write them, as they are what the DT observes.
 A `sensor` feeds property values from outside the runner, such as a
 gateway of the physical twin: it reads and writes the properties and
 calls nothing else.
+An `operator` runs the runner: it reads, stops commands, and saves,
+lists and removes [snapshots](#snapshots), and steers nothing. A
+manager can not copy the DT.
 The runner's own scripts send `Authorization: Bearer $RUNNER_TOKEN`
 (see [Calls From Scripts](#calls-from-scripts)) and act in the role
 `script`. A principal's token is accepted from a script too, in the
 principal's role.
 
-| HTTP                   | MQTT route       | client | manager            | script | sensor |
-| :--------------------- | :--------------- | :----- | :----------------- | :----- | :----- |
-| `GET /health`          | `health`         | open   | open               | open   | open   |
-| `GET /dt`              | `dt`             | yes    | yes                | yes    | no     |
-| `GET /state`           | `state`          | yes    | yes                | yes    | no     |
-| `GET /`                | `status`         | yes    | yes                | yes    | no     |
-| `GET /history`         | `history`        | yes    | yes                | yes    | no     |
-| `GET /metrics`         | `metrics`        | yes    | yes                | yes    | no     |
-| `GET /fsm`             | `fsm`            | yes    | yes                | yes    | no     |
-| `GET /parameters`      | `parameters`     | yes    | yes                | yes    | no     |
-| `POST /`               | `execute`        | yes    | `manager.commands` | no     | no     |
-| `POST /stop`           | `stop`           | yes    | no                 | no     | no     |
-| `POST /fsm/transition` | `transition`     | yes    | no                 | no     | no     |
-| `POST /fsm/event`      | `event`          | yes    | no                 | yes    | no     |
-| `POST /escalate`       | `escalate`       | yes    | no                 | yes    | no     |
-| `PUT /parameters`      | `set-parameters` | yes    | yes                | no     | no     |
-| `GET /properties`      | `properties`     | yes    | yes                | yes    | yes    |
-| `PUT /properties`      | `set-properties` | yes    | no                 | yes    | yes    |
-| `GET /peers`           | `peers`          | yes    | yes                | yes    | no     |
-| `PUT /peers`           | `set-peers`      | yes    | yes                | no     | no     |
-| `GET /timeline`        | `timeline`       | yes    | yes                | yes    | no     |
+| HTTP                   | MQTT route        | client | operator | manager            | script | sensor |
+| :--------------------- | :---------------- | :----- | :------- | :----------------- | :----- | :----- |
+| `GET /health`          | `health`          | open   | open     | open               | open   | open   |
+| `GET /dt`              | `dt`              | yes    | yes      | yes                | yes    | no     |
+| `GET /state`           | `state`           | yes    | yes      | yes                | yes    | no     |
+| `GET /`                | `status`          | yes    | yes      | yes                | yes    | no     |
+| `GET /history`         | `history`         | yes    | yes      | yes                | yes    | no     |
+| `GET /metrics`         | `metrics`         | yes    | yes      | yes                | yes    | no     |
+| `GET /fsm`             | `fsm`             | yes    | yes      | yes                | yes    | no     |
+| `GET /parameters`      | `parameters`      | yes    | yes      | yes                | yes    | no     |
+| `POST /`               | `execute`         | yes    | no       | `manager.commands` | no     | no     |
+| `POST /stop`           | `stop`            | yes    | yes      | no                 | no     | no     |
+| `POST /fsm/transition` | `transition`      | yes    | no       | no                 | no     | no     |
+| `POST /fsm/event`      | `event`           | yes    | no       | no                 | yes    | no     |
+| `POST /escalate`       | `escalate`        | yes    | no       | no                 | yes    | no     |
+| `PUT /parameters`      | `set-parameters`  | yes    | no       | yes                | no     | no     |
+| `GET /properties`      | `properties`      | yes    | yes      | yes                | yes    | yes    |
+| `PUT /properties`      | `set-properties`  | yes    | no       | no                 | yes    | yes    |
+| `GET /peers`           | `peers`           | yes    | yes      | yes                | yes    | no     |
+| `PUT /peers`           | `set-peers`       | yes    | no       | yes                | no     | no     |
+| `GET /timeline`        | `timeline`        | yes    | yes      | yes                | yes    | no     |
+| `GET /snapshot`        | `snapshots`       | yes    | yes      | no                 | no     | no     |
+| `POST /snapshot`       | `save`            | yes    | yes      | no                 | no     | no     |
+| `DELETE /snapshot/<n>` | `delete-snapshot` | yes    | yes      | no                 | no     | no     |
 
 A `manager` and a `script` read the [timeline](#timeline) without the
-`input` of a command, which only a `client` sees.
+`input` of a command, which only a `client` and an `operator` see.
 
 The route names are those of the 403 message, over HTTP and MQTT
 alike, whatever the topic: a manager that writes a property gets
-`manager may not call set-properties`.
+`manager may not call set-properties`. `delete-snapshot` is a
+route of HTTP alone. An operator that asks for a transition gets
+`operator may not call transition`.
 
 ### Errors
 
@@ -1757,6 +1928,8 @@ whose payload is their query.
 | `<topic>/peers/set`      | `PUT /peers`           | `{"<peer id>": <boolean>}`            |
 | `<topic>/metrics`        | `GET /metrics`         | none                                  |
 | `<topic>/timeline`       | `GET /timeline`        | `{"kind": "command"}`                 |
+| `<topic>/snapshot`       | `GET /snapshot`        | none                                  |
+| `<topic>/snapshot/set`   | `POST /snapshot`       | `{"stop": true}`, `{}` or none        |
 
 The topic of a route is `<topic>/<route>`, except for the three routes
 that write a resource. Their topic is one level under the topic that
@@ -1781,6 +1954,10 @@ sensor:
 - The route names do not change: `set-parameters`, `set-properties`
   and `set-peers` in the [role table](#roles), in a 403 message and in
   this document.
+- The snapshots take the same form: `<topic>/snapshot` lists them
+  (route `snapshots`) and `<topic>/snapshot/set` saves (route `save`).
+  The replies are those of HTTP, and a change refused during a save
+  gets `{"status": "saving"}`. No topic removes a snapshot.
 
 ### Responses
 
@@ -2470,6 +2647,13 @@ deprecated, and a file or a request that uses one is refused:
 | `notify` and `peers` at the top of the configuration             | `relationships.manager.notify`, `relationships.peers`                                |
 | `type: enum` with `values`, for a parameter                      | `type: string` with `enum`                                                           |
 | The MQTT topics `<topic>/set-parameters` and `<topic>/set-peers` | `<topic>/parameters/set` and `<topic>/peers/set` ([Request Topics](#request-topics)) |
+
+It also adds the role `operator` ([Roles](#roles)), the
+[snapshots](#snapshots) with their three routes and two MQTT topics,
+`saving` in [GET /health](#get-health), the timeline kind `snapshot`,
+and `reinstated` in a `start` row. A `503` with the status `saving`
+is new: a client that changes the DT may get it during a save, and
+tries again after `Retry-After`.
 
 Version 0.11.0 added
 [properties](#properties), the role `sensor`, `stateInterval`, the

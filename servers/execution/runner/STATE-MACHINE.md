@@ -43,6 +43,8 @@ parameters: # optional; values of parameters of the file, for this DT
   capacity: 30
 database: 'runner.db' # optional; keeps the machine across restarts
 stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
+snapshots: # optional; where the DT is saved
+  directory: 'run/pipeline-1/snapshots'
 ```
 
 - Without `stateMachine` the state machine is off, and its routes
@@ -60,6 +62,9 @@ stopGrace: 5000 # optional; milliseconds from SIGTERM to SIGKILL
   [Watch the State](#watch-the-state).
 - `peers` under `relationships` lists the DTs this one follows; see
   [Subscriptions to Peers](#subscriptions-to-peers).
+- `snapshots` lets an operator save the DT and start a runner from the
+  copy; see [Snapshot](#snapshot) and
+  [README](README.md#saving-and-reinstating).
 - Before version 0.11.0, `notify` and `peers` were at the top of the
   file. Version 0.11 still loaded them there, with a warning; 0.12.0
   refuses them and names the new path
@@ -429,6 +434,62 @@ of the `commands` of _runner.yaml_. `GET /dt` shows the list. With
 access control ([README](README.md#access-control)), a principal in the
 role `manager` may run only these commands; without it, the list is not
 enforced.
+
+### Snapshot
+
+```yaml
+snapshot:
+  save: save-ward
+  restore: restore-ward
+```
+
+The two commands that save and restore what the scripts keep in their
+own files, when an operator saves the DT as a snapshot and starts a
+runner from one ([README](README.md#saving-and-reinstating)). Each
+must be one of the `commands` of _runner.yaml_. Both are optional, and
+a class that keeps everything in properties needs neither.
+
+- The save script runs during a save, after the runner has copied its
+  database, the two files and the scripts. It gets `DT_SNAPSHOT_DIR`,
+  the directory `files/` of the snapshot, and writes there. The
+  restore script runs when a runner is reinstated, after the copy of
+  the database and before the machine resumes. It gets
+  `DT_SNAPSHOT_DIR` set to `files/` of the snapshot, and reads from
+  there. The two scripts have the rest of the
+  [environment](#environment) of any command.
+- Each has `snapshots.timeout` of _runner.yaml_ to end, 30 seconds by
+  default. A save script that fails or runs past it fails the save,
+  which leaves no directory; a restore script that does stops the
+  runner, which removes the database it copied.
+- A snapshot saved without a save script has no `files/`, and a
+  reinstate skips the restore script with a warning.
+- Each run is in `GET /history`, with the caller of the save.
+- With `scripts.user`, a class with a save script can not be saved, and
+  one with a restore script can not be reinstated; see
+  [PRIVILEGE-SETUP.md](PRIVILEGE-SETUP.md#saving-and-reinstating).
+
+The script of the current state keeps running during a save, and its
+entry does not change: what it holds in memory alone is not saved, and
+a reinstated twin waits in that state as `interrupted`. A script that
+must survive a save therefore does what it does to survive a restart
+([Restarts](#restarts)):
+
+- It keeps what must survive in files or in properties, never in
+  memory alone.
+- It writes a file in one step, to a temporary name and then a rename,
+  so that a save never copies half of one:
+
+```sh
+printf '{"beds":3}' > run/ward-1/ward.json.tmp &&
+  mv run/ward-1/ward.json.tmp run/ward-1/ward.json
+```
+
+- It keeps its files outside `location` or names them in the save
+  script: the runner copies the whole of `location` into `scripts/` of
+  the snapshot, but restores only the database and what the restore
+  script puts back.
+
+The runner sends a script no signal before a save.
 
 ### Subscriptions to Peers
 
@@ -950,6 +1011,11 @@ each property at each write. When it starts again:
 
 Without a database file, the runner starts with no state, the default
 values of the parameters, and every property `null`.
+
+A runner started with `--reinstate <snapshot>` starts in the same way
+from the copy of the database in the snapshot: the machine is in the
+saved state as `interrupted`, and waits for a transition request or an
+event ([README](README.md#reinstating)).
 
 ### Trace a State
 

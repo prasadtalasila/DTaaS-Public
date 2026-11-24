@@ -288,3 +288,27 @@ content-type: {{ContentType}}
 {
     "name": "execute"
 }
+
+### Save the twin as a snapshot; needs snapshots in runner.yaml
+
+POST http://{{hostname}}:{{port}}/snapshot HTTP/1.1
+content-type: {{ContentType}}
+
+{}
+
+### List the snapshots, oldest first
+
+GET http://{{hostname}}:{{port}}/snapshot HTTP/1.1
+
+### Remove a snapshot, named by the last part of its path
+
+DELETE http://{{hostname}}:{{port}}/snapshot/20261124T124851220Z HTTP/1.1
+
+### Save, then shut the runner down
+
+POST http://{{hostname}}:{{port}}/snapshot HTTP/1.1
+content-type: {{ContentType}}
+
+{
+    "stop": true
+}

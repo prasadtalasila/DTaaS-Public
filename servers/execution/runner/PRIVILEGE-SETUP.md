@@ -367,6 +367,52 @@ A path is readable only if the script account can search every
 directory above it, so a file of mode `644` beneath a directory of mode
 `700` passes. A symbolic link is judged by its target.
 
+## Saving and Reinstating
+
+A snapshot directory has mode `0700` and belongs to the runner's
+account, as it holds the logs and inputs of commands
+([SECURITY-MODEL.md](SECURITY-MODEL.md#snapshots)). The runner holds no
+capability that could hand a directory to the script account, so a
+script of the class can not write into a snapshot or read one. With
+`scripts.user`:
+
+- A save of a class without a save script works as without the
+  setting. The scripts keep what must survive in properties.
+- A save of a class that names a save script is refused with `409`:
+
+  ```json
+  {
+    "status": "save script of another account",
+    "message": "With scripts.user the save script runs as another account, which can not write into a snapshot that only the account of the runner reads. Leave out scripts.user, or keep what the scripts need in properties and name no save script."
+  }
+  ```
+
+- A runner started with `--reinstate` from a class that names a
+  restore script stops with:
+
+  ```text
+  Error: Can not reinstate with /opt/dt/runner.yaml: with scripts.user the restore script runs as another account, which can not read a snapshot that only the account of the runner reads. Leave out scripts.user to reinstate, then add it again, or name no restore script in the class and copy files/ of the snapshot by hand.
+  ```
+
+What the operator can do:
+
+- Keep what the scripts need in properties, and name no save or
+  restore script in the class.
+- Reinstate without `scripts.user`, then stop the runner, add the
+  section again and start it as usual; the twin resumes from its
+  database. The files that the restore script wrote then belong to
+  the runner's account: give them to the script account by hand.
+- Copy `files/` of the snapshot into the run directory by hand, as
+  root or the runner's account, with the owner that the scripts need.
+
+Keep `snapshots.directory` outside the run directory, where the script
+account can not write; the runner does not check it at startup.
+
+A later version could let the save script write into a directory under
+the run directory, which the script account owns already, and move
+what it wrote into the snapshot after it; and the reverse for a
+restore. The runner does not do this today.
+
 ## What Stays Open
 
 The second account keeps a script from the runner's files and
