@@ -357,9 +357,11 @@ runner -c runner.yaml --reinstate run/hospital-1/snapshots/20261124T125705005Z
 5. It starts as after any restart, and writes a `start` row with
    `reinstated`: the `id`, `time` and `seq` of the snapshot.
 
-Any failure after the copy, of the restore script or of the start,
-removes the copied database, and the runner stops; a later start can
-copy again.
+If the restore script or the resume of the machine fails, the copied
+database is removed and the runner stops; a later start can copy
+again. A failure after that, such as a port in use, leaves the copied
+database: the operator starts without `--reinstate`, or removes the
+database before reinstating again.
 
 The reinstated twin has everything that the first had: the values,
 the command history with its logs, and the timeline. Its machine is

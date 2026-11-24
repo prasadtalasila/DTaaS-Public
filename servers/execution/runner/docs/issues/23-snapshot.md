@@ -2,7 +2,7 @@
 
 - Status: in progress, on the branch `runner/23-snapshot`. The design
   was settled with the owner on 2026-11-23; the Spec below says what
-  was built, and the demo step is still to do.
+  was built.
 - Depends on: [22](22-timeline.md) (the row that a save writes), 21
   (the class that a saved twin belongs to), 15a (the roles)
 - PR: none yet
@@ -233,10 +233,13 @@ runner -c runner.yaml --reinstate snapshots/20261124T125705005Z
    refuses to overwrite a file, in case one appeared since the check.
 4. **It runs the restore script**, if the class names one, with
    `DT_SNAPSHOT_DIR` set to `files/`. A snapshot without `files/`,
-   saved without a save script, skips it with a warning. Any failure
-   after the copy, of the restore script or of the start, removes the
-   copied database, and the runner stops with the error; a later start
-   can copy again.
+   saved without a save script, skips it with a warning. If the
+   restore script or the resume of the machine fails, the runner
+   removes the copied database and stops with the error; a later start
+   can copy again. A failure after that, such as a port in use, leaves
+   the copied database, and a second `--reinstate` stops with
+   `the database exists already`: the operator starts without
+   `--reinstate`, or removes the database first.
 5. **It starts as after any restart.** A stored value that no longer
    fits the class is dropped with a warning, and a command that was
    running is `interrupted`. The machine is in the last state of the
@@ -488,8 +491,9 @@ Provisional:
       `test/e2e/reinstate.refuse.spec.ts`,
       `test/unit/snapshot.reinstate.spec.ts`,
       `test/e2e/dist.spec.ts`.
-- [ ] The demo hospital is saved, reinstated on another port, and has
-      its patients. Check: a step of `demo/hospital/tools/steps.mjs`.
+- [x] The demo hospital is saved, reinstated on another port, and has
+      its patients. Check: the chapter "Save and reinstate" of
+      `demo/hospital/tools/steps-peers.mjs`, run with `record.mjs`.
 - [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
 - [x] `yarn build` and `yarn test` pass, and
@@ -531,7 +535,8 @@ What the plan did not foresee:
 - **A cleanup must remove only what it wrote.** Reinstating first
   removed the copied database only when the restore script failed;
   any other failure left a file that refused every later start. A
-  `try` now covers everything after the copy, and the copy itself
+  `try` now covers the restore script and the resume of the machine,
+  and the copy itself
   refuses to overwrite (`COPYFILE_EXCL`), so the cleanup never removes
   a file that it did not write.
 - **The order of the checks matters to the operator.** The manifest
@@ -547,3 +552,7 @@ What the plan did not foresee:
   class owned by `DescriptorService`, and `fsm.manager` became public
   for it, as no injectable could reach the MQTT handler without a
   fourth parameter.
+- **A save with stop ends the runner only if nothing else holds the
+  process.** The demo's `tools/runner.mjs` polled for its shutdown file
+  with a timer that kept Node alive after `app.close()`; the timer is
+  now `unref`. A wrapper of the runner must let it exit by itself.

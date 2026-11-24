@@ -228,9 +228,10 @@ routes in `src/snapshot.controller.ts`. Before changing them:
   when the save ends; anything that a save must hold goes through it
   too. `src/fsm/fsm.service.ts` is at 247 lines: move code out before
   adding.
-- `Snapshots.copyDatabase` reads the machine, runs `VACUUM INTO` and
-  reads the last `seq` in one synchronous step. Do not put an `await`
-  between them, or a row can come between the copy and its manifest.
+- `Snapshots.copyDatabase` copies the database with `VACUUM INTO`,
+  reads the last `seq` and then the machine, in one synchronous step.
+  Do not put an `await` between them, or a row can come between the
+  copy and its manifest.
 - `Snapshots.onStop` takes the shutdown after a save with `stop`;
   `main.ts` gives `app.close`. Without a listener nothing shuts down,
   so a test gives its own, which closes the app and resolves a promise.

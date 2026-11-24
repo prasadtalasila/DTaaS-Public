@@ -6,11 +6,11 @@
 // directory.
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { appendFileSync, openSync, readFileSync } from 'node:fs';
+import { appendFileSync, openSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import Cast from './cast.mjs';
 import Clock, { capGaps } from './clock.mjs';
-import { RUNNERS, reset, writeConfigs } from './configs.mjs';
+import { MOVED, RUNNERS, reset, writeConfigs } from './configs.mjs';
 import steps from './steps.mjs';
 import notice from './summary.mjs';
 import { healthy } from './waits.mjs';
@@ -63,11 +63,24 @@ async function startServices() {
   manager.output(ready.toString());
 }
 
+// The options of a runner: the moved one is reinstated from the last
+// snapshot of hospital-1
+function options(id) {
+  if (id !== MOVED.id) {
+    return ['-c', RUNNERS[id].config];
+  }
+  const last = readdirSync(MOVED.snapshots).sort().at(-1);
+  return ['-c', MOVED.config, '--reinstate', `${MOVED.snapshots}/${last}`];
+}
+
 async function startRunner(id) {
-  const log = openSync(`run/${id}/runner.log`, 'w');
+  const log = openSync(
+    id === MOVED.id ? MOVED.log : `run/${id}/runner.log`,
+    'w',
+  );
   processes[id] = spawn(
     process.execPath,
-    ['tools/runner.mjs', '-c', RUNNERS[id].config],
+    ['tools/runner.mjs', ...options(id)],
     { stdio: ['ignore', log, log], env: { ...process.env, NO_COLOR: '1' } },
   );
   await poll(healthy(id), Date.now() + 60000);

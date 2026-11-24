@@ -1438,7 +1438,8 @@ The manifest of a save of a twin in the state `open`:
 
 The directory has mode `0700`. In the copy of _runner.yaml_ the MQTT
 password, the user and password of `mqtt.url` and the webhook token
-are blanked; the signing key is a path, and is not copied. The copy is
+are blanked; the signing key is a path, and is not copied unless it
+lies under `location`. The copy is
 written from the parsed file, so it has no comments. The whole
 directory of the scripts is copied at every save: a class with a large
 simulator in `location` makes every snapshot as large.
@@ -1512,8 +1513,13 @@ another port and other paths, and may have another `id`. The runner:
 6. starts as after a [restart](#restarts), and writes a `start` row
    with `reinstated`: the `id`, `time` and `seq` of the snapshot.
 
-If anything after the copy fails, the runner removes the copied
-database and stops, so that a later start can copy again. A refusal
+If the restore script or the resume of the machine fails, the runner
+removes the copied database and stops, so that a later start can copy
+again. A failure after that, such as a port in use, leaves the copied
+database: a second `--reinstate` then stops with
+`the database exists already`. Start without `--reinstate`, which
+resumes from that database, or remove it before reinstating again. A
+refusal
 stops the runner with exit code 1 and a line such as:
 
 ```text

@@ -17,3 +17,5 @@ const timer = setInterval(() => {
     process.emit('SIGINT', 'SIGINT');
   }
 }, 200);
+// a save with stop closes the runner, which must then be free to exit
+timer.unref();

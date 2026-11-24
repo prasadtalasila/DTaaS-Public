@@ -189,7 +189,19 @@ properties, so `save-script` copies that file to `DT_SNAPSHOT_DIR` and
 | `restore-script` | [restore-script](scripts/restore-script) | [restore-script.ps1](scripts/restore-script.ps1) |
 
 The bash scripts were run; the PowerShell ones have not been run yet.
-The recordings predate the snapshots and do not show them.
+
+The chapter "Save and reinstate" of
+[tools/steps-peers.mjs](tools/steps-peers.mjs) comes before "Presence:
+offline". `dt1 /snapshot` with `{"stop": true}` saves `hospital-1` and
+shuts its runner down; the step removes `run/hospital-1/ward.json` and
+starts hospital-1 again on port 5300 with `runner-moved.auth.yaml`,
+which `record.mjs` writes from `runner.auth.yaml` with a database of
+its own, and `--reinstate` with the snapshot. `dt3` of
+[tools/shell.sh](tools/shell.sh) asks it. The restored `ward.json`
+has the patients, `GET /fsm` the saved `closed`, and the `start` row
+names the snapshot. Everything is under `run/hospital-1`, which the
+next recording clears. The recordings predate the snapshots and do
+not show the chapter; they are recorded again after issue 25.
 
 A copy of the demo without its `mqtt` section, with `hospital-1` in
 `open` after `admit` of `p-1` to cardiology, answered

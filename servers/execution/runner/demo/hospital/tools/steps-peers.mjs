@@ -1,5 +1,6 @@
 // The second half of the story of the demo (steps.mjs): the peer
 // events, the escalations, history, metrics, stop and shutdown
+import { MOVED } from './configs.mjs';
 import { fsmIs, logHas } from './waits.mjs';
 
 // Windows runs <name>.ps1 of scripts/, and Linux the script <name>
@@ -101,12 +102,33 @@ export default [
   },
   { run: "grep -v ' | ' run/webhook.log" },
 
+  { chapter: 'Save and reinstate' },
+  {
+    say: 'The operator takes hospital-1 out of execution: it saves a snapshot, then shuts down.',
+  },
+  { run: `dt1 /snapshot --json '{"stop":true}'` },
+  { stop: H1 },
+  {
+    say: 'The beds are lost with the host; the twin comes back on port 5300 from the snapshot.',
+  },
+  { run: `rm run/${H1}/ward.json` },
+  {
+    start: MOVED.id,
+    show: `node tools/runner.mjs -c ${MOVED.config} --reinstate ${MOVED.snapshots}/* > ${MOVED.log} &`,
+  },
+  {
+    say: 'restore-script brought the patients back, and the machine is where it was:',
+  },
+  { run: `cat run/${H1}/ward.json` },
+  { run: 'dt3 /fsm' },
+  { run: `dt3 '/timeline?kind=start' | grep -o '"reinstated":[^}]*}'` },
+
   { chapter: 'Presence: offline' },
   {
     say: 'Graceful shutdown, as on Ctrl+C: hospital-1 leaves with an offline notice (right).',
   },
   { run: 'touch run/shutdown' },
-  { stop: H1 },
+  { stop: MOVED.id },
   {
     say: 'A Manager that subscribes now gets the retained state and presence of both DTs:',
   },

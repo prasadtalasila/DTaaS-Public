@@ -3,6 +3,12 @@
 export const DTS = {
   'hospital-1': { base: 'dtaas/hospital-1', url: 'http://127.0.0.1:5100' },
   'hospital-2': { base: 'dtaas/hospital-2', url: 'http://127.0.0.1:5200' },
+  // hospital-1 reinstated from its snapshot on another port
+  'hospital-1-moved': {
+    aud: 'hospital-1',
+    base: 'dtaas/hospital-1',
+    url: 'http://127.0.0.1:5300',
+  },
 };
 // The DT of the tools that name none, through DT_ID
 export const ID = process.env.DT_ID ?? 'hospital-1';
