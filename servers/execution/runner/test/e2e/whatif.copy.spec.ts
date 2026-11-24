@@ -77,6 +77,32 @@ describe('The copy of a what-if end-to-end', () => {
   );
 
   it(
+    'Should refuse a what-if, and its joiners, when the command starts live during the copy',
+    async () => {
+      const twin = await start();
+      const first = ask(twin, 'forecast-slow').then((reply) => reply);
+      await until(() => saving(twin));
+      const second = ask(twin, 'forecast-slow').then((reply) => reply);
+      // a run that no route guard stops, as a resumed state entry
+      const live = twin.get(ExecaManager).newCommand('forecast-slow');
+      touch(dir, 'release');
+
+      const replies = await Promise.all([first, second]);
+
+      expect(replies.map(({ status }) => status)).toEqual([409, 409]);
+      expect(replies[0].body).toEqual({ status: 'command running' });
+      await until(() => Promise.resolve(copies().length === 0));
+      const rows = (await call(twin, client, ['get', '/timeline?kind=whatif']))
+        .body;
+      expect(rows).toEqual([]);
+      touch(dir, 'go');
+      expect((await live)[0]).toBe('success');
+      expect((await ask(twin, 'forecast-text')).status).toBe(202);
+    },
+    TIMEOUT,
+  );
+
+  it(
     'Should refuse a what-if while the save script runs',
     async () => {
       const twin = await start();

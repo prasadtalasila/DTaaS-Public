@@ -125,9 +125,7 @@ export default class WhatIfs {
   // Makes the copy while the twin is paused, then starts the run
   private async begin(body: ExecuteCommandDto): Promise<number> {
     const root = this.copies();
-    if (this.host.fsm.manager.isRunning(body.name)) {
-      throw conflict('command running');
-    }
+    this.refuseLive(body.name);
     const time = new Date().toISOString();
     const directory = join(root, snapshotName(time));
     const { snapshots, twin, fsm } = this.host;
@@ -136,7 +134,22 @@ export default class WhatIfs {
       stop: false,
       whatIf: (copy) => writePresent(copy, presentOf(twin, fsm)),
     });
+    // a run that started during the copy, which no route guard stops;
+    // from here to the start nothing awaits
+    try {
+      this.refuseLive(body.name);
+    } catch (error) {
+      await this.remove({ id: 0, name: body.name, directory });
+      throw error;
+    }
     return this.start(body, directory);
+  }
+
+  // A what-if does not join a live run of its command
+  private refuseLive(name: string): void {
+    if (this.host.fsm.manager.isRunning(name)) {
+      throw conflict('command running');
+    }
   }
 
   // The directory of the copies; the checks of a save come first, and a
