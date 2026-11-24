@@ -4,17 +4,30 @@ import type { Entry } from './entries.js';
 // One timeline of a comparison: its directory, the twin and its entries
 export type Side = { dir: string; id: string; entries: Entry[] };
 
-const WIDTH = 33;
-
 const clock = (time: string): string => time.slice(11, 19);
 
+// The widths of the state and of the cause, the longest of both sides
+type Widths = { state: number; name: number };
+
+type Row = { a: Entry | null; b: Entry | null };
+
+function widthsOf(rows: Row[]): Widths {
+  const entries = rows.flatMap(({ a, b }) => [a, b]).filter((e) => e !== null);
+  const longest = (lengths: number[]) => Math.max(0, ...lengths);
+  return {
+    state: longest(entries.map(({ state }) => state.length)),
+    name: longest(entries.map(({ cause }) => cause.name.length)),
+  };
+}
+
 // The state, then what caused it, and who
-function cell(entry: Entry | null): string {
+function cell(entry: Entry | null, widths: Widths): string {
   if (entry === null) {
     return '-';
   }
   const { state, cause } = entry;
-  return `${state.padEnd(7)} ${cause.name.padEnd(11)} ${cause.by ?? ''}`.trimEnd();
+  const named = cause.name.padEnd(widths.name);
+  return `${state.padEnd(widths.state)}  ${named}  ${cause.by ?? ''}`.trimEnd();
 }
 
 const cpu = (side: Side): number =>
@@ -42,18 +55,33 @@ export function compared(a: Side, b: Side, pairs: Pair[]) {
 
 export type Compared = ReturnType<typeof compared>;
 
+// The rows, each side as wide as its longest cell
+function table(result: Compared): string[] {
+  const widths = widthsOf(result.rows);
+  const cells = result.rows.map(({ a, b }) => [
+    cell(a, widths),
+    cell(b, widths),
+  ]);
+  const width =
+    Math.max(result.a.id.length, ...cells.map(([a]) => a.length)) + 3;
+  const marked = result.rows.findIndex(({ same }) => !same);
+  const lines = result.rows.map(({ at }, index) => {
+    const mark = index === marked ? '   <- first difference' : '';
+    const [a, b] = cells[index];
+    return `${clock(at).padEnd(10)}${a.padEnd(width)}${b}${mark}`;
+  });
+  return [
+    `${'at'.padEnd(10)}${result.a.id.padEnd(width)}${result.b.id}`,
+    ...lines,
+  ];
+}
+
 // The comparison as a listing, with the first difference marked
 export function listing(result: Compared): string {
-  const head = `${'at'.padEnd(10)}${result.a.id.padEnd(WIDTH)}${result.b.id}`;
-  const marked = result.rows.findIndex(({ same }) => !same);
-  const lines = result.rows.map(({ at, a, b }, index) => {
-    const mark = index === marked ? '   <- first difference' : '';
-    return `${clock(at).padEnd(10)}${cell(a).padEnd(WIDTH)}${cell(b)}${mark}`;
-  });
   const end = result.same
     ? 'the same'
     : `first difference at ${clock(String(result.firstDifference))}`;
   const counts = `entries: ${result.a.entries} and ${result.b.entries}; ${end}`;
   const seconds = `cpu seconds: ${result.a.cpuSeconds.toFixed(1)} and ${result.b.cpuSeconds.toFixed(1)}`;
-  return [head, ...lines, '', counts, seconds].join('\n');
+  return [...table(result), '', counts, seconds].join('\n');
 }

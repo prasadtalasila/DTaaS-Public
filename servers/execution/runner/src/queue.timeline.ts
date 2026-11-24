@@ -139,14 +139,20 @@ export default class Timeline {
 
   // Writes the row of a command or a what-if request, submits the
   // command, and completes the row with the run in the history that the
-  // submit names at once; a refused request has no run
+  // submit names at once; a refused request has no run, and a repeated
+  // one gets stored: true beside the run whose stored reply it got
   command<Result>(
     { name, input }: { name: string; input?: Data },
-    submit: (onRun: (run: number) => void) => Result,
+    submit: (onRun: (run: number, stored?: boolean) => void) => Result,
     kind: 'command' | 'whatif' = 'command',
   ): Result {
     const seq = this.record(kind, { name, input, run: null });
-    return submit((run) => this.complete(seq, 'run', run));
+    return submit((run, stored) => {
+      this.complete(seq, 'run', run);
+      if (stored === true) {
+        this.complete(seq, 'stored', true);
+      }
+    });
   }
 
   // Writes the changes of one request, if any

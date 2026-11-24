@@ -17,16 +17,20 @@ const isTime = (time: string): boolean => {
   );
 };
 
-// A time as an operator writes it, read as the extended form
+// A time as an operator writes it, read as the extended form; one check,
+// so that a refusal names the problem once
 export const timeSchema = z
   .string()
-  .regex(NAME, 'must be a time in the form YYYYMMDDTHHMMSSmmmZ')
-  .refine(isTime, 'must be a time in the form YYYYMMDDTHHMMSSmmmZ')
+  .refine(
+    (time) => NAME.test(time) && isTime(time),
+    'must be a time in the form YYYYMMDDTHHMMSSmmmZ',
+  )
   .transform(isoOf);
 
 // Milliseconds from the first time to the second, over the speed
 export const gap = (from: string, to: string, speed: number): number =>
   Math.max(0, (Date.parse(to) - Date.parse(from)) / speed);
 
+// A delay in the past is none, as setTimeout warns of a negative one
 export const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));

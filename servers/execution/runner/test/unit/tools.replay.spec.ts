@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import { httpClaimsSchema, readClaims } from 'src/auth/claims';
 import { parseJws, verifyJws } from 'src/auth/jws';
 import { publicKeyObject } from 'src/auth/auth.config';
@@ -14,7 +14,6 @@ import {
   setProperties,
   settle,
 } from 'src/tools/send';
-import { gap, isoOf, timeSchema } from 'src/tools/times';
 import TwinClient from 'src/tools/twin-client';
 
 // What the fake replay twin received
@@ -123,6 +122,24 @@ describe('Sending the inputs to a replay twin', () => {
     });
   });
 
+  it('Should send a late input at once, and never a stored reply', async () => {
+    const before = received.length;
+    const timer = jest.spyOn(global, 'setTimeout');
+    const counts = await sendAll(
+      client,
+      [input(-60), input(1, { stored: 400 }), input(0)],
+      { from: FROM, speed: 1 },
+    );
+    const delays = timer.mock.calls.map(([, ms]) => Number(ms));
+    timer.mockRestore();
+
+    expect(counts).toEqual({ sent: 2, refused: 0 });
+    expect(
+      received.slice(before).map(({ headers }) => headers['replay-seq']),
+    ).toEqual(['340', '400']);
+    expect(delays.every((ms) => ms >= 0)).toBe(true);
+  });
+
   it('Should keep the gaps of the twin over the speed', async () => {
     const before = received.length;
     const begin = Date.now();
@@ -210,23 +227,5 @@ describe('Sending the inputs to a replay twin', () => {
     await expect(
       lost.call({ method: 'GET', path: '/fsm' }),
     ).rejects.toMatchObject({ code: 1 });
-  });
-});
-
-describe('The times of a replay', () => {
-  it('Should read a time in the form of the names of snapshots', () => {
-    expect(isoOf('20261123T060000000Z')).toBe('2026-11-23T06:00:00.000Z');
-    expect(timeSchema.parse('20261123T060000120Z')).toBe(
-      '2026-11-23T06:00:00.120Z',
-    );
-    expect(timeSchema.safeParse('20261131T060000000Z').success).toBe(false);
-    expect(timeSchema.safeParse('2026-11-23T06:00:00.000Z').success).toBe(
-      false,
-    );
-  });
-
-  it('Should divide a gap by the speed, and never wait for the past', () => {
-    expect(gap(FROM, '2026-11-22T23:00:00.000Z', 60)).toBe(60000);
-    expect(gap(FROM, '2026-11-22T21:00:00.000Z', 1)).toBe(0);
   });
 });

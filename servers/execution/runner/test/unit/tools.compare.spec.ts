@@ -1,9 +1,8 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, jest } from '@jest/globals';
-import { align } from 'src/tools/align';
 import { compare } from 'src/tools/compare-run';
-import { Entry, readEntries } from 'src/tools/entries';
+import { readEntries } from 'src/tools/entries';
 import { fakeSnapshot, newDir, Row, writeDb } from './tools.fixture';
 
 const BEFORE: Row[] = [
@@ -120,10 +119,10 @@ describe('Comparing two timelines', () => {
 
     expect(code).toBe(0);
     expect(text.split('\n')).toEqual([
-      `at        dt-1                             dt-1.replay`,
-      `10:00:03  open    transition  alice        open    transition  alice`,
-      `10:00:05  full    valid                    full    valid`,
-      `10:00:07  closed  close       alice        closed  close       alice`,
+      `at        dt-1                        dt-1.replay`,
+      `10:00:03  open    transition  alice   open    transition  alice`,
+      `10:00:05  full    valid               full    valid`,
+      `10:00:07  closed  close       alice   closed  close       alice`,
       '',
       'entries: 3 and 3; the same',
       'cpu seconds: 0.0 and 2.5',
@@ -137,7 +136,7 @@ describe('Comparing two timelines', () => {
 
     expect(code).toBe(1);
     expect(text).toContain(
-      'full    valid                    failed  invalid   <- first difference',
+      'full    valid               failed  invalid   <- first difference',
     );
     expect(text).toContain('entries: 3 and 3; first difference at 10:00:05');
   });
@@ -179,7 +178,7 @@ describe('Comparing two timelines', () => {
 
     expect(code).toBe(1);
     expect(text).toContain(
-      'closed  close       alice        -   <- first difference',
+      'closed  close       alice   -   <- first difference',
     );
   });
 
@@ -192,36 +191,5 @@ describe('Comparing two timelines', () => {
       'is neither a snapshot nor the out of a replay',
     );
     expect(() => compare(odd, inputs, false)).toThrow('odd is neither');
-  });
-});
-
-describe('Lining up entries', () => {
-  const entry = (state: string, key: number | null): Entry => ({
-    seq: 0,
-    at: at(0),
-    state,
-    cause: { kind: 'none', name: '', by: null },
-    key,
-    cpuSeconds: null,
-  });
-
-  it('Should pair by the seq of the input, and in order after it', () => {
-    const a = [entry('open', 3), entry('full', null), entry('closed', 9)];
-    const b = [
-      entry('open', 3),
-      entry('full', null),
-      entry('extra', null),
-      entry('late', 12),
-    ];
-
-    expect(
-      align(a, b).map(({ a: x, b: y, same }) => [x?.state, y?.state, same]),
-    ).toEqual([
-      ['open', 'open', true],
-      ['full', 'full', true],
-      [undefined, 'extra', false],
-      ['closed', undefined, false],
-      [undefined, 'late', false],
-    ]);
   });
 });

@@ -111,7 +111,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
       );
       throw new CommandRefused('invalid command');
     }
-    options?.onRun?.(earlier.id);
+    options?.onRun?.(earlier.id, true);
     this.logger.log(`Discarded a repeated request for ${JSON.stringify(name)}`);
     const current = this.running.get(name);
     if (current?.id === earlier.id) {

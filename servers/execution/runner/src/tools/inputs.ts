@@ -14,6 +14,8 @@ export type Input = {
   method: 'POST' | 'PUT';
   path: string;
   body: unknown;
+  // a command that got the stored reply of the run, which is not sent
+  stored?: number;
 };
 
 type Data = Record<string, unknown>;
@@ -81,10 +83,15 @@ export const isInput = (row: TimelineRow, roles: Roles): boolean =>
 const request = (kind: StepKind, value: unknown): Request =>
   REQUESTS[kind](value as never);
 
+// A repeated command that got the stored reply names its run
+const storedRun = ({ data }: TimelineRow) =>
+  data.stored === true ? { stored: Number(data.run) } : {};
+
 export function rowInput(row: TimelineRow): Input {
   const kind = row.kind as StepKind;
   const { time, by, seq } = row;
-  return { time, kind, by, seq, ...request(kind, VALUES[kind](row.data)) };
+  const sent = request(kind, VALUES[kind](row.data));
+  return { time, kind, by, seq, ...sent, ...storedRun(row) };
 }
 
 export function stepInput(step: Step): Input {

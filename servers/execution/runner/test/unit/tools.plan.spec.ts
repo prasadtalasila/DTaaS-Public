@@ -234,5 +234,8 @@ describe('A replay file and its snapshots', () => {
     expect(dryLine({ ...prepared.inputs[0], by: null }, START, 1)).toContain(
       ' event - POST',
     );
+    expect(dryLine({ ...prepared.inputs[0], stored: 7 }, START, 1)).toMatch(
+      / skipped: the stored reply of run 7$/,
+    );
   });
 });

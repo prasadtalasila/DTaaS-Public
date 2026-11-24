@@ -37,7 +37,7 @@ type RunMode = 'what-if' | 'what-if-copy';
 type CommandOptions = RunOptions & {
   by?: string;
   mode?: RunMode;
-  onRun?: (id: number) => void;
+  onRun?: (id: number, stored?: boolean) => void;
   ended?: (outcome: RunOutcome, id: number) => void;
 };
 

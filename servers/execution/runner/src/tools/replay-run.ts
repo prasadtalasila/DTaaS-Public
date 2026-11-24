@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import * as yaml from 'js-yaml';
 import Signer from '../auth/signer.js';
 import { snapshotName } from '../snapshot/store.js';
@@ -24,7 +24,10 @@ export function dryLine(input: Input, from: string, speed: number): string {
   const offset = (gap(from, input.time, speed) / 1000).toFixed(3);
   const { kind, by, method, path, body } = input;
   const caller = by ?? '-';
-  return `${snapshotName(input.time)} +${offset}s ${kind} ${caller} ${method} ${path} ${JSON.stringify(body)}`;
+  const line = `${snapshotName(input.time)} +${offset}s ${kind} ${caller} ${method} ${path} ${JSON.stringify(body)}`;
+  return input.stored === undefined
+    ? line
+    : `${line} skipped: the stored reply of run ${input.stored}`;
 }
 
 // What a replay did, as replay.json holds it
@@ -62,7 +65,9 @@ async function setUp(plan: ReplayPlan, prepared: Prepared, main: string) {
     publicKey,
     parameters,
   });
-  mkdirSync(plan.out, { recursive: true });
+  // out holds a copy of the database, with the inputs of commands
+  mkdirSync(dirname(plan.out), { recursive: true });
+  mkdirSync(plan.out, { mode: 0o700 });
   writeFileSync(join(plan.out, 'runner.yaml'), yaml.dump(config));
   const twin = new ReplayTwin(plan.out, port, main);
   const signer = new Signer(privateKey, PRINCIPAL);

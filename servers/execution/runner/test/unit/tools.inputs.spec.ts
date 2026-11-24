@@ -73,6 +73,7 @@ describe('The inputs of a replay', () => {
       row(2, 'event', { event: 'close', source: 'client' }, 'alice'),
       row(3, 'command', { name: 'admit', input: { bed: 1 }, run: 4 }, 'alice'),
       row(4, 'command', { name: 'open', run: 5 }, 'alice'),
+      row(9, 'command', { name: 'open', run: 5, stored: true }, 'alice'),
       row(5, 'parameters', { scope: 'multi' }, 'alice'),
       row(6, 'notice', { peer: 'dt-2', kind: 'state', data: { a: 1 } }),
       row(7, 'properties', { beds: 2 }, 'feed'),
@@ -86,6 +87,7 @@ describe('The inputs of a replay', () => {
       ['POST', '/fsm/event', { event: 'close' }],
       ['POST', '/', { name: 'admit', input: { bed: 1 } }],
       ['POST', '/', { name: 'open', input: undefined }],
+      ['POST', '/', { name: 'open', input: undefined }],
       ['PUT', '/parameters', { scope: 'multi' }],
       ['PUT', '/peers/dt-2/notice', { kind: 'state', data: { a: 1 } }],
       ['PUT', '/properties', { beds: 2 }],
@@ -97,6 +99,8 @@ describe('The inputs of a replay', () => {
       kind: 'transition',
     });
     expect(JSON.stringify(inputs[3].body)).toBe('{"name":"open"}');
+    expect(inputs[3].stored).toBeUndefined();
+    expect(inputs[4]).toMatchObject({ seq: 9, stored: 5 });
   });
 
   it('Should keep the rows up to a seq and before a time', () => {

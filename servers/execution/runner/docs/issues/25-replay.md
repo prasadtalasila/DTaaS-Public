@@ -159,6 +159,12 @@ What is sent, and what is not:
 | `notice` of a peer                                                     | `PUT /peers/<id>/notice`                  |
 | `event` or `properties` of a script, `entry`, `exit`, `sent`, `whatif` | nothing: the replay twin does these again |
 
+A `command` row whose request key got the stored reply of an earlier
+run has `stored: true` beside that `run`; it is not sent, and
+`--dry-run` shows it as skipped. An input that is late is sent at
+once. `out` is made with mode `0700`, as it holds the inputs of
+commands.
+
 A replay from `inputs` needs a twin with access control: its
 `runner.yaml` lists `auth.principals`. Without them every row has
 `by: null`, and the timeline does not tell what a script wrote from
@@ -219,7 +225,7 @@ with no `Replay-` header.
 
 A replay twin is a runner started with `--reinstate` and `--what-if`.
 The operator may also start one by hand in that way. The mode
-changes seven things:
+changes eight things:
 
 - **It listens on `127.0.0.1` only**, as its scripts act for real.
 - **It follows no peer and notifies nobody**, whatever its
@@ -249,10 +255,15 @@ notification`.
   from an `operator`; any other runner answers `404` to every caller.
   The reply is `GET /peers`, and the notice raises the events of the
   subscriptions as over MQTT.
+- **It starts knowing its peers.** It takes the last notice of each
+  kind of each peer in the timeline up to the snapshot as known,
+  without an event or a row, so `GET /peers` shows what the twin knew
+  and a later notice raises an event only on a change.
 - **It records where an input came from**: the principal and the
   `seq` of the twin, when a request names them, as `origin` on the
   rows of the input kinds written for that request. A malformed
-  header gets `400`, after authentication.
+  header gets `400`, after authentication, with a message that names
+  the header and what it must be.
 
 In a replay twin the role `operator` may call every route.
 `--what-if` without `--reinstate`, and `--time-scale` without
@@ -318,7 +329,10 @@ are the same, and 1 when they differ. With `--json` it prints
 - Entries are lined up by the `seq` that the input which caused them
   had in the twin: its own in the twin, `origin.seq` in a replay twin.
   The entries that follow, which no transition or event of a client
-  caused, keep their order after it.
+  caused, are lined up by state and cause (a longest common
+  subsequence), so that one extra or missing entry is one line with
+  `-` on the other side.
+- Each column is as wide as its longest cell.
 - The entry of the first step, `firstStep`, is left out. A snapshot
   beside a replay counts its rows after the start up to its own
   `seq`; two snapshots, or two replays, are compared whole.
@@ -497,3 +511,6 @@ are left for a later change:
   tell it, where the twin knew what the peer had told before the save;
   and `out` is created with the default mode of the account, not
   `0700` as a snapshot.
+
+The second fix round of the tools corrected each of these, and the
+`Replay-By` and `Replay-Seq` messages; the Spec above states the rules.

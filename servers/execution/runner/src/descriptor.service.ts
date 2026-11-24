@@ -2,6 +2,7 @@ import {
   BeforeApplicationShutdown,
   Injectable,
   Logger,
+  OnApplicationBootstrap,
   OnModuleInit,
 } from '@nestjs/common';
 import Config from './config/configuration.service.js';
@@ -19,6 +20,7 @@ import Queue from './queue.service.js';
 import Timeline from './queue.timeline.js';
 import Snapshots from './snapshot/snapshots.js';
 import WhatIfs from './whatif/whatifs.js';
+import { knownPeers } from './replay/known-peers.js';
 
 // Milliseconds since the epoch, on the monotonic clock of the process
 const now = (): number => performance.timeOrigin + performance.now();
@@ -27,7 +29,7 @@ const now = (): number => performance.timeOrigin + performance.now();
 // the metrics of what it did since the runner started
 @Injectable()
 export default class DescriptorService
-  implements OnModuleInit, BeforeApplicationShutdown
+  implements OnModuleInit, OnApplicationBootstrap, BeforeApplicationShutdown
 {
   private readonly counters = new Metrics();
 
@@ -86,6 +88,16 @@ export default class DescriptorService
       ...(this.reinstated && { reinstated: this.reinstated }),
     };
     this.queue.timeline.record('start', start, null);
+  }
+
+  // After every init, once the subscriptions are declared: a replay
+  // twin knows what the twin knew of its peers at the save
+  onApplicationBootstrap(): void {
+    if (this.config.replay() !== undefined && this.reinstated) {
+      knownPeers(this.queue.timeline, this.reinstated.seq).forEach(
+        ({ peer, kind, data }) => this.peerList.know(peer, kind, data),
+      );
+    }
   }
 
   // Before init, so that the start row names the snapshot

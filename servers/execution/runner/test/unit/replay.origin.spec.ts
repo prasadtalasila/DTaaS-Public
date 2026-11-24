@@ -31,15 +31,38 @@ describe('The origin headers of a request to a replay twin', () => {
   });
 
   it.each([
-    [{ 'replay-by': 'manager-1' }],
-    [{ 'replay-by': 'manager-1', 'replay-seq': '0' }],
-    [{ 'replay-by': 'manager-1', 'replay-seq': '1.5' }],
-    [{ 'replay-by': 'manager-1', 'replay-seq': 'x' }],
-    [{ 'replay-by': 'a b', 'replay-seq': '3' }],
-    [{ 'replay-by': 'manager-1', 'replay-seq': ['3', '4'] }],
-  ])('Should refuse malformed headers %j', (headers) => {
-    expect(refused(headers)).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^Replay-(By|Seq) /)]),
-    );
-  });
+    [
+      { 'replay-by': 'manager-1' },
+      'Replay-Seq is missing: Replay-By needs it, a whole number above 0',
+    ],
+    [
+      { 'replay-by': 'manager-1', 'replay-seq': '0' },
+      'Replay-Seq must be a whole number above 0, not "0"',
+    ],
+    [
+      { 'replay-by': 'manager-1', 'replay-seq': '1.5' },
+      'Replay-Seq must be a whole number above 0, not "1.5"',
+    ],
+    [
+      { 'replay-seq': 'x' },
+      'Replay-Seq must be a whole number above 0, not "x"',
+    ],
+    [
+      { 'replay-by': 'a b', 'replay-seq': '3' },
+      'Replay-By must be the name of a principal, up to 64 letters, digits, _, . or -, from a letter, not "a b"',
+    ],
+    [
+      { 'replay-by': 'manager-1', 'replay-seq': ['3', '4'] },
+      'Replay-Seq is given twice: give it once',
+    ],
+    [
+      { 'replay-by': ['a', 'b'], 'replay-seq': '3' },
+      'Replay-By is given twice: give it once',
+    ],
+  ])(
+    'Should refuse malformed headers %j, saying which and why',
+    (headers, message) => {
+      expect(refused(headers)).toEqual([message]);
+    },
+  );
 });

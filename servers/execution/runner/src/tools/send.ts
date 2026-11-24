@@ -38,7 +38,8 @@ export async function sendInput(
 }
 
 // Sends each input at its time after that of the start, over the speed,
-// counted from now
+// counted from now; a late one at once, and a command that got a stored
+// reply never
 export async function sendAll(
   client: TwinClient,
   inputs: Input[],
@@ -52,7 +53,8 @@ export async function sendAll(
     counts.sent += 1;
     counts.refused += Number(refused);
   };
-  await inputs.reduce(
+  const sent = inputs.filter(({ stored }) => stored === undefined);
+  await sent.reduce(
     (chain, input) => chain.then(() => send(input)),
     Promise.resolve(),
   );

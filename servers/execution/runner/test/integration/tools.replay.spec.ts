@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
@@ -82,6 +82,12 @@ built('A replay in the process of the test', () => {
         'A replay twin of dt-1',
       );
       expect(process.listenerCount('SIGINT')).toBe(0);
+      // only the account of the tool reads out; Windows has no such mode
+      const mode =
+        process.platform === 'win32'
+          ? 0o700
+          : statSync(join(dir, 'busy')).mode & 0o777;
+      expect(mode).toBe(0o700);
       expect(
         readRows(join(dir, 'busy', 'state.db'), done.from.seq)
           .filter(({ kind }) => kind === 'stop' || kind === 'exit')
