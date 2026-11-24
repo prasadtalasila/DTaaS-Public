@@ -6,7 +6,8 @@ and the operator write for one, how a Manager asks for one and reads
 its result, and what the script of a what-if finds. The routes are
 listed in [API.md](api/API.md#what-if), and the design in
 [docs/state-machine-design.md](docs/state-machine-design.md). Version
-0.13.0 added what-ifs.
+0.13.0 added what-ifs. A question of how the whole twin would have
+moved is a replay, which [REPLAY.md](REPLAY.md) describes.
 
 ## What a What-If Is
 
@@ -31,8 +32,9 @@ A what-if is not:
   and no other script of the class runs;
 - a simulation in real time: it is as fast as the script;
 - a second twin. A question about how the whole machine would have
-  moved needs every script of the class to run again, which is issue
-  [25](docs/issues/25-replay.md).
+  moved needs every script of the class to run again: a replay, which
+  the operator runs with `runner-replay` in a second runner, a replay
+  twin, from snapshots of the twin ([REPLAY.md](REPLAY.md)).
 
 ## What the Author Writes
 
@@ -50,13 +52,18 @@ manager:
 snapshot:
   save: save-script
   restore: restore-script
-# the commands that POST /whatif runs on a private copy of the twin
+# the commands that POST /whatif runs on a private copy of the twin;
+# replay: the scripts keep to their own beds in a replay twin, so
+# runner-replay may start one
 whatIf:
   commands:
     - forecast-beds
+  replay: true
 ```
 
-The runner does not start, and names the problem, when:
+`replay: true` is of a replay, not of a what-if: it allows a replay
+twin of the class ([REPLAY.md](REPLAY.md#what-a-class-must-do)). The
+runner does not start, and names the problem, when:
 
 - a command of `whatIf.commands` is not one of the `commands` of
   _runner.yaml_: `✖ what-if command forecast-ward is not a permitted

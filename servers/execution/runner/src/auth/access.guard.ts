@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
@@ -11,7 +12,8 @@ import Config from '../config/configuration.service.js';
 import FsmService from '../fsm/fsm.service.js';
 import { saving } from '../snapshot/pause.js';
 import Access from './access.js';
-import { callerContext } from './caller-context.js';
+import { replayOrigin } from '../replay/origin.js';
+import { callerContext, currentCaller } from './caller-context.js';
 import { Principal } from './auth.config.js';
 import {
   ACCESS_ROUTE,
@@ -46,14 +48,45 @@ export default class AccessGuard implements CanActivate {
       ACCESS_ROUTE,
       context.getHandler(),
     );
+    const request: CallerRequest = context.switchToHttp().getRequest();
+    this.replayOnly(route);
     const access = this.config.access();
     if (access !== undefined) {
-      this.authorize(access, route, context.switchToHttp().getRequest());
+      this.authorize(access, route, request);
     }
+    this.replayOrigin(request);
     if (route !== undefined && this.fsm.pause.refuses(route)) {
       throw saving();
     }
     return true;
+  }
+
+  // The notice route is there in a replay twin alone
+  private replayOnly(route: Route | undefined): void {
+    if (route === 'notice' && this.config.replay() === undefined) {
+      throw new NotFoundException();
+    }
+  }
+
+  // A replay twin records the origin that the headers give; any other
+  // runner ignores them
+  private replayOrigin(request: CallerRequest): void {
+    if (this.config.replay() === undefined) {
+      return;
+    }
+    const origin = replayOrigin(request.headers);
+    if (origin !== undefined) {
+      callerContext.enterWith({ ...currentCaller(), origin });
+    }
+  }
+
+  // In a replay twin an operator, the tool that drives it, may call
+  // every route
+  private permit(principal: Principal, route: Route, listed: boolean): void {
+    const replay = this.config.replay() !== undefined;
+    if (!replay || principal.role !== 'operator') {
+      authorize(principal, route, listed);
+    }
   }
 
   private authorize(
@@ -75,7 +108,7 @@ export default class AccessGuard implements CanActivate {
     const call = { method, path, body: rawBody };
     const principal = access.http(headers.authorization, call);
     const listed = managerListed(route, this.fsm.declared(), request.body);
-    authorize(principal, route, listed);
+    this.permit(principal, route, listed);
     request.principal = principal;
     // for the rows of the timeline that this request leads to
     callerContext.enterWith({ by: principal.name });

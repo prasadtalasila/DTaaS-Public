@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { Logger } from '@nestjs/common';
 import { currentCaller } from './auth/caller-context.js';
+import { originOf, stamps } from './replay/stamp.js';
 import type {
   TimelineKind,
   TimelineQuery,
@@ -17,11 +18,13 @@ export const TIMELINE_SCHEMA = `
     time TEXT NOT NULL,
     kind TEXT NOT NULL,
     by TEXT,
-    data TEXT NOT NULL
+    data TEXT NOT NULL,
+    at TEXT,
+    origin TEXT
   )`;
 
-const INSERT =
-  'INSERT INTO timeline (time, kind, by, data) VALUES (?, ?, ?, ?)';
+const INSERT = `INSERT INTO timeline (time, kind, by, data, at, origin)
+  VALUES (?, ?, ?, ?, ?, ?)`;
 
 // json_set, as json_patch would drop a key whose value is null
 const COMPLETE = `UPDATE timeline SET data = json_set(data, '$.' || ?, json(?))
@@ -34,7 +37,7 @@ const WHERE = `WHERE seq > :after
   AND (:until IS NULL OR time < :until)
   AND (:kinds IS NULL OR instr(:kinds, ',' || kind || ',') > 0)`;
 
-const ROWS = `SELECT seq, time, kind, by, data FROM timeline ${WHERE}
+const ROWS = `SELECT seq, time, kind, by, data, at, origin FROM timeline ${WHERE}
   ORDER BY seq LIMIT :limit`;
 
 const COUNT = `SELECT COUNT(*) AS count FROM timeline ${WHERE}`;
@@ -56,6 +59,7 @@ const toRow = (row: Record<string, unknown>): TimelineRow => ({
   kind: row.kind as TimelineKind,
   by: row.by === null ? null : String(row.by),
   data: JSON.parse(String(row.data)),
+  ...stamps(row),
 });
 
 // The kind of row that causes an event raised from within
@@ -82,7 +86,15 @@ export default class Timeline {
   // that it leads to
   private handling: number | undefined;
 
+  // The time that a row stands for, in a replay twin only
+  private at: () => string | undefined = () => undefined;
+
   constructor(private readonly db?: () => DatabaseSync) {}
+
+  // A replay twin stamps each row with the time that it stands for
+  standFor(at: () => string | undefined): void {
+    this.at = at;
+  }
 
   // Writes a row and returns its seq, 0 when it could not be written.
   // by is the caller of the request in progress, unless given: null for
@@ -95,6 +107,8 @@ export default class Timeline {
         kind,
         who,
         JSON.stringify(data),
+        this.at() ?? null,
+        originOf(kind),
       );
       this.last.set(kind, Number(lastInsertRowid));
       return Number(lastInsertRowid);
@@ -125,14 +139,20 @@ export default class Timeline {
 
   // Writes the row of a command or a what-if request, submits the
   // command, and completes the row with the run in the history that the
-  // submit names at once; a refused request has no run
+  // submit names at once; a refused request has no run, and a repeated
+  // one gets stored: true beside the run whose stored reply it got
   command<Result>(
     { name, input }: { name: string; input?: Data },
-    submit: (onRun: (run: number) => void) => Result,
+    submit: (onRun: (run: number, stored?: boolean) => void) => Result,
     kind: 'command' | 'whatif' = 'command',
   ): Result {
     const seq = this.record(kind, { name, input, run: null });
-    return submit((run) => this.complete(seq, 'run', run));
+    return submit((run, stored) => {
+      this.complete(seq, 'run', run);
+      if (stored === true) {
+        this.complete(seq, 'stored', true);
+      }
+    });
   }
 
   // Writes the changes of one request, if any

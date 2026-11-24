@@ -151,6 +151,41 @@ export default [
   { run: 'dt3 /fsm' },
   { run: `dt3 '/timeline?kind=start' | grep -o '"reinstated":[^}]*}'` },
 
+  { chapter: 'Replay' },
+  {
+    say: 'The operator saved hospital-1 twice: early in the story, and before it moved.',
+  },
+  { run: `ls run/${H1}/snapshots` },
+  {
+    say: 'What would it have done under scope multi from the first save on? A replay file says:',
+  },
+  {
+    run: 'node tools/replay-file.mjs multi > run/runner-replay.yaml; cat run/runner-replay.yaml',
+  },
+  {
+    say: 'The dry run lists the inputs between the saves, without bodies; a stored reply is skipped:',
+  },
+  {
+    run: `runner-replay --dry-run run/runner-replay.yaml | sed 's/ {.*}//' | head -n 6`,
+  },
+  {
+    say: 'runner-replay starts a replay twin on 127.0.0.1, which reaches nobody, and feeds it the inputs.',
+  },
+  { run: 'runner-replay run/runner-replay.yaml | sed "s|$PWD/||"' },
+  {
+    say: 'Its scripts kept beds of their own; those of hospital-1 are untouched:',
+  },
+  { run: `cat run/${H1}/ward.json run/${H1}.replay/ward.json` },
+  {
+    say: 'runner-compare lists the state entries side by side, and marks the first difference:',
+  },
+  {
+    run: `runner-compare "$(ls -d run/${H1}/snapshots/2* | tail -n 1)" run/replays/scope-multi`,
+  },
+  {
+    say: 'Under multi from the start, the change of scope was no change, and open did not restart.',
+  },
+
   { chapter: 'Presence: offline' },
   {
     say: 'Graceful shutdown, as on Ctrl+C: hospital-1 leaves with an offline notice (right).',

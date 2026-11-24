@@ -40,8 +40,8 @@ export default [
   {
     say: 'The property free-beds, and subscriptions that turn a change at a neighbour into an event.',
   },
-  { run: 'sed -n 46,82p hospital.fsm.yaml' },
-  { run: 'tail -n +83 hospital.fsm.yaml' },
+  { run: 'sed -n 46,85p hospital.fsm.yaml' },
+  { run: 'tail -n +86 hospital.fsm.yaml' },
   {
     say: 'hospital-2 runs the same class, with one bed per ward and no neighbour:',
   },
@@ -109,6 +109,10 @@ export default [
     say: 'open wrote the property free-beds; the runner checks, keeps and publishes it, and never reads it.',
   },
   { run: 'dt1 /properties' },
+  {
+    say: 'The operator saves hospital-1 now, to replay the rest of the story at its end:',
+  },
+  { run: `dt1 /snapshot --json '{}'` },
 
   { chapter: 'Peers' },
   {

@@ -83,11 +83,13 @@ describe('Queue timeline', () => {
 
     timeline.command({ name: 'admit', input }, (onRun) => onRun(58));
     timeline.command({ name: 'admit' }, () => undefined);
+    timeline.command({ name: 'admit', input }, (onRun) => onRun(58, true));
 
     const rows = timeline.rows(timelineQuerySchema.parse({}));
     expect(rows.map(({ data }) => data)).toEqual([
       { name: 'admit', input, run: 58 },
       { name: 'admit', run: null },
+      { name: 'admit', input, run: 58, stored: true },
     ]);
   });
 

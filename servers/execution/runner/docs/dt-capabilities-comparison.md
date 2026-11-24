@@ -622,18 +622,19 @@ is what can be done with a twin over time: read its past, move it,
 and try a change without touching it. Fluid Digital Twins (FDT), the
 WLDT authors' later work (see [Sources](#sources)), make this a
 capability of its own, and issues [22](issues/22-timeline.md) to
-[24](issues/24-what-if.md) plan it for the runner.
+[25](issues/25-replay.md) build it for the runner, by version 0.14.0.
 
-| Capability                          | DTDL v4                                               | WoT                                                | WLDT with FDT                                                            | Runner                                                         |
-| :---------------------------------- | :---------------------------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :------------------------------------------------------------- |
-| The past of a twin                  | Not in the language; the platform keeps a history     | Not in the TD; a consumer records what it observes | `S_DT` at each timestamp, as a sequence; storage and queries in the core | The command history; _a timeline of every change (22)_         |
-| A twin as one document              | An instance of an Interface, exported by the platform | None: a TD describes, and holds no values          | Not defined: "computational state" is synchronised, with no format       | _A snapshot: the database, the class, the scripts' files (23)_ |
-| Moving work to another place        | None                                                  | None; a TD may point at another server             | Fluid functions offloaded between PT, edge and cloud                     | Commands, the simulation bridge; _a twin by snapshot (23)_     |
-| A second twin to try a change       | None                                                  | None                                               | A Test-FDT: history, parallel and simulation                             | _A command on a copy (24); a replay twin, replayed (25)_       |
-| Keeping a trial from the real asset | Not applicable                                        | Not applicable                                     | A "controlled environment", not specified                                | _A what-if runs on a copy that the class saves (24)_           |
-| Time in a trial                     | Not applicable                                        | Not applicable                                     | The clock; scaled only inside the simulator                              | _In a replay: the clock, at a factor for scripts (25)_         |
+| Capability                          | DTDL v4                                               | WoT                                                | WLDT with FDT                                                            | Runner                                                       |
+| :---------------------------------- | :---------------------------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
+| The past of a twin                  | Not in the language; the platform keeps a history     | Not in the TD; a consumer records what it observes | `S_DT` at each timestamp, as a sequence; storage and queries in the core | The command history; a timeline of every change (22)         |
+| A twin as one document              | An instance of an Interface, exported by the platform | None: a TD describes, and holds no values          | Not defined: "computational state" is synchronised, with no format       | A snapshot: the database, the class, the scripts' files (23) |
+| Moving work to another place        | None                                                  | None; a TD may point at another server             | Fluid functions offloaded between PT, edge and cloud                     | Commands, the simulation bridge; a twin by snapshot (23)     |
+| A second twin to try a change       | None                                                  | None                                               | A Test-FDT: history, parallel and simulation                             | A command on a copy (24); a replay twin, replayed (25)       |
+| Keeping a trial from the real asset | Not applicable                                        | Not applicable                                     | A "controlled environment", not specified                                | A copy (24); a replay twin whose class allows one (25)       |
+| Time in a trial                     | Not applicable                                        | Not applicable                                     | The clock; scaled only inside the simulator                              | In a replay: the clock, at a factor for scripts (25)         |
 
-_Italic_ is planned and not built.
+The parallel kind of test twin, which follows a live twin, is not
+planned for the runner.
 
 What this adds to the verdicts:
 

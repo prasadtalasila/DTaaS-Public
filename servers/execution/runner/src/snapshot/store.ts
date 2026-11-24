@@ -5,7 +5,7 @@ import { listedSchema, SnapshotDto } from '../dto/snapshot.dto.js';
 
 // The time in UTC to the millisecond, without the separators that a file
 // name can not hold on Windows, such as 20261123T101502120Z
-const NAME = /^\d{8}T\d{9}Z$/;
+export const NAME = /^\d{8}T\d{9}Z$/;
 
 export const MANIFEST = 'snapshot.json';
 

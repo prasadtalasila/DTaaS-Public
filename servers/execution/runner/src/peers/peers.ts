@@ -58,6 +58,8 @@ export default class Peers {
 
   private readonly noticeListeners: NoticeListener[] = [];
 
+  private readonly knownListeners: NoticeListener[] = [];
+
   // A stored switch overrides the enabled of the file; each enabled
   // peer is signalled
   load(list: PeerConfig[], store: PeerStore): void {
@@ -81,6 +83,11 @@ export default class Peers {
   // Signals each notice that observe stored, after it stored it
   onNotice(listener: NoticeListener): void {
     this.noticeListeners.push(listener);
+  }
+
+  // Signals each notice that know took as known
+  onKnown(listener: NoticeListener): void {
+    this.knownListeners.push(listener);
   }
 
   // In the order of runner.yaml
@@ -116,12 +123,27 @@ export default class Peers {
   // Remembers the data of a notice of an enabled peer, null for an
   // empty payload; a notice that arrives after a disable is ignored
   observe(id: string, kind: NoticeKind, data: unknown): void {
+    this.remember(id, kind, data, this.noticeListeners);
+  }
+
+  // Takes a notice that arrived before this start as known: a replay
+  // twin starts knowing what the twin knew, and raises nothing for it
+  know(id: string, kind: NoticeKind, data: unknown): void {
+    this.remember(id, kind, data, this.knownListeners);
+  }
+
+  private remember(
+    id: string,
+    kind: NoticeKind,
+    data: unknown,
+    listeners: NoticeListener[],
+  ): void {
     if (!this.isEnabled(id)) {
       return;
     }
     const last = this.received.get(id) ?? UNKNOWN;
     this.received.set(id, { ...last, ...part(kind, data, last) });
-    this.noticeListeners.forEach((listener) => listener(id, kind, data));
+    listeners.forEach((listener) => listener(id, kind, data));
   }
 
   private isEnabled(id: string): boolean {

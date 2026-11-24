@@ -24,6 +24,7 @@ export default class PeerEventsService implements OnModuleInit {
   ) {
     const peers = descriptor.peers();
     peers.onNotice((id, kind, data) => this.events.see(id, kind, data));
+    peers.onKnown((id, kind, data) => this.events.know(id, kind, data));
     peers.onEnabled(({ id }, enabled) => this.disabled(id, enabled));
   }
 

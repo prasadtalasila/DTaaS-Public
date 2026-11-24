@@ -32,7 +32,7 @@ const runner = {
 // A context of the definition with the base of the account, if any
 function context(base?: Record<string, string | undefined>) {
   const result = new RunnerContext();
-  result.load('dt-1', definition);
+  result.load({ getId: () => 'dt-1', replay: () => undefined }, definition);
   result.setApi('http://127.0.0.1:5000', 'token-1');
   if (base !== undefined) {
     result.inherit(base);

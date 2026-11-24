@@ -10,6 +10,7 @@ import DescriptorService from './descriptor.service.js';
 import FsmService from './fsm/fsm.service.js';
 import { runnerUrl } from './fsm/script-context.js';
 import { openTwin } from './snapshot/reinstate.js';
+import { listenHost } from './replay/replay-mode.js';
 
 /*
 The js file extension in import is a limitation of typescript.
@@ -39,7 +40,10 @@ async function bootstrap(options: Keyv) {
   // nextTick, so no MQTT request is read before RUNNER_URL is set; keep
   // start right before listen.
   app.get<MqttService>(MqttService).start();
-  await app.listen(config.getPort());
+  const host = listenHost(config.replay());
+  await (host === undefined
+    ? app.listen(config.getPort())
+    : app.listen(config.getPort(), host));
   const fsm = app.get<FsmService>(FsmService);
   const token = config.access()?.scriptToken;
   fsm.setRunnerApi(runnerUrl(app.getHttpServer()), token);

@@ -31,6 +31,10 @@ export function reset() {
   for (const file of ['mqtt.log', 'webhook.log', 'notify.jsonl']) {
     rmSync(`run/${file}`, { force: true });
   }
+  // what the chapter Replay writes
+  for (const path of ['replays', 'hospital-1.replay', 'runner-replay.yaml']) {
+    rmSync(`run/${path}`, { recursive: true, force: true });
+  }
   rmSync('run/shutdown', { force: true });
   rmSync('run/transcript.txt', { force: true });
 }

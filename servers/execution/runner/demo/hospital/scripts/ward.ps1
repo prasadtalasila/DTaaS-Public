@@ -1,8 +1,15 @@
 # Helpers of the hospital scripts: the beds in run/<DT_ID>/ward.json, the
 # ward log in run/<DT_ID>/ward.log, and requests to the runner. Not a
 # command.
-$WardFile = Join-Path $PSScriptRoot "..\run\$env:DT_ID\ward.json"
-$WardLog = Join-Path $PSScriptRoot "..\run\$env:DT_ID\ward.log"
+# A replay twin keeps its own beds, under run\<DT_ID> of its working
+# directory, so that its scripts never touch those of the twin
+if ($env:DT_MODE -eq 'what-if' -and $env:DT_REPLAY_OF) {
+  $WardDir = Join-Path (Get-Location) "run\$env:DT_ID"
+} else {
+  $WardDir = Join-Path $PSScriptRoot "..\run\$env:DT_ID"
+}
+$WardFile = Join-Path $WardDir 'ward.json'
+$WardLog = Join-Path $WardDir 'ward.log'
 $Capacity = [int]$env:DT_PARAM_CAPACITY
 # RUNNER_TOKEN is unset without access control, and the header ignored
 $RunnerHeaders = @{ Authorization = "Bearer $env:RUNNER_TOKEN" }

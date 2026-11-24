@@ -201,6 +201,16 @@ export class PeerEvents {
     this.indexesOf(peer).forEach((index) => this.update(index, kind, data));
   }
 
+  // Takes a notice as seen without raising: what held before this start
+  know(peer: string, kind: NoticeKind, data: unknown): void {
+    this.indexesOf(peer).forEach((index) => {
+      const now = holds(this.subscriptions[index].when, kind, data);
+      if (now !== undefined) {
+        this.held.set(index, now);
+      }
+    });
+  }
+
   // The next notice of the peer counts as its first
   forget(peer: string): void {
     this.indexesOf(peer).forEach((index) => this.held.delete(index));

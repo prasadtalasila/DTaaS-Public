@@ -7,7 +7,7 @@ import { NoticeKind } from './peers.js';
 // The data of a notice, null for an empty payload, or why it is dropped
 export type Reading = { data: unknown } | { dropped: string };
 
-const DATA: Record<NoticeKind, z.ZodType> = {
+export const DATA: Record<NoticeKind, z.ZodType> = {
   presence: z.object({
     online: z.boolean(),
     descriptor: z.unknown().optional(),

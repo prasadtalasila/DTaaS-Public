@@ -36,6 +36,11 @@ mq() {
   return $?
 }
 
+# runner-replay and runner-compare: the tools of the package, as built
+# in this repository
+runner-replay() { node ../../dist/src/tools/replay.js "$@"; }
+runner-compare() { node ../../dist/src/tools/compare.js "$@"; }
+
 # dt3: hospital-1 once it is reinstated on port 5300
 dt3() { DT_ID=hospital-1 dt http://localhost:5300 "$@"; }
 

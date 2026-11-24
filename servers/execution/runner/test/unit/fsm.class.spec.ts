@@ -212,6 +212,25 @@ describe('What-if commands of a class', () => {
     expect(read(text).whatIf).toEqual({ commands: ['forecast'] });
   });
 
+  it('Should allow a replay twin without commands or a save script', () => {
+    expect(read('whatIf: {replay: true}\n').whatIf).toEqual({
+      commands: [],
+      replay: true,
+    });
+  });
+
+  it('Should take both the commands and the replay', () => {
+    const text = `${SAVE}whatIf: {commands: [forecast], replay: true}\n`;
+
+    expect(read(text).whatIf).toEqual({ commands: ['forecast'], replay: true });
+  });
+
+  it('Should refuse a replay that is no boolean', () => {
+    expect(() => read('whatIf: {replay: yes please}\n')).toThrow(
+      /Invalid state machine in dt\.yaml/,
+    );
+  });
+
   it('Should refuse a what-if without a save script', () => {
     expect(() => read('whatIf: {commands: [forecast]}\n')).toThrow(
       /whatIf needs snapshot\.save, which makes its copy/,

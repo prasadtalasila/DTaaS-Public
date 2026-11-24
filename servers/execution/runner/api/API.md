@@ -17,7 +17,7 @@ example comes from elsewhere. The
 one story.
 
 The recording predates version 0.11.0, and this document describes
-0.13.0. The replies of [GET /parameters](#get-parameters) are shown as
+0.14.0. The replies of [GET /parameters](#get-parameters) are shown as
 0.11 and later give them, the state documents of the recording lack
 the `properties` member, and the examples of
 [properties](#properties) are not from the recording. The descriptors
@@ -92,38 +92,41 @@ published one level under the topic that reads it, on
 `<topic>/parameters/set`, `<topic>/properties/set` and
 `<topic>/peers/set` (see [Request Topics](#request-topics)).
 
-| HTTP                   | MQTT route       | Request body                                | Success |
-| :--------------------- | :--------------- | :------------------------------------------ | :------ |
-| `GET /dt`              | `dt`             |                                             | 200     |
-| `GET /state`           | `state`          |                                             | 200     |
-| `GET /health`          | `health`         |                                             | 200     |
-| `GET /metrics`         | `metrics`        |                                             | 200     |
-| `POST /`               | `execute`        | `{"name": "admit", "input": {...}}`         | 200     |
-| `GET /`                | `status`         |                                             | 200     |
-| `GET /history`         | `history`        | none; query `since`, `limit`                | 200     |
-| `POST /stop`           | `stop`           | `{"name": "open"}` or none                  | 200     |
-| `POST /fsm/transition` | `transition`     | `{"state": "open"}`                         | 202     |
-| `POST /fsm/event`      | `event`          | `{"event": "close"}`                        | 202     |
-| `GET /fsm`             | `fsm`            |                                             | 200     |
-| `GET /parameters`      | `parameters`     |                                             | 200     |
-| `PUT /parameters`      | `set-parameters` | `{"scope": "multi"}`                        | 200     |
-| `GET /properties`      | `properties`     |                                             | 200     |
-| `PUT /properties`      | `set-properties` | `{"free-beds": 3}`                          | 200     |
-| `POST /escalate`       | `escalate`       | `{"reason": "...", "proposal": {}}`         | 202     |
-| `GET /peers`           | `peers`          |                                             | 200     |
-| `PUT /peers`           | `set-peers`      | `{"hospital-2": false}`                     | 200     |
-| `GET /timeline`        | `timeline`       | none; query `after`, `kind`, ...            | 200     |
-| `POST /snapshot`       | `save`           | `{"stop": true}` or none                    | 201     |
-| `GET /snapshot`        | `snapshots`      |                                             | 200     |
-| `DELETE /snapshot/<n>` | none             |                                             | 204     |
-| `POST /whatif`         | `whatif`         | `{"name": "forecast-beds", "input": {...}}` | 202     |
-| `GET /whatif/<id>`     | `whatif-result`  | MQTT `{"id": 5}`                            | 200     |
+| HTTP                     | MQTT route       | Request body                                | Success |
+| :----------------------- | :--------------- | :------------------------------------------ | :------ |
+| `GET /dt`                | `dt`             |                                             | 200     |
+| `GET /state`             | `state`          |                                             | 200     |
+| `GET /health`            | `health`         |                                             | 200     |
+| `GET /metrics`           | `metrics`        |                                             | 200     |
+| `POST /`                 | `execute`        | `{"name": "admit", "input": {...}}`         | 200     |
+| `GET /`                  | `status`         |                                             | 200     |
+| `GET /history`           | `history`        | none; query `since`, `limit`                | 200     |
+| `POST /stop`             | `stop`           | `{"name": "open"}` or none                  | 200     |
+| `POST /fsm/transition`   | `transition`     | `{"state": "open"}`                         | 202     |
+| `POST /fsm/event`        | `event`          | `{"event": "close"}`                        | 202     |
+| `GET /fsm`               | `fsm`            |                                             | 200     |
+| `GET /parameters`        | `parameters`     |                                             | 200     |
+| `PUT /parameters`        | `set-parameters` | `{"scope": "multi"}`                        | 200     |
+| `GET /properties`        | `properties`     |                                             | 200     |
+| `PUT /properties`        | `set-properties` | `{"free-beds": 3}`                          | 200     |
+| `POST /escalate`         | `escalate`       | `{"reason": "...", "proposal": {}}`         | 202     |
+| `GET /peers`             | `peers`          |                                             | 200     |
+| `PUT /peers`             | `set-peers`      | `{"hospital-2": false}`                     | 200     |
+| `GET /timeline`          | `timeline`       | none; query `after`, `kind`, ...            | 200     |
+| `POST /snapshot`         | `save`           | `{"stop": true}` or none                    | 201     |
+| `GET /snapshot`          | `snapshots`      |                                             | 200     |
+| `DELETE /snapshot/<n>`   | none             |                                             | 204     |
+| `POST /whatif`           | `whatif`         | `{"name": "forecast-beds", "input": {...}}` | 202     |
+| `GET /whatif/<id>`       | `whatif-result`  | MQTT `{"id": 5}`                            | 200     |
+| `PUT /peers/<id>/notice` | none             | `{"kind": "presence", "data": {...}}`       | 200     |
 
 `<n>` is the name of a [snapshot](#snapshots). The two MQTT routes of
 the snapshots are published on `<topic>/snapshot/set` and
 `<topic>/snapshot`; no topic deletes one. The two routes of a
 [what-if](#what-if) are published on `<topic>/whatif/set` and
-`<topic>/whatif`.
+`<topic>/whatif`. `PUT /peers/<id>/notice` is a route of HTTP alone,
+answered only by a [replay twin](#replay-twins); any other runner
+answers `404`.
 
 With access control, each route is open to some roles only; see
 [Roles](#roles).
@@ -204,7 +207,8 @@ curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
   "stateMachine": true,
   "manager": { "commands": ["admit", "discharge"] },
   "peers": ["hospital-2"],
-  "publicKey": "NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y"
+  "publicKey": "NC6o1XrrDbF0Kta1gISss-R6v1IgC8zg0OUOWy7Jr3Y",
+  "replay": null
 }
 ```
 
@@ -218,11 +222,19 @@ curl -s http://localhost:5100/dt -H "Authorization: Bearer $JWS"
 | `manager`      | the `manager.commands` of the state machine file; the commands meant for the Manager, a subset of `commands` |
 | `peers`        | the ids of the enabled [peers](#peers), in the order of the configuration; `[]` without any                  |
 | `publicKey`    | the public key that verifies the runner's [signatures](#signatures); `null` without `auth.key`               |
+| `replay`       | `null`; in a [replay twin](#replay-twins), `of`, the `id` of the twin, and `time`, the time of its snapshot  |
 
 `class` names the kind of DT that the state machine file defines, and
 came with version 0.11.0. The runner never interprets the `id` and
 never compares versions
 ([CLASS-INSTANCE-INTERFACE.md](../CLASS-INSTANCE-INTERFACE.md)).
+`replay` came with version 0.14.0. A replay twin of the demo, started
+by hand from a snapshot of `hospital-1`, answered with `id`
+`hospital-1.replay`, `publicKey` `null` and:
+
+```json
+"replay": { "of": "hospital-1", "time": "2026-11-24T18:38:56.368Z" }
+```
 
 ### GET /state
 
@@ -1310,6 +1322,54 @@ notice keeps the peers of the last connection, while `GET /dt` is
 current. The Manager can enable and disable only the peers that the
 operator listed, never add one.
 
+### PUT /peers/:id/notice
+
+Hands a [replay twin](#replay-twins) a notice of a peer, as it would
+have come over MQTT. A replay twin follows no peer, so `runner-replay`
+sends it the `notice` rows of the twin's timeline this way. No MQTT
+route; only an `operator` may call it, and a runner that is no replay
+twin answers `404` `{"message": "Not Found", "statusCode": 404}` to
+every caller.
+
+The body is `{"kind": "presence", "data": {"online": <boolean>,
+"descriptor": <descriptor>}}`, with `descriptor` optional, or
+`{"kind": "state", "data": <state document>}`; `"data": null` stands
+for the empty payload that clears a retained notification. A replay
+twin of the demo, with the header `Replay-Seq: 57`:
+
+```bash
+curl -s -X PUT http://127.0.0.1:5400/peers/hospital-2/notice \
+  -H 'Replay-Seq: 57' --json '{"kind":"presence","data":{"online":false}}'
+```
+
+`200`, with the body of `GET /peers`:
+
+```json
+{
+  "hospital-2": {
+    "topic": "dtaas/hospital-2",
+    "url": "http://localhost:5200",
+    "attributes": { "distance": 12.4 },
+    "relationship": "neighbour",
+    "enabled": true,
+    "online": false,
+    "descriptor": null,
+    "state": null
+  }
+}
+```
+
+The runner wrote a `notice` row and raised `neighbour-down` through the
+subscription of the class, as over MQTT. A notice of a disabled peer is
+`200` and ignored, as MQTT does not follow a disabled peer.
+
+| Case                       | Status | `message`                         |
+| :------------------------- | :----- | :-------------------------------- |
+| A peer that is not listed  | 400    | `["unknown peer hospital-9"]`     |
+| Another `kind`, a bad body | 400    | `Validation Failed`               |
+| A malformed header         | 400    | see [Replay Twins](#replay-twins) |
+| Any role but `operator`    | 403    | `client may not call notice`      |
+
 ## Escalation
 
 An escalation tells the Manager that the DT can not cope on its own.
@@ -1483,7 +1543,13 @@ set `scope`, whose event restarted `execute`, and the sensor
   (a repeat of a refused one is handled again), a property write that
   changes no value, and the end of a command of `POST /`
   make no row; the history holds the end of a command. A repeated
-  command request makes a row that names the run of the first.
+  command request makes a row that names the run of the first, with
+  `stored: true` since 0.14.0, as the demo's second `admit` of `p-1`
+  with the key `admit-p-1`, whose `data` was `{"name": "admit",
+"input": {"patient": "p-1", "ward": "cardiology"}, "run": 3,
+"stored": true}`.
+  `runner-replay` does not send such a row. A request that joined a
+  running command without a key has no mark.
 - `sent` rows are written only for a configured transport.
 - The `start` row of a runner started with `--reinstate` has
   `reinstated`: the `id`, `time` and `seq` of the
@@ -1536,6 +1602,48 @@ in a URL.
 
 There is no limit on the rows. A sensor that changes a value at every
 write adds a row at every write, and the database file grows with it.
+
+In a [replay twin](#replay-twins) every row has `at` too, the time
+that it stands for, and a row of an input whose request named its
+first sender has `origin`: `by`, the principal that sent it to the
+twin (`null` for a notice), and `seq`, its `seq` there. Two rows of
+the replay twin of the demo, a command of `alice` and the event that a
+replayed parameter raised:
+
+```json
+[
+  {
+    "seq": 18,
+    "time": "2026-11-24T18:39:10.729Z",
+    "kind": "command",
+    "by": "replay",
+    "data": {
+      "name": "admit",
+      "input": { "patient": "p-2", "ward": "cardiology" },
+      "run": 5
+    },
+    "at": "2026-11-24T18:38:58.222Z",
+    "origin": { "by": "alice", "seq": 22 }
+  },
+  {
+    "seq": 23,
+    "time": "2026-11-24T18:39:11.652Z",
+    "kind": "event",
+    "by": "replay",
+    "data": {
+      "event": "fidelity-changed",
+      "source": "parameter",
+      "cause": 22,
+      "reply": { "status": "accepted", "state": "open" }
+    },
+    "at": "2026-11-24T18:39:00.068Z"
+  }
+]
+```
+
+`by` is `replay`, the one principal of the replay twin. The rows that
+a runner of an earlier version wrote, and every row of a twin, have
+neither field.
 
 ## Snapshots
 
@@ -1794,6 +1902,52 @@ The end of the run is told by a [what-if notification](#what-if-notifications).
 A client or an operator stops a what-if with [POST /stop](#post-stop)
 and its name.
 
+## Replay Twins
+
+A replay twin is a runner started with `--reinstate <snapshot>
+--what-if`, which `runner-replay` starts to run a twin again from a
+snapshot ([REPLAY.md](../REPLAY.md)). Its API is that of any runner,
+with five differences:
+
+- It listens on `127.0.0.1` only, connects to no MQTT broker, follows
+  no peer and sends no notification; `GET /health` shows
+  `"mqtt": "disabled"`.
+- [GET /dt](#get-dt) shows `replay`.
+- It answers [PUT /peers/:id/notice](#put-peersidnotice).
+- The role `operator` may call every route ([Roles](#roles)).
+- It takes two headers that name where an input came from, and
+  records them as `origin`, with `at` on every row
+  ([GET /timeline](#get-timeline)).
+
+| Header       | Value                                                            | Needed                |
+| :----------- | :--------------------------------------------------------------- | :-------------------- |
+| `Replay-Seq` | the `seq` that the input had in the twin, a whole number above 0 | with either header    |
+| `Replay-By`  | the principal that sent it to the twin, a name                   | no; `null` without it |
+
+The headers are a label that the tool sets, not a credential: the
+request is signed by the principal of the replay twin, and the headers
+are not part of the signature. A runner that is no replay twin ignores
+them. A replay twin checks them after the signature, and refuses a
+malformed header with `400` and a message that names it and what it
+must be:
+
+```json
+{
+  "message": ["Replay-Seq must be a whole number above 0, not \"x\""],
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+Other headers, as a replay twin of the demo answered them:
+
+- `Replay-By: alice` alone: `Replay-Seq is missing: Replay-By needs
+it, a whole number above 0`;
+- `Replay-By: a b`: `Replay-By must be the name of a principal, up to
+64 letters, digits, _, . or -, from a letter, not "a b"`;
+- `Replay-Seq` twice, `3` and `4`: `Replay-Seq must be a whole number
+above 0, not "3, 4"`, as Node joins the two values.
+
 ## Repeated Requests
 
 A client that is not sure its request arrived, such as one that lost
@@ -1991,6 +2145,12 @@ alike, whatever the topic: a manager that writes a property gets
 `manager may not call set-properties`. `delete-snapshot` is a
 route of HTTP alone. An operator that asks for a transition gets
 `operator may not call transition`.
+
+In a [replay twin](#replay-twins) the role `operator` may call every
+route, as `runner-replay` sends every input of the twin as one
+principal of that role, and `PUT /peers/<id>/notice` is open to the
+`operator` alone. The other roles keep the rows above, and get `403`
+for the notice route.
 
 ### Errors
 
@@ -2699,9 +2859,13 @@ own address and the context of the DT in environment variables.
 | `DT_PARAM_<NAME>` | `DT_PARAM_SCOPE=single`, `DT_PARAM_CAPACITY=2`, `DT_PARAM_FIDELITY=medium` |
 | `DT_MODE`         | `live`; `what-if` for the command of a [what-if](#what-if)                 |
 | `DT_WHATIF_DIR`   | the copy of the DT, for the command of a what-if only                      |
+| `DT_REPLAY_OF`    | in a [replay twin](#replay-twins) only: `hospital-1`, the twin             |
+| `DT_TIME_SCALE`   | in a replay twin only: the factor of `--time-scale`, such as `2`           |
 
 The command of a what-if gets neither `RUNNER_URL` nor `RUNNER_TOKEN`,
-so it calls no route.
+so it calls no route. Every script of a replay twin gets
+`DT_MODE=what-if`, `DT_REPLAY_OF` and `DT_TIME_SCALE`, and calls the
+routes of the replay twin; its `DT_ID` is `hospital-1.replay`.
 
 Without a state machine, `DT_STATE` and `DT_ENTRY` are absent. There
 is no variable for a [property](#properties): a script reads
@@ -2826,7 +2990,16 @@ shares. `hospital-1` is asked unless the request names `hospital-2`.
 
 ## Version
 
-This document describes runner version 0.13.0. It adds the
+This document describes runner version 0.14.0. It adds the
+[replay twins](#replay-twins): `replay` in [GET /dt](#get-dt), the
+route [PUT /peers/:id/notice](#put-peersidnotice), the headers
+`Replay-By` and `Replay-Seq`, `at` and `origin` on the rows of the
+[timeline](#get-timeline) of a replay twin, and `DT_REPLAY_OF` and
+`DT_TIME_SCALE` in the [script environment](#script-environment).
+Nothing that 0.13.0 answered changes; a database of 0.13.0 gains the
+two columns at the first start.
+
+Version 0.13.0 added the
 [what-ifs](#what-if): the routes `POST /whatif` and `GET /whatif/<id>`,
 the MQTT topics `<topic>/whatif/set` and `<topic>/whatif`, the
 notification kind `whatif`, the timeline kind `whatif`, `mode` in

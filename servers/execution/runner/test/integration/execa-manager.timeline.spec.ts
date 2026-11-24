@@ -27,12 +27,16 @@ describe('Runs that the execution manager names to the timeline', () => {
   // result, settled
   async function submit(name: string, key?: string) {
     const named: number[] = [];
+    const stored: boolean[] = [];
     const result = manager.newCommand(name, key, {
-      onRun: (id) => named.push(id),
+      onRun: (id, repeat) => {
+        named.push(id);
+        stored.push(repeat === true);
+      },
     });
     const atOnce = [...named];
     await Promise.allSettled([result]);
-    return { named: atOnce, result };
+    return { named: atOnce, stored, result };
   }
 
   beforeEach(async () => {
@@ -52,8 +56,14 @@ describe('Runs that the execution manager names to the timeline', () => {
   });
 
   it('Should name a new run, and a repeat of its key, at once', async () => {
-    expect((await submit('create', 'k-1')).named).toEqual([1]);
-    expect((await submit('create', 'k-1')).named).toEqual([1]);
+    expect(await submit('create', 'k-1')).toMatchObject({
+      named: [1],
+      stored: [false],
+    });
+    expect(await submit('create', 'k-1')).toMatchObject({
+      named: [1],
+      stored: [true],
+    });
     expect((await submit('create')).named).toEqual([2]);
   });
 

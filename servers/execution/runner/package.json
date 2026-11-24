@@ -1,6 +1,6 @@
 {
   "name": "@into-cps-association/runner",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "DT Runner",
   "main": "dist/src/runner.js",
   "repository": "https://github.com/into-cps-association/DTaaS.git",
@@ -27,7 +27,9 @@
     "graph": "npx madge --image src.svg src && npx madge --image test.svg test"
   },
   "bin": {
-    "runner": "./dist/src/main.js"
+    "runner": "./dist/src/main.js",
+    "runner-replay": "./dist/src/tools/replay.js",
+    "runner-compare": "./dist/src/tools/compare.js"
   },
   "files": [
     "dist/"

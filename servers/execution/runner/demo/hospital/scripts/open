@@ -10,7 +10,8 @@ case $DT_PARAM_FIDELITY in
   *) factor=1 ;;
 esac
 interval=$(awk -v ms="$POLL_MS" -v factor="$factor" 'BEGIN { printf "%d", ms * factor }')
-seconds=$(awk -v ms="$interval" 'BEGIN { print ms / 1000 }')
+# a replay twin runs DT_TIME_SCALE times as fast, and so do the samples
+seconds=$(awk -v ms="$interval" -v scale="${DT_TIME_SCALE:-1}" 'BEGIN { print ms / 1000 / scale }')
 write_ward_log "open   DT_ID=$DT_ID DT_STATE=$DT_STATE DT_ENTRY=$DT_ENTRY"
 write_ward_log "open   DT_PARAM_SCOPE=$DT_PARAM_SCOPE DT_PARAM_CAPACITY=$DT_PARAM_CAPACITY POLL_MS=$POLL_MS"
 write_ward_log "open   HINT=$HINT RUNNER_URL=$RUNNER_URL"

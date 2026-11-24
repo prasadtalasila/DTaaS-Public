@@ -223,6 +223,59 @@ with a save script can not be saved, so a what-if is refused with
 `409` `save script of another account`, and no what-if runs as the
 script account.
 
+### Replay Twins
+
+A replay twin (issue 25) is a second runner, started from a snapshot
+with `--reinstate` and `--what-if`, which `runner-replay` feeds the
+recorded inputs of the twin ([REPLAY.md](REPLAY.md)). Unlike a
+what-if, every script of the class runs in it, for real. What keeps it
+from the world and from the twin:
+
+- **Loopback only.** It listens on `127.0.0.1`, whatever its
+  configuration says, as its scripts act for real
+  (`listenHost` in `src/replay/replay-mode.ts`).
+- **It reaches nobody.** It connects to no MQTT broker, follows no
+  peer and sends no notification, whatever its configuration lists.
+  `runner-replay` also leaves `mqtt`, `relationships.manager`,
+  `scripts` and `snapshots` out of the configuration that it writes.
+  It starts knowing what its peers had told the twin up to the save,
+  read from the snapshot's timeline. The later notices come from the
+  recording, on a route that only a replay twin answers; any other
+  runner answers `404`, as anyone could otherwise put words in a
+  peer's mouth.
+- **One principal, with a key per run.** The tool makes an Ed25519 key
+  pair for each run, writes only the public key into `runner.yaml` of
+  the replay twin, as the principal `replay`, and keeps the private
+  key in memory. It is never written, and it ends with the run.
+- **The wider operator inside it only.** The principal has the role
+  `operator`, which in a replay twin may call every route, so that the
+  tool can send a transition or an event that a `client` sent to the
+  twin. The role keeps its rights in every other runner.
+- **The headers are a label.** `Replay-By` and `Replay-Seq` name who
+  sent an input to the twin and its `seq` there. They are not part of
+  the signature and prove nothing: whoever holds the key of the run
+  may write any name. A replay twin records them as `origin`, beside
+  `by: replay`, the principal that signed; a runner that is no replay
+  twin ignores them.
+- **The class must allow it.** Without `whatIf.replay: true` the tool
+  refuses and the runner stops, as a class that was not written for a
+  replay twin would act on the real twin from a second process.
+
+What it does not do: the scripts of a replay twin act for real on the
+host, as the account of whoever runs the tool, with the files, the
+network and the devices of that account. `whatIf.replay: true` is the
+promise of the author that they keep to files of their own and send
+nothing to the world in that mode ([STATE-MACHINE.md](STATE-MACHINE.md#replay));
+nothing in the runner checks it. Any process of the host can reach
+`127.0.0.1`. In a replay twin that `runner-replay` starts, a request
+without the private key of the run gets `401` on every route but
+`GET /health`. A replay twin that an operator starts by hand with a
+`runner.yaml` without `auth` has no access control: every process of
+the host may call every route, as on any runner without `auth`. The timeline of
+the start snapshot and of the inputs, with the inputs of commands,
+is copied into `out`, which `runner-replay` creates with mode `0700`,
+as a snapshot directory is.
+
 ### The Boundary Between Users
 
 The boundary between users of one machine is the orchestrator's: a

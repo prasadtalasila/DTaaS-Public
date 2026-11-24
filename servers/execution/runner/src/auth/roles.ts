@@ -3,8 +3,9 @@ import { MqttRoute, mqttRoutes } from '../mqtt/mqtt.config.js';
 import type { Definition } from '../fsm/definition.js';
 import { Principal, Role } from './auth.config.js';
 
-// The routes of HTTP alone: no MQTT topic deletes a snapshot
-const HTTP_ROUTES = ['delete-snapshot'] as const;
+// The routes of HTTP alone: no MQTT topic deletes a snapshot, and a
+// replay twin, which alone takes a notice on a route, has no MQTT
+const HTTP_ROUTES = ['delete-snapshot', 'notice'] as const;
 
 export type Route = MqttRoute | (typeof HTTP_ROUTES)[number];
 
@@ -49,6 +50,8 @@ export const ROUTE_ROLES: Record<Route, RouteRoles> = {
   // a manager asks only for a command of manager.commands too
   whatif: ['client', 'manager'],
   'whatif-result': [...OPERATORS, 'manager'],
+  // the tool that drives a replay twin; any other runner answers 404
+  notice: ['operator'],
 };
 
 export const ACCESS_ROUTE = 'accessRoute';

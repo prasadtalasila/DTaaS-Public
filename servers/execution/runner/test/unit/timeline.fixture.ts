@@ -88,6 +88,7 @@ function fakeConfig(file: string) {
     getAttributes: () => ({}),
     getStateInterval: () => 0,
     getSigner: () => new Signer(undefined, 'hospital-1'),
+    replay: () => undefined,
   } as unknown as Config;
 }
 
