@@ -27,7 +27,9 @@
     "graph": "npx madge --image src.svg src && npx madge --image test.svg test"
   },
   "bin": {
-    "runner": "./dist/src/main.js"
+    "runner": "./dist/src/main.js",
+    "runner-replay": "./dist/src/tools/replay.js",
+    "runner-compare": "./dist/src/tools/compare.js"
   },
   "files": [
     "dist/"

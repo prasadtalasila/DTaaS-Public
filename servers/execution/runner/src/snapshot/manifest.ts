@@ -13,6 +13,10 @@ const manifestSchema = z.object({
   class: z.object({ id: z.string(), version: z.string() }).nullable(),
   time: z.string(),
   seq: z.number(),
+  machine: z
+    .object({ state: z.string().nullable(), status: z.string() })
+    .nullable()
+    .optional(),
 });
 
 export type ReadManifest = z.infer<typeof manifestSchema>;

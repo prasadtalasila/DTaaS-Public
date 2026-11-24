@@ -323,27 +323,29 @@ Provisional:
       scripts the three variables, and takes a notice on the route,
       which any other runner answers with `404`. Check:
       `test/e2e/replay-twin.spec.ts`.
-- [ ] The inputs of a stretch of a timeline are those that entered
+- [x] The inputs of a stretch of a timeline are those that entered
       the twin, in their order, and not what scripts raised. Check:
       `test/unit/tools.inputs.spec.ts`.
-- [ ] The configuration of a replay twin reaches nobody, keeps the
+- [x] The configuration of a replay twin reaches nobody, keeps the
       instance values, applies each change, and lists one principal.
       Check: `test/unit/tools.replay-twin.spec.ts`.
-- [ ] A replay with no change gives a timeline that `runner-compare`
+- [x] A replay with no change gives a timeline that `runner-compare`
       finds equal in its entries, from a snapshot whose script had
       ended and from one whose script was running; with a change it
       marks the first difference. Check: `test/e2e/replay.spec.ts`.
-- [ ] The gaps between the inputs are those of the twin over the
+- [x] The gaps between the inputs are those of the twin over the
       speed, and each row has its `at`. Check:
-      `test/unit/tools.replay.spec.ts`.
-- [ ] A file with `steps` feeds a replay twin, and a file with a
+      `test/unit/tools.replay.spec.ts` (the gaps) and
+      `test/e2e/replay.spec.ts` (`at`).
+- [x] A file with `steps` feeds a replay twin, and a file with a
       missing or unknown key is refused with its name. Check:
-      `test/e2e/replay.spec.ts`.
-- [ ] The package installs the three commands. Check:
+      `test/e2e/replay.spec.ts` (`steps`) and
+      `test/e2e/replay.refuse.spec.ts` (each refusal).
+- [x] The package installs the three commands. Check:
       `test/e2e/dist.spec.ts`.
 - [ ] Documents updated. Check: markdownlint and prettier from the
       repository root.
-- [ ] `yarn build` and `yarn test` pass, and
+- [x] `yarn build` and `yarn test` pass, and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean.
 

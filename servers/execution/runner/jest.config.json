@@ -16,7 +16,9 @@
     "node_modules",
     "./dist",
     "../src/app.module.ts",
-    "../src/main.ts"
+    "../src/main.ts",
+    "../src/tools/replay.ts",
+    "../src/tools/compare.ts"
   ],
   "extensionsToTreatAsEsm": [".ts"],
   "moduleFileExtensions": [

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from '@jest/globals';
@@ -46,6 +46,34 @@ describe('Built runner', () => {
       expect((failed as { stderr: string }).stderr).toContain(
         `Can not reinstate from ${join(snapshot, 'snapshot.json')}: there is no manifest of a snapshot`,
       );
+    },
+    30000,
+  );
+
+  // npm install -g puts each command of bin on the path
+  built(
+    'Should install the runner and its two tools',
+    async () => {
+      const { bin } = JSON.parse(readFileSync('package.json', 'utf8'));
+      const helps = await Promise.all(
+        Object.values(bin as Record<string, string>).map((file) =>
+          promisify(execFile)(process.execPath, [file, '--help']),
+        ),
+      );
+
+      expect(Object.keys(bin)).toEqual([
+        'runner',
+        'runner-replay',
+        'runner-compare',
+      ]);
+      expect(Object.values(bin).every((file) => existsSync(String(file)))).toBe(
+        true,
+      );
+      expect(helps.map(({ stdout }) => stdout.split('\n')[0])).toEqual([
+        'Usage: runner [options]',
+        'Usage: runner-replay [options] [file]',
+        'Usage: runner-compare [options] <a> <b>',
+      ]);
     },
     30000,
   );
