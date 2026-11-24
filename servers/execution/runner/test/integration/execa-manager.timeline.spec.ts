@@ -8,7 +8,9 @@ import {
   jest,
 } from '@jest/globals';
 import Keyv from 'keyv';
+import { Logger } from '@nestjs/common';
 import ExecaManager from 'src/execa-manager.service';
+import scriptOutcome from 'src/fsm/script-outcome';
 import Queue from 'src/queue.service';
 import Config from 'src/config/configuration.service';
 import { configFilename } from 'test/utils';
@@ -78,6 +80,25 @@ describe('Runs that the execution manager names to the timeline', () => {
     await manager.stop('loop');
     await Promise.allSettled([loop, joined]);
     expect(named).toEqual([[1], []]);
+  });
+
+  it('Should write the exit row of a state script that joined a run', async () => {
+    const loop = manager.newCommand('loop');
+    const { timeline } = queue;
+    const script = { state: 'loop', entry: 3, env: {}, live: () => true };
+    const joined = scriptOutcome(
+      manager,
+      { ...script, timeline },
+      new Logger('test'),
+    );
+    await manager.stop('loop');
+    await Promise.allSettled([loop]);
+
+    expect(await joined).toBe('stopped');
+    const rows = timeline.rows({ after: 0, limit: 100, count: false });
+    expect(rows.map(({ kind, data }) => [kind, data])).toEqual([
+      ['exit', { state: 'loop', entry: 3, status: 'stopped', run: 1 }],
+    ]);
   });
 
   it('Should signal the end of a run before it is stored', async () => {

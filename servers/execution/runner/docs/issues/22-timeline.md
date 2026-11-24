@@ -23,12 +23,15 @@ each thing that changed the DT or asked it to change.
 ### Rows
 
 Every row has `seq`, a number that only rises, `time`, to the
-millisecond, `kind`, `by` and `data`, as JSON. `by` is the principal
-of the request that led to the row, `script` for a script that calls
-with `RUNNER_TOKEN`, or `null`: without access control, and for what
-the runner does by itself. The owner decided on 2026-11-23 what is
-recorded: everything that enters the DT, everything that changes in
-it, and everything that it sends.
+millisecond, `kind`, `by` and `data`, as JSON. `by` is the caller of
+a request row (`transition`, `event`, `command`, `stop`, `parameters`,
+`properties`, `peers`): the principal, `script` for a script that
+calls with `RUNNER_TOKEN`, or `null` without access control. The rows
+that the runner writes itself (`start`, `entry`, `exit`, `notice`,
+`sent`, `shutdown`) have `by` `null`, also when a principal's request
+caused them; to find who caused an entry, follow its `cause`. The
+owner decided on 2026-11-23 what is recorded: everything that enters
+the DT, everything that changes in it, and everything that it sends.
 
 What enters:
 
@@ -72,8 +75,9 @@ its events read `client`. There is no event row for a completion: the
 A `transition` or `event` row is written when the request is handled,
 and completed once with its `reply`. A `command` row is completed once
 with its `run`, which is `null` for a refused command. Nothing else is
-ever updated. A repeated transition or event request with a known
-request key makes no row, as it is not handled again. A repeated
+ever updated. A repeat of an accepted transition or event request
+with its request key makes no row, as it is not handled again; a
+repeat of a refused one is handled again and writes a row. A repeated
 command request makes a `command` row that names the run of the
 first, as does a request that joins a run in progress.
 
@@ -91,8 +95,10 @@ Two words tell of a script that the shutdown kept from starting. Its
 exit row says `stopped`: what happened to that script. The stored
 machine still holds the entry as `running`, so after a restart the
 machine reports `interrupted`: what the runner knows of the entry
-when it starts. The scripts that the shutdown stops write their
-`exit` rows after the `shutdown` row.
+when it starts. The `shutdown` row is written in the same synchronous
+step that marks the machine as stopping, so the scripts still running
+at a shutdown, which the runner waits for, and those that it kept from
+starting write their `exit` rows after the `shutdown` row.
 
 The end of a command of `POST /` has no row; the command history has
 it.
@@ -258,7 +264,8 @@ As built:
       `test/unit/fsm.timeline.spec.ts`.
 - [x] Documents updated. Check: markdownlint and prettier from the
       repository root.
-- [x] `yarn build` and `yarn test` pass (1452 tests), and
+- [x] `yarn build` and `yarn test` pass (1453 tests, against 1354
+      before), and
       `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` is
       clean.
 
@@ -292,6 +299,9 @@ As built:
   that much later.
 - **Room was made by moving a whole function.** `ExecaManager` was at
   241 lines; its command status moved to `command-result.ts`.
-- **One gap is left.** A state script that joins a run of its own
-  name already in progress, a race of a client command with the wait
-  of a stop transition, gets no exit row.
+- **A state script can join a run.** A client command of the state's
+  name that runs while a stop transition waits makes the state script
+  join that run, whose `ended` belongs to the client. `scriptOutcome`
+  hears `onRun` too, and writes the exit row when the joined run
+  settles, with its outcome and its `run`. Check:
+  `test/integration/execa-manager.timeline.spec.ts`.

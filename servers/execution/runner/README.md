@@ -199,8 +199,8 @@ request to the state machine, each command, stop request, parameter,
 property and peer change, each notice of a peer, each entry into a
 state and each end of its script, each start and shutdown of the
 runner, and each notification it sends is a row. Rows are never
-deleted, and each row names its caller and, where there is one, the
-row that caused it. So the timeline tells why the digital twin is in
+deleted. A request row names its caller, and an entry the row that
+caused it. So the timeline tells why the digital twin is in
 its state, also after a restart; the command history tells only what
 each command did, and [GET /metrics](#metrics) only counts since the
 start.
@@ -1489,8 +1489,12 @@ Any other value of either gets the validation error.
 
 Returns the rows of the [timeline](#timeline), oldest first. Each row
 has `seq`, a number that only rises, `time`, to the millisecond,
-`kind`, `by`, the principal of the request that led to it (see
-[Access Control](#access-control)), `script`, or `null`, and `data`.
+`kind`, `by` and `data`. `by` is the caller of a request row
+(`transition`, `event`, `command`, `stop`, `parameters`, `properties`,
+`peers`): a principal (see [Access Control](#access-control)),
+`script`, or `null` without access control. The rows that the runner
+writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`)
+have `by` `null`; to find who caused an entry, follow its `cause`.
 These rows are from a runner with access control: a transition by
 `alice` to `create`, whose script ended and led to `raise-event`,
 whose script raised `done` with its token:

@@ -14,6 +14,27 @@ export type StateScript = {
   timeline: Timeline;
 };
 
+// Writes the exit row of an entry once: as its run ends, or else as the
+// request settles, for a run that it joined or that could not start
+function exitOnce({ state, entry, timeline }: StateScript) {
+  let run: number | null = null;
+  let written = false;
+  const exit = (outcome: RunOutcome) => {
+    if (!written) {
+      written = true;
+      timeline.exited({ state, entry, status: STATUS[outcome], run });
+    }
+  };
+  const onRun = (id: number) => {
+    run = id;
+  };
+  const ended = (outcome: RunOutcome, id: number) => {
+    onRun(id);
+    exit(outcome);
+  };
+  return { onRun, ended, exit };
+}
+
 // Runs the script of an entry and writes its exit row, as the run ends
 // and before it is stored, so that the row comes before the notice of
 // that end. A script that may no longer start, after shutdown or a
@@ -21,29 +42,23 @@ export type StateScript = {
 // start, as when the database is closed, is invalid with outcome failed.
 export default async function scriptOutcome(
   manager: ExecaManager,
-  { state, entry, env, live, timeline }: StateScript,
+  script: StateScript,
   logger: Logger,
 ): Promise<RunOutcome | undefined> {
+  const { state, entry, env, live, timeline } = script;
   if (!live()) {
     timeline.exited({ state, entry, status: 'stopped', run: null });
     return undefined;
   }
-  let ran = false;
-  const ended = (outcome: RunOutcome, run: number) => {
-    ran = true;
-    timeline.exited({ state, entry, status: STATUS[outcome], run });
-  };
+  const { onRun, ended, exit } = exitOnce(script);
   try {
-    const [outcome] = await manager.newCommand(state, undefined, {
-      env,
-      ended,
-    });
+    const options = { env, onRun, ended };
+    const [outcome] = await manager.newCommand(state, undefined, options);
+    exit(outcome);
     return outcome;
   } catch (error) {
     logger.error(`Script of state ${state} did not run: ${error}`);
-    if (!ran) {
-      timeline.exited({ state, entry, status: STATUS.failed, run: null });
-    }
+    exit('failed');
     return 'failed';
   }
 }

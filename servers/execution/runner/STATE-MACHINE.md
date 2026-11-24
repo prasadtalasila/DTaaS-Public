@@ -957,7 +957,8 @@ row names its `cause`, the `seq` of the row that led to it: a
 transition or event request, or the `exit` row of the script whose
 completion moved the machine. An event row names its `source`, and
 the `cause` of an event that a parameter or a peer raised. With access
-control, `by` names the caller. In this run, of a runner with access
+control, `by` names the caller of a request row; an entry or exit
+row has `by` `null`. In this run, of a runner with access
 control on port 5077, `manager-1` set `scope`, whose event restarted
 `execute`:
 

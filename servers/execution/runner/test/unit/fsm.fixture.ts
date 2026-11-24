@@ -40,8 +40,12 @@ export const MACHINE_FILE = 'machine.yaml';
 export const settle = () => new Promise(setImmediate);
 
 // What the service passes with each script: its environment, and the
-// listener of its end, which writes the exit row
-export const withEnv = { env: expect.any(Object), ended: expect.any(Function) };
+// listeners of its run and its end, which write the exit row
+export const withEnv = {
+  env: expect.any(Object),
+  onRun: expect.any(Function),
+  ended: expect.any(Function),
+};
 
 // The names of the scripts that the fake manager was asked to run
 export const names = (calls: unknown[][]) => calls.map(([name]) => name);

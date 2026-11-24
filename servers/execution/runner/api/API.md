@@ -1325,8 +1325,8 @@ still answers `202` but sends nothing. Any other body gets the
 
 The runner keeps one row for each thing that entered the DT, changed
 in it or left it, in its database, and never deletes or changes a row
-after the request that wrote it. Each row names its caller and, where
-there is one, the row that caused it. So the rows tell why the DT is
+after the request that wrote it. A request row names its caller, and
+an entry the row that caused it. So the rows tell why the DT is
 in its state, also after a restart with a database file.
 
 ### GET /timeline
@@ -1409,29 +1409,29 @@ set `scope`, whose event restarted `execute`, and the sensor
 ]
 ```
 
-| Field  | Value                                                                                                                                          |
-| :----- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-| `seq`  | the number of the row, which only rises, also across restarts                                                                                  |
-| `time` | when the row was written, to the millisecond                                                                                                   |
-| `kind` | one of the kinds below                                                                                                                         |
-| `by`   | the [principal](#access-control) of the request that led to the row, `script`, or `null` without `auth` and for what the runner does by itself |
-| `data` | what the row records, by kind                                                                                                                  |
+| Field  | Value                                                                                                                                                                                                                                                                                            |
+| :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seq`  | the number of the row, which only rises, also across restarts                                                                                                                                                                                                                                    |
+| `time` | when the row was written, to the millisecond                                                                                                                                                                                                                                                     |
+| `kind` | one of the kinds below                                                                                                                                                                                                                                                                           |
+| `by`   | for a request row (`transition`, `event`, `command`, `stop`, `parameters`, `properties`, `peers`), the [principal](#access-control) that sent it, `script`, or `null` without `auth`; `null` for the rows that the runner writes itself (`start`, `entry`, `exit`, `notice`, `sent`, `shutdown`) |
+| `data` | what the row records, by kind                                                                                                                                                                                                                                                                    |
 
-| Kind         | Written when                                             | `data`                                                                                                                            |
-| :----------- | :------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-| `start`      | the runner starts                                        | `class`, the `instance` values, the whole `state` it starts with (`machine`, `parameters`, `properties`), and the enabled `peers` |
-| `transition` | a transition request is handled                          | `state`, and the `reply`                                                                                                          |
-| `event`      | an event request is handled, also one that moves nothing | `event`, `source`, and the `reply`; `peer` and `cause` for a peer's event, `cause` for a parameter's                              |
-| `command`    | a command is submitted                                   | `name`, its `input` if any, and `run`, the `id` of its run in [GET /history](#get-history), `null` when refused                   |
-| `stop`       | a stop is asked for                                      | `name`, or `null` for every command                                                                                               |
-| `parameters` | parameters change                                        | the names and the new values                                                                                                      |
-| `properties` | properties change                                        | the names and the new values                                                                                                      |
-| `peers`      | peers are switched                                       | the peer ids and the switches                                                                                                     |
-| `notice`     | a notice of a followed peer arrives                      | `peer`, `kind` (`state` or `presence`), and the notice as `data`                                                                  |
-| `entry`      | the machine enters a state                               | `state`, `entry`, and `cause`, the `seq` of the row that led to it                                                                |
-| `exit`       | the script of an entry ends                              | `state`, `entry`, `status` (`valid`, `invalid` or `stopped`), and `run`                                                           |
-| `sent`       | a notification goes to MQTT or a webhook                 | `kind`; for a state notification `cause`, the last row that was not `sent`, else the notification as `data`                       |
-| `shutdown`   | the runner begins to shut down                           | `{}`                                                                                                                              |
+| Kind         | Written when                                             | `data`                                                                                                                                                |
+| :----------- | :------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start`      | the runner starts                                        | `class`, the `instance` values, the whole `state` it starts with (`machine`, `parameters`, `properties`), and the enabled `peers`                     |
+| `transition` | a transition request is handled                          | `state`, and the `reply`                                                                                                                              |
+| `event`      | an event request is handled, also one that moves nothing | `event`, `source`, and the `reply`; `peer` and `cause` for a peer's event, `cause` for a parameter's                                                  |
+| `command`    | a command is submitted                                   | `name`, its `input` if any, and `run`, the `id` of its run in [GET /history](#get-history), `null` when refused                                       |
+| `stop`       | a stop is asked for                                      | `name`, or `null` for every command                                                                                                                   |
+| `parameters` | parameters change                                        | the names and the new values                                                                                                                          |
+| `properties` | properties change                                        | the names and the new values                                                                                                                          |
+| `peers`      | peers are switched                                       | the peer ids and the switches                                                                                                                         |
+| `notice`     | a notice of a followed peer arrives                      | `peer`, `kind` (`state` or `presence`), and the notice as `data`                                                                                      |
+| `entry`      | the machine enters a state                               | `state`, `entry`, and `cause`, the `seq` of the row that led to it; `null` when no request is in progress and no exit row was written since the start |
+| `exit`       | the script of an entry ends                              | `state`, `entry`, `status` (`valid`, `invalid` or `stopped`), and `run`                                                                               |
+| `sent`       | a notification goes to MQTT or a webhook                 | `kind`; for a state notification `cause`, the last row that was not `sent`, else the `data` of the notification, without its envelope                 |
+| `shutdown`   | the runner begins to shut down                           | `{}`                                                                                                                                                  |
 
 - `source` is `client`, `script` for a script that calls with
   `RUNNER_TOKEN`, `peer` for an event of a
@@ -1449,8 +1449,9 @@ set `scope`, whose event restarted `execute`, and the sensor
 - A `transition` or `event` row is completed with its `reply` when the
   request has been handled, and a `command` row with its `run`. No row
   changes after that.
-- A repeated transition or event request with a known key, a property
-  write that changes no value, and the end of a command of `POST /`
+- A repeat of an accepted transition or event request with its key
+  (a repeat of a refused one is handled again), a property write that
+  changes no value, and the end of a command of `POST /`
   make no row; the history holds the end of a command. A repeated
   command request makes a row that names the run of the first.
 - `sent` rows are written only for a configured transport.
