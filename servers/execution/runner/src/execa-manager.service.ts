@@ -6,8 +6,14 @@ import {
   CommandResult,
   CommandStatus,
   Manager,
+  RunMode,
 } from './interfaces/command.interface.js';
-import { commandStatus, refuseInput, storedResult } from './command-result.js';
+import {
+  commandStatus,
+  refuseInput,
+  refuseOtherMode,
+  storedResult,
+} from './command-result.js';
 import Queue from './queue.service.js';
 import { CommandRefused } from './dto/command.dto.js';
 import {
@@ -26,7 +32,12 @@ import Runner from './interfaces/runner.interface.js';
 
 // A command run in progress, its row in the queue, and its runner; a
 // command that is not permitted has no runner
-type Run = { id: number; result: Promise<CommandResult>; runner?: Runner };
+type Run = {
+  id: number;
+  result: Promise<CommandResult>;
+  runner?: Runner;
+  mode?: RunMode;
+};
 
 type StoppableRun = [string, Run & { runner: Runner }];
 
@@ -60,6 +71,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     if (current === undefined) {
       return this.start(name, requestKey, options);
     }
+    refuseOtherMode(current.mode, options?.mode);
     refuseInput(options);
     options?.onRun?.(current.id);
     return this.join(name, current, requestKey);
@@ -117,7 +129,7 @@ export default class ExecaManager implements Manager, OnApplicationShutdown {
     options?.onRun?.(id);
     const runner = this.createRunner(name);
     const result = this.finish(name, this.execute(id, runner, options));
-    this.running.set(name, { id, result, runner });
+    this.running.set(name, { id, result, runner, mode: options?.mode });
     return result;
   }
 

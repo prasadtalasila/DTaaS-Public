@@ -8,7 +8,8 @@ import { TIMELINE_SCHEMA } from './queue.timeline.js';
 // script, or NULL without access control and for a state's script.
 // cpu_seconds, peak_rss_bytes and processes are what the process tree of
 // its script used, NULL when not measured. mode is what-if for a run on
-// a private copy of the twin, NULL for every other.
+// a private copy of the twin, what-if-copy for the save run that makes
+// the copy, NULL for every other.
 export const SCHEMA = `
   CREATE TABLE IF NOT EXISTS commands (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

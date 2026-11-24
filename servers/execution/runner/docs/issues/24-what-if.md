@@ -233,8 +233,17 @@ and a state without a transition for it would escalate.
 - It is one script. The state machine does not run, and no other
   script of the class does.
 - It is as fast as the script. Nothing replays in real time.
-- Two runs of one command do not overlap: the second joins the first,
-  as for any command.
+- Two what-ifs of one command do not overlap: the second joins the
+  first, also while its copy is made.
+- A what-if of a command that runs live is refused with `409`
+  `command running`, and makes no copy.
+- A live run of a command whose what-if runs is refused with `409`
+  `what-if running`, with or without input, over HTTP and MQTT. A state
+  whose command runs as a what-if is not entered (`script running`).
+  A stop transition out of a state stops every run of its command, a
+  what-if as well. The live twin never takes the output of a what-if.
+- A what-if that the shutdown stops sends no `whatif` notification;
+  its copy is removed.
 
 ### Not in this issue
 

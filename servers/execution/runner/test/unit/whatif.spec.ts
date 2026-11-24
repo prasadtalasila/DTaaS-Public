@@ -1,15 +1,24 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
+import { refuseOtherMode } from 'src/command-result';
 import { endOf, parsedResult } from 'src/dto/whatif.dto';
 import { NO_RESOURCES } from 'src/resources/resources';
 import { presentOf, Twin } from 'src/whatif/present';
 import WhatIfs, { WhatIfHost } from 'src/whatif/whatifs';
 
-// A host whose save makes the directory and whose run rejects
-function host(directory: string) {
+const rejects = () => Promise.reject(new Error('the database closed'));
+
+// A host whose save makes the directory, and whose run is the one given
+function host(directory: string, run: () => Promise<unknown> = rejects) {
   const saveInto = jest.fn(
     async (copy: string, _time: string, { whatIf }: { whatIf?: unknown }) => {
       mkdirSync(copy, { recursive: true });
@@ -23,7 +32,7 @@ function host(directory: string) {
       { onRun }: { onRun: (id: number) => void },
     ) => {
       onRun(7);
-      return Promise.reject(new Error('the database closed'));
+      return run();
     },
   );
   const fsm = {
@@ -76,6 +85,58 @@ describe('What-ifs', () => {
   });
 });
 
+describe('The end of a what-if', () => {
+  let dir: string;
+  const RESULT = ['success', new Map([['stdout', '1']]), 0, NO_RESOURCES];
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('Should tell no end of a what-if that the shutdown stopped', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'whatif-'));
+    let finish = (_result: unknown) => undefined as void;
+    const run = () => new Promise((resolve) => (finish = resolve));
+    const whatIfs = new WhatIfs(host(dir, run));
+    const listener = jest.fn();
+    whatIfs.onEnd(listener);
+    await whatIfs.ask({ name: 'forecast' });
+
+    const stopped = whatIfs.stop();
+    finish(RESULT);
+    await stopped;
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(readdirSync(join(dir, 'what-if'))).toEqual([]);
+    await expect(whatIfs.ask({ name: 'forecast' })).rejects.toMatchObject({
+      response: { status: 'shutting down' },
+    });
+  });
+
+  it('Should log a copy that can not be removed, and still tell the end', async () => {
+    if (process.platform === 'win32' || process.getuid?.() === 0) {
+      expect(process.platform).toBeDefined();
+      return;
+    }
+    dir = mkdtempSync(join(tmpdir(), 'whatif-'));
+    const error = jest.spyOn(Logger.prototype, 'error').mockReturnValue();
+    const root = join(dir, 'what-if');
+    const run = () => {
+      chmodSync(root, 0o555);
+      return Promise.resolve(RESULT);
+    };
+    const whatIfs = new WhatIfs(host(dir, run));
+    const ended = new Promise((resolve) => whatIfs.onEnd(resolve));
+
+    await whatIfs.ask({ name: 'forecast' });
+
+    expect(await ended).toMatchObject({ id: 7, result: 1 });
+    expect(error.mock.calls[0][0]).toMatch(/^Could not remove the copy /);
+    chmodSync(root, 0o755);
+  });
+});
+
 describe('Documents and results of a what-if', () => {
   it('Should answer as GET /fsm for a document that needs a state machine', () => {
     const twin = {
@@ -109,5 +170,23 @@ describe('Documents and results of a what-if', () => {
       exitCode: null,
       result: '',
     });
+  });
+});
+
+describe('Two runs of one command in two modes', () => {
+  it.each([
+    ['what-if', undefined, 'what-if running'],
+    [undefined, 'what-if', 'command running'],
+    ['what-if-copy', 'what-if', 'command running'],
+  ] as const)(
+    'Should refuse a %s run joined by a %s run',
+    (running, asked, status) => {
+      expect(() => refuseOtherMode(running, asked)).toThrow(status);
+    },
+  );
+
+  it('Should let a run join a run of its mode', () => {
+    expect(() => refuseOtherMode('what-if', 'what-if')).not.toThrow();
+    expect(() => refuseOtherMode(undefined, undefined)).not.toThrow();
   });
 });

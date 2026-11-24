@@ -193,6 +193,16 @@ describe('What-if inside the twin end-to-end', () => {
       ).toMatchObject({
         mode: 'what-if',
       });
+      // the save run that made the copy is no what-if, nor of the twin
+      const save = history.find(
+        ({ name }: { name: string }) => name === 'save-ward',
+      );
+      expect(save).not.toHaveProperty('mode');
+      const copy = await call(app, client, ['get', `/whatif/${save.id}`]);
+      expect(copy.status).toBe(404);
+      expect((await get('/')).name).toBe('none');
+      const states = webhook.posts.filter((post) => post.body.kind === 'state');
+      expect(JSON.stringify(states)).not.toContain('save-ward');
       type Row = { kind: string; data: { kind?: string } };
       const rows: Row[] = await get('/timeline?kind=whatif,sent');
       expect(rows.filter(({ kind }) => kind === 'whatif')).toEqual([

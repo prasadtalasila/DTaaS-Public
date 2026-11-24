@@ -4,7 +4,7 @@ import DescriptorService from 'src/descriptor.service';
 import ExecaManager from 'src/execa-manager.service';
 import FsmService from 'src/fsm/fsm.service';
 import MqttRequestHandler from 'src/mqtt/mqtt-request.handler';
-import Pause from 'src/snapshot/pause';
+import Pause, { saving } from 'src/snapshot/pause';
 import { fakeManager, mqttRequest } from './mqtt.fixture';
 
 const ASKED = { id: 57, name: 'forecast-beds', status: 'running' };
@@ -96,9 +96,9 @@ describe('MQTT what-if requests', () => {
     expect(whatIfs.ask).toHaveBeenCalledTimes(1);
   });
 
-  it('Should answer a what-if during a save with saving', async () => {
-    const { handler, pause, whatIfs } = createHandler();
-    pause.begin();
+  it('Should answer a what-if refused by a save with saving', async () => {
+    const { handler, whatIfs } = createHandler();
+    whatIfs.ask.mockRejectedValueOnce(saving());
 
     expect(
       await handler.handle(
@@ -106,6 +106,5 @@ describe('MQTT what-if requests', () => {
         mqttRequest(json({ name: 'forecast-beds' })),
       ),
     ).toEqual({ status: 'saving' });
-    expect(whatIfs.ask).not.toHaveBeenCalled();
   });
 });

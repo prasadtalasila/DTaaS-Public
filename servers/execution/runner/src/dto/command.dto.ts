@@ -49,7 +49,7 @@ export const REQUEST_KEY = 'idempotency-key';
 export const requestKeySchema = z.string().max(255).optional();
 
 // Why a request ran no script
-export type Refusal = 'invalid command' | 'command running';
+export type Refusal = 'invalid command' | 'command running' | 'what-if running';
 
 export class CommandRefused extends Error {
   constructor(readonly status: Refusal) {
@@ -65,6 +65,7 @@ export const EXECUTE_STATUS_CODES: Record<RunOutcome | Refusal, HttpStatus> = {
   stopped: HttpStatus.OK,
   'invalid command': HttpStatus.BAD_REQUEST,
   'command running': HttpStatus.CONFLICT,
+  'what-if running': HttpStatus.CONFLICT,
 };
 
 export type CommandResultDto = {

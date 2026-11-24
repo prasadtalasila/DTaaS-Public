@@ -4,11 +4,11 @@ import { executeReply, ExecuteResponseDto } from '../dto/command.dto.js';
 import type FsmService from '../fsm/fsm.service.js';
 
 // What runs a save or a restore script, and the mode of its run in the
-// history: what-if for the save that makes the copy of a what-if
+// history: what-if-copy for the save that makes the copy of a what-if
 export type ScriptHost = {
   config: Config;
   fsm: FsmService;
-  mode?: 'what-if';
+  mode?: 'what-if-copy';
 };
 
 // Runs the save or the restore script as any command, with

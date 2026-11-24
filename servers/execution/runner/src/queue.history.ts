@@ -25,7 +25,7 @@ export const RECORD = `SELECT id, name, status, stdout, stderr,
   finished_at IS NOT NULL AS finished FROM commands`;
 
 // The latest command, which GET / and the state document show; a
-// what-if run is not of the live twin
+// what-if run, or the save run of its copy, is not of the live twin
 export const ACTIVE = `${RECORD} WHERE mode IS NULL ORDER BY id DESC LIMIT 1`;
 
 export const RECORD_BY_KEY = `${RECORD} WHERE id =

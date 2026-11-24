@@ -31,7 +31,7 @@ async function isDirectory(path: string): Promise<boolean> {
 
 // The snapshots of the directory of runner.yaml
 export default class SnapshotStore {
-  constructor(readonly config: SnapshotsConfig) {}
+  constructor(private readonly config: SnapshotsConfig) {}
 
   // The directory of the snapshot; a name not of a snapshot has none,
   // so that no other path can be named

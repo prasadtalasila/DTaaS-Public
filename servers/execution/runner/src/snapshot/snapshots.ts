@@ -188,7 +188,7 @@ export default class Snapshots {
     }
     const files = join(directory, 'files');
     await mkdir(files);
-    const mode = whatIf ? ('what-if' as const) : undefined;
+    const mode = whatIf ? ('what-if-copy' as const) : undefined;
     const host = { config: this.config, fsm: this.fsm, mode };
     const reply = await runSnapshotScript(host, name, files);
     if (reply.status !== 'success') {

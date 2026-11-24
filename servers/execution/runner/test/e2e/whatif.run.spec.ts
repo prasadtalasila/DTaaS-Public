@@ -111,19 +111,35 @@ describe('Runs of a what-if end-to-end', () => {
     TIMEOUT,
   );
 
-  it(
-    'Should refuse a live run with input of a command whose what-if runs',
-    async () => {
+  it.each([[undefined], [{ now: true }]])(
+    'Should refuse a live run, with the input %j, of a command whose what-if runs',
+    async (input) => {
       await ask('forecast-slow');
 
       const { status, body } = await call(app, client, [
         'post',
         '/',
-        { name: 'forecast-slow', input: { now: true } },
+        { name: 'forecast-slow', input },
       ]);
 
       expect(status).toBe(409);
-      expect(body).toEqual({ status: 'command running' });
+      expect(body).toEqual({ status: 'what-if running' });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'Should not enter a state whose command runs as a what-if',
+    async () => {
+      await ask('forecast-slow');
+
+      const { body } = await call(app, client, [
+        'post',
+        '/fsm/transition',
+        { state: 'forecast-slow' },
+      ]);
+
+      expect(body).toMatchObject({ status: 'script running' });
     },
     TIMEOUT,
   );

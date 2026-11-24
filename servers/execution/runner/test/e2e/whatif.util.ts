@@ -20,7 +20,9 @@ const PRINCIPALS = [
 // environment and a copy of its copy in the twin's directory, and
 // prints its mode and input; slow waits for the file go.
 const scripts = (dir: string): Record<string, [string, string]> => {
-  const [seen, env, go] = ['seen', 'env', 'go'].map((f) => join(dir, f));
+  const [seen, env, go, release] = ['seen', 'env', 'go', 'release'].map((f) =>
+    join(dir, f),
+  );
   return {
     work: ['printf work', 'Write-Output work'],
     'save-ward': [
@@ -28,6 +30,10 @@ const scripts = (dir: string): Record<string, [string, string]> => {
       `Set-Content -Path (Join-Path $env:DT_SNAPSHOT_DIR ward.json) -Value '{"beds":3}'`,
     ],
     'fail-save': ['exit 3', 'exit 3'],
+    'save-slow': [
+      `while [ ! -e '${release}' ]; do sleep 0.05; done`,
+      `while (-not (Test-Path '${release}')) { Start-Sleep -Milliseconds 50 }`,
+    ],
     forecast: [
       `cp -R "$DT_WHATIF_DIR" '${seen}'\nenv > '${env}'\nprintf '{"mode":"%s","input":%s}' "$DT_MODE" "$(cat)"`,
       `Copy-Item -Recurse $env:DT_WHATIF_DIR '${seen}'\nGet-ChildItem env: | ForEach-Object { "$($_.Name)=$($_.Value)" } | Set-Content '${env}'\n$text = [Console]::In.ReadToEnd().Trim()\nWrite-Output ('{"mode":"' + $env:DT_MODE + '","input":' + $text + '}')`,
@@ -53,6 +59,7 @@ const machine = (
 ) => `class: {id: 'urn:dtaas:ward', version: '1.0.0'}
 states:
   work:
+  forecast-slow:
 snapshot:
   save: ${save}
 whatIf:
@@ -64,7 +71,7 @@ manager:
 const config = (snapshots: boolean) => `id: dt-1
 port: 5000
 location: scripts
-commands: [work, save-ward, fail-save, ${WHAT_IFS.join(', ')}]
+commands: [work, save-ward, fail-save, save-slow, ${WHAT_IFS.join(', ')}]
 stateMachine: ward.fsm.yaml
 database: run/dt.db
 stopGrace: 500

@@ -6,6 +6,7 @@ import {
   ConflictException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { currentCaller } from '../auth/caller-context.js';
 import type Config from '../config/configuration.service.js';
@@ -48,8 +49,14 @@ const conflict = (status: string) => new ConflictException({ status });
 export default class WhatIfs {
   private readonly logger = new Logger(WhatIfs.name);
 
-  // the what-ifs in progress by command name, until their copy is gone
-  private readonly running = new Map<string, Run & { done: Promise<void> }>();
+  // the id of each what-if by command name, from the request until its
+  // copy is gone, so that a request while the copy is made joins too
+  private readonly asked = new Map<string, Promise<number>>();
+
+  // the end of each what-if whose run started, by command name
+  private readonly running = new Map<string, Promise<void>>();
+
+  private stopping = false;
 
   private readonly listeners: EndListener[] = [];
 
@@ -62,11 +69,16 @@ export default class WhatIfs {
 
   // At a start: the copies that a runner left as it crashed
   clearLeftovers(): void {
-    const snapshots = this.host.config.getSnapshots();
-    if (snapshots !== undefined) {
-      const directory = join(snapshots.directory, WHAT_IF);
-      rmSync(directory, { recursive: true, force: true });
+    const root = this.root();
+    if (root !== undefined) {
+      rmSync(root, { recursive: true, force: true });
     }
+  }
+
+  // The directory of the copies, under the snapshot directory
+  private root(): string | undefined {
+    const snapshots = this.host.config.getSnapshots();
+    return snapshots && join(snapshots.directory, WHAT_IF);
   }
 
   // A what-if of a command whose what-if runs joins it
@@ -76,8 +88,19 @@ export default class WhatIfs {
     if (!commands.includes(name)) {
       throw new BadRequestException({ status: 'invalid command' });
     }
-    const id = this.running.get(name)?.id ?? (await this.begin(body));
+    const id = await (this.asked.get(name) ?? this.request(body));
     return { id, name, status: 'running' };
+  }
+
+  // A request that failed is forgotten; none starts once stopping
+  private request(body: ExecuteCommandDto): Promise<number> {
+    if (this.stopping) {
+      throw new ServiceUnavailableException({ status: 'shutting down' });
+    }
+    const id = this.begin(body);
+    this.asked.set(body.name, id);
+    id.catch(() => this.asked.delete(body.name));
+    return id;
   }
 
   result(id: number): WhatIfRunDto {
@@ -88,12 +111,15 @@ export default class WhatIfs {
     return toWhatIfRun(row);
   }
 
-  // Stops the what-ifs in progress, and waits until their copies are gone
+  // Stops the what-ifs in progress, also one whose copy is being made,
+  // and waits until their copies are gone; none of them tells its end
   async stop(): Promise<void> {
-    const runs = [...this.running.values()];
+    this.stopping = true;
+    await Promise.allSettled([...this.asked.values()]);
     const { manager } = this.host.fsm;
-    await Promise.all(runs.map(({ name }) => manager.stop(name)));
-    await Promise.all(runs.map(({ done }) => done));
+    const names = [...this.running.keys()];
+    await Promise.all(names.map((name) => manager.stop(name)));
+    await Promise.all([...this.running.values()]);
   }
 
   // Makes the copy while the twin is paused, then starts the run
@@ -117,11 +143,11 @@ export default class WhatIfs {
   // what-if needs access control, as without it any process of the host
   // may call the API that the script is kept from
   private copies(): string {
-    const store = this.host.snapshots.checked();
+    this.host.snapshots.checked();
     if (this.host.config.access() === undefined) {
       throw conflict('no access control');
     }
-    return join(store.config.directory, WHAT_IF);
+    return this.root() as string;
   }
 
   // The run is in the command history and the timeline from the start
@@ -144,11 +170,12 @@ export default class WhatIfs {
       'whatif',
     );
     const run = { id, name, directory };
-    this.running.set(name, { ...run, done: this.follow(run, result) });
+    this.running.set(name, this.follow(run, result));
     return id;
   }
 
-  // However the run ends, the copy goes; then the listeners hear of it
+  // However the run ends, the copy goes; then the listeners hear of it,
+  // unless the shutdown stopped it
   private async follow(run: Run, result: Promise<CommandResult>) {
     let ended: WhatIfEndDto | undefined;
     try {
@@ -156,12 +183,20 @@ export default class WhatIfs {
     } catch (error) {
       this.logger.error(`The what-if ${run.name} failed: ${error}`);
     } finally {
-      await rm(run.directory, { recursive: true, force: true });
-      this.running.delete(run.name);
+      await this.remove(run);
     }
     const data = ended;
-    if (data !== undefined) {
+    if (data !== undefined && !this.stopping) {
       this.listeners.forEach((listener) => listener(data));
     }
+  }
+
+  // A copy that can not be removed is logged; the next start removes it
+  private async remove({ name, directory }: Run): Promise<void> {
+    await rm(directory, { recursive: true, force: true }).catch((error) =>
+      this.logger.error(`Could not remove the copy ${directory}: ${error}`),
+    );
+    this.asked.delete(name);
+    this.running.delete(name);
   }
 }
