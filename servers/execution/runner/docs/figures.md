@@ -1,8 +1,11 @@
 # Figures of the runner
 
-This page holds two figures of the runner: the parts of a digital twin and
-the interface they expose, and the life of a twin from start to exit. In
-these figures, "SMOOTH DT" names the runner.
+This page holds three figures of the runner: the parts of a digital twin
+and the interface they expose, the life of a twin from start to exit, and
+that life in the stages of WLDT. In these figures, "SMOOTH DT" names the
+runner. Each image in [figures/](figures) has a drawio file of the same
+name beside it, drawn from the Mermaid source on this page, for editing
+in drawio.
 
 ## The class, the instance and the interface
 

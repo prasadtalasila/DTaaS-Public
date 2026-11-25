@@ -5,7 +5,8 @@ and its physical twin (PT) has another as a machine, a room or a
 hospital. This page summarises what five papers from the WLDT group say
 about the two lifecycles and how they link, and then maps the state
 machines of the runner, SMOOTH DT, onto that picture. The figures follow
-the style of [The life of a twin](figures.md#the-life-of-a-twin).
+the style of [The life of a twin](figures.md#the-life-of-a-twin), and
+each has a drawio file beside its image in [figures/](figures).
 
 ## The Papers
 
