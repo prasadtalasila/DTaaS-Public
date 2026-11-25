@@ -112,11 +112,12 @@ phase that allows silence should not count as unavailable.
 
 ![The lifecycle of a DT from Started through UnBound, Bound and
 Synchronized to Done and Stopped, with Out of Sync beside Synchronized
-and the phases Ready, Working and Busy of the PT inside
-Synchronized](figures/lifecycle-papers.png)
+and the phases Ready, Working and Busy of the PT, with their events,
+inside Synchronized](figures/lifecycle-papers.png)
 
 _Figure 1. The lifecycle of a DT, after Figure 2 of HARM and Figure 2
-of FACES._
+of FACES. The PT phases and their events follow Figure 4 of HARM,
+where `!working` reads "no longer working"._
 
 ## The Runner in This Picture
 
@@ -128,40 +129,48 @@ The runner has three state machines, documented in
   and exit ([figures.md](figures.md#the-life-of-a-twin));
 - the **machine of `FsmService`**: Unstarted, Running, Idle and
   Stopping, with the status `valid`, `invalid`, `stopped` or
-  `interrupted` of the last script;
+  `interrupted` of the last behavior;
 - the **class states**: the states of the state machine file, each with
-  a script as its behavior.
+  a behavior, the script of the same name.
 
 The first two are the software lifecycle, `LP_Soft`. The class
 states are where the PT lifecycle, `LP_PT`, belongs: in the hospital
 demo (`demo/hospital/hospital.fsm.yaml`) the states `open`, `full`
-and `closed` are the phases of the hospital, and the scripts of those
-states read and act on it.
+and `closed` are the phases of the hospital, and the behaviors of
+those states read and act on it. The behavior `open`, for one, samples
+the free beds, writes them as a property and raises `full` when none
+is left.
 
-| Phase of the papers | Runner                                      | Note                                                                                 |
-| :------------------ | :------------------------------------------ | :----------------------------------------------------------------------------------- |
-| Started             | create, reinstate                           | the file is checked and the database opens; a refusal ends the process               |
-| UnBound             | Unstarted, or `interrupted` after reinstate | reinstate keeps the history but has no live state, as HARM's UnBound does            |
-| Bound               | none                                        | no step checks that the PT is reachable; peer presence binds DTs, not the PT         |
-| Synchronized        | Running, in a class state                   | the class state is `LP_PT`; the runner does not check the rate of data (W5, W6)      |
-| Out of Sync         | `invalid`, after `failure`                  | a failed script, not a measured loss of sync                                         |
-| Done                | `valid` after `success`, or `stopped`       | the behavior ended or was stopped; the DT still answers, and `GET /history` serves H |
-| Stopped             | exit                                        | after `SIGINT`, `SIGTERM` or a save with stop                                        |
+| Phase of the papers | Runner                                      | Note                                                                                   |
+| :------------------ | :------------------------------------------ | :------------------------------------------------------------------------------------- |
+| Started             | create, or restore after `--reinstate`      | the file is checked and the database opens; restore runs the behavior `restore-script` |
+| UnBound             | Unstarted, or `interrupted` after reinstate | reinstate keeps the history but has no live state, as HARM's UnBound does              |
+| Bound               | none                                        | no step checks that the PT is reachable; peer presence binds DTs, not the PT           |
+| Synchronized        | Running, in a class state                   | the class state is `LP_PT`; the runner does not check the rate of data (W5, W6)        |
+| Out of Sync         | `invalid`, after `failure`                  | a failed behavior, not a measured loss of sync                                         |
+| Done                | `valid` after `success`, or `stopped`       | the behavior ended or was stopped; the DT still answers, and `GET /history` serves H   |
+| Stopped             | exit                                        | after `SIGINT`, `SIGTERM` or a save with stop                                          |
 
-Figure 2 draws this mapping, simplified. Save and what-if are left out:
-both return to the phase they left. A `failure` or `success` with a
+Figure 2 draws this mapping, simplified, in the layout of Figure 4 of
+HARM. Restore and save lie outside Synchronized: restore runs the
+behavior `restore-script` before the twin starts, and `POST
+/snapshot` saves through `save-script` and returns, or exits after a
+save with stop. A what-if runs inside Synchronized, in a region of its
+own, because the live machine keeps running beside the copy that
+`POST /whatif` starts. A `failure` or `success` with a
 transition in the file moves the machine on to the next class state;
 without one, the machine stays in `invalid` or `valid`. From Done the
 runner goes straight back to Synchronized on an event or a transition,
 where FACES restarts through UnBound and binds again: the runner has
 no binding step to repeat. `POST /stop` is the `pause` of FACES. On
-the right, the PT has phases of its own, which the class states
+the left, the PT has phases of its own, which the states of the class
 mirror: `open` for accepting, `full` for saturated and `closed` for
 shut.
 
 ![The lifecycle of a twin under SMOOTH DT: Started, UnBound,
-Synchronized holding the class states open, full and closed, Out of
-Sync, Done and Stopped, with the physical twin, a hospital, linked to
+Synchronized holding the states open, full and closed and a what-if
+region, Out of Sync, Done, save and Stopped, with restore beside
+Started and the physical twin, a hospital, linked to
 Synchronized](figures/lifecycle-runner.png)
 
 _Figure 2. The lifecycle of a twin under SMOOTH DT, linked to its PT._
@@ -171,12 +180,12 @@ _Figure 2. The lifecycle of a twin under SMOOTH DT, linked to its PT._
 - **The runner models the PT phases, not the DT phases.** Its class
   states are the `LP_PT` of HARM, written by the author of the twin.
   Its software lifecycle is implicit, spread over presence, health and
-  the script status; W5 of
+  the behavior status; W5 of
   [wldt-research-notes.md](wldt-research-notes.md) proposes a
   `lifecycle` field to make it explicit.
 - **Bound and Synchronized need the PT.** The runner only knows that a
-  script runs, not whether data arrive in time. W6 proposes that the
-  script declare sync itself; ENT's ODTE would let the runner measure
+  behavior runs, not whether data arrive in time. W6 proposes that the
+  behavior declare sync itself; ENT's ODTE would let the runner measure
   it.
 - **Out of Sync should depend on the phase.** If sync is measured, the
   expected rate and range should come from the class state, as HARM
@@ -194,21 +203,20 @@ config:
   look: classic
 ---
 stateDiagram-v2
+    state "Out of Sync" as OutOfSync
     [*] --> Started : start
     Started --> UnBound : init
     UnBound --> Bound : bind with PT
     Bound --> UnBound : binding error
     Bound --> Synchronized : sync
     state Synchronized {
-        state "PT phases" as pt {
-            [*] --> Ready
-            Ready --> Working
-            Working --> Ready
-            Working --> Busy
-            Busy --> Ready
-        }
+        direction LR
+        [*] --> Ready
+        Ready --> Working : working
+        Working --> Busy : busy
+        Working --> Ready : !working
+        Busy --> Ready : !busy, !working
     }
-    state "Out of Sync" as OutOfSync
     Synchronized --> OutOfSync : error
     OutOfSync --> Synchronized : sync or recover
     Synchronized --> UnBound : binding error
@@ -228,39 +236,53 @@ config:
   look: classic
 ---
 stateDiagram-v2
-    state "Started: create or reinstate" as Started
+    state "Started: create" as Started
     state "UnBound: unstarted or interrupted" as UnBound
     state "Out of Sync: invalid" as OutOfSync
     state "Done: valid or stopped" as Done
     state "Stopped: exit" as Stopped
-    [*] --> Started : start or reinstate
+    restore : restore, behavior restore-script
+    save : save, behavior save-script
+    [*] --> Started : runner starts
+    [*] --> restore : --reinstate
     Started --> [*] : refused
-    Started --> UnBound : database open or restored
-    UnBound --> Synchronized : event or transition
+    restore --> [*] : refused
+    Started --> UnBound : database open
+    restore --> UnBound : files restored
+    UnBound --> Synchronized : transition or event
     state "Synchronized: running" as Synchronized {
-        state "class states" as cls {
-            [*] --> open
-            open --> full : full
-            full --> open : beds-free
-            open --> closed : close
-            closed --> open : reopen
-        }
+        direction LR
+        state "open, behavior open: samples the beds, raises full" as open
+        [*] --> open
+        open --> full : full
+        full --> open : beds-free
+        open --> closed : close
+        closed --> open : reopen
+        --
+        state "no what-if" as nowhatif
+        [*] --> nowhatif
+        nowhatif --> whatif : POST /whatif
+        whatif --> nowhatif : run ends
     }
     Synchronized --> OutOfSync : failure
     OutOfSync --> Synchronized : failure, event or transition
     Synchronized --> Done : success or POST /stop
     Done --> Synchronized : success, event or transition
+    Synchronized --> save : POST /snapshot
+    save --> Synchronized : saved or failed
+    save --> Stopped : saved, stop
     Synchronized --> Stopped : SIGINT, SIGTERM
     OutOfSync --> Stopped : SIGINT, SIGTERM
     Done --> Stopped : SIGINT, SIGTERM
     Stopped --> [*]
     state "Physical twin: a hospital" as PT {
+        direction LR
         [*] --> accepting
         accepting --> saturated : beds taken
         saturated --> accepting : beds free
         accepting --> shut : closed
         shut --> accepting : reopened
     }
-    PT --> Synchronized : scripts read the phase
-    Synchronized --> PT : scripts act
+    PT --> Synchronized : behaviors read the phase
+    Synchronized --> PT : behaviors act
 ```

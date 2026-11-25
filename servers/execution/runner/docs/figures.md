@@ -97,9 +97,9 @@ stateDiagram-v2
         running --> valid : success
         running --> invalid : failure
         running --> stopped : POST /stop
-        valid --> running : $success, event or transition
-        invalid --> running : $failure, event or transition
-        stopped --> running : $stopped, event or transition
+        valid --> running : success, event or transition
+        invalid --> running : failure, event or transition
+        stopped --> running : stopped, event or transition
         running --> whatif : POST /whatif (temporary save)
         whatif --> running : what-if ends
     }
@@ -145,6 +145,7 @@ stateDiagram-v2
             [*] --> interrupted : reinstated
             interrupted --> running : event or transition
             state running {
+                direction LR
                 [*] --> A
                 A --> B : event
                 A : class state A, behavior a
@@ -154,9 +155,9 @@ stateDiagram-v2
             running --> invalid : failure
             state "stopped (Done)" as stopped
             running --> stopped : POST /stop
-            valid --> running : $success, event or transition
-            invalid --> running : $failure, event or transition
-            stopped --> running : $stopped, event or transition
+            valid --> running : success, event or transition
+            invalid --> running : failure, event or transition
+            stopped --> running : stopped, event or transition
             running --> whatif : POST /whatif
             whatif --> running : what-if ends
         }
@@ -200,5 +201,5 @@ by side. The machine holds the states of the class, and its stopped state
 plays the part of WLDT's Done: the behavior has ended but the twin still
 serves requests. Binding follows the presence of the peers: the twin is
 BOUND while every peer is online. Shadowing holds SYNCHRONIZED and
-NOT_SYNCHRONIZED, which only the script declares, through the `POST /sync`
+NOT_SYNCHRONIZED, which only a behavior declares, through the `POST /sync`
 route that W6 proposes and the runner does not yet have.
